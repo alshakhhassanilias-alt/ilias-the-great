@@ -2,452 +2,454 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Parallel Live</title>
 <style>
-  :root { --bg:#0b0b10; --card:#16161f; --text:#fff; --muted:#9a9aab; --accent:#ff2d75; --accent2:#ffb02e; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
-  .screen { display: none; height: 100%; }
+  :root { --bg:#000; --card:#121212; --text:#fff; --muted:#a8a8a8; --blue:#0095f6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #000; color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .screen { display: none; height: 100%; width: 100%; }
   .screen.active { display: flex; }
+  .phone { position: relative; width: 100%; max-width: 440px; height: 100%; margin: 0 auto; overflow: hidden; background: #000; }
+  @media (min-width: 600px) { body { background: #1a1a1a; } .phone { max-height: 900px; margin: auto; border-radius: 28px; box-shadow: 0 0 0 1px #333; } .screen.active { align-items: center; } }
 
-  /* ---------- Start screen ---------- */
-  #start { align-items: center; justify-content: center; padding: 24px; }
-  .start-card { background: var(--card); border-radius: 20px; padding: 28px; width: 100%; max-width: 420px; text-align: center; }
-  .start-card h1 { font-size: 28px; margin-bottom: 6px; }
-  .start-card p { color: var(--muted); margin-bottom: 18px; font-size: 14px; }
-  .start-card input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #2c2c3a; background: #0f0f16; color: var(--text); font-size: 16px; margin-bottom: 12px; }
-  .btn { width: 100%; padding: 14px; border: 0; border-radius: 12px; background: linear-gradient(90deg, var(--accent), var(--accent2)); color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; }
-  .err { color: #ff6b6b; font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .vb { width: 14px; height: 14px; flex: none; display: inline-block; vertical-align: -2px; }
 
-  /* ---------- Live screen ---------- */
-  #live { position: relative; flex-direction: column; overflow: hidden; background: #000; }
-  #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #111; }
-  .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent 25%, transparent 55%, rgba(0,0,0,.75)); pointer-events: none; }
-  .top { position: relative; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 14px; }
-  .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: grid; place-items: center; font-weight: 700; }
-  .me-name { font-weight: 700; font-size: 14px; }
-  .badge { background: var(--accent); border-radius: 6px; padding: 3px 8px; font-size: 12px; font-weight: 800; letter-spacing: .5px; }
-  .count { background: rgba(0,0,0,.5); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+  /* ---------- Start ---------- */
+  #start .phone, #summary .phone { display: flex; flex-direction: column; justify-content: center; padding: 28px; background: #000; }
+  .logo { font-size: 30px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+  .logo span { background: linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); text-align: center; font-size: 14px; margin-bottom: 26px; }
+  .field { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #363636; background: #121212; color: #fff; font-size: 16px; margin-bottom: 12px; }
+  .btn { width: 100%; padding: 14px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn:active { opacity: .8; }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin: 2px 0 16px; }
+  .err { color: #ff6b6b; font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }
+
+  /* ---------- Live ---------- */
+  #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #1c1c1c; }
+  .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,.5), transparent 20%, transparent 50%, rgba(0,0,0,.7)); }
+  .top { position: absolute; z-index: 5; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; padding: 14px 12px; padding-top: max(14px, env(safe-area-inset-top)); }
+  .ring { width: 40px; height: 40px; border-radius: 50%; padding: 2px; background: linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5); flex: none; }
+  .ring .in { width: 100%; height: 100%; border-radius: 50%; border: 2px solid #000; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: #3a3a3a; }
+  .who { display: flex; flex-direction: column; min-width: 0; }
+  .who .n { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 4px; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  .who .n b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+  .who .s { font-size: 12px; color: #e8e8e8; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
   .spacer { flex: 1; }
-  .end { background: rgba(0,0,0,.55); border: 0; color: #fff; padding: 8px 14px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  .livebadge { background: linear-gradient(90deg,#d62976,#fa7e1e); font-size: 11px; font-weight: 800; letter-spacing: .6px; padding: 3px 8px; border-radius: 5px; }
+  .eye { background: rgba(0,0,0,.5); backdrop-filter: blur(6px); border-radius: 5px; padding: 3px 8px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .x { background: none; border: 0; color: #fff; font-size: 26px; line-height: 1; padding: 0 4px; cursor: pointer; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
 
-  .bottom { position: relative; z-index: 3; margin-top: auto; padding: 12px 14px 16px; }
-  #feed { max-height: 38vh; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 7px; margin-bottom: 12px; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 35%); mask-image: linear-gradient(to bottom, transparent, #000 35%); }
-  .msg { display: flex; align-items: flex-start; gap: 8px; max-width: 85%; animation: pop .25s ease-out; }
-  .msg .av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; flex: none; }
-  .msg .u { font-size: 12px; color: #ddd; font-weight: 700; }
-  .msg .t { font-size: 14px; line-height: 1.25; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
-  .msg.gift .t { color: var(--accent2); font-weight: 700; }
-  .msg.join .t { color: #bbb; font-style: italic; }
-  @keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .bottom { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding: 0 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  #feed { height: 40vh; max-height: 330px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; margin-bottom: 10px; padding-right: 64px;
+          -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%); mask-image: linear-gradient(to bottom, transparent, #000 30%); }
+  .c { display: flex; align-items: flex-start; gap: 9px; animation: up .22s ease-out; }
+  .c .av { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
+  .c .tx { font-size: 14px; line-height: 1.28; text-shadow: 0 1px 3px rgba(0,0,0,.75); word-break: break-word; }
+  .c .tx .u { font-weight: 700; margin-right: 6px; display: block; font-size: 13px; color: #f2f2f2; }
+  .c .tx .u .vb { margin-left: 3px; }
+  .c.me .u { color: #7fd0ff; }
+  .c.join { opacity: .85; }
+  .c.join .tx { color: #d6d6d6; font-size: 13px; }
+  @keyframes up { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-  .bar { display: flex; gap: 8px; }
-  .bar input { flex: 1; padding: 12px 14px; border-radius: 24px; border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.4); color: #fff; font-size: 15px; }
-  .bar input::placeholder { color: #ccc; }
-  .bar button { border: 0; border-radius: 24px; padding: 0 16px; background: rgba(255,255,255,.18); color: #fff; font-weight: 700; cursor: pointer; }
-  .mic-status { position: relative; z-index: 3; font-size: 12px; color: #ddd; padding: 0 14px 6px; min-height: 18px; text-shadow: 0 1px 3px #000; }
+  .micstat { font-size: 11px; color: #e5e5e5; text-shadow: 0 1px 3px #000; margin: 0 0 6px 2px; min-height: 14px; }
+  .bar { display: flex; align-items: center; gap: 8px; }
+  .bar input { flex: 1; min-width: 0; padding: 11px 16px; border-radius: 24px; border: 1px solid rgba(255,255,255,.55); background: rgba(0,0,0,.25); color: #fff; font-size: 15px; outline: none; }
+  .bar input::placeholder { color: #e4e4e4; }
+  .ib { background: none; border: 0; color: #fff; padding: 4px; cursor: pointer; display: grid; place-items: center; }
+  .ib svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); }
 
-  /* floating hearts + gift bursts */
-  .float { position: absolute; z-index: 2; pointer-events: none; font-size: 28px; animation: rise 2.6s ease-out forwards; }
-  @keyframes rise { from { transform: translateY(0) scale(.6); opacity: 1; } to { transform: translateY(-55vh) scale(1.3); opacity: 0; } }
-  .giftburst { position: absolute; z-index: 4; left: 50%; top: 38%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; animation: burst 2.6s ease-out forwards; text-shadow: 0 3px 12px rgba(0,0,0,.7); }
-  .giftburst .big { font-size: 90px; }
-  .giftburst .who { font-size: 16px; font-weight: 800; }
-  @keyframes burst { 0% { transform: translate(-50%,-50%) scale(.3); opacity: 0; } 15% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%,-70%) scale(1); opacity: 0; } }
+  .fl { position: absolute; z-index: 4; pointer-events: none; animation: rise 2.8s ease-out forwards; font-size: 26px; right: 18px; bottom: 70px; }
+  @keyframes rise { 0% { transform: translate(0,0) scale(.5); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(var(--dx), -52vh) scale(1.25); opacity: 0; } }
+
+  .gift { position: absolute; z-index: 6; left: 12px; bottom: 54%; display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 40px; background: linear-gradient(90deg, rgba(214,41,118,.92), rgba(250,126,30,.88)); animation: slide 3.4s ease-out forwards; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+  .gift .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; }
+  .gift b { display: block; }
+  .gift .e { font-size: 32px; margin-left: 4px; }
+  @keyframes slide { 0% { transform: translateX(-120%); } 12% { transform: translateX(0); } 85% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(0); opacity: 0; } }
+  .burst { position: absolute; z-index: 7; left: 50%; top: 36%; text-align: center; pointer-events: none; text-shadow: 0 4px 16px rgba(0,0,0,.6); animation: burst 3s ease-out forwards; }
+  .burst .big { font-size: 110px; line-height: 1; }
+  .burst .t { font-size: 16px; font-weight: 800; margin-top: 6px; }
+  @keyframes burst { 0% { transform: translate(-50%,-50%) scale(.2); opacity: 0; } 14% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 75% { opacity: 1; } 100% { transform: translate(-50%,-80%) scale(1); opacity: 0; } }
 
   /* ---------- Summary ---------- */
-  #summary { align-items: center; justify-content: center; padding: 24px; }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
-  .stat { background: #0f0f16; border-radius: 12px; padding: 14px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+  .stat { background: #121212; border: 1px solid #262626; border-radius: 12px; padding: 14px; }
   .stat b { display: block; font-size: 24px; }
   .stat span { color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="vbadge" viewBox="0 0 24 24">
+    <path fill="#0095f6" d="M12 1.2l2.7 1.9 3.3-.2 1 3.1 2.7 1.9-1 3.1 1 3.1-2.7 1.9-1 3.1-3.3-.2L12 22.8l-2.7-1.9-3.3.2-1-3.1-2.7-1.9 1-3.1-1-3.1L5 6.1l1-3.1 3.3.2z"/>
+    <path fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7.7 12.2l3 3 5.6-6.2"/>
+  </symbol>
+</defs></svg>
+
 <!-- START -->
-<section id="start" class="screen active">
-  <div class="start-card">
-    <h1>🔴 Parallel Live</h1>
-    <p>Go live. Your audience is AI — they watch, comment, and send gifts.</p>
-    <input id="nameIn" placeholder="Your name" maxlength="20">
-    <input id="topicIn" placeholder="What are you streaming? (e.g. cooking, gaming, chilling)" maxlength="60">
-    <button class="btn" id="goBtn">Go Live</button>
-    <div class="err" id="err"></div>
-  </div>
-</section>
+<section id="start" class="screen active"><div class="phone">
+  <div class="logo"><span>Parallel Live</span></div>
+  <div class="sub">Go live. Your audience is AI.</div>
+  <input id="nameIn" class="field" placeholder="Your username" maxlength="24" autocapitalize="none" autocomplete="off">
+  <input id="topicIn" class="field" placeholder="What are you streaming? (cooking, gaming, chilling…)" maxlength="50">
+  <label class="check"><input type="checkbox" id="vIn" checked> Verified account <svg class="vb"><use href="#vbadge"/></svg></label>
+  <label class="check"><span>Audience size</span>
+    <select id="sizeIn" class="field" style="margin:0;padding:8px;width:auto">
+      <option value="small">Small (hundreds)</option>
+      <option value="medium" selected>Medium (thousands)</option>
+      <option value="big">Huge (tens of thousands)</option>
+    </select>
+  </label>
+  <button class="btn" id="goBtn">Go Live</button>
+  <div class="err" id="err"></div>
+</div></section>
 
 <!-- LIVE -->
-<section id="live" class="screen">
+<section id="live" class="screen"><div class="phone" id="phone">
   <video id="cam" autoplay playsinline muted></video>
   <div class="shade"></div>
   <div class="top">
-    <div class="avatar" id="meAv">Y</div>
-    <div class="me-name" id="meName">you</div>
-    <span class="badge">LIVE</span>
-    <span class="count">👁 <span id="viewers">0</span></span>
-    <span class="count">❤️ <span id="likes">0</span></span>
+    <div class="ring"><div class="in" id="meAv">Y</div></div>
+    <div class="who">
+      <div class="n"><b id="meName">you</b><svg class="vb" id="meV"><use href="#vbadge"/></svg></div>
+      <div class="s" id="meSub">Live</div>
+    </div>
     <span class="spacer"></span>
-    <button class="end" id="endBtn">End</button>
+    <span class="livebadge">LIVE</span>
+    <span class="eye"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7.5 11-7.5S23 12 23 12s-4 7.5-11 7.5S1 12 1 12z"/><circle cx="12" cy="12" r="3.2"/></svg><span id="viewers">0</span></span>
+    <button class="x" id="endBtn" aria-label="End live">×</button>
   </div>
   <div class="bottom">
-    <div class="mic-status" id="micStatus"></div>
+    <div class="micstat" id="micStatus"></div>
     <div id="feed"></div>
     <div class="bar">
-      <input id="chatIn" placeholder="Say something to your viewers…" maxlength="140">
-      <button id="sendBtn">Send</button>
+      <input id="chatIn" placeholder="Comment…" maxlength="140" autocomplete="off">
+      <button class="ib" id="heartBtn" aria-label="Like"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.6 4.8 6.1 4.8c2.1 0 3.6 1.2 4.4 2.4h3c.8-1.2 2.3-2.4 4.4-2.4 3.500 0 5.200 3.600 3.700 7-2.100 4.600-9.600 9.200-9.600 9.200z" transform="translate(0 -.5)"/></svg></button>
+      <button class="ib" id="shareBtn" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M22 3L9.2 10.5M22 3l-6.700 19-3.600-8.100L3.600 10.300 22 3z"/></svg></button>
     </div>
   </div>
-</section>
+</div></section>
 
 <!-- SUMMARY -->
-<section id="summary" class="screen">
-  <div class="start-card">
-    <h1>Live ended</h1>
-    <p id="sumLine"></p>
-    <div class="stats">
-      <div class="stat"><b id="sViewers">0</b><span>Peak viewers</span></div>
-      <div class="stat"><b id="sLikes">0</b><span>Likes</span></div>
-      <div class="stat"><b id="sGifts">0</b><span>Gifts</span></div>
-      <div class="stat"><b id="sCoins">0</b><span>Coins earned</span></div>
-    </div>
-    <button class="btn" id="againBtn">Go Live Again</button>
+<section id="summary" class="screen"><div class="phone">
+  <div class="logo">Live video ended</div>
+  <div class="sub" id="sumLine"></div>
+  <div class="stats">
+    <div class="stat"><b id="sViewers">0</b><span>Peak viewers</span></div>
+    <div class="stat"><b id="sTotal">0</b><span>Total watched</span></div>
+    <div class="stat"><b id="sLikes">0</b><span>Likes</span></div>
+    <div class="stat"><b id="sGifts">0</b><span>Gifts · <span id="sCoins">0</span> coins</span></div>
   </div>
-</section>
+  <button class="btn" id="againBtn">Go Live Again</button>
+</div></section>
 
 <script>
 /* =====================================================
-   Parallel Live – first version
-   Everything runs in the browser. The "AI" viewers are
-   simulated: they react to your voice, your movement,
-   what you type, and what you say (Chrome speech).
+   Parallel Live v2 – Instagram-style live with an AI-ish
+   audience. All simulated in the browser (no server).
    ===================================================== */
-
 const $ = id => document.getElementById(id);
 const rand = a => a[Math.floor(Math.random() * a.length)];
 const chance = p => Math.random() < p;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
-/* ---------- The audience: each viewer has a personality ---------- */
-const VIEWER_POOL = [
-  { name: 'luna.vibes',   emoji: '🌙', color: '#7c5cff', type: 'hype' },
-  { name: 'big_mike99',   emoji: '🏋️', color: '#2e9bff', type: 'chill' },
-  { name: 'sofia.xo',     emoji: '🌸', color: '#ff5fa2', type: 'sweet' },
-  { name: 'noahplays',    emoji: '🎮', color: '#2ecc71', type: 'hype' },
-  { name: 'tea_and_tea',  emoji: '🍵', color: '#e0a040', type: 'curious' },
-  { name: 'zayn_x',       emoji: '🔥', color: '#ff6b3d', type: 'troll' },
-  { name: 'mia.moon',     emoji: '✨', color: '#c77dff', type: 'sweet' },
-  { name: 'dj_kelvin',    emoji: '🎧', color: '#00c2c7', type: 'hype' },
-  { name: 'grandma_rose', emoji: '👵', color: '#d98ca0', type: 'sweet' },
-  { name: 'who_is_this',  emoji: '🕵️', color: '#8a8a99', type: 'curious' },
-  { name: 'leo.daily',    emoji: '📸', color: '#4dd0a1', type: 'chill' },
-  { name: 'ayaaa',        emoji: '🦋', color: '#ff9ecf', type: 'sweet' },
-];
-
-const LINES = {
-  join:    ['joined', 'joined', 'joined the live'],
-  hello:   ['hiii 👋', 'hey!! just got here', 'wait is this live?? omg', 'first!', 'hello from the other side 😂', 'heyyy what did I miss'],
-  hype:    ['LETS GOOO 🔥', 'this is so good', 'yooo 😭🔥', 'W stream', 'we eating today', 'cant stop watching'],
-  chill:   ['nice nice', 'this is actually relaxing', 'vibes are immaculate', 'cool stuff man', 'ok i like this'],
-  sweet:   ['aww 🥹', 'you look great!!', 'love this ❤️', 'so wholesome', 'youre the best', 'omg cute'],
-  curious: ['wait how does that work?', 'where are you rn?', 'whats next?', 'can u explain that again?', 'how long have you been doing this?'],
-  troll:   ['lol ok', 'mid 😏', 'bro is cooking... or not', 'camera quality tho', 'cringe? jk 😂', 'ok i stayed for this?'],
-  loud:    ['WHOA the volume 😂', 'i felt that in my soul', 'LOUD!!', 'ok ok we can hear you 😭'],
-  quiet:   ['hellooo you there?', 'say something 😭', 'its so quiet...', 'talk to us!!'],
-  motion:  ['the energy!!', 'wait what was that 😂', 'dont drop the camera lol', 'ok the movement 🔥', 'woah'],
-  still:   ['are u frozen?', 'hello?? 👀', 'we need some action lol'],
-  love:    ['love you too!! ❤️', 'aww ily 🥹', 'omg you said it 😭'],
-  thanks:  ['you are so welcome!', 'of course!! 🫶', 'anytime!'],
-  bye:     ['noooo dont go', 'already?? 😭', 'bye!! come back soon', 'that was fun'],
-};
-
-/* Topic-aware lines, built from what the streamer said they're doing */
-function topicLine(topic) {
-  if (!topic) return null;
-  return rand([
-    `ok so ${topic}... i'm hooked`,
-    `${topic} stream is the best stream`,
-    `never seen ${topic} like this`,
-    `more ${topic} please!!`,
-    `ok tell us more about the ${topic} part`,
-    `${topic} content hits different 😭`,
-  ]);
+/* ---------- Realistic usernames ---------- */
+const FIRST = ['luna','mia','sofia','noah','leo','zayn','aya','nora','omar','lina','kai','eva','jade','ali','sara','mo','dani','tariq','yara','hana','liam','ella','ryan','nico','amira','jay','chloe','max','zoe','adam','maya','sam'];
+const WORDS = ['vibes','xo','official','daily','here','real','world','plays','x','_','lol','fit','moon','sky','edits','gram','tv','.s','world','04','07','99','2k','cc'];
+const EMO = ['','','','','🌙','✨','🦋','🔥','💫','🌸','👑','🖤','🤍'];
+function makeUser() {
+  const f = rand(FIRST), w = rand(WORDS), r = Math.random();
+  let name = r < .3 ? f + '_' + w : r < .55 ? f + '.' + w : r < .75 ? f + Math.floor(Math.random()*99) : r < .9 ? w.replace(/^[_.]/,'') + '.' + f : f + f[f.length-1] + 'x';
+  name = name.replace(/\.\./g,'.').replace(/__/g,'_');
+  const palette = ['#7c5cff','#2e9bff','#ff5fa2','#2ecc71','#e0a040','#ff6b3d','#c77dff','#00a8b0','#d98ca0','#6b6b7a','#4dd0a1','#e0457b'];
+  return { name, color: rand(palette), verified: chance(.04), initial: name[0].toUpperCase() };
 }
 
-/* Words the streamer says/types -> reactions */
-const KEYWORDS = [
-  { re: /\b(love|ily|thank you all|thanks guys)\b/i, pool: 'love', gift: 0.4 },
-  { re: /\b(thank|thanks)\b/i,                       pool: 'thanks', gift: 0 },
-  { re: /\b(bye|goodbye|gotta go|ending)\b/i,        pool: 'bye', gift: 0.2 },
-  { re: /\b(hi|hello|hey|welcome)\b/i,               pool: 'hello', gift: 0.15 },
-  { re: /\?/,                                         pool: 'curious', gift: 0 },
-];
+/* ---------- Realistic comments ---------- */
+const PLACES = [['Brazil','🇧🇷'],['Egypt','🇪🇬'],['the UK','🇬🇧'],['Morocco','🇲🇦'],['Turkey','🇹🇷'],['Mexico','🇲🇽'],['Germany','🇩🇪'],['Saudi','🇸🇦'],['France','🇫🇷'],['Canada','🇨🇦'],['India','🇮🇳'],['Spain','🇪🇸'],['Italy','🇮🇹'],['UAE','🇦🇪'],['Japan','🇯🇵']];
+const C = {
+  greet: n => [`hiii ${n}`,`hi ${n}!!`,`hey ${n} 👋`,`${n} heyyy`,`hello hello`,`hii`,`heyyy`,`hi!!`,`first 😭`,`omg hi`,`helloo from the other side`,`wassup ${n}`],
+  place: () => { const [p,f] = rand(PLACES); return rand([`hi from ${p} ${f}`,`${p} here ${f}`,`anyone from ${p}? ${f}`,`watching from ${p} ${f}`,`${f}${f}${f}`]); },
+  react: () => ['😍😍😍','🔥🔥🔥','😂😂😂','❤️❤️❤️','omg','lmaooo','😭😭😭','yesss','slayyy','periodt','no way','wait what','dead 💀','im screaming','this is so good','ur so real for this','ahhh 😍','the vibes tho','okay i see u','😮😮','👏👏👏','love this','yooo','this is crazy','iconic','stop 😂','fr fr','not me crying rn','obsessed','mood'],
+  spam: () => ['❤️','🔥','😍','👏','😂','💯','🙌','🥹','🤍','✨'],
+  ask: n => [`where are u from?`,`how old are u?`,`what are u doing?`,`can u say hi to me?`,`say my name pls 🥺`,`${n} notice me`,`can u follow me back?`,`what song is this?`,`whats ur next video`,`how long u been live?`,`did i miss anything?`,`is this live rn?`,`what time is it there?`,`where did u get that`,`can u pls reply`,`pls pin me 🥺`],
+  fan: () => ['been waiting for u to go live!!','you never go live omg','this made my day','i love ur content so much','followed!!','just followed u','ur the reason i got insta','i came from your last post','you deserve more followers fr','been following since day 1','finally!!','my fav person on here'],
+  compliment: () => ['ur so pretty','looking good','that look 😍','handsome','queen 👑','king 👑','the glow up','ur eyes tho','love the lighting','ur voice is so nice','so real','ok but ur actually so funny','best live ever','wow'],
+  topic: t => [`${t} 😍`,`omg ${t}!!`,`more ${t} pls`,`${t} again?? love it`,`can u show more ${t}`,`ok the ${t} content is elite`,`${t} stream hits different`,`i love ${t} so much`],
+  quiet: () => ['hello??','u there?','can u talk','sound not working for me?','say something 😭','we cant hear u','talk to us pls'],
+  loud: () => ['😭 my ears','LOUD 😂','omg volume','calm down 😂','yooo 🔥'],
+  motion: () => ['the energy!!','wait what was that','dont drop it lol','hahaha 😂','woah','camera moving 😭','omg 😂'],
+  still: () => ['u frozen?','hello?? 👀','lag?','is it just me or is it frozen','did it freeze'],
+  bye: () => ['noooo dont go','already??','bye!! 🥺','come back soon','that was fun','byeee 💕'],
+  love: () => ['ily too','omg 🥹','aww ❤️','we love you','stop ur gonna make me cry','❤️❤️❤️','ily!!'],
+  answerYes: () => ['yes!','yesss','yeah','100%','fr','of course'],
+  answerNo: () => ['no lol','not really','nah 😂','idk tbh','hmm no','maybe?'],
+};
 
 /* ---------- Gifts ---------- */
 const GIFTS = [
-  { name: 'Rose',     emoji: '🌹', coins: 1 },
-  { name: 'Heart',    emoji: '💖', coins: 5 },
-  { name: 'Coffee',   emoji: '☕', coins: 10 },
-  { name: 'Rocket',   emoji: '🚀', coins: 50 },
-  { name: 'Crown',    emoji: '👑', coins: 100 },
-  { name: 'Diamond',  emoji: '💎', coins: 250 },
-  { name: 'Lion',     emoji: '🦁', coins: 500 },
+  { name: 'Rose',    emoji: '🌹', coins: 1 },
+  { name: 'Heart',   emoji: '💖', coins: 5 },
+  { name: 'Coffee',  emoji: '☕', coins: 10 },
+  { name: 'Rocket',  emoji: '🚀', coins: 50 },
+  { name: 'Crown',   emoji: '👑', coins: 100 },
+  { name: 'Diamond', emoji: '💎', coins: 250 },
+  { name: 'Lion',    emoji: '🦁', coins: 500 },
 ];
 
 /* ---------- State ---------- */
 const S = {
-  name: '', topic: '',
-  stream: null, audioCtx: null, analyser: null,
-  viewers: [],            // currently watching
-  peak: 0, likes: 0, gifts: 0, coins: 0,
-  lastSpoke: Date.now(), lastMoved: Date.now(),
-  level: 0, motion: 0,
-  timers: [], recog: null, running: false,
+  name: 'you', topic: '', verified: true, size: 'medium',
+  stream: null, audioCtx: null, analyser: null, recog: null,
+  count: 0, target: 3, peak: 0, total: 0, trend: 1,
+  likes: 0, gifts: 0, coins: 0, started: 0,
+  level: 0, motion: 0, lastSpoke: 0, lastMoved: 0,
+  timers: [], recent: [], running: false,
 };
+const SIZES = { small: { cap: 600, spike: 120 }, medium: { cap: 8000, spike: 900 }, big: { cap: 60000, spike: 6000 } };
 
-/* ---------- Screens ---------- */
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $(id).classList.add('active');
-}
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+function fmt(n) { n = Math.round(n); return n >= 10000 ? (n/1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/,'') + 'K' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'') + 'K' : String(n); }
 
 /* ---------- Feed ---------- */
-function addMsg(v, text, kind = '') {
+function verifiedSvg() { return '<svg class="vb"><use href="#vbadge"/></svg>'; }
+function addComment(u, text, kind = '') {
   const el = document.createElement('div');
-  el.className = 'msg ' + kind;
-  el.innerHTML = `<div class="av" style="background:${v.color}">${v.emoji}</div>
-                  <div><div class="u"></div><div class="t"></div></div>`;
-  el.querySelector('.u').textContent = v.name;
+  el.className = 'c ' + kind;
+  el.innerHTML = `<div class="av" style="background:${u.color}"></div><div class="tx"><span class="u"></span><span class="t"></span></div>`;
+  el.querySelector('.av').textContent = u.initial;
+  const un = el.querySelector('.u'); un.textContent = u.name; if (u.verified) un.insertAdjacentHTML('beforeend', verifiedSvg());
   el.querySelector('.t').textContent = text;
-  const feed = $('feed');
-  feed.appendChild(el);
-  while (feed.children.length > 14) feed.removeChild(feed.firstChild);
+  const feed = $('feed'); feed.appendChild(el);
+  while (feed.children.length > 12) feed.removeChild(feed.firstChild);
 }
-
-function floatHeart(emoji = '❤️') {
+function addJoin(u) {
   const el = document.createElement('div');
-  el.className = 'float';
-  el.textContent = emoji;
-  el.style.right = (10 + Math.random() * 60) + 'px';
-  el.style.bottom = '90px';
-  $('live').appendChild(el);
-  setTimeout(() => el.remove(), 2700);
+  el.className = 'c join';
+  el.innerHTML = `<div class="av" style="background:${u.color}"></div><div class="tx"><span class="t"></span></div>`;
+  el.querySelector('.av').textContent = u.initial;
+  el.querySelector('.t').textContent = u.name + ' joined';
+  const feed = $('feed'); feed.appendChild(el);
+  while (feed.children.length > 12) feed.removeChild(feed.firstChild);
 }
 
-function sendGift(v) {
-  // weighted: cheap gifts common, big gifts rare
+function floatHeart(emoji) {
+  const el = document.createElement('div');
+  el.className = 'fl';
+  el.textContent = emoji || rand(['❤️','❤️','❤️','🧡','💜','💖','🔥','😍']);
+  el.style.setProperty('--dx', (Math.random() * 80 - 60) + 'px');
+  el.style.right = (14 + Math.random() * 14) + 'px';
+  $('phone').appendChild(el);
+  setTimeout(() => el.remove(), 2900);
+}
+function heartBurst(n) { for (let i = 0; i < n; i++) setTimeout(floatHeart, i * 110); }
+
+function sendGift(u) {
   const roll = Math.random();
-  const g = roll < .45 ? GIFTS[0] : roll < .7 ? GIFTS[1] : roll < .85 ? GIFTS[2]
-          : roll < .93 ? GIFTS[3] : roll < .97 ? GIFTS[4] : roll < .995 ? GIFTS[5] : GIFTS[6];
-  S.gifts++; S.coins += g.coins;
-  addMsg(v, `sent a ${g.name} ${g.emoji}`, 'gift');
+  const g = roll < .42 ? GIFTS[0] : roll < .68 ? GIFTS[1] : roll < .84 ? GIFTS[2] : roll < .93 ? GIFTS[3] : roll < .97 ? GIFTS[4] : roll < .995 ? GIFTS[5] : GIFTS[6];
+  const qty = g.coins < 10 ? 1 + Math.floor(Math.random() * 4) : 1;
+  S.gifts += qty; S.coins += g.coins * qty;
+  const el = document.createElement('div');
+  el.className = 'gift';
+  el.innerHTML = `<div class="av" style="background:${u.color}"></div><div><b></b><span>sent ${g.name}${qty > 1 ? ' ×' + qty : ''}</span></div><div class="e">${g.emoji}</div>`;
+  el.querySelector('.av').textContent = u.initial;
+  el.querySelector('b').textContent = u.name;
+  el.style.bottom = (50 + Math.random() * 6) + '%';
+  $('phone').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
   if (g.coins >= 50) {
     const b = document.createElement('div');
-    b.className = 'giftburst';
-    b.innerHTML = `<div class="big">${g.emoji}</div><div class="who"></div>`;
-    b.querySelector('.who').textContent = `${v.name} sent a ${g.name}!`;
-    $('live').appendChild(b);
-    setTimeout(() => b.remove(), 2700);
-  } else {
-    for (let i = 0; i < 3; i++) setTimeout(() => floatHeart(g.emoji), i * 150);
-  }
+    b.className = 'burst';
+    b.innerHTML = `<div class="big">${g.emoji}</div><div class="t"></div>`;
+    b.querySelector('.t').textContent = `${u.name} sent a ${g.name}!`;
+    $('phone').appendChild(b);
+    setTimeout(() => b.remove(), 3100);
+    S.target += SIZES[S.size].spike * 0.15 * (g.coins / 100 + .5); // big gifts pull in viewers
+    heartBurst(8);
+  } else heartBurst(3);
 }
 
-/* ---------- Viewer behaviour ---------- */
-function addViewer() {
-  const free = VIEWER_POOL.filter(p => !S.viewers.includes(p));
-  if (!free.length) return;
-  const v = rand(free);
-  S.viewers.push(v);
-  S.peak = Math.max(S.peak, S.viewers.length);
-  $('viewers').textContent = S.viewers.length;
-  addMsg(v, rand(LINES.join), 'join');
-  if (chance(.6)) setTimeout(() => say(v, 'hello'), 900 + Math.random() * 1500);
+/* ---------- Audience size (fluctuates like the real thing) ---------- */
+function viewerTick() {
+  if (!S.running) return;
+  const cfg = SIZES[S.size], t = (Date.now() - S.started) / 1000;
+  // target drifts: grows early (ramp up), then wanders, with occasional waves
+  if (t < 240) S.target += (cfg.cap * 0.0012 + 0.6) * (0.3 + Math.random());
+  S.target *= 1 + (Math.random() - 0.5) * 0.07;                      // random walk, slight upward bias
+  if (chance(.04)) S.target *= 1 + Math.random() * .6;                // someone shares the live -> wave of viewers
+  if (chance(.04)) S.target *= 1 - Math.random() * .3;                // wave leaves
+  S.target = clamp(S.target, 2, cfg.cap);
+  // actual count follows with lag + jitter, so it ticks up and down
+  const delta = (S.target - S.count) * 0.12 + (Math.random() - 0.5) * Math.max(3, S.count * 0.07);
+  const prev = S.count;
+  S.count = Math.max(1, Math.round(S.count + delta));
+  if (S.count > prev) S.total += S.count - prev;
+  S.peak = Math.max(S.peak, S.count);
+  $('viewers').textContent = fmt(S.count);
+  // joins appear in chat proportional to growth (only a sample, like real lives)
+  const joined = Math.max(0, S.count - prev);
+  if (joined > 0 && chance(clamp(joined / 8, .15, .9))) addJoin(makeUser());
 }
 
-function removeViewer() {
-  if (S.viewers.length <= 2) return;
-  S.viewers.splice(Math.floor(Math.random() * S.viewers.length), 1);
-  $('viewers').textContent = S.viewers.length;
+function commentDelay() { return clamp(5200 / (1 + Math.log10(S.count + 1) * 1.6), 450, 4500) * (.5 + Math.random()); }
+
+/* ---------- Generating a comment ---------- */
+function pickComment() {
+  const n = S.name, r = Math.random();
+  if (r < .17) return rand(C.greet(n));
+  if (r < .25) return C.place();
+  if (r < .45) return rand(C.react());
+  if (r < .56) return rand(C.spam()).repeat(1 + Math.floor(Math.random() * 3));
+  if (r < .68) return rand(C.ask(n));
+  if (r < .76) return rand(C.compliment());
+  if (r < .82) return rand(C.fan());
+  if (r < .90 && S.topic) return rand(C.topic(S.topic));
+  return rand(C.react());
+}
+function commentFrom(u, text) {
+  if (!S.running) return;
+  addComment(u, text);
+  S.recent.push(text); if (S.recent.length > 20) S.recent.shift();
+  if (chance(.4)) { S.likes++; floatHeart(); }
+}
+function randomUser() {
+  // repeat commenters appear: reuse a known user sometimes
+  return makeUser();
 }
 
-function say(v, pool, text) {
-  if (!S.running || !v) return;
-  addMsg(v, text || rand(LINES[pool] || LINES.chill));
-  if (chance(.35)) { S.likes++; $('likes').textContent = S.likes; floatHeart(); }
-}
-
-function randomViewer(type) {
-  const list = type ? S.viewers.filter(v => v.type === type) : S.viewers;
-  return rand(list.length ? list : S.viewers);
-}
-
-/* React to something the streamer said or typed */
+/* ---------- Reacting to what the streamer says/types ---------- */
 function reactToText(text) {
-  let matched = false;
-  for (const k of KEYWORDS) {
-    if (k.re.test(text)) {
-      matched = true;
-      const n = 1 + Math.floor(Math.random() * 2);
-      for (let i = 0; i < n; i++) {
-        setTimeout(() => say(randomViewer(), k.pool), 500 + i * 900 + Math.random() * 600);
-      }
-      if (chance(k.gift)) setTimeout(() => sendGift(randomViewer()), 1500);
-      break;
-    }
-  }
-  if (!matched) {
-    // generic reaction + echo of a word the streamer used
+  const low = text.toLowerCase();
+  const n = S.name;
+  let burst = [], giftChance = 0;
+  if (/\b(love|ily|thank you all|thanks guys)\b/.test(low)) { burst = C.love(); giftChance = .5; heartBurst(6); }
+  else if (/\b(bye|goodbye|gotta go|ending|end the live)\b/.test(low)) { burst = C.bye(); giftChance = .2; }
+  else if (/\b(hi|hello|hey|welcome|whats up|what's up)\b/.test(low)) { burst = C.greet(n); giftChance = .15; }
+  else if (/\?/.test(low)) { burst = chance(.5) ? C.answerYes() : C.answerNo(); }
+  else if (/\b(song|music|play)\b/.test(low)) { burst = ['turn it up!!','this song 😍','what song is this??','vibes','play it again pls','🔥🔥🔥']; }
+  else if (/\b(follow|share|invite)\b/.test(low)) { burst = ['just followed!!','shared it to my story','sending this to my friends rn','done ✅','followed 🫡']; giftChance = .3; S.target *= 1.12; }
+  else {
     const words = text.split(/\s+/).filter(w => w.length > 4);
-    setTimeout(() => say(randomViewer('curious') || randomViewer(), null,
-      words.length && chance(.6) ? `wait say more about "${rand(words)}"` : rand(LINES.chill)), 700);
-    if (chance(.5)) setTimeout(() => say(randomViewer(), rand(['hype', 'sweet', 'chill'])), 1700);
+    burst = chance(.5) && words.length ? [`omg ${rand(words)} 😭`, `wait ${rand(words)}??`, `${rand(words)} 😍`] : C.react();
   }
+  const k = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < k; i++) setTimeout(() => commentFrom(randomUser(), rand(burst)), 400 + i * (500 + Math.random() * 700));
+  if (chance(giftChance)) setTimeout(() => sendGift(randomUser()), 1800);
   S.lastSpoke = Date.now();
 }
 
-/* ---------- Sensors: mic volume + camera motion ---------- */
+/* ---------- Sensors: mic + motion ---------- */
 function setupAudio(stream) {
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     S.audioCtx = new AC();
     const src = S.audioCtx.createMediaStreamSource(stream);
-    S.analyser = S.audioCtx.createAnalyser();
-    S.analyser.fftSize = 512;
-    src.connect(S.analyser);
+    S.analyser = S.audioCtx.createAnalyser(); S.analyser.fftSize = 512; src.connect(S.analyser);
   } catch (e) { S.analyser = null; }
 }
-
-const motionCanvas = document.createElement('canvas');
-motionCanvas.width = 32; motionCanvas.height = 24;
-const mctx = motionCanvas.getContext('2d', { willReadFrequently: true });
+const mc = document.createElement('canvas'); mc.width = 32; mc.height = 24;
+const mctx = mc.getContext('2d', { willReadFrequently: true });
 let prevFrame = null;
-
 function sense() {
   if (!S.running) return;
-  // audio level 0..1
   if (S.analyser) {
-    const buf = new Uint8Array(S.analyser.fftSize);
-    S.analyser.getByteTimeDomainData(buf);
-    let sum = 0;
-    for (const b of buf) { const d = (b - 128) / 128; sum += d * d; }
+    const buf = new Uint8Array(S.analyser.fftSize); S.analyser.getByteTimeDomainData(buf);
+    let sum = 0; for (const b of buf) { const d = (b - 128) / 128; sum += d * d; }
     S.level = Math.sqrt(sum / buf.length);
     if (S.level > 0.04) S.lastSpoke = Date.now();
   }
-  // motion 0..1
   try {
     const cam = $('cam');
     if (cam.videoWidth) {
       mctx.drawImage(cam, 0, 0, 32, 24);
       const f = mctx.getImageData(0, 0, 32, 24).data;
       if (prevFrame) {
-        let diff = 0;
-        for (let i = 0; i < f.length; i += 4) diff += Math.abs(f[i] - prevFrame[i]);
+        let diff = 0; for (let i = 0; i < f.length; i += 4) diff += Math.abs(f[i] - prevFrame[i]);
         S.motion = diff / (f.length / 4) / 255;
         if (S.motion > 0.04) S.lastMoved = Date.now();
       }
       prevFrame = f;
     }
   } catch (e) {}
-  requestAnimationFrame(() => setTimeout(sense, 120));
+  setTimeout(sense, 130);
 }
-
-/* Periodic reactions driven by the sensors */
-let lastLoud = 0, lastMotionReact = 0;
-function reactionTick() {
-  if (!S.running) return;
+let lastLoud = 0, lastMot = 0;
+function sensorTick() {
   const now = Date.now();
-  if (S.level > 0.18 && now - lastLoud > 7000) {
-    lastLoud = now; say(randomViewer('hype'), 'loud');
-  } else if (S.motion > 0.12 && now - lastMotionReact > 8000) {
-    lastMotionReact = now; say(randomViewer(), 'motion');
-  } else if (now - S.lastSpoke > 20000 && chance(.4)) {
-    S.lastSpoke = now - 8000; say(randomViewer('curious'), 'quiet');
-  } else if (now - S.lastMoved > 25000 && chance(.3)) {
-    S.lastMoved = now - 10000; say(randomViewer('troll'), 'still');
-  }
+  if (S.level > 0.18 && now - lastLoud > 8000) { lastLoud = now; commentFrom(randomUser(), rand(C.loud())); }
+  else if (S.motion > 0.12 && now - lastMot > 9000) { lastMot = now; commentFrom(randomUser(), rand(C.motion())); }
+  else if (now - S.lastSpoke > 25000 && chance(.5)) { S.lastSpoke = now - 12000; commentFrom(randomUser(), rand(C.quiet())); S.target *= .97; }
+  else if (now - S.lastMoved > 30000 && chance(.4)) { S.lastMoved = now - 15000; commentFrom(randomUser(), rand(C.still())); }
 }
 
-/* Background "life" of the stream: chatter, topic comments, likes, gifts, joins/leaves */
+/* ---------- Loops ---------- */
+function loop(fn, nextDelay) {
+  const run = () => { if (!S.running) return; fn(); S.timers.push(setTimeout(run, nextDelay())); };
+  S.timers.push(setTimeout(run, nextDelay()));
+}
 function startTimers() {
-  const every = (fn, min, max) => {
-    const loop = () => {
-      if (!S.running) return;
-      fn();
-      S.timers.push(setTimeout(loop, min + Math.random() * (max - min)));
-    };
-    S.timers.push(setTimeout(loop, min + Math.random() * (max - min)));
-  };
-  every(() => say(randomViewer(), rand(['hype', 'chill', 'sweet', 'curious', 'troll'])), 2500, 6000);
-  every(() => { const t = topicLine(S.topic); if (t) say(randomViewer(), null, t); }, 12000, 22000);
-  every(() => { S.likes += 1 + Math.floor(Math.random() * 3); $('likes').textContent = S.likes; floatHeart(); }, 1500, 3500);
-  every(() => sendGift(randomViewer()), 14000, 30000);
-  every(() => (chance(.65) ? addViewer() : removeViewer()), 5000, 11000);
-  every(reactionTick, 1200, 1800);
+  loop(viewerTick, () => 900 + Math.random() * 700);
+  loop(() => commentFrom(randomUser(), pickComment()), commentDelay);
+  loop(() => { S.likes += 1 + Math.floor(S.count / 40 * Math.random()); heartBurst(1 + Math.floor(Math.random() * 3)); }, () => 900 + Math.random() * 1800);
+  loop(() => sendGift(randomUser()), () => 11000 + Math.random() * 20000);
+  loop(sensorTick, () => 1200 + Math.random() * 600);
 }
 
-/* ---------- Speech recognition (Chrome): viewers react to what you SAY ---------- */
+/* ---------- Speech ---------- */
 function startSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { $('micStatus').textContent = 'Tip: use Chrome so viewers can hear what you say. You can still type to them.'; return; }
-  const r = new SR();
-  r.continuous = true; r.interimResults = false; r.lang = 'en-US';
-  r.onresult = e => {
-    const text = e.results[e.results.length - 1][0].transcript.trim();
-    if (text) { $('micStatus').textContent = '🎙 you: ' + text; reactToText(text); }
-  };
+  if (!SR) { $('micStatus').textContent = 'Use Chrome so viewers can hear what you say. Typing works everywhere.'; return; }
+  const r = new SR(); r.continuous = true; r.interimResults = false; r.lang = 'en-US';
+  r.onresult = e => { const t = e.results[e.results.length - 1][0].transcript.trim(); if (t) { $('micStatus').textContent = '🎙 ' + t; reactToText(t); } };
   r.onend = () => { if (S.running) { try { r.start(); } catch (e) {} } };
   r.onerror = () => {};
   try { r.start(); S.recog = r; $('micStatus').textContent = '🎙 Viewers can hear you'; } catch (e) {}
 }
 
-/* ---------- Start / End ---------- */
+/* ---------- Start / end ---------- */
 async function goLive() {
   $('err').textContent = '';
-  S.name = $('nameIn').value.trim() || 'you';
+  S.name = ($('nameIn').value.trim().replace(/^@/, '') || 'you').toLowerCase().replace(/\s+/g, '_');
   S.topic = $('topicIn').value.trim();
-  try {
-    S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
-  } catch (e) {
+  S.verified = $('vIn').checked; S.size = $('sizeIn').value;
+  try { S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true }); }
+  catch (e) {
     try { S.stream = await navigator.mediaDevices.getUserMedia({ video: true }); }
-    catch (e2) { $('err').textContent = 'Could not access your camera. Allow camera permission and try again.'; return; }
+    catch (e2) { $('err').textContent = 'Could not access your camera. Allow permission and try again.'; return; }
   }
-  $('cam').srcObject = S.stream;
-  setupAudio(S.stream);
-  Object.assign(S, { viewers: [], peak: 0, likes: 0, gifts: 0, coins: 0, running: true, lastSpoke: Date.now(), lastMoved: Date.now(), timers: [] });
+  $('cam').srcObject = S.stream; setupAudio(S.stream);
+  Object.assign(S, { count: 1 + Math.floor(Math.random() * 4), target: 6, peak: 1, total: 1, likes: 0, gifts: 0, coins: 0, started: Date.now(), lastSpoke: Date.now(), lastMoved: Date.now(), timers: [], recent: [], running: true });
   $('meName').textContent = S.name; $('meAv').textContent = S.name[0].toUpperCase();
-  $('feed').innerHTML = ''; $('likes').textContent = '0'; $('viewers').textContent = '0'; $('micStatus').textContent = '';
+  $('meV').style.display = S.verified ? '' : 'none';
+  $('feed').innerHTML = ''; $('viewers').textContent = fmt(S.count); $('micStatus').textContent = '';
   show('live');
-  // first viewers trickle in
-  for (let i = 0; i < 3; i++) setTimeout(addViewer, 1200 + i * 1800);
+  setTimeout(() => addComment(makeUser(), rand(C.greet(S.name))), 1200);
   startTimers(); sense(); startSpeech();
 }
-
 function endLive() {
-  S.running = false;
-  S.timers.forEach(clearTimeout);
+  S.running = false; S.timers.forEach(clearTimeout);
   if (S.recog) { try { S.recog.stop(); } catch (e) {} }
   if (S.stream) S.stream.getTracks().forEach(t => t.stop());
   if (S.audioCtx) { try { S.audioCtx.close(); } catch (e) {} }
-  $('sumLine').textContent = S.topic ? `Great ${S.topic} stream, ${S.name}!` : `Nice stream, ${S.name}!`;
-  $('sViewers').textContent = S.peak; $('sLikes').textContent = S.likes;
+  $('sumLine').textContent = S.topic ? `Great ${S.topic} live, @${S.name}!` : `Nice live, @${S.name}!`;
+  $('sViewers').textContent = fmt(S.peak); $('sTotal').textContent = fmt(S.total); $('sLikes').textContent = fmt(S.likes);
   $('sGifts').textContent = S.gifts; $('sCoins').textContent = S.coins;
   show('summary');
 }
-
 function sendChat() {
-  const t = $('chatIn').value.trim();
-  if (!t) return;
+  const t = $('chatIn').value.trim(); if (!t) return;
   $('chatIn').value = '';
-  addMsg({ name: S.name + ' (you)', emoji: '😎', color: '#444' }, t);
+  addComment({ name: S.name, color: '#555', initial: S.name[0].toUpperCase(), verified: S.verified }, t, 'me');
   reactToText(t);
 }
-
-$('goBtn').onclick = goLive;
-$('endBtn').onclick = endLive;
-$('againBtn').onclick = () => show('start');
-$('sendBtn').onclick = sendChat;
+$('goBtn').onclick = goLive; $('endBtn').onclick = endLive; $('againBtn').onclick = () => show('start');
 $('chatIn').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+$('heartBtn').onclick = () => { S.likes++; heartBurst(5); };
+$('shareBtn').onclick = () => { S.target *= 1.2; commentFrom(makeUser(), rand(['shared this live!','sending this to my friends','omg sharing rn'])); };
 </script>
 </body>
 </html>
