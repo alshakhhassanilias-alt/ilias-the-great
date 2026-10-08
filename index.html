@@ -157,37 +157,75 @@ const rand = a => a[Math.floor(Math.random() * a.length)];
 const chance = p => Math.random() < p;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
-/* ---------- Realistic usernames ---------- */
-const FIRST = ['luna','mia','sofia','noah','leo','zayn','aya','nora','omar','lina','kai','eva','jade','ali','sara','mo','dani','tariq','yara','hana','liam','ella','ryan','nico','amira','jay','chloe','max','zoe','adam','maya','sam'];
-const WORDS = ['vibes','xo','official','daily','here','real','world','plays','x','_','lol','fit','moon','sky','edits','gram','tv','.s','world','04','07','99','2k','cc'];
-const EMO = ['','','','','🌙','✨','🦋','🔥','💫','🌸','👑','🖤','🤍'];
-function makeUser() {
-  const f = rand(FIRST), w = rand(WORDS), r = Math.random();
-  let name = r < .3 ? f + '_' + w : r < .55 ? f + '.' + w : r < .75 ? f + Math.floor(Math.random()*99) : r < .9 ? w.replace(/^[_.]/,'') + '.' + f : f + f[f.length-1] + 'x';
-  name = name.replace(/\.\./g,'.').replace(/__/g,'_');
-  const palette = ['#7c5cff','#2e9bff','#ff5fa2','#2ecc71','#e0a040','#ff6b3d','#c77dff','#00a8b0','#d98ca0','#6b6b7a','#4dd0a1','#e0457b'];
-  return { name, color: rand(palette), verified: chance(.04), initial: name[0].toUpperCase() };
+/* ---------- The crowd: persistent people, each with their own texting style ---------- */
+const FIRST = ['luna','mia','sofia','noah','leo','zayn','aya','nora','omar','lina','kai','eva','jade','ali','sara','mo','dani','tariq','yara','hana','liam','ella','ryan','nico','amira','jay','chloe','max','zoe','adam','maya','sam','lara','karim','nadia','sky','finn','ruby','hamza','alex','ivy','theo','dina','zara','ben','mina','rayan','lea','jon','sana'];
+const WORDS = ['vibes','xo','official','daily','here','real','world','plays','x','lol','fit','moon','sky','edits','gram','tv','s','04','07','99','2k','cc','mood','luv','era','archive','diary','clips','bby','ofc'];
+const PALETTE = ['#7c5cff','#2e9bff','#ff5fa2','#2ecc71','#e0a040','#ff6b3d','#c77dff','#00a8b0','#d98ca0','#6b6b7a','#4dd0a1','#e0457b'];
+const CROWD = [];
+function makeUser(taken) {
+  let name;
+  do {
+    const f = rand(FIRST), w = rand(WORDS), r = Math.random();
+    name = r < .25 ? f + '_' + w : r < .45 ? f + '.' + w : r < .65 ? f + Math.floor(Math.random() * 99) : r < .8 ? w + '.' + f : r < .9 ? f + f[f.length - 1] + 'x' : f + '_' + f[0] + Math.floor(Math.random() * 9);
+    name = name.replace(/\.\./g, '.').replace(/__/g, '_');
+  } while (taken.has(name));
+  taken.add(name);
+  return { name, color: rand(PALETTE), verified: chance(.03), initial: name[0].toUpperCase() };
 }
+function createCrowd() {
+  CROWD.length = 0; const taken = new Set();
+  for (let i = 0; i < 90; i++) {
+    CROWD.push({
+      u: makeUser(taken),
+      chat: 0.25 + Math.random() * 1.75,           // how chatty this person is
+      fan: chance(.12),                             // follows you, says fan things
+      seen: false, last: 0,
+      style: { lower: chance(.8), elong: chance(.45), typo: chance(.12), emoji: rand([0, 0, .2, .4, .7]), noApos: chance(.5) },
+    });
+  }
+}
+const EMOJIS = ['😭','😂','🔥','😍','🥹','💀','❤️','✨','🙌','🤍','😮'];
+function styled(text, p) {
+  const s = p.style; let t = text;
+  if (s.lower) t = t.toLowerCase();
+  if (s.noApos) t = t.replace(/'/g, '');
+  if (s.elong && chance(.5)) t = t.replace(/\b(hi|hey|omg|yes|no|please|pls|so|love|stop|ahh)\b/, m => m + m[m.length - 1].repeat(1 + Math.floor(Math.random() * 3)));
+  if (s.typo && chance(.5) && t.length > 7 && !t.includes('@')) { const i = 2 + Math.floor(Math.random() * (t.length - 4)); t = t.slice(0, i) + t.slice(i + 1); }
+  if (s.emoji && !/\p{Extended_Pictographic}/u.test(t) && chance(s.emoji)) t += ' ' + rand(EMOJIS);
+  return t;
+}
+const shuffle = a => a.slice().sort(() => Math.random() - .5);
 
-/* ---------- Realistic comments ---------- */
-const PLACES = [['Brazil','🇧🇷'],['Egypt','🇪🇬'],['the UK','🇬🇧'],['Morocco','🇲🇦'],['Turkey','🇹🇷'],['Mexico','🇲🇽'],['Germany','🇩🇪'],['Saudi','🇸🇦'],['France','🇫🇷'],['Canada','🇨🇦'],['India','🇮🇳'],['Spain','🇪🇸'],['Italy','🇮🇹'],['UAE','🇦🇪'],['Japan','🇯🇵']];
+/* ---------- What people actually type in a live chat ---------- */
+const PLACES = [['Brazil','🇧🇷'],['Egypt','🇪🇬'],['the UK','🇬🇧'],['Morocco','🇲🇦'],['Turkey','🇹🇷'],['Mexico','🇲🇽'],['Germany','🇩🇪'],['Saudi','🇸🇦'],['France','🇫🇷'],['Canada','🇨🇦'],['India','🇮🇳'],['Spain','🇪🇸'],['Italy','🇮🇹'],['UAE','🇦🇪'],['Japan','🇯🇵'],['Jordan','🇯🇴'],['Algeria','🇩🇿']];
+const hour = new Date().getHours();
+const T = {
+  early: n => ['hii','hey','hello','omg hi','first','is this live?','wait is this live rn','just got here','got a notification','u went live!!','hi everyone','hey whats going on','what are we doing today','what did i miss','hi '+n,'hey '+n,'hii '+n+'!','yooo','heyy', hour < 12 ? 'good morning ☀️' : hour >= 22 || hour < 4 ? 'cant sleep so im here' : 'hey hey'],
+  react: ['lmao','lol','omg','no way','wait what','haha','stoppp','im dead','fr','real','true','same','facts','mood','the way u said that 😭','ok thats actually funny','i cant 😭','nah thats crazy','honestly yes','i love this','this is so random lol','why is this so entertaining','im not even doing anything and im still watching','ok im staying','this live is underrated','how is this live so calm','wait this is good','lowkey obsessed','ok i see u','not me laughing alone rn','😂😂😂','😭😭','this is so real','ahhh'],
+  ask: n => ['what are we doing today','how long are u staying live?','can u say hi to me?','say my name pls','can u read my comment','can u do a shoutout?','how many ppl are here','whats the plan','where are u rn','can u hear us?','do u have anything planned later?','r u gonna post this','how was ur day','what did u eat today','what are u listening to','can u show the room','ur camera is so clear','the audio is so good','notice me '+n,'pls pin me 🥺','can u turn the camera a bit'],
+  comp: ['ur so funny','love ur energy','u seem so nice','honestly ur vibe is so good','ur smile 🥹','ur room looks nice','the lighting is so good','ur so underrated','ur such a good person fr','u look so happy today','ur voice is so calming','best live ive seen today','u deserve more followers'],
+  life: ['im supposed to be sleeping lol','i have school tmrw but im staying','taking a break from studying for this','my mom keeps asking why im laughing','been here for 20 mins already','came for 5 mins and its been an hour','watching from my bed rn','procrastinating w this live','at work and watching this in secret','eating dinner and watching u','this is better than tv ngl','my friend sent me this live','my phone is at 3% but im staying'],
+  fan: ['been waiting for u to go live!!','you never go live omg','this made my day','followed!!','just followed u','came from ur last post','been following since day 1','finally!!','my fav person on here','ur the only reason i opened insta','i set a notification for ur lives'],
+  emoji: ['❤️','🔥','😍','👏','😂','💯','🙌','🥹','🤍','✨'],
+  place: () => { const [p, f] = rand(PLACES); return rand([`hi from ${p} ${f}`,`${p} here ${f}`,`anyone from ${p}? ${f}`,`watching from ${p} ${f}`,`${f}${f}${f}`]); },
+  afterGift: ['omg!!','W gifter','so deserved','wooow','they love u 🥹','yesss','😍😍','the gifts!!','ok whoever sent that thank u lol'],
+};
+function topicLines(t) {
+  const g = [`${t} 😍`,`love the ${t} content`,`more ${t} pls`,`${t} live is my fav`,`ok the ${t} is so good`,`how did u get into ${t}?`,`im obsessed with ${t} lately`];
+  const L = t.toLowerCase();
+  if (/cook|food|eat|recipe|bak|kitchen/.test(L)) return g.concat(['that looks so good','im hungry now 😭','recipe pls','what are u making','can u show it closer','save me a plate']);
+  if (/gam|play|rank|fps|valorant|fortnite|minecraft|fifa|stream/.test(L)) return g.concat(['lets goo','clutch','what rank are u','gg','run it back','ok thats actually insane','how are u so good at this']);
+  if (/music|sing|song|guitar|piano|beat/.test(L)) return g.concat(['ur voice 😍','sing more','song name?','play the whole thing pls','this is so good','what song is this']);
+  if (/gym|workout|fit|train|run/.test(L)) return g.concat(['beast mode','form check lol','what split are u on','im skipping leg day bc of u','how many reps']);
+  if (/make ?up|hair|outfit|fashion|style|nails/.test(L)) return g.concat(['that color is perfect','where is that from','outfit check 😍','tutorial pls','what shade is that']);
+  if (/chill|talk|chat|q&?a|hang|nothing|vibe/.test(L)) return g.concat(['tell us a story','ask us stuff','do a q&a','just vibing with u','this is so cozy']);
+  return g;
+}
 const C = {
-  greet: n => [`hiii ${n}`,`hi ${n}!!`,`hey ${n} 👋`,`${n} heyyy`,`hello hello`,`hii`,`heyyy`,`hi!!`,`first 😭`,`omg hi`,`helloo from the other side`,`wassup ${n}`],
-  place: () => { const [p,f] = rand(PLACES); return rand([`hi from ${p} ${f}`,`${p} here ${f}`,`anyone from ${p}? ${f}`,`watching from ${p} ${f}`,`${f}${f}${f}`]); },
-  react: () => ['😍😍😍','🔥🔥🔥','😂😂😂','❤️❤️❤️','omg','lmaooo','😭😭😭','yesss','slayyy','periodt','no way','wait what','dead 💀','im screaming','this is so good','ur so real for this','ahhh 😍','the vibes tho','okay i see u','😮😮','👏👏👏','love this','yooo','this is crazy','iconic','stop 😂','fr fr','not me crying rn','obsessed','mood'],
-  spam: () => ['❤️','🔥','😍','👏','😂','💯','🙌','🥹','🤍','✨'],
-  ask: n => [`where are u from?`,`how old are u?`,`what are u doing?`,`can u say hi to me?`,`say my name pls 🥺`,`${n} notice me`,`can u follow me back?`,`what song is this?`,`whats ur next video`,`how long u been live?`,`did i miss anything?`,`is this live rn?`,`what time is it there?`,`where did u get that`,`can u pls reply`,`pls pin me 🥺`],
-  fan: () => ['been waiting for u to go live!!','you never go live omg','this made my day','i love ur content so much','followed!!','just followed u','ur the reason i got insta','i came from your last post','you deserve more followers fr','been following since day 1','finally!!','my fav person on here'],
-  compliment: () => ['ur so pretty','looking good','that look 😍','handsome','queen 👑','king 👑','the glow up','ur eyes tho','love the lighting','ur voice is so nice','so real','ok but ur actually so funny','best live ever','wow'],
-  topic: t => [`${t} 😍`,`omg ${t}!!`,`more ${t} pls`,`${t} again?? love it`,`can u show more ${t}`,`ok the ${t} content is elite`,`${t} stream hits different`,`i love ${t} so much`],
-  quiet: () => ['hello??','u there?','can u talk','sound not working for me?','say something 😭','we cant hear u','talk to us pls'],
+  quiet: () => ['hello??','u there?','can u talk','is the sound working?','say something 😭','we cant hear u','talk to us pls'],
   loud: () => ['😭 my ears','LOUD 😂','omg volume','calm down 😂','yooo 🔥'],
   motion: () => ['the energy!!','wait what was that','dont drop it lol','hahaha 😂','woah','camera moving 😭','omg 😂'],
   still: () => ['u frozen?','hello?? 👀','lag?','is it just me or is it frozen','did it freeze'],
-  bye: () => ['noooo dont go','already??','bye!! 🥺','come back soon','that was fun','byeee 💕'],
-  love: () => ['ily too','omg 🥹','aww ❤️','we love you','stop ur gonna make me cry','❤️❤️❤️','ily!!'],
-  answerYes: () => ['yes!','yesss','yeah','100%','fr','of course'],
-  answerNo: () => ['no lol','not really','nah 😂','idk tbh','hmm no','maybe?'],
 };
 
 /* ---------- Gifts ---------- */
@@ -271,6 +309,7 @@ function sendGift(u) {
     S.target += SIZES[S.size].spike * 0.15 * (g.coins / 100 + .5); // big gifts pull in viewers
     heartBurst(8);
   } else heartBurst(3);
+  if (chance(.5)) setTimeout(() => { if (!S.running) return; const p = pickPerson(); post(p, styled(rand(T.afterGift), p)); }, 1800 + Math.random() * 1500);
 }
 
 /* ---------- Audience size (fluctuates like the real thing) ---------- */
@@ -291,55 +330,124 @@ function viewerTick() {
   S.peak = Math.max(S.peak, S.count);
   $('viewers').textContent = fmt(S.count);
   // joins appear in chat proportional to growth (only a sample, like real lives)
-  const joined = Math.max(0, S.count - prev);
-  if (joined > 0 && chance(clamp(joined / 8, .15, .9))) addJoin(makeUser());
 }
 
-function commentDelay() { return clamp(5200 / (1 + Math.log10(S.count + 1) * 1.6), 450, 4500) * (.5 + Math.random()); }
+/* ---------- Posting comments (never faster than a real chat could scroll) ---------- */
+let nextFree = 0, lastJoin = 0;
+function post(p, text, kind) {
+  const now = Date.now(), at = Math.max(now, nextFree);
+  nextFree = at + 900 + Math.random() * 700;
+  setTimeout(() => {
+    if (!S.running) return;
+    addComment(p.u, text, kind || '');
+    S.recent.push(text); if (S.recent.length > 30) S.recent.shift();
+    p.last = Date.now();
+    if (chance(.3)) { S.likes++; floatHeart(); }
+  }, at - now);
+}
+function commentFrom(p, text) { post(p, styled(text, p)); }
+function maybeJoin(p) { const now = Date.now(); if (now - lastJoin > 5000 && chance(.6)) { lastJoin = now; addJoin(p.u); } }
 
-/* ---------- Generating a comment ---------- */
-function pickComment() {
-  const n = S.name, r = Math.random();
-  if (r < .17) return rand(C.greet(n));
-  if (r < .25) return C.place();
-  if (r < .45) return rand(C.react());
-  if (r < .56) return rand(C.spam()).repeat(1 + Math.floor(Math.random() * 3));
-  if (r < .68) return rand(C.ask(n));
-  if (r < .76) return rand(C.compliment());
-  if (r < .82) return rand(C.fan());
-  if (r < .90 && S.topic) return rand(C.topic(S.topic));
-  return rand(C.react());
+/* Pick someone to talk: more people are active as the audience grows; recent talkers go quiet for a bit */
+function pickPerson(exclude) {
+  const now = Date.now(), n = clamp(6 + Math.floor(S.count * .6), 6, CROWD.length);
+  const ws = []; let total = 0;
+  for (let i = 0; i < n; i++) { const c = CROWD[i]; const w = c === exclude ? 0 : c.chat * (now - c.last < 14000 ? .12 : 1); ws.push(w); total += w; }
+  let r = Math.random() * total;
+  for (let i = 0; i < n; i++) { r -= ws[i]; if (r <= 0) return CROWD[i]; }
+  return CROWD[0];
 }
-function commentFrom(u, text) {
-  if (!S.running) return;
-  addComment(u, text);
-  S.recent.push(text); if (S.recent.length > 20) S.recent.shift();
-  if (chance(.4)) { S.likes++; floatHeart(); }
+function randomUser() { return pickPerson(); }
+
+function pickText(p) {
+  const t = (Date.now() - S.started) / 1000, n = S.name, r = Math.random();
+  if (!p.seen) { p.seen = true; if (r < .7) return rand(T.early(n)); }
+  if (t < 40 && r < .5) return rand(T.early(n));
+  if (p.fan && r < .3) return rand(T.fan);
+  if (S.topic && r < .14) return rand(topicLines(S.topic));
+  const k = Math.random();
+  if (k < .30) return rand(T.react);
+  if (k < .48) return rand(T.ask(n));
+  if (k < .60) return rand(T.comp);
+  if (k < .70) return rand(T.life);
+  if (k < .78) return T.place();
+  if (k < .84) return rand(T.fan);
+  if (k < .88) return rand(T.emoji).repeat(1 + Math.floor(Math.random() * 2));
+  return rand(T.react);
 }
-function randomUser() {
-  // repeat commenters appear: reuse a known user sometimes
-  return makeUser();
+
+/* Viewers answer / reply to each other, like real chats */
+function maybeReply(p, text) {
+  const isQ = text.includes('?');
+  if (!chance(isQ ? .32 : .14)) return;
+  const q = pickPerson(p), handle = '@' + p.u.name + ' ';
+  const pool = isQ ? ['idk lol','not sure','i was wondering too','i think they just started','same question','probably later','no clue','yes i think so']
+                   : ['lol same','fr','😂😂','true','facts','omg yes','same here','literally','me too','stoppp','haha yes','agreed','wait really?','i was thinking the same thing','lmaoo'];
+  setTimeout(() => { if (S.running) post(q, styled(handle + rand(pool), q)); }, 1800 + Math.random() * 3000);
+}
+
+function chatTick() {
+  const p = pickPerson();
+  if (!p.seen) maybeJoin(p);
+  let text, tries = 0;
+  do { text = styled(pickText(p), p); } while (S.recent.includes(text) && ++tries < 6);
+  post(p, text);
+  maybeReply(p, text);
+  if (chance(.14)) setTimeout(() => { if (!S.running) return; const q = pickPerson(p); post(q, styled(rand(T.react), q)); }, 1300 + Math.random() * 1500); // pile-on
+}
+// uneven rhythm: bursts, normal flow, and the odd quiet lull. Faster as the audience grows, but never crazy.
+function chatGap() {
+  const mean = clamp(8500 - Math.log10(S.count + 1) * 1500, 3200, 8500);
+  let g = mean * .4 - Math.log(1 - Math.random()) * mean * .6;
+  if (chance(.08)) g += 4000 + Math.random() * 5000;
+  return clamp(g, 900, 15000);
 }
 
 /* ---------- Reacting to what the streamer says/types ---------- */
+const STOP = new Set(['about','there','their','would','could','think','really','going','where','which','these','those','right','thing','people']);
+const INTENTS = [
+  { re: /\b(hi|hello|hey+|welcome|good (morning|evening|night|afternoon)|what'?s up|sup)\b/, pool: ['hii!!','heyy','hi hi','hello!!','hiii','omg hi','hi!! 👋','welcome back lol','hey hey','hiii how are u'], gift: .12, k: 3 },
+  { re: /\b(love (you|u|y'?all)|ily|thank(s| you)|appreciate)/, pool: ['ily too','aww','we love u','stoppp 🥹','omg ❤️','❤️❤️','no thank YOU','ur welcome!!','ur the best','this is so wholesome'], gift: .45, hearts: 6, k: 3 },
+  { re: /\b(bye|goodbye|gotta go|going to end|ending (the|this) live|see (you|u))\b/, pool: ['noo','already??','byeee','bye!! thanks for the live','come back soon','wait dont go','see u next time','that was fun','nooo 10 more mins pls'], gift: .2, k: 3 },
+  { re: /\b(how are (you|u|y'?all)|how'?s everyone|how is everyone)\b/, pool: ['good!! u?','im good how about u','tired lol','doing great ty','pretty good','im ok hbu','great now that ur live','sleepy but good','amazing'], k: 3 },
+  { re: /\b(ha(ha)+|lol|lmao|funny|joke)\b/, pool: ['😂😂','lmaooo','i cant','im dead','ur laugh 😭','haha','that was so funny','stop 😭','i laughed so hard'], k: 2 },
+  { re: /\b(tired|sleepy|sad|bored|exhausted|stressed|rough day)\b/, pool: ['aww hope ur ok','get some rest','same tbh','ur not alone','take care of urself','its ok u got this','sending hugs','nap time lol'], k: 2 },
+  { re: /\b(food|eat|eating|hungry|pizza|cook|cooking|dinner|lunch|breakfast|coffee|tea)\b/, pool: ['im hungry now','what are u eating','recipe pls','omg that sounds good','save some for me','now i want that','yum','what kind?','i need that rn'], k: 2 },
+  { re: /\b(song|music|sing|singing|playlist)\b/, pool: ['turn it up','this song 😍','what song is it','vibes','add it to the playlist','omg i love this one','sing for us','play it again pls'], k: 2 },
+  { re: /\b(game|gaming|match|rank|win|won)\b/, pool: ['lets goo','gg','ez','clutch','what rank r u','nice one','so close','run it back'], k: 2 },
+  { re: /\b(follow|share|invite|tell your friends)\b/, pool: ['just followed!!','shared it to my story','sending this to my friends rn','done ✅','followed 🫡'], gift: .3, boost: 1.12, k: 3 },
+  { re: /\?|\b(do you|did you|have you|should i|what do you think|who here)\b/, pool: ['yes!!','yes','nah','no lol','definitely','idk tbh','hmm maybe','100%','not really','depends','i think so','yeah for sure','no way','omg yes'], k: 3 },
+  { re: /\b(today|tonight|going to|gonna|im going|we are going|later)\b/, pool: ['ooh','cant wait','what time?','tell us more','lets gooo','sounds fun','ok im listening','sounds good'], k: 2 },
+];
+let lastReact = 0;
 function reactToText(text) {
-  const low = text.toLowerCase();
-  const n = S.name;
-  let burst = [], giftChance = 0;
-  if (/\b(love|ily|thank you all|thanks guys)\b/.test(low)) { burst = C.love(); giftChance = .5; heartBurst(6); }
-  else if (/\b(bye|goodbye|gotta go|ending|end the live)\b/.test(low)) { burst = C.bye(); giftChance = .2; }
-  else if (/\b(hi|hello|hey|welcome|whats up|what's up)\b/.test(low)) { burst = C.greet(n); giftChance = .15; }
-  else if (/\?/.test(low)) { burst = chance(.5) ? C.answerYes() : C.answerNo(); }
-  else if (/\b(song|music|play)\b/.test(low)) { burst = ['turn it up!!','this song 😍','what song is this??','vibes','play it again pls','🔥🔥🔥']; }
-  else if (/\b(follow|share|invite)\b/.test(low)) { burst = ['just followed!!','shared it to my story','sending this to my friends rn','done ✅','followed 🫡']; giftChance = .3; S.target *= 1.12; }
-  else {
-    const words = text.split(/\s+/).filter(w => w.length > 4);
-    burst = chance(.5) && words.length ? [`omg ${rand(words)} 😭`, `wait ${rand(words)}??`, `${rand(words)} 😍`] : C.react();
+  const low = text.toLowerCase(), now = Date.now();
+  S.lastSpoke = now;
+  // someone's name said out loud -> that person freaks out
+  let named = 0;
+  for (const c of CROWD) {
+    if (named >= 2) break;
+    const tok = c.u.name.split(/[._\d]+/)[0];
+    if (tok.length >= 3 && new RegExp('\\b' + tok + '\\b').test(low)) {
+      named++;
+      setTimeout(() => { if (!S.running) return; if (!c.seen) { c.seen = true; maybeJoin(c); } post(c, styled(rand(['omg u said my name 😭😭','AHHH hi 🥹','im crying 😭','hiii!! ily','OMG HI','ahhh hi 🥹','wait that was me!!']), c)); heartBurst(4); }, 1500 + Math.random() * 1500);
+    }
   }
-  const k = 2 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < k; i++) setTimeout(() => commentFrom(randomUser(), rand(burst)), 400 + i * (500 + Math.random() * 700));
-  if (chance(giftChance)) setTimeout(() => sendGift(randomUser()), 1800);
-  S.lastSpoke = Date.now();
+  if (now - lastReact < 3000 && chance(.6)) return;   // don't over-react to rapid speech
+  lastReact = now;
+  const it = INTENTS.find(i => i.re.test(low));
+  let pool, k = 1 + Math.floor(Math.random() * 2), gift = 0;
+  if (it) { pool = it.pool; k = it.k || k; gift = it.gift || 0; if (it.hearts) heartBurst(it.hearts); if (it.boost) S.target *= it.boost; }
+  else {
+    const words = low.split(/[^a-z']+/).filter(w => w.length > 4 && !STOP.has(w));
+    pool = words.length && chance(.55) ? [`wait ${rand(words)}?`, `${rand(words)} 😭`, `omg ${rand(words)}`, `ok but ${rand(words)} tho`].concat(T.react.slice(0, 6)) : T.react;
+  }
+  shuffle(pool).slice(0, k).forEach((txt, i) => setTimeout(() => {
+    if (!S.running) return;
+    const p = pickPerson(); if (!p.seen) { p.seen = true; maybeJoin(p); }
+    post(p, styled(txt, p));
+  }, 1300 + i * (900 + Math.random() * 1400) + Math.random() * 700));
+  if (chance(gift)) setTimeout(() => sendGift(pickPerson().u), 2800);
 }
 
 /* ---------- Sensors: mic + motion ---------- */
@@ -393,9 +501,9 @@ function loop(fn, nextDelay) {
 }
 function startTimers() {
   loop(viewerTick, () => 900 + Math.random() * 700);
-  loop(() => commentFrom(randomUser(), pickComment()), commentDelay);
-  loop(() => { S.likes += 1 + Math.floor(S.count / 40 * Math.random()); heartBurst(1 + Math.floor(Math.random() * 3)); }, () => 900 + Math.random() * 1800);
-  loop(() => sendGift(randomUser()), () => 11000 + Math.random() * 20000);
+  loop(chatTick, chatGap);
+  loop(() => { S.likes += 1 + Math.floor(S.count / 60 * Math.random()); heartBurst(1 + (S.count > 300 ? 1 : 0)); }, () => 1400 + Math.random() * 2400);
+  loop(() => sendGift(pickPerson().u), () => 25000 + Math.random() * 35000);
   loop(sensorTick, () => 1200 + Math.random() * 600);
 }
 
@@ -426,8 +534,9 @@ async function goLive() {
   $('meName').textContent = S.name; $('meAv').textContent = S.name[0].toUpperCase();
   $('meV').style.display = S.verified ? '' : 'none';
   $('feed').innerHTML = ''; $('viewers').textContent = fmt(S.count); $('micStatus').textContent = '';
+  createCrowd(); nextFree = 0; lastJoin = 0; lastReact = 0;
   show('live');
-  setTimeout(() => addComment(makeUser(), rand(C.greet(S.name))), 1200);
+  setTimeout(() => { const p = pickPerson(); maybeJoin(p); post(p, styled(rand(T.early(S.name)), p)); p.seen = true; }, 2200);
   startTimers(); sense(); startSpeech();
 }
 function endLive() {
@@ -449,7 +558,7 @@ function sendChat() {
 $('goBtn').onclick = goLive; $('endBtn').onclick = endLive; $('againBtn').onclick = () => show('start');
 $('chatIn').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
 $('heartBtn').onclick = () => { S.likes++; heartBurst(5); };
-$('shareBtn').onclick = () => { S.target *= 1.2; commentFrom(makeUser(), rand(['shared this live!','sending this to my friends','omg sharing rn'])); };
+$('shareBtn').onclick = () => { S.target *= 1.2; commentFrom(pickPerson(), rand(['shared this live!','sending this to my friends','omg sharing rn'])); };
 </script>
 </body>
 </html>
