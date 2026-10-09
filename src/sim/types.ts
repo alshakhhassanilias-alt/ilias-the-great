@@ -202,6 +202,8 @@ export interface GameState {
   offers: Offer[];
   nextOfferId: number;
   logSeq: number;
+  /** last tick each AI proposal was sent to the player (prevents nagging) */
+  offerLog: Record<string, number>;
 }
 
 export const START_YEAR = 2024;

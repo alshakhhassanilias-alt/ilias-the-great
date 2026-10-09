@@ -228,12 +228,10 @@ Yemen|YEM|34|20|3|40|A|ME|15.4,44.2|
 Zambia|ZMB|20.5|27|1|16|F|AF|-15.4,28.3|
 Zimbabwe|ZWE|16.3|35|2|40|A|AF|-17.8,31.05|
 N. Cyprus|XNC|0.38|4|2|4|F|EU|35.2,33.4|E
-Eswatini_placeholder|XXX|0|0|0|0|F|AF|0,0|E
 `;
 
 export const COUNTRY_BASE: CountryBase[] = RAW.trim()
   .split('\n')
-  .filter((l) => !l.startsWith('Eswatini_placeholder'))
   .map((line) => {
     const f = line.split('|');
     const [lat, lon] = (f[8] || '0,0').split(',').map(Number);

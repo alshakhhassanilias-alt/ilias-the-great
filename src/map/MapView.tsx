@@ -82,7 +82,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       return getGeom().pick(wx, wy, 7 / rr.view.k);
     };
     const down = (e: PointerEvent) => {
-      canvas.setPointerCapture(e.pointerId);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
       const p = rel(e);
       pts.set(e.pointerId, p);
       if (pts.size === 1) { start = { ...p, t: performance.now() }; moved = 0; }

@@ -15,10 +15,16 @@ export function SidePanel() {
   const s = store.state!;
   const id = store.selected;
   const c = id !== null ? s.countries[id] : null;
-  const toggle = () => store.setSheet(store.sheet === 'full' ? 'half' : store.sheet === 'half' ? 'peek' : 'half');
+  const order = ['peek', 'half', 'full'] as const;
+  const step = (dir: 1 | -1) => store.setSheet(order[Math.max(0, Math.min(2, order.indexOf(store.sheet) + dir))]);
+  const cycle = () => store.setSheet(store.sheet === 'half' ? 'full' : store.sheet === 'full' ? 'peek' : 'half');
+  let y0 = 0;
   return (
     <aside className={`side ${store.sheet}`} aria-label="Country information">
-      <button className="sheet-handle" aria-label="Expand or collapse panel" onClick={toggle}><i /></button>
+      <button className="sheet-handle" aria-label="Expand or collapse panel"
+        onPointerDown={(e) => { y0 = e.clientY; }}
+        onPointerUp={(e) => { const dy = e.clientY - y0; if (Math.abs(dy) > 36) step(dy < 0 ? 1 : -1); else cycle(); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycle(); } }}><i /></button>
       {c ? (
         <>
           <div className="side-head">

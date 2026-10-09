@@ -95,7 +95,12 @@ export function applyTreaty(s: GameState, a: CountryId, b: CountryId, kind: Prop
 export function propose(s: GameState, geo: Geo, from: CountryId, to: CountryId, kind: Proposal): Response {
   if (to === s.player) {
     // delivered as an offer to the player (AI → player)
-    if (!s.offers.some((o) => o.from === from && o.kind === kind)) s.offers.push({ id: s.nextOfferId++, from, kind: kind as OfferKind, tick: s.tick });
+    const key = `${from}:${kind}`;
+    const last = s.offerLog[key];
+    if (!s.offers.some((o) => o.from === from && o.kind === kind) && (last === undefined || s.tick - last > 104)) {
+      s.offers.push({ id: s.nextOfferId++, from, kind: kind as OfferKind, tick: s.tick });
+      s.offerLog[key] = s.tick;
+    }
     return { accept: false, score: 0, needed: 0, reasons: ['Offer sent'] };
   }
   const r = evaluateProposal(s, geo, from, to, kind);

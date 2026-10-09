@@ -204,7 +204,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     version: 1, tick: 0, rng: settings.seed >>> 0, settings, player, countries,
     owner: geo.provinces.map((p) => p.country0), core: geo.provinces.map((p) => p.country0), integ: geo.provinces.map(() => 1),
     treaties: {}, relDelta: {}, wars: [], nextWarId: 1,
-    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0,
+    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {},
   };
 
   // normalise energy & food so the world market is balanced at the start (supply 3% above demand)
@@ -249,6 +249,8 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     const f = factors(c, 1);
     e.prev.F0 = demandSide(f);
     e.tfp = e.realGdp / potentialOutput(c, 1, 1);
+    e.prev.tfp0 = e.tfp;
+    e.prev.K0 = e.capital;
     e.potential = e.realGdp;
     e.explain = {};
     e.prev.milBase = equipTotal(c.mil);

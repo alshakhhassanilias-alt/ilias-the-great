@@ -132,7 +132,7 @@ class Store {
       this.processLog();
       if (respectPause && this.speed === 0) break; // an event (e.g. war against us) paused the clock
     }
-    if (s.tick % 26 === 0) this.autosave();
+    if (s.tick % 52 === 0) this.autosave();
   }
   private processLog() {
     const s = this.state!;

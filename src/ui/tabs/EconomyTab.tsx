@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { store } from '../../state/store';
 import { Note, Section, Segmented, Slider, Stat, MeterRow } from '../widgets';
-import { fmtMoney, pct, signed, signedPct } from '../format';
+import { fmtMoney, fmtNum, pct, signed, signedPct } from '../format';
 import { LineChart } from '../LineChart';
 import { drags, drivers, growthNarrative } from '../explain';
 import { BUDGET_LIMITS, borrow, buildProject, printMoney, repayDebt, setBudget, type Project } from '../../sim/actions';
@@ -65,6 +65,17 @@ export function EconomyTab({ id }: { id: number }) {
             ))}
           </div>
         )}
+      </Section>
+
+      <Section title="Productive capacity" hint="the real economy">
+        <div className="grid3">
+          <Stat label="Workforce" value={fmtNum(e.laborForce)} sub={`${fmtNum(Math.max(0, e.laborForce * (1 - e.unemployment) - c.mil.troops * 0.9))} employed`} />
+          <Stat label="Industry" value={fmtMoney(e.capital)} sub={`capital stock · ${(e.capital / e.realGdp).toFixed(1)}× GDP`} />
+          <Stat label="Productivity" value={`${((e.tfp / (e.prev.tfp0 ?? e.tfp)) * 100).toFixed(0)}`} sub="index (start = 100)" />
+          <Stat label="Infrastructure" value={`${e.infra.toFixed(0)}/100`} sub={e.infra < 40 ? 'holding you back' : e.infra > 65 ? 'a strength' : 'adequate'} />
+          <Stat label="Technology" value={`${e.tech.toFixed(0)}/100`} sub={`military tech ${c.mil.milTech.toFixed(0)}`} />
+          <Stat label="Unemployment" value={pct(e.unemployment)} sub={`normal ${pct(e.uNat)}`} tone={e.unemployment > e.uNat + 0.03 ? 'bad' : undefined} />
+        </div>
       </Section>
 
       <Section title="Government finances" hint="per year">

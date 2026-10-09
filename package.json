@@ -9,7 +9,9 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "build:map": "tsx scripts/build-map.ts",
-    "simulate": "tsx scripts/headless-sim.ts"
+    "simulate": "tsx scripts/headless-sim.ts",
+    "e2e": "node scripts/e2e-smoke.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "d3-delaunay": "^6.0.4",
