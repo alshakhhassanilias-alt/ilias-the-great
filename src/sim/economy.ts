@@ -12,6 +12,7 @@ import { DT } from './types';
 import type { Budget, Country, GameState } from './types';
 import type { Geo } from './geo';
 import { clamp } from './util';
+import { logEvent } from './log';
 import { stepMilitary } from './military';
 import { getRelation, warsOf } from './relations';
 import { HIST_EVERY, HIST_MAX } from './types';
@@ -23,11 +24,12 @@ export const taxBurden = (b: Pick<Budget, 'taxIncome' | 'taxCorporate' | 'taxVat
   0.5 * b.taxIncome + 0.2 * b.taxCorporate + 0.55 * b.taxVat;
 
 /** Output multiplier from distortionary taxation (only rates above "efficient" levels hurt). */
-export function taxFactor(b: Budget): number {
+export function taxFactor(b: Budget, collection = 1): number {
+  // distortion depends on the *effective* rate actually collected, not the statutory headline rate
   const d =
-    1.6 * Math.pow(Math.max(0, b.taxIncome - 0.3), 1.5) +
-    1.4 * Math.pow(Math.max(0, b.taxCorporate - 0.25), 1.5) +
-    1.2 * Math.pow(Math.max(0, b.taxVat - 0.18), 1.5);
+    1.6 * Math.pow(Math.max(0, b.taxIncome * collection - 0.3), 1.5) +
+    1.4 * Math.pow(Math.max(0, b.taxCorporate * collection - 0.25), 1.5) +
+    1.2 * Math.pow(Math.max(0, b.taxVat * collection - 0.18), 1.5);
   return clamp(1 - d, 0.3, 1);
 }
 export const stabilityFactor = (s: number) => (s >= 60 ? 1 : 1 - 0.5 * Math.pow((60 - s) / 60, 1.5));
@@ -52,7 +54,7 @@ export function factors(c: Country, priceE: number): Factors {
     energy: energyFactor(e, priceE),
     trade: 1 + 0.15 * (e.tradeIndex - 1),
     stab: stabilityFactor(e.stability),
-    tax: taxFactor(c.budget),
+    tax: taxFactor(c.budget, e.collection),
     war: 1 - 0.5 * e.damage,
   };
 }
@@ -64,19 +66,22 @@ export function potentialOutput(c: Country, priceE: number, tfp = c.eco.tfp): nu
   return tfp * Math.pow(e.capital, ALPHA) * Math.pow(laborUsed(c), 1 - ALPHA) * prodFactors(factors(c, priceE));
 }
 
+/** Raw risk-sensitive component of the borrowing cost (changes in debt, inflation and stability move it). */
+const rateRaw = (e: Country['eco']) =>
+  0.8 * Math.max(0, e.inflation - 0.02) + 0.04 * Math.max(0, e.debt / Math.max(e.gdp, 1) - 0.6) + 0.1 * Math.max(0, 0.7 - e.stability / 100);
+/** Market interest rate: the country's calibrated starting rate plus how much its fundamentals have changed since. */
 export function marketRate(e: Country['eco']): number {
-  const debtRatio = e.debt / Math.max(e.gdp, 1);
-  return clamp(
-    0.02 + 0.8 * Math.max(0, e.inflation - 0.02) + 0.04 * Math.max(0, debtRatio - 0.6) + 0.1 * Math.max(0, 0.7 - e.stability / 100),
-    0.01, 0.4,
-  );
+  return clamp((e.prev.rate0 ?? 0.03) + rateRaw(e) - (e.prev.raw0 ?? 0), 0.005, 0.4);
 }
 
+const REGIONAL_POP: Record<string, number> = { EU: -0.003, EA: -0.0035, RU: -0.0025, AF: 0.004, ME: 0.003, SA: 0.001, NA: 0.001 };
+/** Demographic trend as a function of income and region (births fall as countries get richer). */
+export function popTrend(gdppc: number, region: string): number {
+  return clamp(0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000) + (REGIONAL_POP[region] ?? 0), -0.01, 0.035);
+}
 export function popGrowthRate(c: Country): number {
   const gdppc = c.eco.gdp / Math.max(c.eco.pop, 1);
-  const regional: Record<string, number> = { EU: -0.003, EA: -0.0035, RU: -0.0025, AF: 0.004, ME: 0.003, SA: 0.001, NA: 0.001 };
-  let g = 0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000) + (regional[c.region] ?? 0);
-  g = clamp(g, -0.01, 0.035);
+  let g = popTrend(gdppc, c.region);
   g += clamp((c.budget.social / Math.max(c.eco.baseSocial, 0.01) - 1) * 0.004, -0.004, 0.004);
   g -= 0.05 * c.eco.foodUnmet;
   g -= 0.002 * Math.max(0, 50 - c.eco.stability) / 50;
@@ -85,6 +90,13 @@ export function popGrowthRate(c: Country): number {
 
 export function revenueAnnual(c: Country): number {
   return c.eco.gdp * c.eco.collection * taxBurden(c.budget);
+}
+export const diffTaxMult = (s: GameState, c: Country) => (c.isPlayer ? (s.settings.difficulty === 'hard' ? 0.95 : s.settings.difficulty === 'easy' ? 1.05 : 1) : 1);
+/** Fiscal position implied by the *current* policy settings (updates the instant a lever moves). */
+export function fiscalNow(c: Country, s: GameState) {
+  const revenue = revenueAnnual(c) * diffTaxMult(s, c);
+  const spending = plannedSpendingAnnual(c);
+  return { revenue, spending, balance: revenue - spending };
 }
 export function plannedSpendingAnnual(c: Country): number {
   const b = c.budget;
@@ -107,17 +119,19 @@ function pushHist(arr: number[], v: number) {
   if (arr.length > HIST_MAX) arr.shift();
 }
 
+const r5 = (v: number) => Number(v.toPrecision(5));
 export function recordHistory(c: Country) {
   const e = c.eco, h = c.hist;
-  pushHist(h.gdp, e.gdp);
-  pushHist(h.gdppc, e.gdp / Math.max(e.pop, 1));
-  pushHist(h.debt, e.debt / Math.max(e.gdp, 1));
-  pushHist(h.mil, c.budget.military * e.gdp);
-  pushHist(h.stab, e.stability);
-  pushHist(h.infl, e.inflation);
-  pushHist(h.unemp, e.unemployment);
-  pushHist(h.pop, e.pop);
-  pushHist(h.trade, e.exports - e.imports);
+  pushHist(h.gdp, r5(e.gdp));
+  pushHist(h.mil, r5(c.budget.military * e.gdp));
+  pushHist(h.stab, r5(e.stability));
+  if (!c.isPlayer) return; // full set of series is only kept for the player (keeps saves small)
+  pushHist(h.gdppc, r5(e.gdp / Math.max(e.pop, 1)));
+  pushHist(h.debt, r5(e.debt / Math.max(e.gdp, 1)));
+  pushHist(h.infl, r5(e.inflation));
+  pushHist(h.unemp, r5(e.unemployment));
+  pushHist(h.pop, r5(e.pop));
+  pushHist(h.trade, r5(e.exports - e.imports));
 }
 
 /** World-level aggregation used by trade, market and sanctions. */
@@ -192,7 +206,7 @@ export function tradeFlows(c: Country, s: GameState) {
 export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldAgg) {
   const e = c.eco, b = c.budget;
   const priceE = s.market.priceE;
-  const diffTax = c.isPlayer ? (s.settings.difficulty === 'hard' ? 0.95 : s.settings.difficulty === 'easy' ? 1.05 : 1) : 1;
+  const diffTax = diffTaxMult(s, c);
 
   updateTradeAndResources(c, s, w);
   e.occupation = occupationOf(c, s, geo);
@@ -269,7 +283,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     e.stability = Math.max(0, e.stability - 25);
     e.monetary += 0.05;
     e.lastDefault = s.tick;
-    s.log.push({ tick: s.tick, text: `${c.name} defaulted on its sovereign debt (${(debtRatio * 100).toFixed(0)}% of GDP); creditors accepted a 50% haircut.`, kind: 'econ', countries: [c.id], important: true });
+    logEvent(s, `${c.name} defaulted on its sovereign debt (${(debtRatio * 100).toFixed(0)}% of GDP); creditors accepted a 50% haircut.`, 'econ', [c.id], true);
   }
 
   // ---- stability ----

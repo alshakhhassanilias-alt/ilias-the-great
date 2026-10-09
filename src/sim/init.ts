@@ -11,8 +11,9 @@ import {
 } from '../data/countryData';
 import type { Geo } from './geo';
 import { hash01 } from './rng';
+import { logEvent } from './log';
 import { clamp } from './util';
-import { ALPHA, DELTA, aggregateWorld, demandSide, factors, tradeFlows, marketRate, needInfra, potentialOutput, taxBurden } from './economy';
+import { ALPHA, DELTA, popTrend, aggregateWorld, demandSide, factors, tradeFlows, marketRate, needInfra, potentialOutput, taxBurden } from './economy';
 import { ensureTreaty, NAME_TO_ID } from './relations';
 import { equipTotal } from './military';
 import {
@@ -54,7 +55,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
   const lfShare = clamp(0.36 + 0.05 * Math.log10(Math.max(gdppc, 300) / 300), 0.34, 0.5);
   const kOverY = clamp(2.2 + 0.4 * (lg + 0.5), 2.2, 3.6);
   const g0 = clamp((GROWTH[B.name] ?? (1.2 + 4.5 * Math.exp(-gdppc / 12000))) / 100, -0.02, 0.09);
-  const popG = clamp(0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000), -0.01, 0.035);
+  const popG = popTrend(gdppc, B.region);
   const tfpTrend = (1 - ALPHA) * (g0 - popG);
 
   // ---- fiscal baseline ----
@@ -97,6 +98,10 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
     tradeBase: 1, prev: {}, occupation: 0,
   };
   e.unemployment = e.uNat;
+  // starting borrowing cost: realistic by income level (Japan's huge debt is cheap because it is domestically held)
+  const rate0 = B.name === 'Japan' ? 0.01 : (gdppc > 30000 ? 0.02 : gdppc > 12000 ? 0.03 : gdppc > 4000 ? 0.045 : 0.06) + Math.max(0, infl0 - 0.02) * 0.7 + (FRAGILE.has(B.name) ? 0.03 : 0);
+  e.prev.rate0 = rate0;
+  e.prev.raw0 = 0.8 * Math.max(0, e.inflation - 0.02) + 0.04 * Math.max(0, debtRatio - 0.6) + 0.1 * Math.max(0, 0.7 - e.stability / 100);
   e.avgRate = marketRate(e);
   e.interest = e.debt * e.avgRate;
 
@@ -148,7 +153,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
   e.energyCap = eRatio * e.energyDemand;
   e.foodDemand = fShare * gdp;
   e.foodCap = fRatio * e.foodDemand;
-  e.prev = { mil0: mil, troops0: troops, eInt, fPc: e.foodDemand / pop, gdppc0: gdppc, stab0, infl0, milEdge: mi.milTech - tech0 };
+  e.prev = { rate0: e.prev.rate0, raw0: e.prev.raw0, mil0: mil, troops0: troops, eInt, fPc: e.foodDemand / pop, gdppc0: gdppc, stab0, infl0, milEdge: mi.milTech - tech0 };
   e.savings = clamp((g0 + DELTA) * kOverY - 0.7 * industry, 0.05, 0.42);
   return { eco: e, budget, mil: mi, ai };
 }
@@ -199,7 +204,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     version: 1, tick: 0, rng: settings.seed >>> 0, settings, player, countries,
     owner: geo.provinces.map((p) => p.country0), core: geo.provinces.map((p) => p.country0), integ: geo.provinces.map(() => 1),
     treaties: {}, relDelta: {}, wars: [], nextWarId: 1,
-    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1,
+    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0,
   };
 
   // normalise energy & food so the world market is balanced at the start (supply 3% above demand)
@@ -258,6 +263,6 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
   } else if (settings.start === 'prosperous') {
     P.eco.cash = 0.12 * P.eco.gdp; P.eco.debt *= 0.75; P.eco.stability = Math.min(95, P.eco.stability + 5);
   }
-  state.log.push({ tick: 0, text: `Game begins January ${START_YEAR}. You lead ${P.name}.`, kind: 'info', countries: [player] });
+  logEvent(state, `Game begins January ${START_YEAR}. You lead ${P.name}.`, 'info', [player]);
   return state;
 }

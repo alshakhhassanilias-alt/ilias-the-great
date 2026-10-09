@@ -116,7 +116,23 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
   }
 }
 
+export interface Assessment { mine: number; defense: number; ratio: number; supply: number; allies: number; nuclear: boolean; distance: number }
+/** How feasible would an attack by c on T be? (used by the AI and shown to the player before declaring war) */
+export function assessAttack(s: GameState, geo: Geo, c: Country, T: Country): Assessment {
+  const mine = strength(c) * (0.6 + 0.4 * c.mil.readiness);
+  const dist = geo.dist(c.capital, T.capital);
+  const supply = clamp(1.1 - Math.pow(dist / (55 * (0.6 + 0.8 * (0.5 * c.eco.infra / 100 + 0.5 * c.eco.tech / 100))), 1.3) * 0.55, 0.35, 1);
+  let defense = strength(T) * 1.3 * (0.6 + 0.4 * T.mil.readiness);
+  let allies = 0;
+  if (s.settings.defensiveAlliances) allies = 0.6 * alliesOf(s, T.id).filter((a) => a !== c.id).reduce((x, a) => x + strength(s.countries[a]), 0);
+  defense += allies;
+  const nuclear = T.mil.nuclear && !c.mil.nuclear;
+  if (nuclear) defense *= 4;
+  return { mine, defense, ratio: (mine * supply) / Math.max(1, defense), supply, allies, nuclear, distance: dist };
+}
+
 function considerWar(s: GameState, geo: Geo, c: Country) {
+  if (s.tick < 52) return; // the world starts calm: a one-year grace period before AI aggression begins
   const cap = 1 + Math.floor(c.ai.aggression * 2);
   if (warsOf(s, c.id).length >= cap) return;
   if (s.tick - c.lastWarDecl < 104) return;
@@ -124,19 +140,13 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
   const near = neighborsOf(s, geo, c.id);
   const targets = new Set<number>(near);
   if (isCoastalCountry(s, geo, c) && strength(c) > 3e5) for (const o of s.countries) if (o.alive && claimStrength(c.id, o.id) > 0.3) targets.add(o.id);
-  const mine = strength(c) * (0.6 + 0.4 * c.mil.readiness);
   let best: { t: number; desire: number } | null = null;
   for (const t of targets) {
     const T = s.countries[t];
     if (!T.alive || areAtWar(s, c.id, t) || hasAlliance(s, c.id, t)) continue;
     const rel = getRelation(s, c.id, t);
-    const dist = geo.dist(c.capital, T.capital);
-    const supply = clamp(1.1 - Math.pow(dist / (55 * (0.6 + 0.8 * (0.5 * c.eco.infra / 100 + 0.5 * c.eco.tech / 100))), 1.3) * 0.55, 0.35, 1);
-    let defense = strength(T) * 1.3 * (0.6 + 0.4 * T.mil.readiness);
-    const tAllies = alliesOf(s, t);
-    if (s.settings.defensiveAlliances) defense += 0.6 * tAllies.filter((a) => a !== c.id).reduce((x, a) => x + strength(s.countries[a]), 0);
-    if (T.mil.nuclear && !c.mil.nuclear) defense *= 4;
-    const ratio = (mine * supply) / Math.max(1, defense);
+    const as = assessAttack(s, geo, c, T);
+    const ratio = as.ratio;
     const need = 1.5 - 0.5 * Math.min(1, c.ai.aggression);
     if (ratio < need) continue;
     const claim = claimStrength(c.id, t);

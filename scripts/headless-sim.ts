@@ -12,7 +12,7 @@ const years = Number(process.argv[2] ?? 10);
 const playerName = process.argv[3] ?? 'Germany';
 const raw = JSON.parse(fs.readFileSync('src/data/generated/world.json', 'utf8')) as RawWorld;
 const geo = buildGeo(raw);
-const s = createGame(geo, { ...DEFAULT_SETTINGS }, NAME_TO_ID[playerName]);
+const s = createGame(geo, { ...DEFAULT_SETTINGS, aggression: Number(process.env.AGG ?? 1), defensiveAlliances: process.env.ALLIES !== '0' }, NAME_TO_ID[playerName]);
 const show = (label: string, names: string[]) => {
   console.log(`--- ${label} (year ${(s.tick / 52).toFixed(1)}) ---`);
   for (const n of names) {

@@ -267,7 +267,13 @@ function splitCountry(name: string, mp: MPoly, capitalPx: Pt | null, rng: () => 
 const countriesOut: OutCountry[] = [];
 const rng = mulberry(20240101);
 for (const base of COUNTRY_BASE) {
-  const own = cleanMPoly(projected.get(base.name)!);
+  let own = cleanMPoly(projected.get(base.name)!);
+  if (!own.length) {
+    // microstate (Monaco, Vatican ...): too small to survive rounding, so draw a tiny marker at its true location
+    const [bx, by] = (projection([base.capital![1], base.capital![0]]) as Pt | null) ?? [0, 0];
+    const h = 0.45;
+    own = [[[[bx - h, by], [bx, by - h], [bx + h, by], [bx, by + h]]]];
+  }
   const capPx = projection([base.capital![1], base.capital![0]]) as Pt | null;
   const parts = splitCountry(base.name, own, capPx, rng);
   const provinces: OutProvince[] = parts.map((p) => {

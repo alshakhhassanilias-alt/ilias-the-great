@@ -177,7 +177,7 @@ export type OfferKind = 'trade' | 'nap' | 'alliance' | 'coop' | 'peace';
 export interface Offer { id: number; from: CountryId; kind: OfferKind; terms?: { kind: string; share?: number }; tick: number }
 
 export type LogKind = 'info' | 'war' | 'peace' | 'diplo' | 'econ' | 'danger' | 'territory';
-export interface LogEntry { tick: number; text: string; kind: LogKind; countries: CountryId[]; important?: boolean }
+export interface LogEntry { seq: number; tick: number; text: string; kind: LogKind; countries: CountryId[]; important?: boolean }
 
 export interface Market { priceE: number; priceF: number; scarcityE: number; scarcityF: number }
 
@@ -201,10 +201,11 @@ export interface GameState {
   worldHist: { gdp: number[] };
   offers: Offer[];
   nextOfferId: number;
+  logSeq: number;
 }
 
 export const START_YEAR = 2024;
 export const TICKS_PER_YEAR = 52;
 export const DT = 1 / TICKS_PER_YEAR;
 export const HIST_EVERY = 4;
-export const HIST_MAX = 160;
+export const HIST_MAX = 120;

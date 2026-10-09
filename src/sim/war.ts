@@ -21,10 +21,8 @@ import { potentialOutput } from './economy';
 import { airPower, landPower, navalPower, strength } from './military';
 import type { CountryId, Country, GameState, LogKind, ProvId, War } from './types';
 
-export function logEvent(s: GameState, text: string, kind: LogKind, countries: CountryId[], important = false) {
-  s.log.push({ tick: s.tick, text, kind, countries, important });
-  if (s.log.length > 400) s.log.splice(0, s.log.length - 400);
-}
+import { logEvent } from './log';
+export { logEvent };
 
 const CLAIM_SET = new Map<string, number>();
 for (const [a, b, v] of CLAIMS) { const ia = NAME_TO_ID[a], ib = NAME_TO_ID[b]; if (ia !== undefined && ib !== undefined) CLAIM_SET.set(`${ia}>${ib}`, v); }
@@ -158,7 +156,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId): 
     for (const x of alliesOf(s, a)) {
       if (x === d || war.attackers.includes(x) || war.defenders.includes(x) || x === s.player) continue;
       const X = s.countries[x];
-      if (X.ai.aggression > 0.35 && getRelation(s, x, d) < 10 && nextRand(s) < 0.5) {
+      if (X.ai.aggression > 0.4 && getRelation(s, x, d) < -45 && nextRand(s) < 0.3) {
         war.attackers.push(x);
         war.startProvs[x] = X.provinces.length;
         logEvent(s, `${X.name} joins ${A.name}'s war against ${D.name}.`, 'war', [x, a, d]);
@@ -378,7 +376,7 @@ export function stepWars(s: GameState, geo: Geo) {
         const cands = attackCandidates(s, geo, c, w);
         if (!cands.length) continue;
         const off = c.mil.troops * clamp(c.mil.commit, 0.05, 1) * c.mil.readiness / wr(s, cid);
-        const nTargets = clamp(Math.floor(Math.sqrt(off / 15000)), 1, 5);
+        const nTargets = clamp(Math.floor(Math.sqrt(off / 50000)), 1, 4);
         let chosen: Candidate[];
         if (c.isPlayer && !c.mil.autoAdvance) {
           const focus = new Set(c.mil.focus);
@@ -397,7 +395,9 @@ export function stepWars(s: GameState, geo: Geo) {
       }
     }
 
-    // --- 2. defenders' field troops are distributed over threatened provinces by importance
+    // --- 2. defenders' field troops are reinforced where the pressure is (capital gets a bonus)
+    const pressure = new Map<ProvId, number>();
+    for (const [p, list] of strikes) pressure.set(p, list.reduce((t, st) => t + landPower(st.c.mil, st.share) * st.supply, 0));
     const threatened = new Map<CountryId, ProvId[]>();
     for (const p of strikes.keys()) {
       const o = s.owner[p];
@@ -406,6 +406,7 @@ export function stepWars(s: GameState, geo: Geo) {
       threatened.set(o, arr);
     }
     const imp = (p: ProvId, o: CountryId) => geo.provinces[p].w * (p === s.countries[o].capital ? 3 : 1) + 0.2;
+    const defW = (p: ProvId, o: CountryId) => Math.pow(pressure.get(p) ?? 1, 0.9) * (p === s.countries[o].capital ? 1.3 : 1);
 
     // --- 3. resolve each battle
     for (const [p, list] of strikes) {
@@ -414,7 +415,8 @@ export function stepWars(s: GameState, geo: Geo) {
       if (!E.alive) continue;
       const tp = threatened.get(e)!;
       const sumImp = tp.reduce((t, q) => t + imp(q, e), 0);
-      const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (imp(p, e) / sumImp) * (1 + 0.25 * E.eco.infra / 100);
+      const sumDef = tp.reduce((t, q) => t + defW(q, e), 0);
+      const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (defW(p, e) / sumDef) * (1 + 0.25 * E.eco.infra / 100);
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
       const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * (1 + 0.9 * terrain) * competence(s, E));
@@ -431,16 +433,19 @@ export function stepWars(s: GameState, geo: Geo) {
       if (Pa <= 0) continue;
       const noise = 1 + (nextRand(s) - 0.5) * 0.16;
       const ratio = (Pa * noise) / Pd;
-      const sizeScale = Math.pow(140 / Math.max(40, geo.provinces[p].area), 0.35);
-      const delta = 0.16 * clamp(Math.log(ratio) + 0.25, -1.2, 1.6) * sizeScale;
+      const sizeScale = Math.pow(140 / Math.max(60, geo.provinces[p].area), 0.35);
+      const nuclearBrake = E.mil.nuclear ? contrib.reduce((t, x) => t + (x.st.c.mil.nuclear ? 0.85 : 0.45) * x.pa, 0) / Pa : 1; // fear of escalation limits advances on nuclear powers
+      const amph = contrib.every((x) => x.st.amphibious) ? 0.7 : 1;
+      const raw = 0.055 * clamp(Math.log(ratio) + 0.25, -1.2, 1.6) * sizeScale;
+      const delta = (raw > 0 ? Math.min(raw, 0.045) * nuclearBrake : raw) * (raw > 0 ? amph : 1);
       // casualties
       const defShare = defTroops;
-      const defLossFrac = 0.004 * Math.pow(clamp(ratio, 0.3, 3), 0.5) * (1 + 0.2 * Math.max(0, contrib[0].air));
+      const defLossFrac = 0.0065 * Math.pow(clamp(ratio, 0.3, 3), 0.5) * (1 + 0.2 * Math.max(0, contrib[0].air));
       const defLoss = Math.min(E.mil.troops * 0.5, defShare * defLossFrac);
       applyLosses(s, E, defLoss, w, 0.7);
       for (const { st, pa } of contrib) {
         const frac = pa / Pa;
-        const atkLossFrac = 0.0045 * Math.pow(clamp(1 / ratio, 0.3, 3), 0.5) * (0.7 + 0.6 * terrain);
+        const atkLossFrac = 0.0075 * Math.pow(clamp(1 / ratio, 0.3, 3), 0.5) * (0.7 + 0.6 * terrain);
         applyLosses(s, st.c, Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac), w, 1);
         void frac;
       }

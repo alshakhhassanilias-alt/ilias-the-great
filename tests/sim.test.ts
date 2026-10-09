@@ -219,6 +219,42 @@ describe('war & territory', () => {
     for (const c of s.countries) for (const p of c.provinces) expect(s.owner[p]).toBe(c.id);
     expect(ru.mil.casualties).toBeGreaterThan(0);
   });
+  it('conquest takes time: no province falls within the first two months, and peer wars grind on', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    s.tick = 60;
+    declareWar(s, geo, id('Germany'), id('Poland'));
+    run(s, 8);
+    expect(s.countries[id('Poland')].provinces.length).toBe(3);
+    run(s, 52);
+    expect(s.countries[id('Poland')].alive).toBe(true);
+    expect(s.countries[id('Germany')].mil.casualties).toBeGreaterThan(5000);
+    expect(s.countries[id('Poland')].mil.exhaustion).toBeGreaterThan(0.1);
+  });
+  it('nuclear deterrence slows an invasion (controlled comparison, same war with and without the bomb)', () => {
+    const lost = (nuclear: boolean) => {
+      const s = fresh('India', { defensiveAlliances: false });
+      s.tick = 60;
+      s.countries[id('Pakistan')].mil.nuclear = nuclear;
+      declareWar(s, geo, id('India'), id('Pakistan'));
+      for (let i = 0; i < 40; i++) tick(s, geo);
+      return geo.provs0[id('Pakistan')].length - s.countries[id('Pakistan')].provinces.length;
+    };
+    expect(lost(true)).toBeLessThanOrEqual(lost(false));
+    expect(lost(false) - lost(true)).toBeGreaterThanOrEqual(0);
+  });
+  it('war exhaustion rises during fighting and falls in peace', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    s.tick = 60;
+    declareWar(s, geo, id('Germany'), id('Poland'));
+    run(s, 30);
+    const ex = s.countries[id('Germany')].mil.exhaustion;
+    expect(ex).toBeGreaterThan(0.02);
+    actPeace(s, geo, id('Germany'), id('Poland'), { kind: 'status_quo' }); // may or may not be accepted
+    s.countries[id('Poland')].mil.exhaustion = 1;
+    expect(actPeace(s, geo, id('Germany'), id('Poland'), { kind: 'status_quo' }).ok || !areAtWar(s, id('Germany'), id('Poland'))).toBe(true);
+    run(s, 20);
+    expect(s.countries[id('Germany')].mil.exhaustion).toBeLessThan(ex * 0.95 + 0.001);
+  });
   it('military size is not everything: logistics, terrain and readiness change outcomes', () => {
     const s = fresh('Germany');
     const c = s.countries[id('France')];

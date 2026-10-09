@@ -20,3 +20,11 @@ export function fmtNum(v: number, digits = 1): string {
   return `${s}${a.toFixed(0)}`;
 }
 export const fmtPct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`;
+
+const SHORT: Record<string, string> = {
+  'United States of America': 'United States', 'Dem. Rep. Congo': 'DR Congo', 'Central African Rep.': 'C. African Rep.',
+  'Bosnia and Herz.': 'Bosnia & Herz.', 'United Arab Emirates': 'UAE', Macedonia: 'N. Macedonia', 'St. Vin. and Gren.': 'St Vincent',
+  'St. Kitts and Nevis': 'St Kitts & Nevis', 'Antigua and Barb.': 'Antigua & Barb.', 'São Tomé and Principe': 'São Tomé',
+  'Trinidad and Tobago': 'Trinidad & Tobago', 'Papua New Guinea': 'Papua N. Guinea', 'Solomon Is.': 'Solomon Is.', 'Marshall Is.': 'Marshall Is.',
+};
+export const shortName = (n: string) => SHORT[n] ?? n;
