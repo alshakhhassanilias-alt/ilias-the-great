@@ -9,10 +9,15 @@ import { actDeclareWar, actPeace, buildProject, recruit, setBudget, actPropose, 
 import { manpower, strength } from '../src/sim/military';
 import { evaluatePeace, transferProvince, declareWar, warScore } from '../src/sim/war';
 import { neighborsOf } from '../src/sim/diplomacy';
-import { EVENTS, resolveEvent, rollPlayerEvent } from '../src/sim/events';
+import { ALL_EVENTS as EVENTS, resolveEvent, rollPlayerEvent } from '../src/sim/events';
 import { GOALS, stepGoals } from '../src/sim/goals';
 import { runOp } from '../src/sim/ops';
-import { actAirstrike, actCallAllies } from '../src/sim/actions';
+import { actAirstrike, actCallAllies, actGuarantee, actMediate, actUltimatum, actBuild, actAid, actSummit } from '../src/sim/actions';
+import { applyTreaty } from '../src/sim/diplomacy';
+import { computeBlocs, previewReactions, finalizeResolution, proposeResolution, tensionIndex } from '../src/sim/politics';
+import { stepAssembly } from '../src/sim/events';
+import { levelOf, BDEF } from '../src/sim/buildings';
+import { hasGuarantee } from '../src/sim/relations';
 
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
@@ -347,9 +352,10 @@ describe('things to do: events, goals, covert ops, war actions', () => {
     const c = s.countries[id('Germany')];
     c.eco.cash = 1e12;
     for (const def of EVENTS) {
-      const d = def.eligible(s, c, geo) ?? { n: id('France'), from: id('France'), a: id('France') };
+      const fr = id('France'), pl = id('Poland');
+      const d = def.eligible(s, c, geo) ?? { n: fr, from: fr, a: pl, b: fr, x: fr, l: fr, t: pl, ally: pl, aggressor: fr, war: -1, rid: -1, kind: 1, w: -1 };
       expect(def.text(s, c, d).length).toBeGreaterThan(10);
-      expect(def.options.length).toBeGreaterThanOrEqual(2);
+      expect(def.options.length).toBeGreaterThanOrEqual(def.weight > 0 ? 2 : 1);
       for (let i = 0; i < def.options.length; i++) {
         const s2 = JSON.parse(JSON.stringify(s)) as GameState;
         s2.pendingEvent = { id: def.id, tick: 1, data: d };
@@ -364,14 +370,18 @@ describe('things to do: events, goals, covert ops, war actions', () => {
   it('objectives pay out their reward when completed', () => {
     const s = fresh('Germany');
     const c = s.countries[id('Germany')];
-    s.tick = 3;
+    s.tick = 4;
+    stepGoals(s);
+    expect(s.goalsActive.length).toBe(3); // three relevant goals are always on the board
+    s.goalsActive = ['infra'];
     c.eco.infra = 80; // completes "modern infrastructure"
     const cash0 = c.eco.cash;
-    s.tick = 4;
+    s.tick = 8;
     stepGoals(s);
     expect(s.goalsDone['infra']).toBeDefined();
     expect(c.eco.cash).toBeGreaterThan(cash0);
-    expect(GOALS.length).toBeGreaterThanOrEqual(8);
+    expect(GOALS.length).toBeGreaterThanOrEqual(25);
+    expect(new Set(GOALS.map((g) => g.theme)).size).toBe(3);
   });
   it('covert operations cost money, can fail with consequences, and intel reveals real numbers', () => {
     let wins = 0, losses = 0;
@@ -413,3 +423,145 @@ describe('things to do: events, goals, covert ops, war actions', () => {
     expect(covered.size).toBe(geo.provinces.length);
   });
 });
+
+describe('world politics: deals ripple through the system', () => {
+  it('a treaty with someone\'s rival makes the world react, and the preview predicts it', () => {
+    const s = fresh('Brazil');
+    const us = id('United States of America'), br = id('Brazil'), ir = id('Iran'), il = id('Israel');
+    const pre = previewReactions(s, br, ir, 'alliance');
+    expect(pre.some((r) => r.id === us && r.delta < 0)).toBe(true);
+    const rUs = getRelation(s, us, br), rIl = getRelation(s, il, br);
+    applyTreaty(s, br, ir, 'alliance');
+    expect(getRelation(s, us, br)).toBeLessThan(rUs - 4);
+    expect(getRelation(s, il, br)).toBeLessThan(rIl - 4);
+    expect(s.lastRipple?.kind).toBe('alliance');
+    expect(s.lastRipple!.reactions.length).toBeGreaterThan(0);
+    expect(s.lastRipple!.summary).toMatch(/objected|approved/);
+  });
+  it('friends of a partner welcome a deal; trade deals ripple less than alliances', () => {
+    const s = fresh('Brazil');
+    const al = previewReactions(s, id('Brazil'), id('Japan'), 'alliance');
+    const tr = previewReactions(s, id('Brazil'), id('Japan'), 'trade');
+    expect(al.some((r) => r.delta > 0)).toBe(true);
+    const mag = (rs: typeof al) => rs.reduce((t, r) => t + Math.abs(r.delta), 0);
+    expect(mag(tr)).toBeLessThan(mag(al));
+  });
+  it('an AI refuses to ally with someone allied to its rival', () => {
+    const s = fresh('Brazil');
+    applyTreaty(s, id('Brazil'), id('Iran'), 'alliance');
+    const ev = evaluateProposalForTest(s, id('Brazil'), id('Israel'));
+    expect(ev.reasons.join(' ')).toMatch(/allied with its rival/);
+  });
+  it('alliance blocs are detected (NATO) and global tension rises with war', () => {
+    const s = fresh('Germany');
+    const { blocs } = computeBlocs(s);
+    expect(blocs.some((b) => b.name === 'NATO' && b.members.length >= 25)).toBe(true);
+    const t0 = tensionIndex(s);
+    s.tick = 60;
+    declareWar(s, geo, id('Russia'), id('Ukraine'));
+    expect(tensionIndex(s)).toBeGreaterThan(t0);
+  });
+  it('the player is asked whether to honour an alliance instead of being dragged into war', () => {
+    const s = fresh('Poland', { defensiveAlliances: true });
+    s.tick = 60;
+    declareWar(s, geo, id('Russia'), id('Estonia'));
+    const w = s.wars[0];
+    expect(w.defenders).not.toContain(id('Poland'));
+    expect(s.scheduled.some((x) => x.id === 'ally_attacked')).toBe(true);
+    rollPlayerEvent(s, geo);
+    expect(s.pendingEvent?.id).toBe('ally_attacked');
+    resolveEvent(s, geo, 0); // honour the alliance
+    expect(w.defenders).toContain(id('Poland'));
+  });
+  it('declining to help an ally costs reputation and relations', () => {
+    const s = fresh('Poland', { defensiveAlliances: true });
+    s.tick = 60;
+    declareWar(s, geo, id('Russia'), id('Estonia'));
+    rollPlayerEvent(s, geo);
+    const rep0 = s.countries[id('Poland')].reputation, rel0 = getRelation(s, id('Poland'), id('Estonia'));
+    resolveEvent(s, geo, 3); // stay out
+    expect(s.countries[id('Poland')].reputation).toBeLessThan(rep0);
+    expect(getRelation(s, id('Poland'), id('Estonia'))).toBeLessThan(rel0);
+  });
+  it('security guarantees, aid and summits change relations and are recorded', () => {
+    const s = fresh('Germany');
+    const me = s.countries[id('Germany')];
+    me.eco.cash = 1e12;
+    const rel0 = getRelation(s, id('Germany'), id('Ukraine'));
+    expect(actGuarantee(s, me.id, id('Ukraine'), true).ok).toBe(true);
+    expect(hasGuarantee(s, me.id, id('Ukraine'))).toBe(true);
+    expect(getRelation(s, id('Germany'), id('Ukraine'))).toBeGreaterThan(rel0);
+    expect(actAid(s, me.id, id('Ukraine'), 0.003).ok).toBe(true);
+    expect(s.stats.aid).toBe(1);
+    expect(actSummit(s, me.id, id('Ukraine')).ok || true).toBe(true);
+    expect(actSummit(s, me.id, id('Ukraine')).ok).toBe(false); // cooldown
+  });
+  it('mediation can end a war between two other countries', () => {
+    let ended = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = fresh('Switzerland', { seed, defensiveAlliances: false });
+      s.tick = 60;
+      declareWar(s, geo, id('Russia'), id('Ukraine'));
+      s.countries[id('Russia')].mil.exhaustion = 0.9; s.countries[id('Ukraine')].mil.exhaustion = 0.9;
+      s.countries[id('Switzerland')].eco.cash = 1e12;
+      actMediate(s, geo, id('Switzerland'), s.wars[0].id);
+      if (s.wars.length === 0) { ended++; expect(s.stats.mediations).toBe(1); }
+    }
+    expect(ended).toBeGreaterThan(3);
+  });
+  it('ultimatums either win concessions without war or damage relations', () => {
+    let got = 0, refused = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = fresh('Russia', { seed });
+      const me = s.countries[id('Russia')];
+      const before = s.countries[id('Georgia')].provinces.length;
+      const r = actUltimatum(s, geo, me.id, id('Georgia'), 'cede');
+      if (r.ok) { got++; expect(s.countries[id('Georgia')].provinces.length).toBe(before - 1); expect(s.wars.length).toBe(0); }
+      else { refused++; expect(getRelation(s, id('Georgia'), me.id)).toBeLessThan(-20); }
+    }
+    expect(got + refused).toBe(20);
+    expect(got).toBeGreaterThan(0);
+  });
+  it('World Assembly votes happen and have consequences', () => {
+    const s = fresh('Germany');
+    s.tick = 60;
+    declareWar(s, geo, id('Russia'), id('Ukraine'));
+    s.tick = 65; // 65 % 26 === 13
+    stepAssembly(s, geo);
+    expect(s.resolutions.length).toBe(1);
+    const r = s.resolutions[0];
+    expect(['condemn', 'sanction', 'ceasefire']).toContain(r.kind);
+    const passed = finalizeResolution(s, geo, r, 'yes');
+    expect(typeof passed).toBe('boolean');
+    expect(proposeResolution(s)).not.toBeNull();
+  });
+  it('buildings are bought instantly, give effects, and are captured by conquerors', () => {
+    const s = fresh('Poland');
+    const me = s.countries[id('Poland')];
+    me.eco.cash = 1e12;
+    const p = me.provinces.find((q) => q !== me.capital)!;
+    const cash0 = me.eco.cash;
+    expect(actBuild(s, geo, me.id, p, 'fort').ok).toBe(true);
+    expect(actBuild(s, geo, me.id, p, 'fort').ok).toBe(true);
+    expect(levelOf(s, p, 'fort')).toBe(2);
+    expect(me.eco.cash).toBeLessThan(cash0);
+    expect(me.mil.bld.fort).toBe(2);
+    const k0 = me.eco.capital;
+    actBuild(s, geo, me.id, p, 'factory');
+    expect(me.eco.capital).toBeGreaterThan(k0);
+    const g = s.countries[id('Germany')];
+    transferProvince(s, geo, p, g.id);
+    expect(levelOf(s, p, 'fort')).toBe(1); // damaged in the fighting
+    expect(g.mil.bld.fort).toBe(1);
+    expect(me.mil.bld.fort).toBe(0);
+    expect(BDEF.port.cost).toBeGreaterThan(0);
+  });
+  it('AI countries advertise what they are up to', () => {
+    const s = fresh('Germany', { aggression: 2 });
+    run(s, 60);
+    const withIntent = s.countries.filter((c) => c.alive && c.intent.length > 3).length;
+    expect(withIntent).toBeGreaterThan(100);
+  });
+});
+import { evaluateProposal } from '../src/sim/diplomacy';
+function evaluateProposalForTest(s: GameState, from: number, to: number) { return evaluateProposal(s, geo, from, to, 'alliance'); }

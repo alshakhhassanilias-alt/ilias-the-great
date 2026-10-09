@@ -14,12 +14,42 @@ import { manpower, strength } from './military';
 import {
   areNeighbors, evaluateProposal, imposeSanction, liftSanction, neighborsOf, propose, applyTreaty, type Proposal,
 } from './diplomacy';
+import { logEvent } from './log';
+import { computeBlocs } from './politics';
 import { claimStrength, declareWar, evaluatePeace, makePeace, warScore, type PeaceTerms, isCoastalCountry } from './war';
 import { buildProject, demobilize, recruit } from './actions';
+import { build, levelOf } from './buildings';
 import { taxBurden } from './economy';
 import type { Country, GameState } from './types';
 
 const rand = (s: GameState) => nextRand(s);
+
+function mainThreat(s: GameState, geo: Geo, c: Country): { th: number; who: number } {
+  const mine = strength(c) + 0.5 * alliesOf(s, c.id).reduce((t, a) => t + strength(s.countries[a]), 0) + 1;
+  let best = -1, bv = 0;
+  for (const o of neighborsOf(s, geo, c.id)) {
+    const rel = getRelation(s, c.id, o);
+    if (rel >= 10) continue;
+    const v = Math.max(0.02, (10 - rel) / 100) * (strength(s.countries[o]) / mine);
+    if (v > bv) { bv = v; best = o; }
+  }
+  return { th: bv, who: best };
+}
+function updateIntent(s: GameState, geo: Geo, c: Country) {
+  const e = c.eco;
+  const enemies = enemiesOf(s, c.id);
+  if (enemies.length) { c.intent = `At war with ${enemies.slice(0, 2).map((x) => s.countries[x].name).join(' and ')}${enemies.length > 2 ? ` +${enemies.length - 2}` : ''}`; return; }
+  if (e.debt / e.gdp > 1.6) { c.intent = 'Struggling under heavy debt'; return; }
+  if (e.stability < 35) { c.intent = 'Fighting unrest at home'; return; }
+  const t = mainThreat(s, geo, c);
+  if (t.who >= 0 && t.th > 0.35) { c.intent = `Alarmed by ${s.countries[t.who].name}'s military`; return; }
+  if (e.energyUnmet > 0.05) { c.intent = 'Seeking energy security'; return; }
+  if (e.foodUnmet > 0.05) { c.intent = 'Facing food shortages'; return; }
+  if (c.ai.aggression > 0.6) c.intent = 'Building up its armed forces';
+  else if (c.ai.trade > 0.75) c.intent = 'Courting new trade partners';
+  else if (e.growth > 0.04) c.intent = 'Riding an economic boom';
+  else c.intent = 'Focused on steady development';
+}
 
 function threatLevel(s: GameState, geo: Geo, c: Country): number {
   const mine = strength(c) + 0.5 * alliesOf(s, c.id).reduce((t, a) => t + strength(s.countries[a]), 0) + 1;
@@ -30,10 +60,17 @@ function threatLevel(s: GameState, geo: Geo, c: Country): number {
     if (rel < 10) th += Math.max(0.02, (10 - rel) / 100) * (strength(s.countries[o]) / mine);
   }
   for (const e of enemiesOf(s, c.id)) th += 0.5 * strength(s.countries[e]) / mine;
+  // hostile alliance blocs worry everyone they are hostile to, even far away
+  for (const b of computeBlocs(s).blocs.slice(0, 4)) {
+    if (b.members.includes(c.id)) continue;
+    const avg = b.members.reduce((t, m) => t + getRelation(s, c.id, m), 0) / b.members.length;
+    if (avg < -25) th += Math.min(0.5, (b.strength / mine) * 0.15);
+  }
   return clamp(th, 0, 1.5);
 }
 
 function manageEconomy(s: GameState, geo: Geo, c: Country) {
+  updateIntent(s, geo, c);
   const e = c.eco, b = c.budget;
   const atWar = isAtWar(s, c.id);
   const rev = e.revenue / e.gdp;
@@ -68,6 +105,16 @@ function manageEconomy(s: GameState, geo: Geo, c: Country) {
     else if (e.foodUnmet > 0.02) buildProject(s, c.id, 'farms', 0.01);
     else if (e.infra < 60) buildProject(s, c.id, 'infra', 0.005);
     else buildProject(s, c.id, 'industry', 0.01);
+  }
+  // fortify threatened borders, expand industry
+  if ((atWar || th > 0.45) && e.cash > 0.01 * e.gdp && rand(s) < 0.5) {
+    const hostile = new Set(atWar ? enemiesOf(s, c.id) : [mainThreat(s, geo, c).who]);
+    const front = c.provinces.filter((p) => geo.adj[p].some((q) => hostile.has(s.owner[q])));
+    if (front.length) { const p = front[Math.floor(rand(s) * front.length)]; if (levelOf(s, p, 'fort') < 3) build(s, geo, c.id, p, 'fort'); }
+  } else if (e.cash > 0.04 * e.gdp && rand(s) < 0.25) {
+    if (e.unemployment > e.uNat + 0.01) build(s, geo, c.id, c.capital, 'factory');
+    else if (c.mil.bld.barracks < 2 && c.budget.military > 0.02) build(s, geo, c.id, c.capital, 'barracks');
+    else if (c.mil.bld.airbase < 2 && c.budget.military > 0.02) build(s, geo, c.id, c.capital, 'airbase');
   }
   // military manpower
   const base = e.prev.troops0 ?? c.mil.troops;
@@ -154,9 +201,19 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
     if (t === s.player) desire *= s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1;
+    if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (attack odds ${ratio.toFixed(1)}×)`;
     if (desire > 0.62 && (!best || desire > best.desire)) best = { t, desire };
   }
-  if (best && rand(s) < 0.07 * Math.min(1.6, best.desire / 0.62)) declareWar(s, geo, c.id, best.t);
+  if (best && rand(s) < 0.07 * Math.min(1.6, best.desire / 0.62)) {
+    // against the player, a credible threat first takes the form of an ultimatum
+    if (best.t === s.player && rand(s) < 0.65 && !s.scheduled.some((x) => x.id === 'ultimatum')) {
+      c.lastWarDecl = s.tick;
+      s.scheduled.push({ tick: s.tick + 1, id: 'ultimatum', data: { from: c.id, kind: rand(s) < 0.6 ? 1 : 2 } });
+      logEvent(s, `${c.name} issues an ultimatum to ${s.countries[s.player].name}.`, 'danger', [c.id, s.player], true);
+      return;
+    }
+    declareWar(s, geo, c.id, best.t);
+  }
 }
 
 function managePeace(s: GameState, geo: Geo, c: Country) {

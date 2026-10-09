@@ -18,7 +18,7 @@ export const techMult = (m: Country['mil']) => 0.6 + 0.8 * (m.milTech / 100);
 export const landPower = (m: Country['mil'], troops = m.troops) => troops * quality(m) * techMult(m);
 export const airPower = (m: Country['mil']) => m.equipAir * techMult(m);
 export const navalPower = (m: Country['mil']) => m.equipNavy * techMult(m);
-export const manpower = (c: Country) => Math.max(0, c.eco.laborForce * 0.22 - c.mil.troops);
+export const manpower = (c: Country) => Math.max(0, c.eco.laborForce * (0.22 + 0.005 * c.mil.bld.barracks) - c.mil.troops);
 
 /** Single comparable strength number ("troop equivalents"). */
 export function strength(c: Country): number {
@@ -39,7 +39,7 @@ export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: numb
   const paid = Math.min(avail, need);
   const short = need - paid;
   const ratio = need > 0 ? avail / need : 2;
-  let tgt = clamp(0.35 + 0.45 * Math.min(ratio, 1.5), 0.2, 0.95);
+  let tgt = clamp(0.35 + 0.45 * Math.min(ratio, 1.5) + 0.02 * m.bld.barracks, 0.2, 0.97);
   if (e.stability < 30) tgt *= 0.7 + (0.3 * e.stability) / 30;
   m.readiness += (tgt - m.readiness) * 0.06;
   m.readiness = clamp(m.readiness, 0.05, 1);

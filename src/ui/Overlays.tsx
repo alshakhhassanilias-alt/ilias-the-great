@@ -55,13 +55,14 @@ export function VictoryBanner() {
 export function MapModes() {
   useStore();
   const modes: { v: typeof store.mapMode; label: string }[] = [
-    { v: 'political', label: 'Political' }, { v: 'diplomacy', label: 'Relations' }, { v: 'wealth', label: 'Wealth' }, { v: 'power', label: 'Power' }, { v: 'stability', label: 'Stability' },
+    { v: 'political', label: 'Political' }, { v: 'blocs', label: 'Blocs' }, { v: 'diplomacy', label: 'Relations' }, { v: 'wealth', label: 'Wealth' }, { v: 'power', label: 'Power' }, { v: 'stability', label: 'Stability' },
   ];
   const gradients: Record<string, [string, string, string]> = {
     diplomacy: ['linear-gradient(90deg,#b43232,#46506a,#3cbe82)', 'hostile', 'friendly'],
     wealth: ['linear-gradient(90deg,#18285a,#1e6088,#28969a,#96be5a,#ecd660)', 'poor', 'rich (GDP/capita)'],
     power: ['linear-gradient(90deg,#1e283c,#56466e,#aa465a,#e8783c,#ffc85a)', 'weak', 'strong'],
     stability: ['linear-gradient(90deg,#aa3232,#c88232,#bebe50,#50a064,#32aa8c)', 'unstable', 'stable'],
+    blocs: ['linear-gradient(90deg,#c8503c,#c89a3c,#4aa86a,#3c8cc8,#8a5cc8)', 'each colour = one alliance bloc', 'grey = non-aligned'],
   };
   const g = gradients[store.mapMode];
   return (
@@ -119,5 +120,27 @@ export function Ticker() {
       <span key={e.seq} className={`ticker-text k-${e.kind}`}><span aria-hidden="true">{KIND_ICON[e.kind] ?? '●'}</span> {e.text}</span>
       <span className="ticker-date">{dateLabel(e.tick)}</span>
     </button>
+  );
+}
+
+export function RippleCard() {
+  useStore();
+  const s = store.state;
+  const r = s?.lastRipple;
+  if (!s || !r || (r.a !== s.player && r.b !== s.player)) return null;
+  const id = `${r.tick}:${r.a}:${r.b}:${r.kind}`;
+  if (store.rippleSeen === id || s.tick - r.tick > 26) return null;
+  const other = r.a === s.player ? r.b : r.a;
+  const kind = ({ trade: 'trade agreement', nap: 'non-aggression pact', alliance: 'alliance', coop: 'military cooperation', guarantee: 'security guarantee', sanction: 'sanctions', embargo: 'embargo' } as Record<string, string>)[r.kind] ?? r.kind;
+  return (
+    <div className="ripple" role="status" aria-live="polite">
+      <button className="x" aria-label="Dismiss" onClick={() => { store.rippleSeen = id; store.notify(); }}>×</button>
+      <h4>How the world reacted</h4>
+      <div style={{ fontSize: 13, marginBottom: 6 }}>Your {kind} with <b>{s.countries[other].name}</b>: {r.summary}.</div>
+      {r.reactions.length === 0 && <div className="faint" style={{ fontSize: 12 }}>Nobody paid much attention.</div>}
+      {r.reactions.slice(0, 6).map((x) => (
+        <div className="rr" key={x.id}><b className={x.delta < 0 ? 'bad' : 'good'}>{x.delta > 0 ? '+' : ''}{x.delta.toFixed(0)}</b><span>{x.text}</span></div>
+      ))}
+    </div>
   );
 }

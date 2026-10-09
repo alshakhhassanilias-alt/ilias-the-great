@@ -95,7 +95,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
     stability: stab0, damage: 0, savings: 0.2, baseGrowth: g0, baseSocial: 0, baseEdu: edu,
     baseTaxRevenue, collection, popGrowthMod: 0,
     revenue: revT * gdp, spending: 0, interest: 0, growth: g0, explain: {}, lastDefault: -9999,
-    tradeBase: 1, prev: {}, occupation: 0,
+    tradeBase: 1, prev: {}, occupation: 0, stabParts: {},
   };
   e.unemployment = e.uNat;
   // starting borrowing cost: realistic by income level (Japan's huge debt is cheap because it is domestically held)
@@ -128,7 +128,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
     readiness: 0.55 + 0.25 * clamp(B.milPct / 4, 0, 1), supply: 0.6,
     intel: clamp(0.2 + 0.25 * lg + (B.nuclear ? 0.1 : 0), 0.08, 0.9),
     milTech: clamp(tech0 + (MIL_EDGE[B.name] ?? 0) - (gdppc < 3000 ? 4 : 0), 5, 100), exhaustion: 0, casualties: 0,
-    commit: 0.6, autoAdvance: true, focus: [], upkeep: 0, procurement: 0, nuclear: B.nuclear, warEconomy: false, unitCost,
+    commit: 0.6, autoAdvance: true, focus: [], upkeep: 0, procurement: 0, nuclear: B.nuclear, warEconomy: false, bld: { fort: 0, airbase: 0, port: 0, factory: 0, barracks: 0 }, unitCost,
   };
 
   const ag = clamp(
@@ -196,7 +196,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
       id, name: B.name, iso3: B.iso3, gov: B.gov, region: B.region, color: hues[id], estimated: B.estimated, alive: provs.length > 0,
       capital: cap, provinces: [...provs], eco, budget, mil, ai, reputation: 70, isPlayer: id === player,
       hist: { gdp: [], gdppc: [], debt: [], mil: [], stab: [], infl: [], unemp: [], pop: [], trade: [] },
-      baseline: { gdp: eco.gdp, pop: eco.pop, provinces: provs.length }, lastWarDecl: -9999,
+      baseline: { gdp: eco.gdp, pop: eco.pop, provinces: provs.length }, lastWarDecl: -9999, intent: '',
     };
   });
 
@@ -204,7 +204,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     version: 1, tick: 0, rng: settings.seed >>> 0, settings, player, countries,
     owner: geo.provinces.map((p) => p.country0), core: geo.provinces.map((p) => p.country0), integ: geo.provinces.map(() => 1),
     treaties: {}, relDelta: {}, wars: [], nextWarId: 1,
-    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {}, pendingEvent: null, eventCooldown: {}, lastEventTick: 0, goalsDone: {}, goalBase: { trade: 0, allies: 0, rank: 0, gdp: 0, tech: 0, debt: 0 }, intelUntil: {}, opCooldown: {},
+    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {}, pendingEvent: null, eventCooldown: {}, lastEventTick: 0, goalsDone: {}, goalsActive: [], goalBase: { trade: 0, allies: 0, rank: 0, gdp: 0, tech: 0, debt: 0 }, intelUntil: {}, opCooldown: {}, guarantees: [], scheduled: [], bld: {}, lastRipple: null, resolutions: [], nextResolution: 1, history: [], stats: {},
   };
 
   // normalise energy & food so the world market is balanced at the start (supply 3% above demand)

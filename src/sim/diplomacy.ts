@@ -4,6 +4,7 @@ import {
   addRelation, alliesOf, areAtWar, ensureTreaty, touchTreaties, getRelation, getTreaty, isAtWar, sanctionLevel, setSanction, warsOf, enemiesOf,
 } from './relations';
 import { claimStrength, logEvent } from './war';
+import { recordRipple, rippleSanction, rippleTreaty } from './politics';
 import { strength } from './military';
 import { clamp } from './util';
 import type { CountryId, GameState, OfferKind } from './types';
@@ -81,14 +82,25 @@ export function evaluateProposal(s: GameState, geo: Geo, from: CountryId, to: Co
     }
   }
   if (isAtWar(s, to) && kind === 'alliance') { score -= 0.15; reasons.push('Preoccupied with war'); }
+  // existing commitments matter: an AI will not befriend someone allied to its rival
+  if (kind === 'alliance' || kind === 'coop' || kind === 'nap') {
+    const rivalsAllied = alliesOf(s, from).filter((x) => x !== to && getRelation(s, to, x) < -30);
+    if (rivalsAllied.length) { score -= Math.min(0.6, 0.25 * rivalsAllied.length); reasons.push(`You are allied with its rival ${s.countries[rivalsAllied[0]].name}`); }
+    const atWarWith = warsOf(s, from).length && s.countries.some((x) => x.alive && areAtWar(s, from, x.id) && getRelation(s, to, x.id) > 40);
+    if (atWarWith) { score -= 0.2; reasons.push('You are at war with its friend'); }
+  }
   return { accept: score >= needed, score, needed, reasons };
 }
 
-export function applyTreaty(s: GameState, a: CountryId, b: CountryId, kind: Proposal) {
+export function applyTreaty(s: GameState, a: CountryId, b: CountryId, kind: Proposal, silent = false) {
   const t = ensureTreaty(s, a, b);
   t[kind] = true;
   addRelation(s, a, b, kind === 'alliance' ? 12 : 6);
   logEvent(s, `${s.countries[a].name} and ${s.countries[b].name} signed a ${PROPOSAL_LABEL[kind].toLowerCase()}.`, 'diplo', [a, b], a === s.player || b === s.player);
+  // the rest of the world reacts (always for the player's deals; for AI deals only when notable)
+  if (a === s.player || b === s.player) s.stats.deals = (s.stats.deals ?? 0) + 1;
+  const reactions = rippleTreaty(s, a, b, kind);
+  if (!silent || a === s.player || b === s.player) recordRipple(s, a, b, kind, reactions);
 }
 
 /** Propose a treaty. AI recipients answer immediately. */
@@ -127,6 +139,8 @@ export function imposeSanction(s: GameState, from: CountryId, to: CountryId, lev
   if (t) t.trade = false;
   addRelation(s, from, to, level === 2 ? -25 : -12);
   logEvent(s, `${s.countries[from].name} ${level === 2 ? 'imposed a full embargo on' : 'imposed sanctions on'} ${s.countries[to].name}.`, 'diplo', [from, to], from === s.player || to === s.player);
+  const reactions = rippleSanction(s, from, to, level);
+  if (from === s.player || to === s.player || reactions.length > 6) recordRipple(s, from, to, level === 2 ? 'embargo' : 'sanction', reactions);
 }
 export function liftSanction(s: GameState, from: CountryId, to: CountryId) {
   if (sanctionLevel(s, from, to) === 0) return;

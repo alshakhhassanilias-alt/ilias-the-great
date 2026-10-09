@@ -20,6 +20,7 @@ const errors = [];
 const watch = (pg) => { pg.on('console', (m) => m.type() === 'error' && errors.push(m.text())); pg.on('pageerror', (e) => errors.push(String(e.stack))); };
 
 async function startGame(pg, country, opts = {}) {
+  await pg.addInitScript(() => { try { localStorage.setItem('wo-tutorial-1', '1'); } catch {} });
   await pg.goto(URL);
   await pg.waitForSelector('.start');
   await pg.fill('input[type=search]', country);

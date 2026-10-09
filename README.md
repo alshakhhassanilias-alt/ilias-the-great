@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 37 deterministic simulation tests (Vitest) |
+| `npm test` | 49 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -140,6 +140,14 @@ its economy, threats, relations, logistics, allies, nuclear deterrence and claim
 mobilises, proposes treaties (to you as offers), sanctions aggressors, declares war only when the odds and desire
 justify it, and makes peace. AIs do **not** automatically target the player; difficulty only tilts the odds.
 
+### World politics: deals ripple (`politics.ts`)
+Every treaty, sanction, guarantee, war and annexation is passed through a ripple model: allies of both sides, rivals,
+blocs and the World Assembly react (relations shift, AI countries may cancel treaties with an offended partner,
+hostile blocs raise their threat level). Before you confirm a deal the diplomacy tab previews who will be pleased or
+angry. Other systems: blocs (map mode), counter-blocs, Assembly resolutions with votes, guarantees, mediation,
+ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, ports…) that change hands in conquest,
+~60 situational events with cooldowns and follow-ups, and rotating objectives (3 active at a time) with an advisor.
+
 ## Data provenance — real vs generated
 * **Real (approximate, rounded, ~2023–24):** population, nominal GDP, military spending share, active troops,
   government type, nuclear status, capitals, debt ratios, rivalries and bloc membership. These come from the
@@ -155,7 +163,7 @@ justify it, and makes peace. AIs do **not** automatically target the player; dif
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 31 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 49 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

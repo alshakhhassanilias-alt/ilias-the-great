@@ -146,3 +146,12 @@ export function alliesOf(s: GameState, c: CountryId): CountryId[] {
 export function partnersOf(s: GameState, c: CountryId, kind: 'trade' | 'nap' | 'coop'): CountryId[] {
   return index(s)[kind][c].filter((x) => s.countries[x].alive);
 }
+
+/** Countries that have guaranteed `c`'s security. */
+export function guarantorsOf(s: GameState, c: CountryId): CountryId[] {
+  return s.guarantees.filter((g) => g.endsWith(`>${c}`)).map((g) => Number(g.split('>')[0])).filter((x) => s.countries[x]?.alive);
+}
+export function guaranteedBy(s: GameState, c: CountryId): CountryId[] {
+  return s.guarantees.filter((g) => g.startsWith(`${c}>`)).map((g) => Number(g.split('>')[1])).filter((x) => s.countries[x]?.alive);
+}
+export const hasGuarantee = (s: GameState, from: CountryId, to: CountryId) => s.guarantees.includes(`${from}>${to}`);

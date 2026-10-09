@@ -272,3 +272,14 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .goal b { font-size: 13px; } .goal .hint { font-size: 11.5px; color: var(--faint); margin: 1px 0 5px; }
 .goal .meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 3px; }
 @media (max-width: 900px) { .ticker { left: 8px; right: 8px; bottom: auto; top: 62px; height: 36px; } .map-zoom { top: 108px; } .toasts { top: 150px; } .offers { top: 150px; } }
+.stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #0a1827; border: 1px solid var(--line-soft); }
+.stack i { display: block; height: 100%; }
+.advice { display: grid; gap: 8px; }
+.advice-text { font-size: 13px; line-height: 1.45; }
+.advice .btn { text-align: left; }
+.ripple { position: absolute; right: 12px; bottom: 66px; z-index: 29; width: min(360px, calc(100% - 24px)); background: rgba(8,18,30,.97); border: 1px solid var(--accent); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); animation: slidein .25s ease; }
+.ripple h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.ripple .rr { display: flex; gap: 8px; font-size: 12.5px; padding: 3px 0; line-height: 1.35; }
+.ripple .rr b { width: 38px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.ripple .x { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--muted); font-size: 16px; }
+@media (max-width: 900px) { .ripple { bottom: auto; top: 150px; right: 8px; left: 8px; width: auto; } }

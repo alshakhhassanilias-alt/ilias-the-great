@@ -14,6 +14,8 @@ import { strengthIndex } from '../sim/military';
 import { clamp, fmtNum, shortName } from '../sim/util';
 import { hash01 } from '../sim/rng';
 import type { MapMode } from '../state/store';
+import { computeBlocs } from '../sim/politics';
+import { BDEF, type BType } from '../sim/buildings';
 
 export interface View { k: number; x: number; y: number }
 
@@ -225,6 +227,11 @@ export class MapRenderer {
     const C = state.countries[c];
     const P = state.player;
     switch (this.mode) {
+      case 'blocs': {
+        const { blocs, of } = computeBlocs(state);
+        const b = of.get(c);
+        return b === undefined ? 'hsl(215,9%,27%)' : `hsl(${(b * 67 + 20) % 360},50%,${c === blocs[b].leader ? 50 : 40}%)`;
+      }
       case 'diplomacy': return c === P ? 'hsl(45,85%,48%)' : ramp(REL, (getRelation(state, c, P) + 100) / 200);
       case 'wealth': return ramp(WEALTH, (Math.log10(Math.max(300, C.eco.gdp / Math.max(C.eco.pop, 1))) - 2.5) / 2.3);
       case 'power': return ramp(POWER, (Math.log10(Math.max(2, strengthIndex(C))) - 0.3) / 3.6);
@@ -622,6 +629,23 @@ export class MapRenderer {
         ctx.strokeText(label, sx, sy);
         ctx.fillStyle = state.owner[gp.id] === state.player ? 'rgba(255,230,160,0.9)' : 'rgba(225,235,245,0.62)';
         ctx.fillText(label, sx, sy);
+      }
+    }
+    // buildings (only when zoomed in)
+    if (k > this.fitK * 4) {
+      ctx.font = '12px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+      const slot: Record<number, number> = {};
+      for (const key of Object.keys(state.bld)) {
+        const lv = state.bld[key];
+        if (!lv) continue;
+        const [ps, t] = key.split(':');
+        const p = Number(ps);
+        const gp = geo.provinces[p];
+        const sx = gp.seed[0] * k + x, sy = gp.seed[1] * k + y;
+        if (sx < 0 || sx > this.w || sy < 0 || sy > this.h) continue;
+        const i = (slot[p] = (slot[p] ?? 0) + 1) - 1;
+        ctx.fillStyle = state.owner[p] === state.player ? 'rgba(255,230,160,1)' : 'rgba(255,255,255,0.9)';
+        ctx.fillText(`${BDEF[t as BType].icon}${lv > 1 ? lv : ''}`, sx - 14 + i * 17, sy - 12);
       }
     }
     // capitals

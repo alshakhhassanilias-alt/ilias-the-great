@@ -15,13 +15,14 @@ import { nextRand } from './rng';
 import { clamp } from './util';
 import { CLAIMS } from '../data/countryData';
 import {
-  addRelation, alliesOf, areAtWar, getRelation, hasAlliance, NAME_TO_ID, touchTreaties, pairKey, warBetween, warSideOf, warsOf,
+  addRelation, alliesOf, areAtWar, getRelation, guarantorsOf, hasAlliance, NAME_TO_ID, touchTreaties, pairKey, warBetween, warSideOf, warsOf,
 } from './relations';
 import { potentialOutput } from './economy';
 import { airPower, landPower, navalPower, strength } from './military';
 import type { CountryId, Country, GameState, LogKind, ProvId, War } from './types';
 
 import { logEvent } from './log';
+import { fortBonus, transferBuildings } from './buildings';
 export { logEvent };
 
 const CLAIM_SET = new Map<string, number>();
@@ -59,6 +60,7 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   B.provinces.push(p);
   s.owner[p] = to;
   s.integ[p] = s.core[p] === to ? 1 : 0;
+  transferBuildings(s, p, from, to);
   for (const w of s.wars) w.fronts = w.fronts.filter((fr) => fr.prov !== p);
   for (const c of [A, B]) c.mil.focus = c.mil.focus.filter((q) => s.owner[q] !== c.id);
   if (A.provinces.length === 0) eliminateCountry(s, A, to);
@@ -140,10 +142,15 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId): 
 
   // alliance calls
   if (s.settings.defensiveAlliances) {
-    for (const x of alliesOf(s, d)) {
+    for (const x of new Set([...alliesOf(s, d), ...guarantorsOf(s, d)])) {
       if (x === a || hasAlliance(s, x, a)) continue;
       const X = s.countries[x];
-      if (x === s.player || joinsDefense(s, x, d, a)) {
+      if (x === s.player) {
+        // the player decides whether to honour the alliance (see the "ally_attacked" event)
+        s.scheduled.push({ tick: s.tick, id: 'ally_attacked', data: { ally: d, aggressor: a, war: war.id } });
+        continue;
+      }
+      if (joinsDefense(s, x, d, a)) {
         war.defenders.push(x);
         war.startProvs[x] = X.provinces.length;
         addRelation(s, x, a, -25);
@@ -310,7 +317,7 @@ function supplyReach(c: Country): number {
 function seaReach(c: Country): number {
   const np = navalPower(c.mil);
   if (np < 5e8) return 0;
-  return 25 + 80 * clamp(Math.sqrt(np / 1e12), 0, 1);
+  return 25 + 80 * clamp(Math.sqrt(np / 1e12), 0, 1) + 8 * c.mil.bld.port;
 }
 
 export function navalSuperiority(a: Country, b: Country): number {
@@ -419,12 +426,12 @@ export function stepWars(s: GameState, geo: Geo) {
       const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (defW(p, e) / sumDef) * (1 + 0.25 * E.eco.infra / 100);
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * (1 + 0.9 * terrain) * competence(s, E));
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
         const C = st.c;
-        const air = airSuperiority(C, E);
+        const air = clamp(airSuperiority(C, E) + 0.03 * C.mil.bld.airbase - 0.015 * E.mil.bld.airbase, -1, 1.3);
         const intel = 1 + 0.2 * (C.mil.intel - E.mil.intel);
         const pa = landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C);
         contrib.push({ st, pa, air });

@@ -9,6 +9,15 @@ import { fmtMoney, fmtNum } from './util';
 import { evaluatePeace, makePeace, type PeaceTerms, declareWar, termProvinces, callAllies, airSuperiority } from './war';
 import { runOp, OPS, type OpKind } from './ops';
 import { resolveEvent } from './events';
+import { build, type BType } from './buildings';
+import { recordRipple, rippleTreaty } from './politics';
+import { assessAttack } from './ai';
+import { transferProvince } from './war';
+import { hasGuarantee, warsOf } from './relations';
+import { makePeace as makePeaceFn } from './war';
+import { nextRand } from './rng';
+import { addRelation, getRelation } from './relations';
+import { logEvent } from './log';
 import { acceptOffer, cancelTreaty, declineOffer, imposeSanction, liftSanction, propose, type Proposal } from './diplomacy';
 import { warBetween } from './relations';
 import type { Budget, GameState, ProvId } from './types';
@@ -207,3 +216,88 @@ export function actTotalMobilization(s: GameState, cid: number): ActionResult {
 export function actOp(s: GameState, cid: number, to: number, kind: OpKind): ActionResult { return runOp(s, cid, to, kind); }
 export function actResolveEvent(s: GameState, geo: Geo, option: number): ActionResult { return resolveEvent(s, geo, option); }
 export { OPS };
+
+// ---- statecraft ----
+export function actBuild(s: GameState, geo: Geo, cid: number, p: ProvId, t: BType): ActionResult { return build(s, geo, cid, p, t); }
+
+export function actGuarantee(s: GameState, cid: number, to: number, on: boolean): ActionResult {
+  const key = `${cid}>${to}`;
+  if (!on) { s.guarantees = s.guarantees.filter((g) => g !== key); addRelation(s, cid, to, -6); return ok('Guarantee withdrawn'); }
+  if (hasGuarantee(s, cid, to)) return fail('You already guarantee them');
+  if (getRelation(s, cid, to) < -15) return fail('They do not trust you enough to accept a guarantee');
+  s.guarantees.push(key);
+  addRelation(s, cid, to, 12);
+  s.stats.guarantees = (s.stats.guarantees ?? 0) + 1;
+  const reactions = rippleTreaty(s, cid, to, 'guarantee');
+  recordRipple(s, cid, to, 'guarantee', reactions);
+  return ok(`You now guarantee ${s.countries[to].name}'s security: an attack on them is an attack on your word.`);
+}
+export function actAid(s: GameState, cid: number, to: number, pct: number): ActionResult {
+  const c = s.countries[cid], T = s.countries[to];
+  const cost = pct * c.eco.gdp;
+  const f = fund(s, cid, cost);
+  if (!f.ok) return f;
+  T.eco.cash += cost; T.eco.stability = Math.min(100, T.eco.stability + 1.5);
+  addRelation(s, cid, to, Math.min(25, 30 * pct * 100 / 1.0 * 0.4 + 4));
+  c.reputation = Math.min(100, c.reputation + 1);
+  s.stats.aid = (s.stats.aid ?? 0) + 1;
+  return ok(`${fmtMoney(cost)} of aid delivered to ${T.name}. Relations improve.`);
+}
+export function actSummit(s: GameState, cid: number, to: number): ActionResult {
+  const c = s.countries[cid], T = s.countries[to];
+  const key = `${to}:summit`;
+  if ((s.opCooldown[key] ?? -999) + 26 > s.tick) return fail('You held a summit with them recently');
+  const cost = 0.001 * c.eco.gdp;
+  if (c.eco.cash < cost) return fail(`Not enough cash (${fmtMoney(cost)})`);
+  c.eco.cash -= cost; s.opCooldown[key] = s.tick;
+  const rel = getRelation(s, cid, to);
+  const p = rel < -40 ? 0.45 : rel < 0 ? 0.75 : 0.95;
+  if (nextRand(s) > p) { addRelation(s, cid, to, -4); return fail(`The summit with ${T.name} ended in a public spat.`); }
+  addRelation(s, cid, to, 9);
+  return ok(`A summit with ${T.name} warmed relations.`);
+}
+export function actUltimatum(s: GameState, geo: Geo, cid: number, to: number, kind: 'cede' | 'tribute'): ActionResult {
+  const c = s.countries[cid], T = s.countries[to];
+  if (areAtWarSafe(s, cid, to)) return fail('You are already at war');
+  const a = assessAttack(s, geo, c, T);
+  const accept = nextRand(s) < clamp((a.ratio - 1.4) / 2.2, 0.02, 0.9) * (1 - 0.4 * T.ai.caution + 0.3) && !(T.mil.nuclear && !c.mil.nuclear);
+  c.reputation = Math.max(0, c.reputation - 4);
+  if (!accept) {
+    addRelation(s, cid, to, -25);
+    logEvent(s, `${T.name} rejected ${c.name}'s ultimatum.`, 'danger', [cid, to], true);
+    return fail(`${T.name} rejected your ultimatum (odds were ${(clamp((a.ratio - 1.4) / 2.2, 0.02, 0.9) * 100).toFixed(0)}%). Relations −25. You can now declare war or back down.`);
+  }
+  addRelation(s, cid, to, -12);
+  if (kind === 'tribute') { const amt = 0.015 * T.eco.gdp; T.eco.cash = Math.max(0, T.eco.cash - amt); T.eco.debt += Math.max(0, amt - T.eco.cash); c.eco.cash += amt; logEvent(s, `${T.name} paid tribute to ${c.name} under threat.`, 'diplo', [cid, to], true); return ok(`${T.name} paid ${fmtMoney(amt)}.`); }
+  const mine = new Set(c.provinces);
+  const cand = T.provinces.filter((p) => p !== T.capital && geo.adj[p].some((q) => mine.has(q))).sort((x, y) => geo.provinces[x].w - geo.provinces[y].w)[0];
+  if (cand === undefined) return fail('No border region could be claimed.');
+  const nm = geo.provinces[cand].name;
+  transferProvince(s, geo, cand, cid);
+  T.eco.stability = Math.max(0, T.eco.stability - 6);
+  logEvent(s, `${T.name} ceded ${nm} to ${c.name} after an ultimatum.`, 'territory', [cid, to], true);
+  return ok(`${T.name} ceded ${nm} without a fight.`);
+}
+function areAtWarSafe(s: GameState, a: number, b: number) { return warsOf(s, a).some((w) => (w.attackers.includes(a) && w.defenders.includes(b)) || (w.defenders.includes(a) && w.attackers.includes(b))); }
+export function actMediate(s: GameState, geo: Geo, cid: number, warId: number): ActionResult {
+  const c = s.countries[cid];
+  const w = s.wars.find((x) => x.id === warId);
+  if (!w) return fail('That war is over');
+  if (w.attackers.includes(cid) || w.defenders.includes(cid)) return fail('You are a party to this war');
+  const key = `mediate:${warId}`;
+  if ((s.opCooldown[key] ?? -999) + 13 > s.tick) return fail('You tried mediating this war very recently');
+  const cost = 0.0025 * c.eco.gdp;
+  const f = fund(s, cid, cost);
+  if (!f.ok) return f;
+  s.opCooldown[key] = s.tick;
+  const A = s.countries[w.attackers[0]], B = s.countries[w.defenders[0]];
+  const p = clamp(0.25 + c.reputation / 250 + (A.mil.exhaustion + B.mil.exhaustion) * 0.4 + (getRelation(s, cid, A.id) > 0 && getRelation(s, cid, B.id) > 0 ? 0.1 : -0.05), 0.08, 0.9);
+  if (nextRand(s) < p) {
+    makePeaceFn(s, geo, A.id, B.id, { kind: 'status_quo' });
+    c.reputation = Math.min(100, c.reputation + 6); addRelation(s, cid, A.id, 12); addRelation(s, cid, B.id, 12);
+    s.stats.mediations = (s.stats.mediations ?? 0) + 1;
+    return ok(`Mediation worked: ${A.name} and ${B.name} agreed a ceasefire. Reputation +6.`);
+  }
+  addRelation(s, cid, A.id, -2); addRelation(s, cid, B.id, -2);
+  return fail(`The talks failed (${(p * 100).toFixed(0)}% chance). Try again later or when both sides are more exhausted.`);
+}

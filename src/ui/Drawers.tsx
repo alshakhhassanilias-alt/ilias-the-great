@@ -8,6 +8,9 @@ import { strength } from '../sim/military';
 import { dateLabel } from '../sim/tick';
 import { areAtWar, warBetween } from '../sim/relations';
 import type { Difficulty, VictoryMode } from '../sim/types';
+import { computeBlocs, RES_LABEL, tensionIndex } from '../sim/politics';
+import { HelpModal } from './Help';
+import { Meter } from './widgets';
 
 function Modal({ title, onClose, children, narrow }: { title: string; onClose: () => void; children: React.ReactNode; narrow?: boolean }) {
   return (
@@ -29,6 +32,7 @@ export function Drawers() {
   if (open === 'menu') return <MenuDrawer onClose={close} />;
   if (open === 'settings') return <SettingsDrawer onClose={close} />;
   if (open === 'peace') return <PeaceDrawer onClose={close} />;
+  if (open === 'help') return <HelpModal onClose={close} />;
   return null;
 }
 
@@ -49,7 +53,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
   const news = [...s.log].reverse().filter((l) => !onlyImportant || l.important || l.countries.includes(s.player)).slice(0, 80);
   return (
     <Modal title="World overview" onClose={onClose}>
-      <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'news', label: 'News' }]} />
+      <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'blocs', label: 'Blocs' }, { v: 'assembly', label: 'Assembly' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'news', label: 'News' }]} />
       <div style={{ height: 12 }} />
       {tab === 'rankings' && (
         <>
@@ -67,6 +71,47 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
               {myRank >= 20 && (<tr className="me click" onClick={() => pick(s.player)}><td>{myRank + 1}</td><td>{s.countries[s.player].name}</td><td style={{ textAlign: 'right' }}>{fmt(val(s.countries[s.player]))}</td><td /></tr>)}
             </tbody>
           </table>
+        </>
+      )}
+      {tab === 'blocs' && (() => {
+        const { blocs } = computeBlocs(s);
+        const tension = tensionIndex(s);
+        const inBloc = new Set(blocs.flatMap((b) => b.members));
+        return (
+          <>
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="row" style={{ border: 'none', padding: 0 }}><div className="grow"><b>Global tension</b><div className="hint">Rises with wars and standoffs between the great powers; falls with peace and diplomacy.</div></div><div className={`val ${tension > 55 ? 'bad' : tension > 30 ? 'warn' : 'good'}`}>{tension}/100</div></div>
+              <Meter value={tension / 100} color={tension > 55 ? 'var(--red)' : tension > 30 ? 'var(--amber)' : 'var(--green)'} />
+            </div>
+            {blocs.length === 0 && <p className="muted">No alliance blocs exist yet.</p>}
+            {blocs.map((b) => (
+              <div className="card" key={b.id} style={{ marginBottom: 8 }}>
+                <div className="row" style={{ border: 'none', padding: 0 }}>
+                  <span className="dot" style={{ background: `hsl(${(b.id * 67 + 20) % 360},55%,48%)` }} />
+                  <div className="grow"><b>{b.name}</b> <span className="faint">· {b.members.length} members · {fmtMoney(b.gdp)} · power {fmtNum(b.strength / 1000 * 1000)}</span></div>
+                  {b.members.includes(s.player) && <span className="pill gold">Your bloc</span>}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                  {b.members.map((m) => <button key={m} className="pill" style={{ cursor: 'pointer' }} onClick={() => pick(m)}>{m === b.leader ? '★ ' : ''}{s.countries[m].name}</button>)}
+                </div>
+              </div>
+            ))}
+            <div className="faint" style={{ fontSize: 12 }}>{s.countries.filter((c) => c.alive && !inBloc.has(c.id)).length} countries belong to no bloc. Switch the map to "Blocs" to see the alignments. Signing an alliance changes how everyone treats you; rivals of your partner will push back.</div>
+          </>
+        );
+      })()}
+      {tab === 'assembly' && (
+        <>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>Twice a year the World Assembly votes on a resolution (condemn an aggressor, sanction a rogue state, demand a ceasefire, send aid). Your vote shifts relations with both camps, and passed resolutions have real effects.</p>
+          {s.resolutions.length === 0 && <p className="muted">No votes yet.</p>}
+          {[...s.resolutions].reverse().map((r) => (
+            <div className="card" key={r.id} style={{ marginBottom: 8 }}>
+              <div className="row" style={{ border: 'none', padding: 0 }}>
+                <div className="grow"><b>{RES_LABEL[r.kind]} {s.countries[r.target].name}</b><div className="hint">{dateLabel(r.tick)}{r.victim >= 0 ? ` · victim: ${s.countries[r.victim].name}` : ''}</div></div>
+                <span className={`pill ${r.passed ? 'green' : r.passed === false ? 'red' : ''}`}>{r.passed === null ? 'pending' : r.passed ? `passed ${r.yes}–${r.no}` : `failed ${r.yes}–${r.no}`}</span>
+              </div>
+            </div>
+          ))}
         </>
       )}
       {tab === 'wars' && (
@@ -113,6 +158,7 @@ function MenuDrawer({ onClose }: { onClose: () => void }) {
         <button className="btn" onClick={() => store.exportFile()}>⬇ Export save file</button>
         <button className="btn" onClick={() => file.current?.click()}>⬆ Import save file</button>
         <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { store.importText(await f.text()); onClose(); } }} />
+        <button className="btn" onClick={() => { store.helpStep = 0; store.openDrawer('help'); }}>❓ How to play</button>
         <button className="btn" onClick={() => store.openDrawer('settings')}>⚙ Game settings</button>
         <button className="btn danger" onClick={() => { if (confirm('Quit to the main menu? Unsaved progress will be lost.')) { store.quitToMenu(); } }}>Quit to main menu</button>
       </div>

@@ -10,9 +10,9 @@ export function Section({ title, hint, children }: { title: string; hint?: React
   );
 }
 
-export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'good' | 'bad' | 'warn' }) {
+export function Stat({ label, value, sub, tone, tip }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'good' | 'bad' | 'warn'; tip?: string }) {
   return (
-    <div className="stat">
+    <div className="stat" title={tip}>
       <label>{label}</label>
       <b className={tone}>{value}</b>
       {sub ? <small>{sub}</small> : null}

@@ -93,6 +93,7 @@ export interface Economy {
   tradeBase: number; // baseline trade boost (initial agreements) used to normalise tradeIndex
   prev: Record<string, number>; // previous-tick log values for growth decomposition
   occupation: number; // unrest from recently conquered provinces 0..1
+  stabParts: Record<string, number>; // contributions to the stability target (for the explanation panel)
 }
 
 export interface Military {
@@ -113,6 +114,7 @@ export interface Military {
   procurement: number; // annual spend on new equipment
   nuclear: boolean;
   warEconomy: boolean; // war footing: faster procurement, but unrest and inflation
+  bld: { fort: number; airbase: number; port: number; factory: number; barracks: number }; // building levels owned (derived)
   unitCost: number; // annual cost per soldier at base prices (incl. support)
 }
 
@@ -145,6 +147,7 @@ export interface Country {
   hist: { gdp: number[]; gdppc: number[]; debt: number[]; mil: number[]; stab: number[]; infl: number[]; unemp: number[]; pop: number[]; trade: number[] };
   baseline: { gdp: number; pop: number; provinces: number };
   lastWarDecl: number;
+  intent: string; // what this country is currently up to (AI), shown to the player
 }
 
 export interface Treaty {
@@ -210,11 +213,28 @@ export interface GameState {
   eventCooldown: Record<string, number>;
   lastEventTick: number;
   goalsDone: Record<string, number>;
+  goalsActive: string[];
   goalBase: { trade: number; allies: number; rank: number; gdp: number; tech: number; debt: number };
   /** countries whose real numbers the player can currently see (intel op) → expiry tick */
   intelUntil: Record<number, number>;
   opCooldown: Record<string, number>;
+  /** one-way security guarantees: "guarantor>protected" */
+  guarantees: string[];
+  scheduled: Scheduled[];
+  /** province buildings: "provinceId:type" -> level 0..3 */
+  bld: Record<string, number>;
+  lastRipple: Ripple | null;
+  resolutions: Resolution[];
+  nextResolution: number;
+  /** headline reactions of the last few player deals */
+  history: { tick: number; text: string }[];
+  /** counters used by objectives */
+  stats: Record<string, number>;
 }
+export interface Reaction { id: CountryId; delta: number; text: string }
+export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }
+export interface Scheduled { tick: number; id: string; data: Record<string, number> }
+export interface Resolution { id: number; kind: 'condemn' | 'sanction' | 'ceasefire' | 'aid'; target: CountryId; victim: number; tick: number; yes: number; no: number; passed: boolean | null }
 export interface PendingEvent { id: string; tick: number; data: Record<string, number> }
 
 export const START_YEAR = 2024;

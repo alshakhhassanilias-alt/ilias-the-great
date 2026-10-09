@@ -13,7 +13,7 @@ import { neighborsOf } from '../sim/diplomacy';
 import type { ActionResult } from '../sim/actions';
 
 export type Tab = 'overview' | 'economy' | 'military' | 'diplomacy';
-export type MapMode = 'political' | 'diplomacy' | 'wealth' | 'power' | 'stability';
+export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
 export const SPEEDS = [
   { label: 'Pause', tps: 0 },
   { label: 'Normal', tps: 2 },
@@ -22,7 +22,7 @@ export const SPEEDS = [
 ] as const;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace'; worldTab: 'rankings' | 'wars' | 'news' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' }
 
 const SAVE_KEY = 'world-order-save-v1';
 const AUTO_KEY = 'world-order-autosave-v1';
@@ -43,6 +43,8 @@ class Store {
   sheet: 'peek' | 'half' | 'full' = 'half';
   focusRequest = 0; // bumps when the map should pan to the selected country
   pauseOnWar = true;
+  rippleSeen = '';
+  helpStep = 0;
   preview = true; // true while showing the start-screen world
   private listeners = new Set<() => void>();
   private lastSeq = -1;
@@ -72,6 +74,7 @@ class Store {
     this.state = createGame(this.geo, settings, player);
     this.preview = false;
     this.afterLoad(player);
+    try { if (!localStorage.getItem('wo-tutorial-1')) { this.helpStep = 0; this.drawer = { open: 'help', worldTab: this.drawer.worldTab }; localStorage.setItem('wo-tutorial-1', '1'); } } catch { /* storage unavailable */ }
   }
   /** World shown behind the start screen (never simulated). */
   startPreview() {

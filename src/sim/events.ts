@@ -5,29 +5,15 @@
  */
 import type { Geo } from './geo';
 import { nextRand } from './rng';
-import { clamp, fmtMoney } from './util';
+import { clamp } from './util';
 import { logEvent } from './log';
-import { fund } from './actions';
 import { addRelation, alliesOf, areAtWar, getRelation, isAtWar, partnersOf } from './relations';
 import { applyTreaty, neighborsOf } from './diplomacy';
 import { declareWar, forcePeaceAll } from './war';
 import type { Country, GameState, PendingEvent } from './types';
 
-type D = Record<string, number>;
-export interface EventOption { label: string; hint: string; enabled?: (s: GameState, c: Country) => boolean; apply: (s: GameState, c: Country, d: D, geo: Geo) => string }
-export interface EventDef {
-  id: string; icon: string; title: string; weight: number; cooldown: number;
-  eligible: (s: GameState, c: Country, geo: Geo) => D | null;
-  text: (s: GameState, c: Country, d: D) => string;
-  options: EventOption[];
-}
-
-const name = (s: GameState, id: number) => s.countries[id].name;
-const pay = (s: GameState, c: Country, pct: number) => fund(s, c.id, pct * c.eco.gdp);
-const stab = (c: Country, v: number) => { c.eco.stability = clamp(c.eco.stability + v, 0, 100); };
-const rep = (c: Country, v: number) => { c.reputation = clamp(c.reputation + v, 0, 100); };
-const money = (c: Country, pct: number) => fmtMoney(pct * c.eco.gdp);
-const canPay = (pct: number) => (_s: GameState, c: Country) => (c.eco.debt + pct * c.eco.gdp) / c.eco.gdp < 2.5;
+import { type D, type EventDef, type EventOption, name, pay, stab, rep, money, canPay } from './eventkit';
+export type { EventDef, EventOption };
 
 export const EVENTS: EventDef[] = [
   {
@@ -196,16 +182,43 @@ export const EVENTS: EventDef[] = [
   },
 ];
 
-export function eventById(id: string) { return EVENTS.find((e) => e.id === id)!; }
+import { EVENTS2 } from './events2';
+import { finalizeResolution, proposeResolution } from './politics';
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2];
+export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
+
+/** Decision about the World Assembly: every half year a resolution is put to the vote. */
+export function stepAssembly(s: GameState, geo: Geo) {
+  if (s.tick % 26 !== 13 || s.tick < 20) return;
+  const r = proposeResolution(s);
+  if (!r) return;
+  s.resolutions.push(r);
+  if (s.resolutions.length > 12) s.resolutions.shift();
+  const P = s.countries[s.player];
+  if (!P.alive || r.target === s.player || s.pendingEvent || r.victim === s.player) { finalizeResolution(s, geo, r); return; }
+  s.pendingEvent = { id: 'assembly', tick: s.tick, data: { rid: r.id } };
+  s.lastEventTick = s.tick;
+}
 
 /** Roll for a decision event for the player. Called every tick; paces itself. */
 export function rollPlayerEvent(s: GameState, geo: Geo) {
   const c = s.countries[s.player];
   if (!c.alive || s.pendingEvent || s.victory) return;
+  // follow-ups and queued decisions (ally attacked, ultimatums, supply disputes ...) take priority
+  const due = s.scheduled.findIndex((x) => x.tick <= s.tick);
+  if (due >= 0) {
+    const sc = s.scheduled.splice(due, 1)[0];
+    let id = sc.id;
+    if (id === 'pipeline') id = getRelation(s, s.player, sc.data.from) > 40 ? 'pipeline_bonus' : 'pipeline_cutoff';
+    s.pendingEvent = { id, tick: s.tick, data: sc.data };
+    s.lastEventTick = s.tick;
+    return;
+  }
   if (s.tick < 6 || s.tick - s.lastEventTick < 5 || s.tick % 2 !== 0) return;
   if (nextRand(s) > 0.26) return;
   const pool: { def: EventDef; d: D; w: number }[] = [];
-  for (const def of EVENTS) {
+  for (const def of ALL_EVENTS) {
+    if (def.weight <= 0) continue;
     if ((s.eventCooldown[def.id] ?? -9999) + def.cooldown > s.tick) continue;
     const d = def.eligible(s, c, geo);
     if (d) pool.push({ def, d, w: def.weight });

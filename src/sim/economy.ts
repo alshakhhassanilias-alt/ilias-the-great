@@ -181,7 +181,7 @@ export function updateTradeAndResources(c: Country, s: GameState, w: WorldAgg) {
   const e = c.eco;
   e.sanctionShare = Math.min(0.95, w.sanctionedBy[c.id]);
   const warLoad = Math.min(3, warsOf(s, c.id).length);
-  const raw = 1 + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad;
+  const raw = 1 + 0.01 * c.mil.bld.port + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad;
   e.tradeIndex = clamp(raw / e.tradeBase, 0.15, 1.5);
   // energy & food balances
   e.energyDemand = e.prev.eInt * e.realGdp;
@@ -289,17 +289,20 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   // ---- stability ----
   const soc = b.social / Math.max(e.baseSocial, 0.01);
   const burdenExcess = Math.max(0, taxBurden(b) * e.collection - e.baseTaxRevenue - 0.05);
-  const target = e.prev.stab0
-    + clamp(80 * (e.growth - Math.min(e.baseGrowth, 0.03)), -10, 6)
-    - 100 * Math.max(0, e.unemployment - e.uNat - 0.02)
-    - 100 * Math.max(0, e.inflation - Math.max(0.05, e.prev.infl0))
-    + clamp((soc - 1) * 30, -14, 10)
-    - 40 * burdenExcess
-    - 35 * c.mil.exhaustion
-    - 40 * e.foodUnmet - 30 * e.energyUnmet
-    - 25 * e.damage
-    - 30 * e.occupation
-    - (debtRatio > 2 ? 15 : 0);
+  const parts: Record<string, number> = {
+    base: e.prev.stab0,
+    growth: clamp(80 * (e.growth - Math.min(e.baseGrowth, 0.03)), -10, 6),
+    jobs: -100 * Math.max(0, e.unemployment - e.uNat - 0.02),
+    prices: -100 * Math.max(0, e.inflation - Math.max(0.05, e.prev.infl0)),
+    services: clamp((soc - 1) * 30, -14, 10),
+    taxes: -40 * burdenExcess,
+    war: -35 * c.mil.exhaustion - 25 * e.damage,
+    shortages: -40 * e.foodUnmet - 30 * e.energyUnmet,
+    occupation: -30 * e.occupation,
+    debt: debtRatio > 2 ? -15 : 0,
+  };
+  e.stabParts = parts;
+  const target = Object.values(parts).reduce((t, v) => t + v, 0);
   e.stability = clamp(e.stability + (target - e.stability) * (1 - Math.exp(-DT * 2)), 0, 100);
 
   // ---- growth explanation (annualised log contributions, smoothed) ----

@@ -5,6 +5,9 @@ import { relLabel } from '../format';
 import { OPS as OPDEFS, opChance, type OpKind } from '../../sim/ops';
 import { actOp } from '../../sim/actions';
 import { fmtMoney } from '../format';
+import { previewReactions } from '../../sim/politics';
+import { actAid, actGuarantee, actMediate, actSummit, actUltimatum } from '../../sim/actions';
+import { hasGuarantee, guarantorsOf } from '../../sim/relations';
 import { actCancel, actDeclareWar, actPropose, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
 import { evaluateProposal, PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
 import { alliesOf, areAtWar, baseRelation, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
@@ -90,6 +93,12 @@ export function DiplomacyTab({ id }: { id: number }) {
                       Likelihood: <b className={ev.accept ? 'good' : 'bad'}>{ev.accept ? 'likely to accept' : 'likely to refuse'}</b> · {ev.reasons.join(' · ')}
                     </div>
                   )}
+                  {!has && (() => {
+                    const rx = previewReactions(s, s.player, id, k);
+                    const neg = rx.filter((r) => r.delta < 0).slice(0, 3), pos = rx.filter((r) => r.delta > 0).slice(0, 3);
+                    if (!neg.length && !pos.length) return <div className="hint" style={{ marginTop: 3 }}>World reaction: little interest.</div>;
+                    return <div className="hint" style={{ marginTop: 3 }}>World reaction: {neg.length > 0 && <span className="bad">↓ {neg.map((r) => s.countries[r.id].name).join(', ')}{rx.filter((r) => r.delta < 0).length > 3 ? ` +${rx.filter((r) => r.delta < 0).length - 3}` : ''}</span>}{neg.length > 0 && pos.length > 0 ? ' · ' : ''}{pos.length > 0 && <span className="good">↑ {pos.map((r) => s.countries[r.id].name).join(', ')}</span>}</div>;
+                  })()}
                   {msg[k] && !has && <div className="hint warn" style={{ marginTop: 4 }}>Last answer: {msg[k]}</div>}
                 </div>
               );
@@ -97,6 +106,47 @@ export function DiplomacyTab({ id }: { id: number }) {
           </div>
         </Section>
       )}
+
+      <Section title="Their outlook">
+        <div className="card" style={{ fontSize: 13 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{c.intent || 'Going about its business'}</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {c.ai.aggression > 0.7 && <span className="pill red">Hawkish</span>}{c.ai.aggression < 0.2 && <span className="pill green">Pacifist</span>}
+            {c.ai.expansion > 0.5 && <span className="pill red">Expansionist</span>}{c.ai.trade > 0.7 && <span className="pill blue">Mercantile</span>}
+            {c.ai.ideology > 0.6 && <span className="pill gold">Ideological</span>}{c.ai.caution > 0.65 && <span className="pill">Cautious</span>}
+            {c.mil.nuclear && <span className="pill red">☢ Nuclear</span>}
+            {guarantorsOf(s, id).length > 0 && <span className="pill blue">Guaranteed by {guarantorsOf(s, id).slice(0, 2).map((g) => s.countries[g].name).join(', ')}</span>}
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Statecraft" hint="shape the world around them">
+        <div className="btnrow">
+          <button className={`btn ${hasGuarantee(s, s.player, id) ? 'primary' : ''}`} onClick={() => store.act((g) => actGuarantee(g, g.player, id, !hasGuarantee(g, g.player, id)))}>
+            {hasGuarantee(s, s.player, id) ? 'Withdraw guarantee' : 'Guarantee their security'}<small>if attacked you must decide to defend</small>
+          </button>
+          <button className="btn" onClick={() => store.act((g) => actAid(g, g.player, id, 0.003))}>Send aid<small>{fmtMoney(0.003 * me.eco.gdp)} · relations up</small></button>
+          <button className="btn" onClick={() => store.act((g) => actSummit(g, g.player, id))}>Hold a summit<small>{fmtMoney(0.001 * me.eco.gdp)} · relations +9</small></button>
+        </div>
+        {!atWar && (() => {
+          const odds = Math.max(0.02, Math.min(0.9, (as.ratio - 1.4) / 2.2));
+          return (
+            <div className="card" style={{ marginTop: 8 }}>
+              <div className="lab" style={{ fontWeight: 600 }}>Coercion</div>
+              <div className="hint" style={{ margin: '2px 0 8px' }}>An ultimatum can win land or money without a war, if they fear you. Odds of compliance ≈ {(odds * 100).toFixed(0)}%. Refusal costs relations and reputation.</div>
+              <div className="btnrow">
+                <button className="btn danger" onClick={() => { const r = store.act((g) => actUltimatum(g, geo, g.player, id, 'cede')); void r; }}>Demand a border region</button>
+                <button className="btn danger" onClick={() => { const r = store.act((g) => actUltimatum(g, geo, g.player, id, 'tribute')); void r; }}>Demand tribute (1.5% GDP)</button>
+              </div>
+            </div>
+          );
+        })()}
+        {wars.filter((w) => !w.attackers.includes(s.player) && !w.defenders.includes(s.player)).map((w) => (
+          <button key={w.id} className="btn" style={{ marginTop: 8, width: '100%' }} onClick={() => store.act((g) => actMediate(g, geo, g.player, w.id))}>
+            Offer to mediate the {w.name}<small>{fmtMoney(0.0025 * me.eco.gdp)} · succeeds more often when both sides are exhausted</small>
+          </button>
+        ))}
+      </Section>
 
       <Section title="Economic pressure">
         <div className="btnrow">
