@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { store } from '../../state/store';
 import { Note, RelationBar, Section } from '../widgets';
 import { relLabel } from '../format';
+import { OPS as OPDEFS, opChance, type OpKind } from '../../sim/ops';
+import { actOp } from '../../sim/actions';
+import { fmtMoney } from '../format';
 import { actCancel, actDeclareWar, actPropose, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
 import { evaluateProposal, PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
 import { alliesOf, areAtWar, baseRelation, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
@@ -104,6 +107,22 @@ export function DiplomacyTab({ id }: { id: number }) {
             {mySanction === 2 ? 'Lift embargo' : 'Full embargo'}<small>stronger, costs you more</small>
           </button>
         </div>
+      </Section>
+
+      <Section title="Covert operations" hint={`your intel ${(me.mil.intel * 100).toFixed(0)} vs ${(c.mil.intel * 100).toFixed(0)}`}>
+        <div className="list">
+          {(Object.keys(OPDEFS) as OpKind[]).map((k) => {
+            const d = OPDEFS[k];
+            const left = Math.ceil((s.opCooldown[`${id}:${k}`] ?? -999) + d.cooldown - s.tick);
+            return (
+              <button key={k} className="btn" style={{ textAlign: 'left', marginBottom: 6 }} disabled={left > 0}
+                onClick={() => { const r = store.act((g) => actOp(g, g.player, id, k), true); store.toast(r.message, r.ok ? 'diplo' : 'danger'); }}>
+                {d.label}<small>{d.desc} · {fmtMoney(d.cost * me.eco.gdp)} · {Math.round(opChance(s, s.player, id, k) * 100)}% success{left > 0 ? ` · ready in ${left}w` : ''}</small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="faint" style={{ fontSize: 11 }}>Failure exposes your agents: relations −18 and reputation −4. Better intelligence services improve the odds.</div>
       </Section>
 
       <Section title="Standing">

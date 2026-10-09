@@ -6,7 +6,9 @@ import type { Geo } from './geo';
 import { clamp } from './util';
 import { manpower } from './military';
 import { fmtMoney, fmtNum } from './util';
-import { evaluatePeace, makePeace, type PeaceTerms, declareWar, termProvinces } from './war';
+import { evaluatePeace, makePeace, type PeaceTerms, declareWar, termProvinces, callAllies, airSuperiority } from './war';
+import { runOp, OPS, type OpKind } from './ops';
+import { resolveEvent } from './events';
 import { acceptOffer, cancelTreaty, declineOffer, imposeSanction, liftSanction, propose, type Proposal } from './diplomacy';
 import { warBetween } from './relations';
 import type { Budget, GameState, ProvId } from './types';
@@ -167,3 +169,41 @@ export function actAcceptOffer(s: GameState, geo: Geo, offerId: number): ActionR
 }
 export function actDeclineOffer(s: GameState, offerId: number): ActionResult { declineOffer(s, offerId); return ok('Offer declined'); }
 export { termProvinces };
+
+// ---- active war operations ----
+export function actAirstrike(s: GameState, cid: number, prov: ProvId): ActionResult {
+  const c = s.countries[cid];
+  const cost = 0.0015 * c.eco.gdp;
+  if (c.mil.equipAir < 1e8) return fail('You have no air force to strike with');
+  for (const w of s.wars) {
+    const fr = w.fronts.find((f) => f.prov === prov && f.by === cid);
+    if (!fr) continue;
+    const f = fund(s, cid, cost);
+    if (!f.ok) return f;
+    const enemy = s.countries[s.owner[prov]];
+    const sup = airSuperiority(c, enemy);
+    const gain = 0.06 + 0.07 * Math.max(0, sup);
+    fr.progress = Math.min(1.1, fr.progress + gain);
+    enemy.eco.infra = Math.max(5, enemy.eco.infra - 1);
+    c.mil.equipAir *= 0.998;
+    return ok(`Air strike hit ${enemy.name}: offensive +${(gain * 100).toFixed(0)}% progress. ${f.message}`);
+  }
+  return fail('You have no active offensive against that region — pick a region on the front line');
+}
+export function actWarEconomy(s: GameState, cid: number, on: boolean): ActionResult {
+  s.countries[cid].mil.warEconomy = on;
+  return ok(on ? 'War economy: armament output +60%, but unrest and inflation rise.' : 'Back to a peacetime economy.');
+}
+export function actCallAllies(s: GameState, cid: number): ActionResult {
+  const j = callAllies(s, cid);
+  return j.length ? ok(`${j.map((x) => s.countries[x].name).join(', ')} joined the war!`) : fail('No allies agreed to join.');
+}
+export function actTotalMobilization(s: GameState, cid: number): ActionResult {
+  const c = s.countries[cid];
+  const r = recruit(s, cid, manpower(c) * 0.5);
+  if (r.ok) c.mil.warEconomy = true;
+  return r.ok ? ok(`${r.message} War economy switched on.`) : r;
+}
+export function actOp(s: GameState, cid: number, to: number, kind: OpKind): ActionResult { return runOp(s, cid, to, kind); }
+export function actResolveEvent(s: GameState, geo: Geo, option: number): ActionResult { return resolveEvent(s, geo, option); }
+export { OPS };

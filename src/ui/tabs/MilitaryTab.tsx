@@ -1,7 +1,7 @@
 import { store } from '../../state/store';
-import { Note, Section, Slider, Stat, MeterRow } from '../widgets';
+import { Meter, Note, Section, Slider, Stat, MeterRow } from '../widgets';
 import { fmtMoney, fmtNum, fog, pct } from '../format';
-import { BUDGET_LIMITS, buyEquipment, demobilize, recruit, setAutoAdvance, setBudget, setCommit } from '../../sim/actions';
+import { actAirstrike, actCallAllies, actTotalMobilization, actWarEconomy, BUDGET_LIMITS, buyEquipment, demobilize, recruit, setAutoAdvance, setBudget, setCommit } from '../../sim/actions';
 import { airPower, equipRatio, landPower, manpower, navalPower, strength, strengthIndex, techMult } from '../../sim/military';
 import { areAtWar, enemiesOf, isAtWar, warsOf } from '../../sim/relations';
 import { assessAttack } from '../../sim/ai';
@@ -89,6 +89,30 @@ export function MilitaryTab({ id }: { id: number }) {
             <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>Recruits come from your manpower pool and leave the civilian workforce, so mobilising costs output. Equipment per soldier determines army quality.</div>
           </Section>
         </>
+      )}
+
+      {mine && wars.length > 0 && (
+        <Section title="Active offensives" hint="click a region on the map to inspect it">
+          {wars.flatMap((w) => w.fronts.filter((f) => f.by === id)).length === 0 && <div className="faint" style={{ fontSize: 12.5 }}>No offensives under way yet. Your forces advance from your border into enemy regions.</div>}
+          {wars.flatMap((w) => w.fronts.filter((f) => f.by === id)).map((f) => {
+            const gp = geo.provinces[f.prov];
+            return (
+              <div className="card" key={`${f.prov}-${f.by}`} style={{ marginBottom: 8 }}>
+                <div className="row" style={{ border: 'none', padding: 0 }}>
+                  <div className="grow"><b>{gp.name}</b><div className="hint">{f.amphibious ? 'Amphibious landing · ' : ''}{s.countries[s.owner[f.prov]].name} · you {f.atk ? fmtNum(f.atk) : '…'} vs {f.def ? fmtNum(f.def) : '…'} defenders</div></div>
+                  <button className="btn" onClick={() => store.act((g) => actAirstrike(g, g.player, f.prov))}>Air strike<small>{fmtMoney(0.0015 * e.gdp)}</small></button>
+                </div>
+                <div style={{ marginTop: 6 }}><Meter value={Math.min(1, f.progress)} color="var(--accent)" /></div>
+                <div className="hint" style={{ marginTop: 2 }}>{Math.round(Math.min(1, f.progress) * 100)}% — captured at 100%. Higher odds with logistics, air superiority, and fewer defenders.</div>
+              </div>
+            );
+          })}
+          <div className="btnrow" style={{ marginTop: 8 }}>
+            <button className="btn" onClick={() => store.act((g) => actCallAllies(g, g.player))}>Call allies to war<small>they may decline</small></button>
+            <button className="btn danger" onClick={() => store.act((g) => actTotalMobilization(g, g.player))}>Total mobilisation<small>recruit 50% of manpower + war economy</small></button>
+            <button className={`btn ${m.warEconomy ? 'primary' : ''}`} onClick={() => store.act((g) => actWarEconomy(g, g.player, !m.warEconomy))}>{m.warEconomy ? 'War economy ON' : 'Switch to war economy'}<small>+60% armament output · unrest & inflation</small></button>
+          </div>
+        </Section>
       )}
 
       {mine && wars.length > 0 && (

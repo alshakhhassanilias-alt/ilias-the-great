@@ -112,6 +112,7 @@ export interface Military {
   upkeep: number; // annual cost
   procurement: number; // annual spend on new equipment
   nuclear: boolean;
+  warEconomy: boolean; // war footing: faster procurement, but unrest and inflation
   unitCost: number; // annual cost per soldier at base prices (incl. support)
 }
 
@@ -163,7 +164,7 @@ export interface War {
   defenders: CountryId[];
   start: number;
   /** active offensives: province being contested, who attacks, progress 0..1 */
-  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean }[];
+  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number }[];
   casualties: Record<number, number>;
   /** provinces captured (value, as share of enemy base weight) by each country in this war */
   gained: Record<number, number>;
@@ -204,7 +205,17 @@ export interface GameState {
   logSeq: number;
   /** last tick each AI proposal was sent to the player (prevents nagging) */
   offerLog: Record<string, number>;
+  /** decision event waiting for the player (the game pauses until it is answered) */
+  pendingEvent: PendingEvent | null;
+  eventCooldown: Record<string, number>;
+  lastEventTick: number;
+  goalsDone: Record<string, number>;
+  goalBase: { trade: number; allies: number; rank: number; gdp: number; tech: number; debt: number };
+  /** countries whose real numbers the player can currently see (intel op) → expiry tick */
+  intelUntil: Record<number, number>;
+  opCooldown: Record<string, number>;
 }
+export interface PendingEvent { id: string; tick: number; data: Record<string, number> }
 
 export const START_YEAR = 2024;
 export const TICKS_PER_YEAR = 52;

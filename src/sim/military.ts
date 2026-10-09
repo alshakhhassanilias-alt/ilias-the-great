@@ -44,7 +44,11 @@ export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: numb
   m.readiness += (tgt - m.readiness) * 0.06;
   m.readiness = clamp(m.readiness, 0.05, 1);
 
-  const proc = Math.max(0, avail - paid);
+  let proc = Math.max(0, avail - paid);
+  if (m.warEconomy) {
+    if (isAtWar(s, c.id)) { proc *= 1.6; e.stability = Math.max(0, e.stability - 0.03); e.monetary += 0.0004; }
+    else m.warEconomy = false; // war footing ends with the war
+  }
   const mix = b.milArmy + b.milAir + b.milNavy || 1;
   m.equipArmy += (proc * 0.9 * b.milArmy) / mix;
   m.equipAir += (proc * 0.9 * b.milAir) / mix;

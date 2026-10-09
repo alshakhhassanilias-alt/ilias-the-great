@@ -1,6 +1,10 @@
 import { store, useStore } from '../state/store';
 import { actAcceptOffer, actDeclineOffer } from '../sim/actions';
 import { PROPOSAL_LABEL, type Proposal } from '../sim/diplomacy';
+import { actResolveEvent } from '../sim/actions';
+import { eventById } from '../sim/events';
+import { useEffect, useState } from 'react';
+import { dateLabel } from '../sim/tick';
 
 export function Toasts() {
   useStore();
@@ -67,5 +71,53 @@ export function MapModes() {
       </div>
       {g && <div className="legend"><div className="ramp" style={{ background: g[0] }} /><div className="ends"><span>{g[1]}</span><span>{g[2]}</span></div></div>}
     </>
+  );
+}
+
+export function EventModal() {
+  useStore();
+  const s = store.state;
+  const pe = s?.pendingEvent;
+  if (!s || !pe) return null;
+  const def = eventById(pe.id);
+  const c = s.countries[s.player];
+  return (
+    <div className="scrim" role="presentation">
+      <div className="modal narrow event" role="dialog" aria-modal="true" aria-label={def.title}>
+        <div className="event-head"><span className="event-icon" aria-hidden="true">{def.icon}</span><div><div className="event-kicker">{dateLabel(s.tick)} · Decision</div><h2>{def.title}</h2></div></div>
+        <div className="modal-body">
+          <p className="event-text">{def.text(s, c, pe.data)}</p>
+          <div className="event-options">
+            {def.options.map((o, i) => {
+              const ok = !o.enabled || o.enabled(s, c);
+              return (
+                <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''}`} disabled={!ok}
+                  onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i)); store.resumeAfterEvent(); }}>
+                  {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const KIND_ICON: Record<string, string> = { war: '⚔', peace: '🕊', diplo: '🤝', econ: '💰', danger: '⚠', territory: '🏴', info: '●' };
+export function Ticker() {
+  useStore();
+  const s = store.state!;
+  const [i, setI] = useState(0);
+  useEffect(() => { const t = setInterval(() => setI((x) => x + 1), 4200); return () => clearInterval(t); }, []);
+  const items = s.log.slice(-8).reverse();
+  if (!items.length) return null;
+  const e = items[i % items.length];
+  return (
+    <button className="ticker" onClick={() => store.openDrawer('world', 'news')} aria-label="Open the news feed">
+      <span className="ticker-tag">NEWS</span>
+      <span key={e.seq} className={`ticker-text k-${e.kind}`}><span aria-hidden="true">{KIND_ICON[e.kind] ?? '●'}</span> {e.text}</span>
+      <span className="ticker-date">{dateLabel(e.tick)}</span>
+    </button>
   );
 }

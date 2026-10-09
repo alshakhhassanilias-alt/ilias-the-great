@@ -3,6 +3,8 @@ import { stepEconomies } from './economy';
 import { stepWars, forcePeaceAll, logEvent } from './war';
 import { stepAI } from './ai';
 import { nextRand } from './rng';
+import { rollPlayerEvent, stepWorldEvents } from './events';
+import { stepGoals } from './goals';
 import { alliesOf } from './relations';
 import { START_YEAR, TICKS_PER_YEAR, type GameState } from './types';
 
@@ -57,6 +59,9 @@ export function tick(s: GameState, geo: Geo) {
   stepWars(s, geo);
   stepAI(s, geo);
   checkInstability(s, geo);
+  stepWorldEvents(s, geo);
+  rollPlayerEvent(s, geo);
+  stepGoals(s);
   checkVictory(s, geo);
 }
 

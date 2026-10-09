@@ -7,7 +7,7 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 * **No waiting, ever.** There are no construction timers, energy timers or pay-to-skip. Every decision takes effect
   immediately (money moves, capacity is built, troops are raised, war is declared *now*) or at the very next
   simulation tick. The world runs on a simulated clock you control: ⏸ pause · ▶ normal · ▶▶ fast · ▶▶▶ very fast.
-* **Real map, dynamic borders.** Natural Earth borders, subdivided into 656 game provinces. Conquest transfers
+* **Real map, dynamic borders.** Natural Earth borders, subdivided into ~1,200 named game provinces. Conquest transfers
   provinces (with their population and output) and the national borders are re-drawn live.
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
 
@@ -24,12 +24,20 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 31 deterministic simulation tests (Vitest) |
+| `npm test` | 37 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
 | `npx tsx scripts/war-test.ts Russia Ukraine 3` | War scenario harness used to tune combat pacing |
 | `npx tsx scripts/debug-country.ts 20 China,Russia` | Per-country growth-factor diagnostics |
+
+## What keeps it busy
+* **Decision events** (about 5 a year, 16 kinds): strikes, energy shocks, border incidents, research breakthroughs, disasters, scandals, investment offers, refugees, central-bank calls, coup plots, trade delegations, arms deals, harvest failures, tax demands, allies asking for help, resource discoveries. The game pauses and each choice has real costs and effects.
+* **A living world:** AI countries have disasters, strikes, coups, booms and border clashes that show up in a live **news ticker**; they declare wars, sign peace, offer you treaties, sanction aggressors and call allies.
+* **Objectives:** ten optional goals (grow GDP, open markets, build infrastructure, climb the rankings, win your first conquest ...) that pay out immediately.
+* **Covert operations:** gather intelligence, influence, steal technology, sabotage, incite unrest; success depends on the intelligence gap.
+* **Active war play:** per-region offensives with progress bars and troop counts, air strikes, calling allies, total mobilisation, war economy, manual or automatic targeting.
+* **Conquest you can see:** captured regions flash, are hatched in the original owner's colours until integrated, borders re-draw instantly, armies and battle pulses are drawn on the map, regions have names ("North-East Poland").
 
 ## How to play
 
@@ -75,6 +83,9 @@ Separation of concerns: geography (`world.json`, `map/`) knows nothing about the
 touches the DOM or the map renderer; React only reads from the store. The whole game state is plain JSON, and all
 randomness comes from a seeded generator whose state is saved — **the same seed and actions always give the same
 world**, and a save resumes identically (both are tested).
+
+### Map rendering
+The terrain layer is drawn once into a cached canvas and moved with a GPU-composited CSS transform while you pan or zoom (with eased zoom and inertia); it is re-rendered crisply when the view settles or territory changes. National borders are the precomputed shared boundary runs between provinces, stroked when their two sides have different owners, so conquest needs no geometry maths. Armies, fronts and labels are drawn on a light overlay canvas.
 
 ### Geography pipeline (`scripts/build-map.ts`)
 Natural Earth admin-0 (1:50m, via `world-atlas`, public domain) → Natural Earth projection → per-country

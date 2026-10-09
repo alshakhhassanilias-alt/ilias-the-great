@@ -29,7 +29,7 @@ export function sizeClass(c: Country): string {
 /** Intelligence fog: how well can the player see another country's numbers? */
 export function fog(s: GameState, target: Country, v: number, key: string): { v: number; approx: boolean } {
   const me = s.countries[s.player];
-  if (target.id === s.player) return { v, approx: false };
+  if (target.id === s.player || (s.intelUntil[target.id] ?? 0) > s.tick) return { v, approx: false };
   const gap = Math.max(0, target.mil.intel - me.mil.intel + 0.25);
   if (gap < 0.08) return { v, approx: false };
   const j = (hash01(target.name, key, Math.floor(s.tick / 52)) - 0.5) * 2 * 0.35 * gap;

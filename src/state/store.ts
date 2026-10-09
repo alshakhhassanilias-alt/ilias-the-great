@@ -57,7 +57,11 @@ class Store {
   getVersion = () => this.version;
   notify(force = true) {
     const now = performance.now();
-    if (!force && now - this.lastNotify < 90) return;
+    if (!force && now - this.lastNotify < 90) {
+      // throttled: make sure the latest state still gets rendered shortly afterwards
+      if (!this.notifyTimer) this.notifyTimer = window.setTimeout(() => { this.notifyTimer = 0; this.notify(true); }, 100);
+      return;
+    }
     this.lastNotify = now;
     this.version++;
     this.listeners.forEach((l) => l());
@@ -148,8 +152,12 @@ class Store {
       }
     }
     if (s.victory && !this.victoryShown) { this.victoryShown = true; this.speed = 0; }
+    if (s.pendingEvent && this.speed !== 0) { this.resumeSpeed = this.speed; this.speed = 0; }
   }
   private victoryShown = false;
+  resumeSpeed = 0;
+  /** after the player answers a decision event, continue at the speed they were using */
+  resumeAfterEvent() { if (this.resumeSpeed) { this.speed = this.resumeSpeed; this.resumeSpeed = 0; } }
   private nearCache: { tick: number; set: Set<number> } | null = null;
   /** Is a world event close enough to the player (neighbour, ally, or a major power) to deserve a pop-up? */
   private relevant(e: LogEntry): boolean {

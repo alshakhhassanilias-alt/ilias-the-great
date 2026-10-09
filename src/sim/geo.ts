@@ -14,6 +14,7 @@ export interface RawProvince {
   coast?: number;
   territory?: string;
   capital?: boolean;
+  edges?: { n: number; pts: number[] }[];
 }
 export interface RawWorld {
   width: number;
@@ -33,6 +34,8 @@ export interface GeoProvince {
   coast: number;
   isCapital0: boolean;
   territory?: string;
+  edges: { n: number; pts: number[] }[]; // boundary runs: n = neighbouring province, or -1 for coast
+  name: string; // region name, e.g. "North-East Poland"
   w: number; // relative weight (population / output share) within the original country
   poly: number[][][];
 }
@@ -64,11 +67,12 @@ export function buildGeo(raw: RawWorld): Geo {
       if (p.territory) w *= 0.35;
       provinces.push({
         id, country0: ci, seed: p.seed, area: p.area, bbox: p.bbox, terrain: p.terrain, coast: p.coast ?? 0,
-        isCapital0: !!p.capital, territory: p.territory, w, poly: p.poly,
+        isCapital0: !!p.capital, territory: p.territory, name: p.territory ?? '', w, poly: p.poly, edges: p.edges ?? [],
       });
       ids.push(id);
     }
     provs0.push(ids);
+    nameRegions(c.name, ids.map((i) => provinces[i]));
   });
   const adj: number[][] = provinces.map(() => []);
   for (const [a, b] of raw.adjacency) { adj[a].push(b); adj[b].push(a); }
@@ -85,4 +89,32 @@ export function buildGeo(raw: RawWorld): Geo {
       return Math.hypot(pa[0] - pb[0], pa[1] - pb[1]);
     },
   };
+}
+
+const DIRS = ['East', 'South-East', 'South', 'South-West', 'West', 'North-West', 'North', 'North-East'];
+/** Give each (non-territory) province a compass-based region name relative to its country's centre. */
+function nameRegions(country: string, provs: GeoProvince[]) {
+  const main = provs.filter((p) => !p.territory);
+  if (main.length === 0) return;
+  if (main.length === 1) { main[0].name = country; return; }
+  const cx = main.reduce((t, p) => t + p.seed[0], 0) / main.length;
+  const cy = main.reduce((t, p) => t + p.seed[1], 0) / main.length;
+  const spread = Math.sqrt(main.reduce((t, p) => t + (p.seed[0] - cx) ** 2 + (p.seed[1] - cy) ** 2, 0) / main.length) || 1;
+  const used = new Map<string, number>();
+  const rank = [...main].sort((a, b) => b.w - a.w);
+  for (const p of rank) {
+    const dx = p.seed[0] - cx, dy = p.seed[1] - cy;
+    const dist = Math.hypot(dx, dy) / spread;
+    let base: string;
+    if (p.isCapital0) base = `${country} Capital Region`;
+    else if (dist < 0.45) base = `Central ${country}`;
+    else {
+      const ang = Math.atan2(-dy, dx); // screen y is down
+      const i = (Math.round((ang / (Math.PI / 4)) + 8) % 8 + 8) % 8;
+      base = `${DIRS[i]} ${country}`;
+    }
+    const n = (used.get(base) ?? 0) + 1;
+    used.set(base, n);
+    p.name = n === 1 ? base : `${base} ${['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n - 1] ?? n}`;
+  }
 }

@@ -128,7 +128,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
     readiness: 0.55 + 0.25 * clamp(B.milPct / 4, 0, 1), supply: 0.6,
     intel: clamp(0.2 + 0.25 * lg + (B.nuclear ? 0.1 : 0), 0.08, 0.9),
     milTech: clamp(tech0 + (MIL_EDGE[B.name] ?? 0) - (gdppc < 3000 ? 4 : 0), 5, 100), exhaustion: 0, casualties: 0,
-    commit: 0.6, autoAdvance: true, focus: [], upkeep: 0, procurement: 0, nuclear: B.nuclear, unitCost,
+    commit: 0.6, autoAdvance: true, focus: [], upkeep: 0, procurement: 0, nuclear: B.nuclear, warEconomy: false, unitCost,
   };
 
   const ag = clamp(
@@ -204,7 +204,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     version: 1, tick: 0, rng: settings.seed >>> 0, settings, player, countries,
     owner: geo.provinces.map((p) => p.country0), core: geo.provinces.map((p) => p.country0), integ: geo.provinces.map(() => 1),
     treaties: {}, relDelta: {}, wars: [], nextWarId: 1,
-    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {},
+    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {}, pendingEvent: null, eventCooldown: {}, lastEventTick: 0, goalsDone: {}, goalBase: { trade: 0, allies: 0, rank: 0, gdp: 0, tech: 0, debt: 0 }, intelUntil: {}, opCooldown: {},
   };
 
   // normalise energy & food so the world market is balanced at the start (supply 3% above demand)
@@ -265,6 +265,12 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
   } else if (settings.start === 'prosperous') {
     P.eco.cash = 0.12 * P.eco.gdp; P.eco.debt *= 0.75; P.eco.stability = Math.min(95, P.eco.stability + 5);
   }
+  const ranked = [...countries].sort((a, b) => b.eco.gdp - a.eco.gdp);
+  state.goalBase = {
+    trade: Object.values(state.treaties).filter((t, i) => t.trade && Object.keys(state.treaties)[i].split('-').map(Number).includes(player)).length,
+    allies: Object.keys(state.treaties).filter((k) => state.treaties[k].alliance && k.split('-').map(Number).includes(player)).length,
+    rank: ranked.findIndex((c) => c.id === player) + 1, gdp: P.eco.gdp, tech: P.eco.tech, debt: P.eco.debt / P.eco.gdp,
+  };
   logEvent(state, `Game begins January ${START_YEAR}. You lead ${P.name}.`, 'info', [player]);
   return state;
 }

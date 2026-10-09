@@ -8,6 +8,8 @@ import { strengthIndex } from '../../sim/military';
 import { popGrowthRate } from '../../sim/economy';
 import { toggleFocus } from '../../sim/actions';
 import { warScore } from '../../sim/war';
+import { GOALS } from '../../sim/goals';
+import { Meter } from '../widgets';
 
 export function OverviewTab({ id }: { id: number }) {
   const s = store.state!;
@@ -55,7 +57,7 @@ export function OverviewTab({ id }: { id: number }) {
       {prov && (
         <Section title="Selected region">
           <div className="card" style={{ fontSize: 13 }}>
-            <div><b>{prov.territory ?? `Region of ${s.countries[s.core[prov.id]].name}`}</b>{s.core[prov.id] !== id && <span className="pill gold" style={{ marginLeft: 8 }}>Occupied · integration {(s.integ[prov.id] * 100).toFixed(0)}%</span>}</div>
+            <div><b>{prov.name}</b>{s.core[prov.id] !== id && <span className="pill gold" style={{ marginLeft: 8 }}>Occupied · integration {(s.integ[prov.id] * 100).toFixed(0)}%</span>}</div>
             <div className="muted" style={{ marginTop: 4 }}>
               Terrain ruggedness {(prov.terrain * 100).toFixed(0)}% (defender bonus) · {prov.coast > 0.15 ? 'coastal' : 'inland'} · {c.capital === prov.id ? 'Capital region' : `${(prov.w / c.provinces.reduce((t, q) => t + geo.provinces[q].w, 0) * 100).toFixed(0)}% of national output`}
             </div>
@@ -68,6 +70,24 @@ export function OverviewTab({ id }: { id: number }) {
           </div>
         </Section>
       )}
+
+      {mine && (() => {
+        const open = GOALS.filter((g) => s.goalsDone[g.id] === undefined);
+        const done = GOALS.length - open.length;
+        return (
+          <Section title="Objectives" hint={`${done}/${GOALS.length} complete`}>
+            <div className="card" style={{ padding: '4px 12px' }}>
+              {open.slice(0, 4).map((g) => { const p = g.progress(s, c); return (
+                <div className="goal" key={g.id}>
+                  <b>{g.title}</b><div className="hint">{g.desc}</div>
+                  <Meter value={p.value} color="var(--accent)" />
+                  <div className="meta"><span>{p.text}</span><span>{g.reward}</span></div>
+                </div>); })}
+              {open.length === 0 && <div className="goal"><b>All objectives complete.</b><div className="hint">Set your own goals — or conquer the world.</div></div>}
+            </div>
+          </Section>
+        );
+      })()}
 
       <Section title="Snapshot" hint={`${sizeClass(c)} · #${rank} economy`}>
         <div className="grid2">

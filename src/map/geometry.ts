@@ -3,14 +3,14 @@
  * (so borders redraw correctly when provinces change hands), label anchors and hit-testing.
  * Geographic data (world.json) stays separate from simulation logic.
  */
-import polygonClipping from 'polygon-clipping';
 import type { Geo } from '../sim/geo';
 import type { GameState } from '../sim/types';
 
 type Pt = [number, number];
 type MPoly = Pt[][][];
 
-export interface Outline { path: Path2D; labelAnchor: Pt; labelW: number; labelH: number; bbox: [number, number, number, number]; area: number }
+export interface EdgePath { n: number; path: Path2D }
+export interface LabelInfo { anchor: Pt; w: number; h: number; area: number }
 
 function toMPoly(poly: number[][][]): MPoly {
   return poly.map((rings) => rings.map((flat) => {
@@ -18,18 +18,6 @@ function toMPoly(poly: number[][][]): MPoly {
     for (let i = 0; i < flat.length; i += 2) r.push([flat[i] / 10, flat[i + 1] / 10]);
     return r;
   }));
-}
-const ringArea = (r: Pt[]) => {
-  let a = 0;
-  for (let i = 0; i < r.length; i++) { const [x1, y1] = r[i], [x2, y2] = r[(i + 1) % r.length]; a += x1 * y2 - x2 * y1; }
-  return a / 2;
-};
-function polyArea(p: Pt[][]) { return Math.abs(ringArea(p[0])) - p.slice(1).reduce((t, r) => t + Math.abs(ringArea(r)), 0); }
-function centroidOf(p: Pt[][]): Pt {
-  const r = p[0];
-  let a = 0, cx = 0, cy = 0;
-  for (let i = 0; i < r.length; i++) { const [x1, y1] = r[i], [x2, y2] = r[(i + 1) % r.length]; const f = x1 * y2 - x2 * y1; a += f; cx += (x1 + x2) * f; cy += (y1 + y2) * f; }
-  return Math.abs(a) < 1e-9 ? r[0] : [cx / (3 * a), cy / (3 * a)];
 }
 function pathOf(mp: MPoly): Path2D {
   const path = new Path2D();
@@ -39,23 +27,23 @@ function pathOf(mp: MPoly): Path2D {
   }
   return path;
 }
-function bboxOfMP(mp: MPoly): [number, number, number, number] {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const p of mp) for (const [x, y] of p[0] ?? []) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  return [x0, y0, x1, y1];
-}
 
 export class MapGeometry {
   readonly provPaths: Path2D[];
-  readonly mpolys: MPoly[];
-  private outlineCache = new Map<number, { sig: string; outline: Outline }>();
+  /** boundary runs per province (precomputed at build time): national borders are the runs whose two sides have different owners */
+  readonly edgePaths: EdgePath[][];
   private hit: CanvasRenderingContext2D;
   bounds: [number, number, number, number] = [0, 0, 1000, 450];
-  computed = 0;
 
   constructor(public geo: Geo) {
-    this.mpolys = geo.provinces.map((p) => toMPoly(p.poly));
-    this.provPaths = this.mpolys.map(pathOf);
+    this.provPaths = geo.provinces.map((p) => pathOf(toMPoly(p.poly)));
+    this.edgePaths = geo.provinces.map((p) => p.edges.map((e) => {
+      const path = new Path2D();
+      for (let i = 0; i < e.pts.length; i += 2) {
+        if (i === 0) path.moveTo(e.pts[0] / 10, e.pts[1] / 10); else path.lineTo(e.pts[i] / 10, e.pts[i + 1] / 10);
+      }
+      return { n: e.n, path };
+    }));
     const c = document.createElement('canvas');
     c.width = c.height = 1;
     this.hit = c.getContext('2d')!;
@@ -83,38 +71,30 @@ export class MapGeometry {
     return best >= 0 ? best : null;
   }
 
-  /** Outline (union of an owner's provinces). Returns null while not yet computed (budgeted per frame). */
-  outline(state: GameState, owner: number, allowCompute: boolean): Outline | null {
-    const provs = state.countries[owner].provinces;
-    if (!provs.length) return null;
-    const sig = provs.slice().sort((a, b) => a - b).join(',');
-    const hit = this.outlineCache.get(owner);
-    if (hit && hit.sig === sig) return hit.outline;
-    if (!allowCompute) return hit?.outline ?? null;
-    this.computed++;
-    let mp: MPoly;
-    if (provs.length === 1) mp = this.mpolys[provs[0]];
-    else {
-      try {
-        const parts = provs.map((p) => this.mpolys[p] as never);
-        mp = polygonClipping.union(parts[0], ...parts.slice(1)) as unknown as MPoly;
-      } catch {
-        mp = provs.flatMap((p) => this.mpolys[p]);
-      }
-      // drop sliver holes created by rounding
-      mp = mp.map((poly) => [poly[0], ...poly.slice(1).filter((r) => Math.abs(ringArea(r)) > 0.6)]);
+  /** Label placement: the largest connected landmass an owner holds. */
+  labelInfo(state: GameState, owner: number): LabelInfo | null {
+    const c = state.countries[owner];
+    if (!c.alive || !c.provinces.length) return null;
+    const provs = this.geo.provinces;
+    const mine = new Set(c.provinces);
+    let start = c.provinces[0];
+    for (const p of c.provinces) if (provs[p].area > provs[start].area) start = p;
+    const seen = new Set<number>([start]);
+    const stack = [start];
+    while (stack.length) {
+      const p = stack.pop()!;
+      for (const q of this.geo.adj[p]) if (mine.has(q) && !seen.has(q)) { seen.add(q); stack.push(q); }
     }
-    mp = mp.filter((p) => p[0]?.length);
-    if (!mp.length) return null;
-    let best = mp[0], ba = -1;
-    for (const p of mp) { const a = polyArea(p); if (a > ba) { ba = a; best = p; } }
-    const bb = bboxOfMP([best]);
-    const outline: Outline = {
-      path: pathOf(mp), labelAnchor: centroidOf(best), labelW: bb[2] - bb[0], labelH: bb[3] - bb[1], bbox: bboxOfMP(mp),
-      area: mp.reduce((t, p) => t + polyArea(p), 0),
-    };
-    this.outlineCache.set(owner, { sig, outline });
-    return outline;
+    let area = 0, cx = 0, cy = 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of seen) {
+      const gp = provs[p];
+      area += gp.area; cx += gp.seed[0] * gp.area; cy += gp.seed[1] * gp.area;
+      x0 = Math.min(x0, gp.bbox[0]); y0 = Math.min(y0, gp.bbox[1]); x1 = Math.max(x1, gp.bbox[2]); y1 = Math.max(y1, gp.bbox[3]);
+    }
+    cx /= area; cy /= area;
+    let best = start, bd = Infinity;
+    for (const p of seen) { const d = Math.hypot(provs[p].seed[0] - cx, provs[p].seed[1] - cy); if (d < bd) { bd = d; best = p; } }
+    return { anchor: [provs[best].seed[0], provs[best].seed[1]], w: x1 - x0, h: y1 - y0, area };
   }
 
   /** Bounding box of a country's main landmass (within reach of its capital), world coordinates. */

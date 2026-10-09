@@ -5,7 +5,7 @@ import { TopBar } from './TopBar';
 import { TimeControls } from './TimeControls';
 import { SidePanel } from './SidePanel';
 import { Drawers } from './Drawers';
-import { MapModes, Offers, Toasts, VictoryBanner } from './Overlays';
+import { EventModal, MapModes, Offers, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
 
 const insetBottom = () => {
@@ -40,6 +40,7 @@ export function App() {
           <MapView insetBottom={insetBottom} insetRight={insetRight} />
           <MapModes />
           <TimeControls />
+          <Ticker />
           <Toasts />
           <Offers />
         </div>
@@ -47,6 +48,7 @@ export function App() {
       </div>
       <Drawers />
       <VictoryBanner />
+      <EventModal />
     </div>
   );
 }

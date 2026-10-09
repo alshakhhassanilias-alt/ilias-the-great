@@ -196,7 +196,7 @@ interface OutProvince {
 interface OutCountry { name: string; provinces: OutProvince[]; }
 
 function provinceCount(areaPx: number): number {
-  return Math.max(1, Math.min(22, Math.round(Math.sqrt(areaPx) / 5.2)));
+  return Math.max(1, Math.min(44, Math.round(Math.sqrt(areaPx) / 2.6)));
 }
 
 function flat(mp: MPoly): number[][][] {
@@ -298,13 +298,14 @@ for (const [dep, parent] of Object.entries(DEPENDENCIES)) {
 }
 
 // ---------- adjacency via shared boundary segments ----------
-interface Seg { id: number; p: number; ax: number; ay: number; bx: number; by: number; }
+interface Seg { id: number; p: number; ax: number; ay: number; bx: number; by: number; best: number; lab: number; }
 let segCounter = 0;
 const seenPairs = new Set<number>();
 const flatProvs: { c: number; prov: OutProvince }[] = [];
 countriesOut.forEach((c, ci) => c.provinces.forEach((prov) => flatProvs.push({ c: ci, prov })));
 const CELL = 6;
 const grid = new Map<number, Seg[]>();
+const segsOf: Seg[][] = flatProvs.map(() => []);
 const key = (cx: number, cy: number) => cx * 4096 + cy;
 flatProvs.forEach(({ prov }, pi) => {
   for (const poly of prov.poly) for (const ring of poly) {
@@ -313,7 +314,8 @@ flatProvs.forEach(({ prov }, pi) => {
       const ax = ring[i * 2] / 10, ay = ring[i * 2 + 1] / 10;
       const j = (i + 1) % n;
       const bx = ring[j * 2] / 10, by = ring[j * 2 + 1] / 10;
-      const s: Seg = { id: segCounter++, p: pi, ax, ay, bx, by };
+      const s: Seg = { id: segCounter++, p: pi, ax, ay, bx, by, best: 0, lab: -1 };
+      segsOf[pi].push(s);
       const cx0 = Math.floor(Math.min(ax, bx) / CELL), cx1 = Math.floor(Math.max(ax, bx) / CELL);
       const cy0 = Math.floor(Math.min(ay, by) / CELL), cy1 = Math.floor(Math.max(ay, by) / CELL);
       for (let cx = cx0; cx <= cx1; cx++) for (let cy = cy0; cy <= cy1; cy++) {
@@ -347,6 +349,9 @@ for (const segs of grid.values()) {
       const t2 = (t.bx - s.ax) * ux + (t.by - s.ay) * uy;
       const lo = Math.max(0, Math.min(t1, t2)), hi = Math.min(len, Math.max(t1, t2));
       if (hi - lo > 0.15) {
+        const ov = hi - lo;
+        if (ov > s.best) { s.best = ov; s.lab = t.p; }
+        if (ov > t.best) { t.best = ov; t.lab = s.p; }
         const a = Math.min(s.p, t.p), c = Math.max(s.p, t.p);
         const k = a * N + c;
         adjLen.set(k, (adjLen.get(k) ?? 0) + (hi - lo));
@@ -372,6 +377,33 @@ flatProvs.forEach(({ prov }, pi) => {
 });
 for (const [k, l] of adjLen) { if (l <= 0.5) continue; shared[Math.floor(k / N)] += l; shared[k % N] += l; }
 flatProvs.forEach(({ prov }, pi) => { prov.coast = Math.round(Math.max(0, Math.min(1, 1 - shared[pi] / Math.max(perim[pi], 0.01))) * 100) / 100; });
+
+// ---- edge groups: per province, runs of boundary segments grouped by neighbour (-1 = coast) ----
+interface Edge { n: number; pts: number[] }
+const edgesOut: Edge[][] = flatProvs.map(() => []);
+flatProvs.forEach(({ prov }, pi) => {
+  const segs = segsOf[pi];
+  let k = 0;
+  for (const poly of prov.poly) for (const ring of poly) {
+    const n = ring.length / 2;
+    let cur: Edge | null = null;
+    for (let i = 0; i < n; i++, k++) {
+      const sg = segs[k];
+      const lab = sg.lab >= 0 && sg.best > 0.15 ? sg.lab : -1;
+      const j = (i + 1) % n;
+      if (cur && cur.n === lab) cur.pts.push(ring[j * 2], ring[j * 2 + 1]);
+      else {
+        if (cur) edgesOut[pi].push(cur);
+        cur = { n: lab, pts: [ring[i * 2], ring[i * 2 + 1], ring[j * 2], ring[j * 2 + 1]] };
+      }
+    }
+    if (cur) edgesOut[pi].push(cur);
+  }
+});
+// keep each shared border once (from the lower-numbered side) when the other side also knows about it
+flatProvs.forEach(({ prov }, pi) => {
+  (prov as unknown as { edges: Edge[] }).edges = edgesOut[pi].filter((e) => !(e.n >= 0 && pi > e.n && edgesOut[e.n].some((x) => x.n === pi)));
+});
 
 const out = {
   version: 1,

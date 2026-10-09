@@ -452,6 +452,7 @@ export function stepWars(s: GameState, geo: Geo) {
       E.eco.damage = Math.min(1, E.eco.damage + 0.0025 * (imp(p, e) / sumImp) * Math.min(2, ratio));
       for (const { st } of contrib) {
         let front = w.fronts.find((f) => f.prov === p && f.by === st.c.id);
+        if (front) { front.atk = Math.round(st.share); front.def = Math.round(defTroops); }
         if (!front) { front = { prov: p, by: st.c.id, progress: 0, amphibious: st.amphibious }; w.fronts.push(front); }
         front.progress = clamp(front.progress + delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length, 0, 1.2);
       }
@@ -462,7 +463,7 @@ export function stepWars(s: GameState, geo: Geo) {
         w.gained[winner] = (w.gained[winner] ?? 0) + f;
         w.lost[e] = (w.lost[e] ?? 0) + f;
         const W = s.countries[winner];
-        const name = geo.provinces[p].territory ?? `a region of ${s.countries[s.core[p]].name}`;
+        const name = geo.provinces[p].name || `a region of ${s.countries[s.core[p]].name}`;
         E.mil.exhaustion = Math.min(1, E.mil.exhaustion + 0.1 * f * 6);
         logEvent(s, `${W.name} captured ${name} from ${E.name}.`, 'territory', [winner, e], winner === s.player || e === s.player);
       }
@@ -514,4 +515,29 @@ function applyLosses(s: GameState, c: Country, loss: number, w: War, popShare: n
   c.mil.exhaustion = clamp(c.mil.exhaustion + frac * 0.6 * tol, 0, 1);
   c.mil.readiness = clamp(c.mil.readiness - frac * 0.5, 0.05, 1);
   void s;
+}
+
+/** Ask allies to join one of your wars. Returns the countries that agreed. */
+export function callAllies(s: GameState, cid: CountryId): CountryId[] {
+  const joined: CountryId[] = [];
+  for (const w of s.wars) {
+    const side = warSideOf(w, cid);
+    if (side < 0) continue;
+    const mine = side === 0 ? w.attackers : w.defenders;
+    const theirs = side === 0 ? w.defenders : w.attackers;
+    for (const x of alliesOf(s, cid)) {
+      if (mine.includes(x) || theirs.includes(x) || x === s.player) continue;
+      const X = s.countries[x];
+      let p = 0.35 + 0.004 * getRelation(s, x, cid) + (getRelation(s, x, theirs[0]) < -20 ? 0.2 : 0) - 0.2 * X.ai.caution - (warsOf(s, x).length ? 0.25 : 0);
+      if (strength(s.countries[theirs[0]]) > 2 * strength(X) + strength(s.countries[cid])) p -= 0.2;
+      if (nextRand(s) < clamp(p, 0.05, 0.9)) {
+        mine.push(x);
+        w.startProvs[x] = X.provinces.length;
+        addRelation(s, x, theirs[0], -20);
+        joined.push(x);
+        logEvent(s, `${X.name} answers ${s.countries[cid].name}'s call and joins the ${w.name}.`, 'war', [x, cid], true);
+      } else logEvent(s, `${X.name} declined ${s.countries[cid].name}'s call to arms.`, 'diplo', [x, cid]);
+    }
+  }
+  return joined;
 }

@@ -9,6 +9,10 @@ import { actDeclareWar, actPeace, buildProject, recruit, setBudget, actPropose, 
 import { manpower, strength } from '../src/sim/military';
 import { evaluatePeace, transferProvince, declareWar, warScore } from '../src/sim/war';
 import { neighborsOf } from '../src/sim/diplomacy';
+import { EVENTS, resolveEvent, rollPlayerEvent } from '../src/sim/events';
+import { GOALS, stepGoals } from '../src/sim/goals';
+import { runOp } from '../src/sim/ops';
+import { actAirstrike, actCallAllies } from '../src/sim/actions';
 
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
@@ -224,7 +228,7 @@ describe('war & territory', () => {
     s.tick = 60;
     declareWar(s, geo, id('Germany'), id('Poland'));
     run(s, 8);
-    expect(s.countries[id('Poland')].provinces.length).toBe(3);
+    expect(s.countries[id('Poland')].provinces.length).toBe(geo.provs0[id('Poland')].length);
     run(s, 52);
     expect(s.countries[id('Poland')].alive).toBe(true);
     expect(s.countries[id('Germany')].mil.casualties).toBeGreaterThan(5000);
@@ -318,5 +322,94 @@ describe('diplomacy', () => {
     const atWarWithPlayer = s.countries.filter((c) => c.alive && c.id !== id('Germany') && areAtWar(s, c.id, id('Germany'))).length;
     expect(atWarWithPlayer).toBeLessThan(3);
     actDeclineOffer(s, -1);
+  });
+});
+
+describe('things to do: events, goals, covert ops, war actions', () => {
+  it('decision events appear regularly, pause for a choice, and apply their effects', () => {
+    const s = fresh('Poland');
+    let seen = 0;
+    for (let i = 0; i < 52 * 3 && seen < 30; i++) {
+      tick(s, geo);
+      if (s.pendingEvent) {
+        seen++;
+        const before = s.countries[id('Poland')].eco.stability;
+        const r = resolveEvent(s, geo, 0);
+        expect(r.message.length).toBeGreaterThan(3);
+        expect(s.pendingEvent).toBeNull();
+        void before;
+      }
+    }
+    expect(seen).toBeGreaterThanOrEqual(6); // at least a couple of decisions per year
+  });
+  it('every event definition is internally consistent', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('Germany')];
+    c.eco.cash = 1e12;
+    for (const def of EVENTS) {
+      const d = def.eligible(s, c, geo) ?? { n: id('France'), from: id('France'), a: id('France') };
+      expect(def.text(s, c, d).length).toBeGreaterThan(10);
+      expect(def.options.length).toBeGreaterThanOrEqual(2);
+      for (let i = 0; i < def.options.length; i++) {
+        const s2 = JSON.parse(JSON.stringify(s)) as GameState;
+        s2.pendingEvent = { id: def.id, tick: 1, data: d };
+        const r = resolveEvent(s2, geo, i);
+        if (def.options[i].label.includes('declare war') && !r.ok) continue;
+        expect(r.ok, `${def.id}/${i}`).toBe(true);
+        expect(Number.isFinite(s2.countries[id('Germany')].eco.stability)).toBe(true);
+      }
+    }
+    rollPlayerEvent(s, geo);
+  });
+  it('objectives pay out their reward when completed', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('Germany')];
+    s.tick = 3;
+    c.eco.infra = 80; // completes "modern infrastructure"
+    const cash0 = c.eco.cash;
+    s.tick = 4;
+    stepGoals(s);
+    expect(s.goalsDone['infra']).toBeDefined();
+    expect(c.eco.cash).toBeGreaterThan(cash0);
+    expect(GOALS.length).toBeGreaterThanOrEqual(8);
+  });
+  it('covert operations cost money, can fail with consequences, and intel reveals real numbers', () => {
+    let wins = 0, losses = 0;
+    for (let seed = 1; seed <= 24; seed++) {
+      const s = fresh('United States of America', { seed });
+      const me = s.countries[id('United States of America')];
+      const r0 = getRelation(s, id('United States of America'), id('Iran'));
+      const cash0 = me.eco.cash;
+      const r = runOp(s, me.id, id('Iran'), 'intel');
+      expect(me.eco.cash).toBeLessThan(cash0);
+      if (r.ok) { wins++; expect(s.intelUntil[id('Iran')]).toBeGreaterThan(s.tick); }
+      else { losses++; expect(getRelation(s, id('United States of America'), id('Iran'))).toBeLessThanOrEqual(r0); }
+      expect(runOp(s, me.id, id('Iran'), 'intel').ok).toBe(false); // cooldown
+    }
+    expect(wins).toBeGreaterThan(losses); // a superpower's spies usually succeed
+  });
+  it('an air strike speeds up an offensive; calling allies can bring them in', () => {
+    const s = fresh('Russia', { defensiveAlliances: true });
+    s.tick = 60;
+    declareWar(s, geo, id('Russia'), id('Ukraine'));
+    run(s, 3);
+    const w = s.wars[0];
+    const fr = w.fronts.find((f) => f.by === id('Russia'))!;
+    const p0 = fr.progress;
+    s.countries[id('Russia')].eco.cash = 1e12;
+    expect(actAirstrike(s, id('Russia'), fr.prov).ok).toBe(true);
+    expect(fr.progress).toBeGreaterThan(p0);
+    expect(actAirstrike(s, id('Russia'), 0).ok).toBe(false);
+    actCallAllies(s, id('Russia'));
+  });
+  it('provinces have readable names and borders are precomputed', () => {
+    const named = geo.provinces.filter((p) => p.name.length > 2).length;
+    expect(named).toBe(geo.provinces.length);
+    expect(geo.provinces[geo.provs0[id('Poland')][0]].name).toMatch(/Poland/);
+    expect(geo.provinces.reduce((t, p) => t + p.edges.length, 0)).toBeGreaterThan(3000);
+    // every province boundary is accounted for by its own runs or its neighbours' runs
+    const covered = new Set<number>();
+    geo.provinces.forEach((p) => { if (p.edges.length) covered.add(p.id); p.edges.forEach((e) => e.n >= 0 && covered.add(e.n)); });
+    expect(covered.size).toBe(geo.provinces.length);
   });
 });

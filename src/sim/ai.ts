@@ -132,7 +132,7 @@ export function assessAttack(s: GameState, geo: Geo, c: Country, T: Country): As
 }
 
 function considerWar(s: GameState, geo: Geo, c: Country) {
-  if (s.tick < 52) return; // the world starts calm: a one-year grace period before AI aggression begins
+  if (s.tick < 16) return; // a short calm at the start before AI aggression begins
   const cap = 1 + Math.floor(c.ai.aggression * 2);
   if (warsOf(s, c.id).length >= cap) return;
   if (s.tick - c.lastWarDecl < 104) return;
@@ -156,7 +156,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     if (t === s.player) desire *= s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1;
     if (desire > 0.62 && (!best || desire > best.desire)) best = { t, desire };
   }
-  if (best && rand(s) < 0.045 * Math.min(1.6, best.desire / 0.62)) declareWar(s, geo, c.id, best.t);
+  if (best && rand(s) < 0.07 * Math.min(1.6, best.desire / 0.62)) declareWar(s, geo, c.id, best.t);
 }
 
 function managePeace(s: GameState, geo: Geo, c: Country) {

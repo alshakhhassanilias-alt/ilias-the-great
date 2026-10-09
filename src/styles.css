@@ -52,8 +52,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
 .map-area { position: relative; min-width: 0; min-height: 0; }
 .map-wrap { position: absolute; inset: 0; }
-.map-canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
-.map-canvas:active { cursor: grabbing; }
+.map-wrap { overflow: hidden; touch-action: none; cursor: grab; background: #07131f; }
+.map-wrap:active { cursor: grabbing; }
+.map-canvas { position: absolute; left: 0; top: 0; display: block; transform-origin: 0 0; will-change: transform; }
+.map-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .map-tip { position: absolute; pointer-events: none; background: rgba(8, 18, 30, 0.95); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; font-size: 12px; z-index: 5; box-shadow: var(--shadow); }
 .map-tip span { color: var(--muted); font-size: 11px; }
 .map-zoom { position: absolute; left: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 6; }
@@ -179,7 +181,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; ma
 .offer .btnrow { margin-top: 8px; grid-template-columns: 1fr 1fr; }
 
 /* ---------- drawers / modals ---------- */
-.scrim { position: fixed; inset: 0; background: rgba(2, 8, 14, 0.6); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(2px); }
+.scrim { position: fixed; inset: 0; background: rgba(2, 8, 14, 0.6); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: min(760px, 100%); max-height: min(86vh, 800px); display: flex; flex-direction: column; box-shadow: var(--shadow); overflow: hidden; }
 .modal.narrow { width: min(520px, 100%); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }
@@ -246,3 +248,27 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 }
 @media (max-width: 420px) { .kpi.hide-s { display: none; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---------- decision events ---------- */
+.modal.event { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(242,184,75,.25), var(--shadow); }
+.event-head { display: flex; gap: 14px; align-items: center; padding: 16px 18px 6px; }
+.event-icon { font-size: 34px; width: 56px; height: 56px; display: grid; place-items: center; background: var(--panel-3); border: 1px solid var(--line); border-radius: 14px; flex: none; }
+.event-kicker { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.event-head h2 { margin: 2px 0 0; font-size: 20px; text-wrap: balance; }
+.event-text { margin: 4px 0 14px; line-height: 1.5; font-size: 14.5px; }
+.event-options { display: grid; gap: 8px; }
+.event-opt { text-align: left; padding: 11px 14px; }
+.event-opt small { margin-top: 3px; font-size: 11.5px; }
+/* ---------- news ticker ---------- */
+.ticker { position: absolute; left: 312px; right: 12px; bottom: 12px; z-index: 8; display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; background: rgba(8,18,30,.92); border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-align: left; overflow: hidden; }
+.ticker:hover { background: rgba(16,34,54,.95); }
+.ticker-tag { font-size: 10px; font-weight: 800; letter-spacing: .16em; color: var(--accent-ink); background: var(--accent); padding: 3px 7px; border-radius: 5px; flex: none; }
+.ticker-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tickin .45s ease; font-size: 13px; }
+.ticker-text.k-war, .ticker-text.k-danger { color: #ffb0a6; } .ticker-text.k-peace { color: #a6f0c2; } .ticker-text.k-territory { color: #dcb6ff; }
+.ticker-date { font-size: 11px; color: var(--faint); flex: none; font-variant-numeric: tabular-nums; }
+@keyframes tickin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.goal { padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.goal:last-child { border-bottom: none; }
+.goal b { font-size: 13px; } .goal .hint { font-size: 11.5px; color: var(--faint); margin: 1px 0 5px; }
+.goal .meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 3px; }
+@media (max-width: 900px) { .ticker { left: 8px; right: 8px; bottom: auto; top: 62px; height: 36px; } .map-zoom { top: 108px; } .toasts { top: 150px; } .offers { top: 150px; } }
