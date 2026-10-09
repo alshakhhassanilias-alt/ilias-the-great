@@ -11,6 +11,9 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
   provinces (with their population and output) and the national borders are re-drawn live.
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
 
+## Play without installing anything
+Download **`play/world-order.html`** (single file, 1.3 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage.
+
 ## Quick start
 
 ```bash
