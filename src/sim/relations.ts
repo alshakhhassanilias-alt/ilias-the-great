@@ -158,3 +158,44 @@ export function guaranteedBy(s: GameState, c: CountryId): CountryId[] {
   return s.guarantees.filter((g) => g.startsWith(`${c}>`)).map((g) => Number(g.split('>')[1])).filter((x) => s.countries[x]?.alive);
 }
 export const hasGuarantee = (s: GameState, from: CountryId, to: CountryId) => s.guarantees.includes(`${from}>${to}`);
+
+/** Why do two countries feel the way they do? Mirrors baseRelation + treaties + memory, so the UI can explain it. */
+export function relationBreakdown(s: GameState, a: CountryId, b: CountryId): { label: string; v: number }[] {
+  if (a === b) return [];
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const A = COUNTRY_BASE[lo], B = COUNTRY_BASE[hi];
+  const parts: { label: string; v: number }[] = [];
+  const add = (label: string, v: number) => { if (Math.abs(v) >= 0.5) parts.push({ label, v }); };
+  let known = 0;
+  const k = (label: string, v: number) => { known += v; add(label, v); };
+  if (A.region === B.region) k('Same region', 8);
+  if (S_NATO.has(lo) && S_NATO.has(hi)) k('Fellow NATO members', 26);
+  else if (S_WEST.has(lo) && S_WEST.has(hi)) k('Western camp', 14);
+  if (S_EU.has(lo) && S_EU.has(hi)) k('Both in the EU', 14);
+  if (S_CSTO.has(lo) && S_CSTO.has(hi)) k('Both in the CSTO', 22);
+  if (S_EAST.has(lo) && S_EAST.has(hi)) k('Eastern partners', 14);
+  if ((S_WEST.has(lo) && S_EAST.has(hi)) || (S_EAST.has(lo) && S_WEST.has(hi))) k('Rival camps', -14);
+  if (S_ARAB.has(lo) && S_ARAB.has(hi)) k('Arab League', 14);
+  if (S_WEST.has(lo) && ADV[hi] !== undefined) k('Treated as an adversary by the West', ADV[hi]);
+  if (S_WEST.has(hi) && ADV[lo] !== undefined) k('Treated as an adversary by the West', ADV[lo]);
+  if (A.gov === 'D' && B.gov === 'D') k('Both democracies', 10);
+  else if ((A.gov === 'D') !== (B.gov === 'D')) k('Different political systems', -3);
+  const rv = RIV.get(lo * 1000 + hi) ?? 0;
+  if (rv) k(rv < 0 ? 'Historic rivalry' : 'Historic friendship', rv);
+  const base = baseRelation(a, b);
+  const hist = Math.round(base - known);
+  if (Math.abs(hist) >= 1) add('History & chemistry', hist);
+  const pk = pairKey(a, b);
+  const t = s.treaties[pk];
+  if (t?.alliance) add('Alliance', 30);
+  if (t?.coop) add('Military cooperation', 16);
+  if (t?.trade) add('Trade agreement', 10);
+  if (t?.nap) add('Non-aggression pact', 6);
+  const sa = sanctionLevel(s, a, b), sb = sanctionLevel(s, b, a);
+  if (sa) add(`${COUNTRY_BASE[a].name} sanctions ${COUNTRY_BASE[b].name}`, sa === 2 ? -30 : -16);
+  if (sb) add(`${COUNTRY_BASE[b].name} sanctions ${COUNTRY_BASE[a].name}`, sb === 2 ? -30 : -16);
+  const memory = s.relDelta[pk] ?? 0;
+  if (Math.abs(memory) >= 0.5) add(memory > 0 ? 'Recent goodwill (fades over time)' : 'Recent grievances (fade over time)', Math.round(memory));
+  if (areAtWar(s, a, b)) add('At war', -60);
+  return parts;
+}

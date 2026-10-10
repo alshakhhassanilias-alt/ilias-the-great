@@ -2,6 +2,7 @@
  * Country-level military model. Strength is derived from numbers *and* equipment, technology, readiness,
  * and supply. Money is in base-price (real) dollars; nominal values multiply by the price level.
  */
+import { mods } from './doctrines';
 import { DT } from './types';
 import type { Country, GameState } from './types';
 import type { Geo } from './geo';
@@ -18,7 +19,7 @@ export const techMult = (m: Country['mil']) => 0.6 + 0.8 * (m.milTech / 100);
 export const landPower = (m: Country['mil'], troops = m.troops) => troops * quality(m) * techMult(m);
 export const airPower = (m: Country['mil']) => m.equipAir * techMult(m);
 export const navalPower = (m: Country['mil']) => m.equipNavy * techMult(m);
-export const manpower = (c: Country) => Math.max(0, c.eco.laborForce * (0.22 + 0.005 * c.mil.bld.barracks) - c.mil.troops);
+export const manpower = (c: Country) => Math.max(0, c.eco.laborForce * (0.22 + 0.005 * c.mil.bld.barracks) * mods(c).manpower - c.mil.troops);
 
 /** Single comparable strength number ("troop equivalents"). */
 export function strength(c: Country): number {
@@ -31,7 +32,7 @@ export const strengthIndex = (c: Country) => strength(c) / 1000;
 export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: number } {
   const m = c.mil, e = c.eco, b = c.budget;
   const budgetReal = b.military * e.realGdp;
-  const personnel = m.troops * m.unitCost;
+  const personnel = m.troops * m.unitCost * mods(c).cost;
   const maint = MAINT_RATE * equipTotal(m);
   const upkeepReal = personnel + maint;
   const avail = budgetReal * DT;

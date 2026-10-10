@@ -43,6 +43,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
   const tab = store.drawer.worldTab;
   const [metric, setMetric] = useState<'gdp' | 'gdppc' | 'pop' | 'mil' | 'land'>('gdp');
   const [onlyImportant, setOnlyImportant] = useState(true);
+  const [newsKind, setNewsKind] = useState<'all' | 'you' | 'war' | 'diplo' | 'econ'>('all');
   const alive = s.countries.filter((c) => c.alive);
   const val = (c: (typeof alive)[number]) => metric === 'gdp' ? c.eco.gdp : metric === 'gdppc' ? c.eco.gdp / c.eco.pop : metric === 'pop' ? c.eco.pop : metric === 'mil' ? strength(c) : c.provinces.length;
   const fmt = (v: number) => metric === 'gdp' ? fmtMoney(v) : metric === 'gdppc' ? fmtMoney(v, 1) : metric === 'pop' ? fmtNum(v) : metric === 'mil' ? fmtNum(v) : `${v}`;
@@ -51,7 +52,10 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
   const rows = ranked.slice(0, 20);
   const worldGdp = alive.reduce((t, c) => t + c.eco.gdp, 0);
   const pick = (id: number) => { store.select(id, null, true); onClose(); };
-  const news = [...s.log].reverse().filter((l) => !onlyImportant || l.important || l.countries.includes(s.player)).slice(0, 80);
+  const news = [...s.log].reverse()
+    .filter((l) => !onlyImportant || l.important || l.countries.includes(s.player))
+    .filter((l) => newsKind === 'all' || (newsKind === 'you' ? l.countries.includes(s.player) : newsKind === 'war' ? l.kind === 'war' || l.kind === 'territory' || l.kind === 'danger' : newsKind === 'diplo' ? l.kind === 'diplo' || l.kind === 'peace' : l.kind === 'econ'))
+    .slice(0, 120);
   return (
     <Modal title="World overview" onClose={onClose}>
       <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'blocs', label: 'Blocs' }, { v: 'assembly', label: 'Assembly' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'trophies', label: `Trophies ${Object.keys(s.trophies).length}/${TROPHIES.length}` }, { v: 'news', label: 'News' }]} />
@@ -147,11 +151,13 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
       )}
       {tab === 'news' && (
         <>
-          <label className="check" style={{ padding: 0 }}><input type="checkbox" checked={onlyImportant} onChange={(e) => setOnlyImportant(e.target.checked)} /><span>Only major events and those involving you</span></label>
+          <Segmented value={newsKind} onChange={setNewsKind} label="News filter" options={[{ v: 'all', label: 'All' }, { v: 'you', label: 'You' }, { v: 'war', label: 'War' }, { v: 'diplo', label: 'Diplomacy' }, { v: 'econ', label: 'Economy' }]} />
+          <label className="check" style={{ padding: '8px 0' }}><input type="checkbox" checked={onlyImportant} onChange={(e) => setOnlyImportant(e.target.checked)} /><span>Only major events and those involving you</span></label>
           <div className="list">
             {news.map((l) => (
-              <div className="row news" key={l.seq} style={{ alignItems: 'flex-start' }}>
-                <span className="t" style={{ minWidth: 78 }}>{dateLabel(l.tick)}</span><span className="grow">{l.text}</span>
+              <div className={`row news k-${l.kind}`} key={l.seq} style={{ alignItems: 'flex-start', cursor: l.prov !== undefined ? 'pointer' : undefined }}
+                onClick={() => { if (l.prov !== undefined) { store.select(s.owner[l.prov], l.prov, true); onClose(); } }}>
+                <span className="t" style={{ minWidth: 78 }}>{dateLabel(l.tick)}</span><span className="grow">{l.text}{l.prov !== undefined && <span className="faint"> · show on map</span>}</span>
               </div>
             ))}
             {news.length === 0 && <p className="muted">Nothing yet.</p>}
@@ -193,6 +199,7 @@ function SettingsDrawer({ onClose }: { onClose: () => void }) {
       <Slider label="AI aggression" value={st.aggression} min={0.3} max={2} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => upd({ aggression: v })} hint="Scales how willing AI countries are to start wars. Applies to new decisions immediately." />
       <div className="field"><label>Difficulty</label><Segmented<Difficulty> value={st.difficulty} onChange={(v) => upd({ difficulty: v })} options={[{ v: 'easy', label: 'Easy' }, { v: 'normal', label: 'Normal' }, { v: 'hard', label: 'Hard' }]} /></div>
       <label className="check"><input type="checkbox" checked={st.defensiveAlliances} onChange={(e) => upd({ defensiveAlliances: e.target.checked })} /><span><b>Defensive alliances</b><br /><span className="faint" style={{ fontSize: 12 }}>When off, attacked countries fight alone: a faster, more aggressive sandbox.</span></span></label>
+      <label className="check"><input type="checkbox" checked={store.autoSlow} onChange={(e) => { store.autoSlow = e.target.checked; store.notify(); }} /><span><b>Slow down on big news about me</b><small>Fast-forward drops to Normal when something major happens to you</small></span></label>
       <label className="check"><input type="checkbox" checked={store.pauseOnDecision} onChange={(e) => { store.pauseOnDecision = e.target.checked; store.notify(); }} /><span><b>Pause when a decision arrives</b><small>Off by default: decisions wait in the inbox and the game keeps running</small></span></label>
       <label className="check"><input type="checkbox" checked={store.pauseOnWar} onChange={(e) => { store.pauseOnWar = e.target.checked; store.notify(); }} /><span><b>Pause when a war involving me starts</b></span></label>
       <div className="field"><label>Victory condition</label>

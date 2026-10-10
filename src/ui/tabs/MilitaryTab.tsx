@@ -103,7 +103,11 @@ export function MilitaryTab({ id }: { id: number }) {
                   <button className="btn" onClick={() => store.act((g) => actAirstrike(g, g.player, f.prov))}>Air strike<small>{fmtMoney(0.0015 * e.gdp)}</small></button>
                 </div>
                 <div style={{ marginTop: 6 }}><Meter value={Math.min(1, f.progress)} color="var(--accent)" /></div>
-                <div className="hint" style={{ marginTop: 2 }}>{Math.round(Math.min(1, f.progress) * 100)}% — captured at 100%. Higher odds with logistics, air superiority, and fewer defenders.</div>
+                <div className="hint" style={{ marginTop: 2 }}>
+                  {Math.round(Math.min(1, f.progress) * 100)}% · {f.rate && f.rate > 0.0005 ? `about ${Math.ceil((1 - Math.min(1, f.progress)) / f.rate)} weeks to capture at this pace` : f.rate !== undefined && f.rate < -0.0005 ? 'the attack is failing' : 'stalled'}
+                  {f.atk && f.def ? ` · odds ${(f.atk / Math.max(1, f.def)).toFixed(1)}:1` : ''}
+                  {(f.la || f.ld) ? ` · losses so far: yours ${fmtNum(f.la ?? 0)}, theirs ${fmtNum(f.ld ?? 0)}` : ''}
+                </div>
               </div>
             );
           })}

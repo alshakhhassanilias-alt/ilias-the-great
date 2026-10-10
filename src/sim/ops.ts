@@ -1,4 +1,5 @@
 /** Covert operations against other countries. Success depends on the intelligence gap; failure has consequences. */
+import { mods } from './doctrines';
 import { nextRand } from './rng';
 import { clamp, fmtMoney } from './util';
 import { logEvent } from './log';
@@ -43,5 +44,5 @@ export function runOp(s: GameState, from: CountryId, to: CountryId, kind: OpKind
 
 export function opChance(s: GameState, from: CountryId, to: CountryId, kind: OpKind): number {
   const A = s.countries[from], B = s.countries[to];
-  return clamp(clamp(0.4 + 0.65 * (A.mil.intel - B.mil.intel) + 0.12, 0.12, 0.92) * (kind === 'intel' || kind === 'influence' ? 1.15 : 1), 0.1, 0.95);
+  return clamp(clamp(0.4 + 0.65 * (A.mil.intel - B.mil.intel) + 0.12 + mods(A).ops, 0.12, 0.92) * (kind === 'intel' || kind === 'influence' ? 1.15 : 1), 0.1, 0.95);
 }

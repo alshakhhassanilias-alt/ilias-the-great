@@ -303,5 +303,7 @@ export function actMediate(s: GameState, geo: Geo, cid: number, warId: number): 
 }
 
 import { cancelProject, startProject } from './projects';
+import { setDoctrine, type Doctrine } from './doctrines';
+export function actSetDoctrine(s: GameState, cid: number, slot: Doctrine['slot'], id: string): ActionResult { return setDoctrine(s, cid, slot, id); }
 export function actStartProject(s: GameState, cid: number, id: string): ActionResult { return startProject(s, cid, id); }
 export function actCancelProject(s: GameState, cid: number, uid: number): ActionResult { return cancelProject(s, cid, uid); }

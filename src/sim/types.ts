@@ -148,6 +148,8 @@ export interface Country {
   baseline: { gdp: number; pop: number; provinces: number };
   lastWarDecl: number;
   intent: string; // what this country is currently up to (AI), shown to the player
+  /** national doctrines (economy / military / foreign policy) and when they last changed. Optional: derived from the government type when unset */
+  doctrine?: { eco: string; mil: string; dip: string; changed: number };
 }
 
 export interface Treaty {
@@ -167,7 +169,7 @@ export interface War {
   defenders: CountryId[];
   start: number;
   /** active offensives: province being contested, who attacks, progress 0..1 */
-  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean }[];
+  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean; rate?: number }[];
   /** casualty milestone already reported (index into drama.MILESTONES) */
   mile?: number;
   casualties: Record<number, number>;

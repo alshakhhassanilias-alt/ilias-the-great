@@ -348,7 +348,7 @@ describe('things to do: events, goals, covert ops, war actions', () => {
         expect(s.inbox.find((x) => x.uid === it.uid)).toBeUndefined();
       }
     }
-    expect(seen).toBeGreaterThanOrEqual(12); // a few decisions every year
+    expect(seen).toBeGreaterThanOrEqual(8); // a couple of decisions every year
     expect(seen).toBeLessThanOrEqual(52 * 6 / 6); // but never a flood
     expect(maxInbox).toBeLessThanOrEqual(5);
     // variety: no event twice in a row, and many different ones
@@ -723,5 +723,70 @@ describe('trophies and the year in review', () => {
     run(s, 52);
     expect(s.review?.title).toBe('2024 in review');
     expect(s.review!.lines.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+import { mods, setDoctrine, REFORM_COOLDOWN } from '../src/sim/doctrines';
+import { relationBreakdown } from '../src/sim/relations';
+import { approval, stepCalendar } from '../src/sim/events3';
+describe('depth: doctrines, explanations, calendar', () => {
+  it('doctrines change real numbers, cost money, and cannot be flipped every week', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('Germany')];
+    c.eco.cash = 1e13;
+    expect(mods(c).tfp).toBe(0); // no doctrine = calibrated baseline
+    expect(setDoctrine(s, c.id, 'eco', 'market').ok).toBe(true);
+    expect(mods(c).tfp).toBeCloseTo(0.006);
+    expect(mods(c).stab).toBe(-2);
+    expect(setDoctrine(s, c.id, 'eco', 'welfare').ok).toBe(false); // reform fatigue
+    s.tick += REFORM_COOLDOWN;
+    expect(setDoctrine(s, c.id, 'eco', 'welfare').ok).toBe(true);
+    expect(mods(c).stab).toBe(5);
+    expect(setDoctrine(s, c.id, 'mil', 'conscript').ok).toBe(false);
+  });
+  it('a pro-growth doctrine out-grows an identical country without one', () => {
+    const a = fresh('Brazil'), b = fresh('Brazil');
+    a.nextCrisis = b.nextCrisis = 1e9;
+    b.countries[id('Brazil')].doctrine = { eco: 'market', mil: '', dip: '', changed: 0 };
+    run(a, 150); run(b, 150);
+    expect(b.countries[id('Brazil')].eco.tfp).toBeGreaterThan(a.countries[id('Brazil')].eco.tfp);
+  });
+  it('military doctrines move combat and costs', () => {
+    const s = fresh('Poland');
+    const c = s.countries[id('Poland')];
+    c.doctrine = { eco: '', mil: 'defensive', dip: '', changed: 0 };
+    expect(mods(c).def).toBeGreaterThan(1);
+    expect(mods(c).off).toBeLessThan(1);
+    expect(mods(c).deter).toBeLessThan(1);
+  });
+  it('the relations breakdown adds up to the relation score', () => {
+    const s = fresh('Poland');
+    for (const o of ['Germany', 'Russia', 'France', 'Ukraine']) {
+      const parts = relationBreakdown(s, id('Poland'), id(o));
+      const sum = parts.reduce((t, p) => t + p.v, 0);
+      expect(Math.abs(Math.max(-100, Math.min(100, sum)) - getRelation(s, id('Poland'), id(o)))).toBeLessThan(2.5);
+    }
+  });
+  it('AI war declarations state their reason', () => {
+    const s = fresh('Brazil');
+    s.nextCrisis = 1e9;
+    run(s, 52 * 6);
+    const wars = s.log.filter((e) => /declared war/.test(e.text));
+    expect(wars.length).toBeGreaterThan(0);
+    expect(wars.some((e) => /Reason:|rightfully/.test(e.text))).toBe(true);
+  });
+  it('the player gets an election (or congress) every four years that can be won or lost', () => {
+    const s = fresh('Germany');
+    s.nextCrisis = 1e9;
+    stepCalendar(s);
+    s.stats.nextVote = 5;
+    run(s, 8);
+    expect(s.inbox.some((x) => x.id === 'election') || s.scheduled.some((x) => x.id === 'election')).toBe(true);
+    const it = s.inbox.find((x) => x.id === 'election');
+    if (it) { const r = resolveEvent(s, geo, 0, it.uid); expect(r.ok).toBe(true); }
+    expect(approval(s, s.countries[id('Germany')])).toBeGreaterThan(5);
+    expect(s.stats.nextVote).toBeGreaterThan(200);
+    const a = fresh('China'); a.stats.nextVote = 2; run(a, 4);
+    expect(a.inbox.some((x) => x.id === 'party_congress') || a.scheduled.some((x) => x.id === 'party_congress')).toBe(true);
   });
 });

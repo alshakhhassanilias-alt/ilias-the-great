@@ -10,8 +10,9 @@
  *   progress per tick = 0.16 · clamp(ln(attack/defence) + 0.25, −1.2, 1.6) scaled by province size.
  * A province changes hands when progress reaches 100%. Casualties are Lanchester-like in the force ratio.
  */
+import { mods } from './doctrines';
 import type { Geo } from './geo';
-import { nextRand } from './rng';
+import { hash01, nextRand } from './rng';
 import { clamp } from './util';
 import { CLAIMS } from '../data/countryData';
 import {
@@ -124,7 +125,7 @@ function aggressionFallout(s: GameState, a: CountryId, d: CountryId, severity: n
   }
 }
 
-export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId): DeclareResult {
+export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, why?: string): DeclareResult {
   const chk = canDeclareWar(s, a, d);
   if (!chk.ok) return chk;
   const A = s.countries[a], D = s.countries[d];
@@ -140,9 +141,10 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId): 
   };
   s.wars.push(war);
   A.lastWarDecl = s.tick;
+  s.stats[`pair:${a}>${d}`] = s.tick;
   addRelation(s, a, d, -40);
   aggressionFallout(s, a, d, severity);
-  logEvent(s, `${A.name} declared war on ${D.name}!`, 'war', [a, d], true, isBigNews(s, a, d) ? { big: true, prov: D.capital } : undefined);
+  logEvent(s, `${A.name} declared war on ${D.name}!${why ? ` Reason: ${why}.` : justified ? ' It claims the land is rightfully its own.' : ''}`, 'war', [a, d], true, isBigNews(s, a, d) ? { big: true, prov: D.capital } : undefined);
 
   // alliance calls
   if (s.settings.defensiveAlliances) {
@@ -430,14 +432,14 @@ export function stepWars(s: GameState, geo: Geo) {
       const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (defW(p, e) / sumDef) * (1 + 0.25 * E.eco.infra / 100);
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E));
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def);
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
         const C = st.c;
         const air = clamp(airSuperiority(C, E) + 0.03 * C.mil.bld.airbase - 0.015 * E.mil.bld.airbase, -1, 1.3);
         const intel = 1 + 0.2 * (C.mil.intel - E.mil.intel);
-        const pa = landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C);
+        const pa = landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off;
         contrib.push({ st, pa, air });
         Pa += pa;
       }
@@ -469,9 +471,19 @@ export function stepWars(s: GameState, geo: Geo) {
         let front = w.fronts.find((f) => f.prov === p && f.by === st.c.id);
         if (front) { front.atk = Math.round(st.share); front.def = Math.round(defTroops); }
         if (!front) { front = { prov: p, by: st.c.id, progress: 0, amphibious: st.amphibious }; w.fronts.push(front); }
-        front.progress = clamp(front.progress + delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length, 0, 1.2);
+        const inc = delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length;
+        front.rate = front.rate === undefined ? inc : front.rate * 0.7 + inc * 0.3;
+        front.progress = clamp(front.progress + inc, 0, 1.2);
       }
       const best = w.fronts.filter((f) => f.prov === p).sort((a, b) => b.progress - a.progress)[0];
+      if (best && best.progress >= 1 && E.provinces.length === 1 && !E.isPlayer && !s.countries[best.by].isPlayer && hash01('spare', e, s.tick) < 0.8) {
+        // the conqueror stops short of swallowing the last region: a rump state survives, and the world sees a ceasefire
+        const winner = best.by;
+        logEvent(s, `${s.countries[winner].name} halts its offensive and agrees a ceasefire, leaving ${E.name} a rump state.`, 'peace', [winner, e], false);
+        makePeace(s, geo, winner, e, { kind: 'status_quo' });
+        if (!s.wars.includes(w)) break;
+        continue;
+      }
       if (best && best.progress >= 1) {
         const winner = best.by;
         const f = transferProvince(s, geo, p, winner);
@@ -485,6 +497,7 @@ export function stepWars(s: GameState, geo: Geo) {
         logEvent(s, `Battle of ${name}: ${W.name} captured it from ${E.name}${la + ld > 2000 ? ` after fighting that cost ${fmtCas(la)} attackers and ${fmtCas(ld)} defenders` : ''}.`, 'territory', [winner, e], winner === s.player || e === s.player || big, big && p !== E.capital ? { big: true, prov: p } : { prov: p });
       }
     }
+    if (!s.wars.includes(w)) continue;
     // --- 3b. drama: armies at the gates, casualty milestones
     for (const fr of w.fronts) {
       const E = s.countries[s.owner[fr.prov]];

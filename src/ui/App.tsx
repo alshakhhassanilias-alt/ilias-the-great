@@ -23,7 +23,7 @@ export function App() {
       const t = e.target as HTMLElement;
       if (!store.state || store.preview || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
       if (e.code === 'Space') { e.preventDefault(); store.togglePause(); }
-      else if (e.key >= '1' && e.key <= '3') store.setSpeed(Number(e.key));
+      else if (e.key >= '1' && e.key <= '4') store.setSpeed(Number(e.key));
       else if (e.key === 'Escape') store.openDrawer('none');
     };
     window.addEventListener('keydown', onKey);

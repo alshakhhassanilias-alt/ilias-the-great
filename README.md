@@ -6,7 +6,7 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 
 * **No waiting, ever.** There are no construction timers, energy timers or pay-to-skip. Every decision takes effect
   immediately (money moves, capacity is built, troops are raised, war is declared *now*) or at the very next
-  simulation tick. The world runs on a simulated clock you control: ⏸ pause · ▶ normal · ▶▶ fast · ▶▶▶ very fast.
+  simulation tick. The world runs on a simulated clock you control: ⏸ pause · ▶ slow (a year in ~1m45s) · ▶▶ normal · ▶▶▶ fast · ⏩ very fast.
 * **Real map, dynamic borders.** Natural Earth borders, subdivided into ~1,200 named game provinces. Conquest transfers
   provinces (with their population and output) and the national borders are re-drawn live.
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 62 deterministic simulation tests (Vitest) |
+| `npm test` | 68 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -54,7 +54,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
      demobilise, buy equipment; offensive commitment and manual or automatic targeting; peace talks.
    * **Diplomacy** — relations breakdown, treaty proposals (with a likelihood preview and reasons), sanctions and
      embargoes, war declaration (with an odds estimate), pending offers from AI countries.
-4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–3 = speed.
+4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–4 = speed.
    The game pauses automatically when someone declares war on you (toggle in settings).
 
 ## Architecture
@@ -161,6 +161,9 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 - **Independence movements**: conquered land rises up when the occupier is unstable; a dead country can be reborn.
 - **A named rival** who spies, masses troops, courts your allies and grabs headlines; a "Right now" panel compares you with them.
 - **Trophies** and a **year in review** card.
+- **National doctrines**: three standing choices (economy, military, foreign policy), each with plain-number upsides and downsides; reforms cost money and can be done once a year.
+- **Explanations everywhere**: relations show a line-by-line "why they feel this way"; AI war declarations state their reason; front cards show odds, losses and an ETA; a "Coming up" list (elections, Assembly vote, project completions, decision deadlines).
+- **Political calendar**: an election (or, in a one-party state, a leadership congress) every four years.
 
 ## Data provenance — real vs generated
 * **Real (approximate, rounded, ~2023–24):** population, nominal GDP, military spending share, active troops,
@@ -177,7 +180,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 62 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 68 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

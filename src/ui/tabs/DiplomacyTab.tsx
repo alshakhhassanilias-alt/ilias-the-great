@@ -10,7 +10,7 @@ import { actAid, actGuarantee, actMediate, actSummit, actUltimatum } from '../..
 import { hasGuarantee, guarantorsOf } from '../../sim/relations';
 import { actCancel, actDeclareWar, actPropose, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
 import { evaluateProposal, PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
-import { alliesOf, areAtWar, baseRelation, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
+import { alliesOf, areAtWar, baseRelation, relationBreakdown, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
 import { assessAttack } from '../../sim/ai';
 import { claimStrength } from '../../sim/war';
 
@@ -58,9 +58,12 @@ export function DiplomacyTab({ id }: { id: number }) {
         <div className="card">
           <div className="row" style={{ border: 'none' }}><div className="grow"><b className="num" style={{ fontSize: 22 }}>{rel >= 0 ? '+' : ''}{rel.toFixed(0)}</b></div><span className={`pill ${rl.cls}`}>{rl.text}</span></div>
           <RelationBar value={rel} />
-          <div className="faint" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>
-            Historic & bloc affinity {base >= 0 ? '+' : ''}{base.toFixed(0)} · treaties, sanctions & events {treatyBonus >= 0 ? '+' : ''}{treatyBonus.toFixed(0)}{atWar ? ' (at war −60)' : ''}.
-            {claim > 0.3 && ` ${c.name} has territorial claims against you.`}
+          <div className="why">
+            <div className="why-title">Why they feel this way</div>
+            {relationBreakdown(s, id, s.player).map((p, i) => (
+              <div className="why-row" key={i}><span>{p.label}</span><b className={p.v < 0 ? 'bad' : 'good'}>{p.v > 0 ? '+' : ''}{p.v}</b></div>
+            ))}
+            {claim > 0.3 && <div className="why-row"><span>{c.name} claims land you hold</span><b className="bad">risk of war</b></div>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>

@@ -5,6 +5,7 @@ import { getRelation, isAtWar } from '../../sim/relations';
 import { strengthIndex } from '../../sim/military';
 import { crisisById, crisisLeft } from '../../sim/crises';
 import { isMajor } from '../../sim/drama';
+import { projectById, runsOf } from '../../sim/projects';
 
 /** Compare two numbers as a tug-of-war bar: left = you, right = them. */
 function Duel({ label, a, b, fmt }: { label: string; a: number; b: number; fmt: (v: number) => string }) {
@@ -30,7 +31,13 @@ export function SituationSection() {
     .map((w) => ({ w, score: [...w.attackers, ...w.defenders].reduce((t, x) => t + (isMajor(s, x) ? 2 : 0), 0) + w.fronts.length * 0.3 }))
     .sort((a, b) => b.score - a.score).slice(0, 3);
   const mineWars = s.wars.filter((w) => w.attackers.includes(s.player) || w.defenders.includes(s.player));
-  if (!rv && !cr && !hot.length && !mineWars.length) return null;
+  const upcoming: { wk: number; text: string }[] = [];
+  if (s.stats.nextVote !== undefined) upcoming.push({ wk: s.stats.nextVote - s.tick, text: me.gov === 'D' || me.gov === 'F' ? '🗳 Election' : '🏛 Leadership congress' });
+  upcoming.push({ wk: (((13 - s.tick) % 104) + 104) % 104 || 104, text: '🌐 World Assembly vote' });
+  for (const r of runsOf(s, s.player)) upcoming.push({ wk: r.weeks - r.done, text: `${projectById(r.id).icon} ${projectById(r.id).title} completes` });
+  for (const it of s.inbox) upcoming.push({ wk: it.expires - s.tick, text: `⏳ Decision lapses: ${it.id.replace(/_/g, ' ')}` });
+  upcoming.sort((a, b) => a.wk - b.wk);
+  if (!rv && !cr && !hot.length && !mineWars.length && !upcoming.length) return null;
   const focus = (cid: number, prov?: number) => store.select(cid, prov ?? null, true);
   return (
     <Section title="Right now" hint="live">
@@ -61,6 +68,12 @@ export function SituationSection() {
           <Duel label="Economy" a={me.eco.gdp} b={rv.eco.gdp} fmt={(v) => fmtMoney(v)} />
           <Duel label="Military" a={strengthIndex(me)} b={strengthIndex(rv)} fmt={(v) => fmtNum(v * 1000)} />
           <Duel label="Technology" a={me.eco.tech} b={rv.eco.tech} fmt={(v) => v.toFixed(0)} />
+        </div>
+      )}
+      {upcoming.length > 0 && (
+        <div className="card upcoming">
+          <div className="why-title">Coming up</div>
+          {upcoming.slice(0, 5).map((u, i) => <div className="why-row" key={i}><span>{u.text}</span><b>{u.wk <= 0 ? 'now' : u.wk >= 52 ? `${(u.wk / 52).toFixed(1)} yr` : `${u.wk} wk`}</b></div>)}
         </div>
       )}
       {hot.map(({ w }) => (

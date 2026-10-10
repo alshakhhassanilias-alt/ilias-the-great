@@ -1,4 +1,5 @@
 /** Treaty proposals, sanctions and how other countries respond. */
+import { mods } from './doctrines';
 import type { Geo } from './geo';
 import {
   addRelation, alliesOf, areAtWar, ensureTreaty, touchTreaties, getRelation, getTreaty, isAtWar, sanctionLevel, setSanction, warsOf, enemiesOf,
@@ -46,7 +47,7 @@ export function evaluateProposal(s: GameState, geo: Geo, from: CountryId, to: Co
   if (tr?.[kind]) return { accept: false, score: 0, needed: 0, reasons: ['Already in force'] };
   if (sanctionLevel(s, from, to) > 0 || sanctionLevel(s, to, from) > 0) return { accept: false, score: -1, needed: 0, reasons: ['Sanctions are in place'] };
   const rel = getRelation(s, to, from);
-  let score = rel / 100;
+  let score = rel / 100 + (from === s.player || F.isPlayer ? mods(F).accept : 0);
   reasons.push(`Relations ${rel >= 0 ? '+' : ''}${rel.toFixed(0)}`);
   let needed = 0.15;
   const ratio = strength(F) / Math.max(1, strength(T));

@@ -4,6 +4,7 @@
  * scripted against the player. Decisions: fiscal & military posture, treaty proposals, sanctions,
  * war declaration (power ratio incl. logistics/terrain/allies/deterrence + desire), and peace.
  */
+import { mods } from './doctrines';
 import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp } from './util';
@@ -187,10 +188,11 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
   const near = neighborsOf(s, geo, c.id);
   const targets = new Set<number>(near);
   if (isCoastalCountry(s, geo, c) && strength(c) > 3e5) for (const o of s.countries) if (o.alive && claimStrength(c.id, o.id) > 0.3) targets.add(o.id);
-  let best: { t: number; desire: number } | null = null;
+  let best: { t: number; desire: number; why: string } | null = null;
   for (const t of targets) {
     const T = s.countries[t];
     if (!T.alive || areAtWar(s, c.id, t) || hasAlliance(s, c.id, t)) continue;
+    if (s.tick - (s.stats[`pair:${c.id}>${t}`] ?? -9999) < 182) continue; // no serial conquest of the same victim: a breathing space of 3.5 years
     const rel = getRelation(s, c.id, t);
     const as = assessAttack(s, geo, c, T);
     const ratio = as.ratio;
@@ -200,9 +202,18 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     let desire = c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
-    if (t === s.player) desire *= s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1;
+    if (t === s.player) desire *= mods(T).deter * (s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1);
     if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (attack odds ${ratio.toFixed(1)}×)`;
-    if (desire > 0.62 && (!best || desire > best.desire)) best = { t, desire };
+    if (desire > 0.62 && (!best || desire > best.desire)) {
+      const why: string[] = [];
+      if (claim > 0.3) why.push('old territorial claims');
+      if (rel < -40) why.push('deep hostility');
+      if (ratio > 2.5) why.push(`it sees ${T.name} as weak (${ratio.toFixed(1)}× odds)`);
+      if (c.ai.expansion > 0.6) why.push('an expansionist government');
+      if (c.ai.aggression > 0.8) why.push('a hawkish leadership');
+      if (s.crisis?.id === 'coldwar') why.push('the cold war climate');
+      best = { t, desire, why: why.slice(0, 3).join(', ') || 'opportunism' };
+    }
   }
   if (best && rand(s) < 0.07 * Math.min(1.6, best.desire / 0.62)) {
     // against the player, a credible threat first takes the form of an ultimatum
@@ -212,7 +223,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
       logEvent(s, `${c.name} issues an ultimatum to ${s.countries[s.player].name}.`, 'danger', [c.id, s.player], true);
       return;
     }
-    declareWar(s, geo, c.id, best.t);
+    declareWar(s, geo, c.id, best.t, best.why);
   }
 }
 

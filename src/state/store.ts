@@ -16,12 +16,15 @@ import type { ActionResult } from '../sim/actions';
 
 export type Tab = 'overview' | 'economy' | 'military' | 'diplomacy';
 export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
+/** Ticks (weeks) per real second. Deliberately gentle: a year takes ~1m45s at Slow, 52s at Normal. */
 export const SPEEDS = [
-  { label: 'Pause', tps: 0 },
-  { label: 'Normal', tps: 2 },
-  { label: 'Fast', tps: 6 },
-  { label: 'Very fast', tps: 16 },
+  { label: 'Pause', tps: 0, hint: 'paused' },
+  { label: 'Slow', tps: 0.5, hint: '1 week per 2 s' },
+  { label: 'Normal', tps: 1, hint: '1 week per second' },
+  { label: 'Fast', tps: 2.5, hint: '2-3 weeks per second' },
+  { label: 'Very fast', tps: 6, hint: '6 weeks per second' },
 ] as const;
+export const DEFAULT_SPEED = 1;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
 export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
@@ -46,6 +49,7 @@ class Store {
   focusRequest = 0; // bumps when the map should pan to the selected country
   pauseOnWar = true;
   pauseOnDecision = false;
+  autoSlow = true;
   reviewSeen = 0;
   breaking: { seq: number; text: string; kind: LogEntry['kind']; prov?: number } | null = null;
   pingSeq = 0; pingProv = -1; pingColor = '#ffd36a';
@@ -121,11 +125,13 @@ class Store {
 
   // ---- clock ----
   setSpeed(i: number) {
+    if (i > 0) this.lastSpeed = i;
     this.speed = i;
     this.acc = 0;
     this.notify();
   }
-  togglePause() { this.setSpeed(this.speed === 0 ? 1 : 0); }
+  lastSpeed = DEFAULT_SPEED;
+  togglePause() { if (this.speed === 0) this.setSpeed(this.lastSpeed || DEFAULT_SPEED); else { this.lastSpeed = this.speed; this.setSpeed(0); } }
   stepOnce() { if (this.state) { this.runTicks(1, false); this.notify(); } }
   private startLoop() {
     if (this.raf) return;
@@ -177,7 +183,7 @@ class Store {
       if (it.urgent) {
         this.toast(`${eventById(it.id).icon} ${eventById(it.id).title}: needs an answer`, 'danger');
         sfx('alert');
-        if (this.speed > 1) this.speed = 1; // slow down, never stop
+        if (this.speed > 2) this.speed = 2; // slow down, never stop
       }
       if (this.pauseOnDecision && this.speed !== 0) this.speed = 0;
     }
@@ -192,8 +198,9 @@ class Store {
     const prio = e.countries.includes(s.player) || this.relevant(e) || /TROPHY|WORLD |complete!/.test(e.text) ? 2 : 1;
     const now = performance.now();
     if (prio < 2 && this.speed >= 3) return; // background world news only when time is not racing
-    if (this.breaking && now - this.breakAt < 3800 && prio <= this.breakPrio) return; // let the current one be read
-    if (prio < 2 && now - this.breakAt < 2500) return;
+    if (prio >= 2 && this.autoSlow && this.speed > 2) { this.speed = 2; this.acc = 0; } // big news about you: ease off so you can read it
+    if (this.breaking && now - this.breakAt < 5500 && prio <= this.breakPrio) return; // let the current one be read
+    if (prio < 2 && now - this.breakAt < 8000) return;
     this.breaking = { seq: e.seq, text: e.text, kind: e.kind, prov: e.prov };
     this.breakPrio = prio; this.breakAt = now;
     if (e.prov !== undefined) { this.pingSeq++; this.pingProv = e.prov; this.pingColor = e.kind === 'war' || e.kind === 'danger' ? '#ff6b5a' : '#ffd36a'; }

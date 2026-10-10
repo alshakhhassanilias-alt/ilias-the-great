@@ -342,7 +342,7 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 /* ---- situation room ---- */
 .card.crisis-card { border-color: rgba(224, 84, 84, .55); background: rgba(224, 84, 84, .08); margin-bottom: 8px; }
 .card.crisis-card.good { border-color: rgba(60, 190, 130, .55); background: rgba(60, 190, 130, .08); }
-.card.hot, .card.rival { margin-bottom: 8px; }
+.card.hot, .card.rival, .card.upcoming { margin-bottom: 8px; }
 .duel { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; align-items: center; font-size: 12.5px; margin-top: 5px; }
 .duel-l { text-align: right; } .duel-r { text-align: left; }
 .duel-lab { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: 2px; }
@@ -350,3 +350,14 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .duel-bar i { display: block; height: 100%; }
 .ripple.review { right: 384px; }
 @media (max-width: 900px) { .ripple.review { right: 8px; } }
+.why { margin-top: 10px; border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.why-title { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.why-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 2px 0; }
+.doc-slot { padding: 8px 0 10px; border-bottom: 1px solid var(--line-soft); }
+.doc-slot:last-of-type { border-bottom: none; }
+.doc-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.doc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.doc-chip { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 5px 10px; font-size: 12px; }
+.doc-chip.cur { border-color: var(--green); }
+.doc-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.doc-detail { font-size: 12.5px; margin-top: 8px; line-height: 1.5; }

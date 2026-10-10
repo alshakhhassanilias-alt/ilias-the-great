@@ -48,7 +48,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.evaluate(() => { const s = window.__store.state; s.inbox.push({ uid: 99, id: 'tax_demand', tick: s.tick, expires: s.tick + 200, urgent: false, data: {} }); window.__store.notify(); });
   await pg.click('button[aria-label="Very fast"]');
   await sleep(1500);
-  check('a decision waits in the inbox without stopping the game', (await pg.locator('.inbox-item').count()) === 1 && (await S(pg)).speed === 3 && (await S(pg)).tick > 5);
+  check('a decision waits in the inbox without stopping the game', (await pg.locator('.inbox-item').count()) === 1 && (await S(pg)).speed === 4 && (await S(pg)).tick > 5);
   await pg.click('.inbox-row');
   check('expanding a decision shows its choices', (await pg.locator('.inbox .event-opt').count()) >= 2);
   await pg.locator('.inbox .event-opt:not([disabled])').first().click();
@@ -59,7 +59,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await quiet(pg, true);
   check('the news ticker shows headlines', (await pg.locator('.ticker-text').count()) > 0);
   await pg.click('button[aria-label="Pause"]');
-  await pg.click('button[aria-label="Very fast"]'); await sleep(1500); await pg.click('button[aria-label="Pause"]');
+  await pg.click('button[aria-label="Very fast"]'); await sleep(2800); await pg.click('button[aria-label="Pause"]');
   const s1 = await S(pg);
   check('time advances at very fast speed and pauses', s1.tick > 10 && (await S(pg)).tick === s1.tick, `(tick ${s1.tick})`);
   await pg.click('.tabs button:has-text("Economy")');
@@ -85,13 +85,13 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.click('.tabs button:has-text("Diplomacy")');
   await pg.click('button:has-text("Declare war")'); await pg.click('.btnrow button:has-text("Declare war")');
   check('declaring war takes effect immediately', (await S(pg)).wars >= 1);
-  await pg.click('button[aria-label="Fast"]'); await sleep(2500); await answerEvent(pg); await sleep(500);
+  await pg.click('button[aria-label="Very fast"]'); await sleep(2500); await answerEvent(pg); await sleep(500);
   check('simulation keeps running after the player declares war', (await S(pg)).tick > s1.tick + 5);
   await pg.click('button[aria-label="Pause"]');
   // save / load
   await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Save game")');
   const saved = (await S(pg)).tick;
-  await pg.click('button[aria-label="Fast"]'); await sleep(800); await pg.click('button[aria-label="Pause"]');
+  await pg.click('button[aria-label="Very fast"]'); await sleep(800); await pg.click('button[aria-label="Pause"]');
   await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Load saved game")'); await sleep(200);
   check('save then load restores the earlier state', (await S(pg)).tick === saved);
   await pg.close();

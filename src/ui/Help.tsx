@@ -3,7 +3,7 @@ import { store } from '../state/store';
 const STEPS: { title: string; body: string[] }[] = [
   { title: 'You run a country, in real time you control', body: [
     'The world starts on 1 January 2024 with real countries, real borders and approximate real data. Nothing waits in real life: every decision takes effect at once or at the next tick (one week of game time).',
-    'Use the clock (bottom-left): ⏸ pause, ▶ normal, ▶▶ fast, ▶▶▶ very fast. Pause any time to think, make several moves, then resume. Space toggles pause.' ] },
+    'Use the clock (bottom-left): ⏸ pause, ▶ slow (a year in ~1m45s), ▶▶ normal, ▶▶▶ fast, ⏩ very fast. Start slow, pause any time to think, then resume. Space toggles pause; keys 1-4 pick a speed. Big news about you slows fast-forward down automatically.' ] },
   { title: 'Read the map', body: [
     'Click or tap a country to inspect it. Drag to pan, wheel or pinch to zoom. The map switch (top right) recolours the world: Political, Blocs (who is allied with whom), Relations (how they see you), Wealth, Power, Stability.',
     'Gold outline = you. Red = at war with you. Blue = your allies. Hatched stripes = land that was conquered and is not yet integrated.' ] },
@@ -17,7 +17,7 @@ const STEPS: { title: string; body: string[] }[] = [
     'Armies fight region by region. Strength depends on troops, equipment quality, technology, readiness, supply distance, terrain, air and naval power, and fortifications. Build fortresses, airbases, ports, factories and barracks in your regions (click a region).',
     'Peace talks offer ceasefires, territory or concessions. If an ally is attacked you will be asked whether to honour the alliance. Rivals may send an ultimatum before attacking.' ] },
   { title: 'Things to do', body: [
-    'Your advisor (Overview tab) suggests one-tap actions. Objectives give direction, and new ones appear as you complete them. Decision events pop up and pause the game. The news ticker (bottom) shows what the rest of the world is doing.',
+    'Your advisor (Overview tab) suggests one-tap actions. Objectives give direction, and new ones appear as you complete them. Decisions wait in a small inbox on the map and never stop the clock; open one when you are ready. The news ticker (bottom) shows what the rest of the world is doing.',
     'There is no single right way to play: trader, peacemaker, bloc builder or conqueror. Press ☰ → How to play any time to read this again.' ] },
 ];
 

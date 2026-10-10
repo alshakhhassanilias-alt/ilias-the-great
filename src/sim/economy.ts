@@ -8,6 +8,7 @@
  * policy; A grows with a country trend plus education/R&D spending; L follows population and
  * mobilisation. Unemployment, inflation, stability, debt, interest and trade are all derived from this.
  */
+import { mods } from './doctrines';
 import { DT } from './types';
 import type { Budget, Country, GameState } from './types';
 import type { Geo } from './geo';
@@ -248,7 +249,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.capital = Math.max(1, e.capital * (1 - DELTA * DT * (1 + 2 * e.damage)) + (privInv + stateInv) * DT);
 
   // ---- productivity ----
-  const gTfp = e.tfpTrend + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage;
+  const gTfp = e.tfpTrend + mods(c).tfp + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage;
   e.tfp *= 1 + gTfp * DT;
   e.tech = clamp(e.tech + DT * (0.25 + 40 * Math.max(-0.02, b.education - 0.02)) * (1 - e.tech / 110), 5, 100);
 
@@ -300,6 +301,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     shortages: -40 * e.foodUnmet - 30 * e.energyUnmet,
     occupation: -30 * e.occupation,
     debt: debtRatio > 2 ? -15 : 0,
+    doctrine: mods(c).stab,
   };
   e.stabParts = parts;
   const target = Object.values(parts).reduce((t, v) => t + v, 0);

@@ -28,6 +28,30 @@ function escalate(s: GameState, from: number, c: Country): string {
 }
 
 export const EVENTS3: EventDef[] = [
+  // ------------------------------------------------------------------ the political calendar
+  {
+    id: 'election', icon: '🗳', title: 'Election day approaches', weight: 0, cooldown: 0, ttl: 20,
+    eligible: () => null,
+    text: (s, c) => `Voters go to the polls in ${c.name} soon. Polls put your approval at ${approval(s, c).toFixed(0)}%. You need more than half to stay in power.`,
+    options: [
+      { label: 'Run on your record', hint: 'No cost · result depends on how the country is doing', apply: (s, c) => electionResult(s, c, 0) },
+      { label: 'Campaign on the economy', hint: 'Costs 0.3% of GDP · approval +6', enabled: canPay(0.003), apply: (s, c) => { pay(s, c, 0.003); return electionResult(s, c, 6); } },
+      { label: 'Hand out cash to voters', hint: 'Costs 1% of GDP · approval +10 · adds to inflation', enabled: canPay(0.01), apply: (s, c) => { pay(s, c, 0.01); c.eco.monetary += 0.002; return electionResult(s, c, 10); } },
+    ],
+    lapse: (s, c) => electionResult(s, c, 0),
+  },
+  {
+    id: 'party_congress', icon: '🏛', title: 'Leadership congress', weight: 0, cooldown: 0, ttl: 20,
+    eligible: () => null,
+    text: (s, c) => `The ruling circle of ${c.name} gathers to decide the next leadership. Loyalty in the elite stands at ${approval(s, c).toFixed(0)}%. A rival faction is watching for weakness.`,
+    options: [
+      { label: 'Purge the rivals', hint: 'Stability −3 · reputation −3 · elite loyalty +12', apply: (s, c) => { stab(c, -3); rep(c, -3); return electionResult(s, c, 12); } },
+      { label: 'Buy loyalty with reforms', hint: 'Costs 0.6% of GDP · loyalty +8 · stability +2', enabled: canPay(0.006), apply: (s, c) => { pay(s, c, 0.006); stab(c, 2); return electionResult(s, c, 8); } },
+      { label: 'Let things take their course', hint: 'No cost', apply: (s, c) => electionResult(s, c, 0) },
+    ],
+    lapse: (s, c) => electionResult(s, c, 0),
+  },
+
   // ------------------------------------------------------------------ the rival
   {
     id: 'rival_spies', icon: '🕵', title: 'Rival spy ring uncovered', weight: 1.3, cooldown: 140,
@@ -275,3 +299,35 @@ export const EVENTS3: EventDef[] = [
 import { geoRefGet } from './geoRef';
 function geoRef(_s: GameState): Geo { return geoRefGet(); }
 void logEvent;
+
+/** Public approval (or elite loyalty): a transparent function of how the country is doing. */
+export function approval(_s: GameState, c: Country): number {
+  const e = c.eco;
+  return clamp(50 + 0.45 * (e.stability - 50) + 500 * (e.growth - 0.02) - 250 * Math.max(0, e.inflation - 0.04) - 100 * Math.max(0, e.unemployment - e.uNat - 0.02) - 20 * c.mil.exhaustion, 5, 95);
+}
+function electionResult(s: GameState, c: Country, bonus: number): string {
+  const pct = clamp(approval(s, c) + bonus + (nextRand(s) - 0.5) * 14, 0, 100);
+  const free = c.gov === 'D' || c.gov === 'F';
+  if (pct >= 50) {
+    stab(c, pct > 65 ? 6 : 3); rep(c, free ? 1 : 0);
+    const msg = pct > 65 ? `A landslide: ${pct.toFixed(0)}%! Your mandate is stronger than ever.` : `You held on with ${pct.toFixed(0)}%.`;
+    logEvent(s, `${free ? 'Election' : 'Leadership congress'}: ${msg}`, 'diplo', [c.id], true);
+    return msg;
+  }
+  stab(c, -7);
+  c.budget.taxIncome = clamp(c.budget.taxIncome - 0.015, 0, 0.6);
+  c.eco.cash -= 0.004 * c.eco.gdp;
+  const msg = free ? `Defeat (${pct.toFixed(0)}%). The new government cuts income tax and raids the treasury.` : `The faction coup succeeded (${pct.toFixed(0)}% loyalty). A new clique takes over and spends freely.`;
+  logEvent(s, `${free ? 'Election' : 'Leadership congress'}: ${msg}`, 'danger', [c.id], true, { big: true, prov: c.capital });
+  return msg;
+}
+/** Schedules the player's next election / congress (every four years). */
+export function stepCalendar(s: GameState) {
+  const c = s.countries[s.player];
+  if (!c.alive) return;
+  if (s.stats.nextVote === undefined) s.stats.nextVote = 96 + Math.floor(nextRand(s) * 30);
+  if (s.tick >= s.stats.nextVote) {
+    s.scheduled.push({ tick: s.tick, id: c.gov === 'D' || c.gov === 'F' ? 'election' : 'party_congress', data: {} });
+    s.stats.nextVote += 208;
+  }
+}

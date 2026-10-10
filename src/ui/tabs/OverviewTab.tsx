@@ -10,6 +10,7 @@ import { activeGoals, GOALS } from '../../sim/goals';
 import { popGrowthRate } from '../../sim/economy';
 import { ProjectsMini } from './Projects';
 import { SituationSection } from './Situation';
+import { DoctrinesSection } from './Doctrines';
 import { ProvincePanel } from './ProvincePanel';
 
 const TIP = {
@@ -93,6 +94,8 @@ export function OverviewTab({ id }: { id: number }) {
           </div>
         </Section>
       )}
+
+      {mine && <DoctrinesSection />}
 
       <Section title="Snapshot" hint={`${sizeClass(c)} · #${rank} economy`}>
         <div className="grid2">
