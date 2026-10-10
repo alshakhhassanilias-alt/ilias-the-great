@@ -9,6 +9,7 @@ import { fiscalNow, revenueAnnual, taxBurden, taxFactor } from '../../sim/econom
 import type { Budget } from '../../sim/types';
 import { partnersOf, sanctionLevel } from '../../sim/relations';
 import { fog } from '../format';
+import { ProjectsSection } from './Projects';
 
 const PRESETS = [0.0025, 0.005, 0.01, 0.02];
 
@@ -120,6 +121,8 @@ export function EconomyTab({ id }: { id: number }) {
               <div className="faint" style={{ fontSize: 11 }}>Military and intelligence budgets are on the Military tab.</div>
             </div>
           </Section>
+
+          <ProjectsSection />
 
           <Section title="Instant projects" hint="built immediately">
             <div style={{ marginBottom: 8 }}>

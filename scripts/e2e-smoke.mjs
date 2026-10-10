@@ -45,12 +45,17 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await startGame(pg, 'Poland');
   const s0 = await S(pg);
   check('game starts paused at tick 0', s0.tick === 0 && s0.speed === 0);
-  await quiet(pg, false);
+  await pg.evaluate(() => { const s = window.__store.state; s.inbox.push({ uid: 99, id: 'tax_demand', tick: s.tick, expires: s.tick + 200, urgent: false, data: {} }); window.__store.notify(); });
   await pg.click('button[aria-label="Very fast"]');
-  let sawEvent = false;
-  for (let i = 0; i < 40 && !sawEvent; i++) { await sleep(250); sawEvent = await pg.locator('.event-opt').count() > 0; }
-  check('a decision event pauses the game and offers choices', sawEvent && (await S(pg)).speed === 0);
-  await answerEvent(pg);
+  await sleep(1500);
+  check('a decision waits in the inbox without stopping the game', (await pg.locator('.inbox-item').count()) === 1 && (await S(pg)).speed === 3 && (await S(pg)).tick > 5);
+  await pg.click('.inbox-row');
+  check('expanding a decision shows its choices', (await pg.locator('.inbox .event-opt').count()) >= 2);
+  await pg.locator('.inbox .event-opt:not([disabled])').first().click();
+  check('answering a decision clears it', (await pg.locator('.inbox-item').count()) === 0);
+  await pg.evaluate(() => { const s = window.__store.state; s.log.push({ seq: s.logSeq++, tick: s.tick, text: 'TEST CAPITAL FALLS', kind: 'war', countries: [s.player], important: true, big: true, prov: 0 }); });
+  await sleep(1200);
+  check('breaking news shows a banner', (await pg.locator('.breaking').count()) === 1);
   await quiet(pg, true);
   check('the news ticker shows headlines', (await pg.locator('.ticker-text').count()) > 0);
   await pg.click('button[aria-label="Pause"]');

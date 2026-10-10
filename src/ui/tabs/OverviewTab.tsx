@@ -8,6 +8,8 @@ import { strengthIndex } from '../../sim/military';
 import { warScore } from '../../sim/war';
 import { activeGoals, GOALS } from '../../sim/goals';
 import { popGrowthRate } from '../../sim/economy';
+import { ProjectsMini } from './Projects';
+import { SituationSection } from './Situation';
 import { ProvincePanel } from './ProvincePanel';
 
 const TIP = {
@@ -47,6 +49,8 @@ export function OverviewTab({ id }: { id: number }) {
         </Section>
       )}
 
+      {mine && <SituationSection />}
+
       {mine && advice.length > 0 && (
         <Section title="Your advisor recommends" hint="one tap to act">
           <div className="list" style={{ gap: 8, display: 'grid' }}>
@@ -84,6 +88,7 @@ export function OverviewTab({ id }: { id: number }) {
                 <Meter value={p.value} color="var(--accent)" />
                 <div className="meta"><span>{p.text}</span><span>{g.reward}</span></div>
               </div>); })}
+            <ProjectsMini />
             {goals.length === 0 && <div className="goal"><b>All objectives complete.</b><div className="hint">Set your own goals — or conquer the world.</div></div>}
           </div>
         </Section>

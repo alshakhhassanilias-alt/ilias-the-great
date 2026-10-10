@@ -214,7 +214,7 @@ export function actTotalMobilization(s: GameState, cid: number): ActionResult {
   return r.ok ? ok(`${r.message} War economy switched on.`) : r;
 }
 export function actOp(s: GameState, cid: number, to: number, kind: OpKind): ActionResult { return runOp(s, cid, to, kind); }
-export function actResolveEvent(s: GameState, geo: Geo, option: number): ActionResult { return resolveEvent(s, geo, option); }
+export function actResolveEvent(s: GameState, geo: Geo, option: number, uid?: number): ActionResult { return resolveEvent(s, geo, option, uid); }
 export { OPS };
 
 // ---- statecraft ----
@@ -301,3 +301,7 @@ export function actMediate(s: GameState, geo: Geo, cid: number, warId: number): 
   addRelation(s, cid, A.id, -2); addRelation(s, cid, B.id, -2);
   return fail(`The talks failed (${(p * 100).toFixed(0)}% chance). Try again later or when both sides are more exhausted.`);
 }
+
+import { cancelProject, startProject } from './projects';
+export function actStartProject(s: GameState, cid: number, id: string): ActionResult { return startProject(s, cid, id); }
+export function actCancelProject(s: GameState, cid: number, uid: number): ActionResult { return cancelProject(s, cid, uid); }

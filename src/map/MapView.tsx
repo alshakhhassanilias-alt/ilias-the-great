@@ -63,6 +63,11 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     r.selectedProv = store.selectedProv;
     r.dirty = true;
   }
+  const lastPing = useRef(store.pingSeq);
+  useEffect(() => {
+    const rr = rendRef.current;
+    if (rr && lastPing.current !== store.pingSeq) { lastPing.current = store.pingSeq; if (store.pingProv >= 0) rr.ping(store.pingProv, store.pingColor); }
+  });
   useEffect(() => {
     const rr = rendRef.current;
     if (!rr || !store.state || store.selected === null) return;

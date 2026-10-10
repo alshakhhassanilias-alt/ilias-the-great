@@ -61,7 +61,7 @@ function threatLevel(s: GameState, geo: Geo, c: Country): number {
   }
   for (const e of enemiesOf(s, c.id)) th += 0.5 * strength(s.countries[e]) / mine;
   // hostile alliance blocs worry everyone they are hostile to, even far away
-  for (const b of computeBlocs(s).blocs.slice(0, 4)) {
+  for (const b of computeBlocs(s, true).blocs.slice(0, 4)) {
     if (b.members.includes(c.id)) continue;
     const avg = b.members.reduce((t, m) => t + getRelation(s, c.id, m), 0) / b.members.length;
     if (avg < -25) th += Math.min(0.5, (b.strength / mine) * 0.15);
@@ -197,7 +197,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     const need = 1.5 - 0.5 * Math.min(1, c.ai.aggression);
     if (ratio < need) continue;
     const claim = claimStrength(c.id, t);
-    let desire = c.ai.aggression * 0.6 * s.settings.aggression + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
+    let desire = c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
     if (t === s.player) desire *= s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1;

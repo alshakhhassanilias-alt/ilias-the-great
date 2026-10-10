@@ -18,6 +18,7 @@ export const BDEF: Record<BType, { label: string; icon: string; cost: number; de
 };
 export const MAX_LEVEL = 3;
 const key = (p: ProvId, t: BType) => `${p}:${t}`;
+export const setLevel = (s: GameState, p: ProvId, t: BType, lv: number) => { s.bld[key(p, t)] = Math.max(0, Math.min(MAX_LEVEL, lv)); };
 export const levelOf = (s: GameState, p: ProvId, t: BType) => s.bld[key(p, t)] ?? 0;
 
 export function recount(s: GameState, ids?: number[]) {

@@ -122,13 +122,16 @@ export function enemiesOf(s: GameState, c: CountryId): CountryId[] {
 // Per-state index of treaty partners, rebuilt lazily (invalidated by touchTreaties / on tick change).
 interface TreatyIndex { tick: number; n: number; ally: number[][]; trade: number[][]; nap: number[][]; coop: number[][] }
 const treatyIdx = new WeakMap<GameState, TreatyIndex & { dirty: boolean }>();
-export function touchTreaties(s: GameState) { const i = treatyIdx.get(s); if (i) i.dirty = true; }
+const treatyVer = new WeakMap<GameState, number>();
+export const treatyVersion = (s: GameState) => treatyVer.get(s) ?? 0;
+export function touchTreaties(s: GameState) { treatyVer.set(s, treatyVersion(s) + 1); const i = treatyIdx.get(s); if (i) i.dirty = true; }
 function index(s: GameState): TreatyIndex {
   let i = treatyIdx.get(s);
   const n = s.countries.length;
   if (!i || i.dirty || i.tick !== s.tick) {
     i = { tick: s.tick, n, dirty: false, ally: Array.from({ length: n }, () => []), trade: Array.from({ length: n }, () => []), nap: Array.from({ length: n }, () => []), coop: Array.from({ length: n }, () => []) };
-    for (const [k, t] of Object.entries(s.treaties)) {
+    for (const k in s.treaties) {
+      const t = s.treaties[k];
       const dash = k.indexOf('-');
       const a = +k.slice(0, dash), b = +k.slice(dash + 1);
       if (t.alliance) { i.ally[a].push(b); i.ally[b].push(a); }

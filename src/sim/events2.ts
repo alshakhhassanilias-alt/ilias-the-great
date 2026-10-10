@@ -2,6 +2,7 @@
  * Situational events: they only appear when the world state calls for them, name the real countries
  * involved, and their outcomes change relations, treaties, wars and territory — not just numbers.
  */
+import { crisisById, cushion } from './crises';
 import { nextRand } from './rng';
 import { clamp } from './util';
 import { type EventDef, canPay, money, name, pay, rep, stab, type D } from './eventkit';
@@ -20,7 +21,8 @@ const pick = <T>(s: GameState, a: T[]): T => a[Math.floor(nextRand(s) * a.length
 export const EVENTS2: EventDef[] = [
   // ---------------------------------------------------------------- alliance & war
   {
-    id: 'ally_attacked', icon: '🛡', title: 'Your ally is under attack', weight: 0, cooldown: 0,
+    id: 'ally_attacked', icon: '🛡', title: 'Your ally is under attack', weight: 0, cooldown: 0, urgent: true, ttl: 16,
+    lapse: (s, c, d) => { rep(c, -8); addRelation(s, c.id, d.ally, -20); return `${name(s, d.ally)} felt abandoned. Reputation −8.`; },
     eligible: () => null,
     text: (s, _c, d) => `${name(s, d.aggressor)} has attacked your ally ${name(s, d.ally)}. Under your alliance you are expected to respond, and the whole world is watching what you do.`,
     options: [
@@ -45,7 +47,12 @@ export const EVENTS2: EventDef[] = [
     ],
   },
   {
-    id: 'ultimatum', icon: '📜', title: 'Ultimatum', weight: 0, cooldown: 0,
+    id: 'ultimatum', icon: '📜', title: 'Ultimatum', weight: 0, cooldown: 0, urgent: true, ttl: 10,
+    lapse: (s, c, d, geo) => {
+      if (nextRand(s) < 0.35) { rep(c, 2); return `${name(s, d.from)} backed down. It was a bluff.`; }
+      const r = declareWar(s, geo, d.from, c.id);
+      return r.ok ? `${name(s, d.from)} took your silence as a refusal and declared war!` : 'They did not follow through.';
+    },
     eligible: () => null,
     text: (s, c, d) => d.kind === 1
       ? `${name(s, d.from)} demands that ${c.name} hand over a border region within days, or face war. Its army is massing on the frontier.`
@@ -374,7 +381,28 @@ export const EVENTS2: EventDef[] = [
     ],
   },
   {
-    id: 'assembly', icon: '🌐', title: 'World Assembly vote', weight: 0, cooldown: 0,
+    id: 'crisis_response', icon: '🚨', title: 'World crisis: how do you respond?', weight: 0, cooldown: 0, ttl: 22,
+    eligible: () => null,
+    text: (s) => { const d = s.crisis ? crisisById(s.crisis.id) : null; return d ? `${d.icon} ${d.title}. ${d.blurb} Every country is hit; you can soften the blow at home.` : 'The crisis has passed.'; },
+    options: [
+      { label: 'Emergency package', hint: 'Costs 1.2% of GDP · the crisis hits you only half as hard · stability +3', enabled: canPay(0.012), apply: (s, c) => { pay(s, c, 0.012); cushion(s); stab(c, 3); return 'Your emergency package cushions the blow.'; } },
+      { label: 'Protect domestic industry', hint: 'Free · stability +2 · reputation −4 · trade partners annoyed', apply: (s, c) => { stab(c, 2); rep(c, -4); for (const p of partnersOf(s, c.id, 'trade').slice(0, 8)) addRelation(s, c.id, p, -4); return 'You slammed the door on imports. Your partners noticed.'; } },
+      { label: 'Ride it out', hint: 'Nothing happens beyond the crisis itself', apply: () => 'You trust the markets.' },
+    ],
+  },
+  {
+    id: 'boom_response', icon: '🚀', title: 'Global tech boom: seize the moment?', weight: 0, cooldown: 0, ttl: 22,
+    eligible: () => null,
+    text: () => 'A wave of innovation is lifting the world. Governments that invest now can lock in a lasting lead.',
+    options: [
+      { label: 'Invest heavily', hint: 'Costs 1% of GDP · technology +3 · productivity +1.5%', enabled: canPay(0.01), apply: (s, c) => { pay(s, c, 0.01); c.eco.tech = clamp(c.eco.tech + 3, 0, 100); c.eco.tfp *= 1.015; return 'Your labs and start-ups are ahead of the pack.'; } },
+      { label: 'Tax the windfall', hint: 'Gain 0.8% of GDP · stability −1', apply: (_s, c) => { c.eco.cash += 0.008 * c.eco.gdp; stab(c, -1); return `The tax office collected ${money(c, 0.008)}.`; } },
+      { label: 'Let the market work', hint: 'No cost', apply: () => 'You stayed out of the way.' },
+    ],
+  },
+  {
+    id: 'assembly', icon: '🌐', title: 'World Assembly vote', weight: 0, cooldown: 0, ttl: 20,
+    lapse: (s, c, d, geo) => assemblyVote(s, c, d, geo, 'abstain'),
     eligible: () => null,
     text: (s, _c, d) => {
       const r = s.resolutions.find((x) => x.id === d.rid);

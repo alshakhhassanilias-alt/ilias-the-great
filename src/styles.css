@@ -283,3 +283,70 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .ripple .rr b { width: 38px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
 .ripple .x { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--muted); font-size: 16px; }
 @media (max-width: 900px) { .ripple { bottom: auto; top: 150px; right: 8px; left: 8px; width: auto; } }
+
+/* ---- decision inbox: never blocks the map ---- */
+.inbox { max-height: calc(100% - 270px); overflow-y: auto; position: absolute; left: 12px; bottom: 112px; z-index: 12; width: min(350px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.inbox-item { pointer-events: auto; position: relative; background: #0b1726; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; animation: slidein 0.25s ease; }
+.inbox-item.urgent { border-left-color: var(--red); animation: slidein 0.25s ease, urgentpulse 1.6s ease-in-out 3; }
+.inbox-item.open { border-color: var(--accent); }
+.inbox-row { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; color: var(--text); padding: 9px 12px 11px; text-align: left; position: relative; }
+.inbox-icon { font-size: 20px; width: 30px; text-align: center; flex: none; }
+.inbox-title { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.inbox-title b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inbox-title small { font-size: 11px; color: var(--muted); }
+.inbox-go { font-size: 11.5px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 3px 9px; }
+.inbox-item.urgent .inbox-go { background: var(--red); color: #fff; }
+.inbox-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); opacity: .8; transition: width .3s linear; }
+.inbox-item.urgent .inbox-bar { background: var(--red); }
+.inbox-body { padding: 2px 12px 12px; max-height: min(52vh, 420px); overflow: auto; }
+.inbox-body .event-text { font-size: 13.5px; margin: 2px 0 10px; }
+.linkbtn { background: none; border: none; color: var(--muted); font-size: 12px; margin-top: 8px; text-decoration: underline; padding: 2px 0; }
+@keyframes urgentpulse { 50% { box-shadow: 0 0 0 3px rgba(224, 84, 84, .45), var(--shadow); } }
+@media (max-width: 900px) { .inbox { left: 8px; right: 8px; width: auto; } }
+
+/* ---- breaking news banner ---- */
+.breaking { position: absolute; left: 62px; right: 430px; top: 12px; z-index: 40; display: flex; align-items: stretch; background: rgba(8, 14, 24, 0.97); border: 1px solid #f2b84b; border-radius: 10px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.6); color: var(--text); text-align: left; animation: breakin 0.45s cubic-bezier(.2,1.3,.4,1), breakout .5s ease 8.5s forwards; }
+.breaking.hot { border-color: #ff5a4a; box-shadow: 0 8px 30px rgba(255,60,40,.35); }
+.breaking-tag { background: #f2b84b; color: #1a1306; font-weight: 800; letter-spacing: .14em; font-size: 11px; padding: 0 12px; display: grid; place-items: center; flex: none; }
+.breaking.hot .breaking-tag { background: #ff5a4a; color: #fff; animation: blink 0.9s steps(2) 4; }
+.breaking-text { padding: 10px 14px; font-size: 14px; font-weight: 600; line-height: 1.35; text-wrap: balance; }
+@keyframes breakin { from { transform: translateY(-140%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes breakout { to { opacity: 0; transform: translateY(-30%); } }
+@keyframes blink { 50% { filter: brightness(1.6); } }
+@media (min-width: 901px) { .toasts { top: 86px; } }
+@media (max-width: 900px) {
+  .breaking { left: 8px; right: 8px; top: 108px; }
+  .breaking-text { font-size: 12.5px; padding: 7px 10px; }
+  .breaking-tag { font-size: 9.5px; padding: 0 8px; letter-spacing: .08em; }
+  .inbox { bottom: calc(var(--map-bottom, 0px) + 54px); }
+  .inbox { max-height: none; overflow: visible; z-index: 20; }
+  .inbox-item.open { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 45; max-height: 68vh; overflow-y: auto; border-width: 2px; box-shadow: 0 -10px 40px rgba(0,0,0,.7); }
+  .inbox-body { max-height: none; }
+  .crisis-chip .t { display: none; }
+}
+
+/* ---- megaprojects ---- */
+.projects { display: grid; gap: 8px; }
+.proj { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.proj.run { border-color: var(--accent); }
+.proj.done { opacity: .6; }
+.proj-head { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+.proj-icon { font-size: 24px; width: 36px; text-align: center; }
+.proj-perk { font-size: 12px; color: var(--teal); margin: 4px 0 6px; line-height: 1.35; }
+.proj-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.btn.sm { padding: 5px 12px; font-size: 12px; }
+.tag.good { color: var(--green); font-size: 11px; font-weight: 700; }
+.crisis-chip { font-size: 11.5px; font-weight: 700; color: #ffb4a8; background: rgba(224, 84, 84, .16); border: 1px solid rgba(224, 84, 84, .5); border-radius: 7px; padding: 3px 8px; }
+.crisis-chip.good { color: #9be8c0; background: rgba(60, 190, 130, .14); border-color: rgba(60, 190, 130, .5); }
+
+/* ---- situation room ---- */
+.card.crisis-card { border-color: rgba(224, 84, 84, .55); background: rgba(224, 84, 84, .08); margin-bottom: 8px; }
+.card.crisis-card.good { border-color: rgba(60, 190, 130, .55); background: rgba(60, 190, 130, .08); }
+.card.hot, .card.rival { margin-bottom: 8px; }
+.duel { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; align-items: center; font-size: 12.5px; margin-top: 5px; }
+.duel-l { text-align: right; } .duel-r { text-align: left; }
+.duel-lab { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: 2px; }
+.duel-bar { height: 7px; background: var(--amber); border-radius: 4px; overflow: hidden; opacity: .95; }
+.duel-bar i { display: block; height: 100%; }
+.ripple.review { right: 384px; }
+@media (max-width: 900px) { .ripple.review { right: 8px; } }

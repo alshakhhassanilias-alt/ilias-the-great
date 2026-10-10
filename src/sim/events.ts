@@ -10,7 +10,7 @@ import { logEvent } from './log';
 import { addRelation, alliesOf, areAtWar, getRelation, isAtWar, partnersOf } from './relations';
 import { applyTreaty, neighborsOf } from './diplomacy';
 import { declareWar, forcePeaceAll } from './war';
-import type { Country, GameState, PendingEvent } from './types';
+import type { Country, GameState, InboxItem } from './types';
 
 import { type D, type EventDef, type EventOption, name, pay, stab, rep, money, canPay } from './eventkit';
 export type { EventDef, EventOption };
@@ -184,8 +184,26 @@ export const EVENTS: EventDef[] = [
 
 import { EVENTS2 } from './events2';
 import { finalizeResolution, proposeResolution } from './politics';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2];
+import { EVENTS3 } from './events3';
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3];
 export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
+
+export const INBOX_MAX = 4;
+const URGENT_TTL = 14;
+const NORMAL_TTL = 40;
+
+/** Put a decision in the player's inbox. It never stops the clock; it lapses if ignored. */
+export function pushInbox(s: GameState, id: string, data: D, ttl?: number): InboxItem | null {
+  const def = eventById(id);
+  if (!def) return null;
+  const urgent = !!def.urgent;
+  const it: InboxItem = { uid: s.nextInbox++, id, tick: s.tick, expires: s.tick + (ttl ?? def.ttl ?? (urgent ? URGENT_TTL : NORMAL_TTL)), urgent, data };
+  s.inbox.push(it);
+  s.lastEventTick = s.tick;
+  s.recentEvents.push(id);
+  if (s.recentEvents.length > 12) s.recentEvents.shift();
+  return it;
+}
 
 /** Decision about the World Assembly: every half year a resolution is put to the vote. */
 export function stepAssembly(s: GameState, geo: Geo) {
@@ -195,31 +213,42 @@ export function stepAssembly(s: GameState, geo: Geo) {
   s.resolutions.push(r);
   if (s.resolutions.length > 12) s.resolutions.shift();
   const P = s.countries[s.player];
-  if (!P.alive || r.target === s.player || s.pendingEvent || r.victim === s.player) { finalizeResolution(s, geo, r); return; }
-  s.pendingEvent = { id: 'assembly', tick: s.tick, data: { rid: r.id } };
-  s.lastEventTick = s.tick;
+  if (!P.alive || r.target === s.player || s.inbox.length >= INBOX_MAX || r.victim === s.player || s.tick % 104 !== 13) { finalizeResolution(s, geo, r); return; }
+  pushInbox(s, 'assembly', { rid: r.id }, 20);
 }
 
-/** Roll for a decision event for the player. Called every tick; paces itself. */
+/** Items the player ignored for too long lapse; their default consequence (if any) applies. */
+function expireInbox(s: GameState, geo: Geo) {
+  const c = s.countries[s.player];
+  for (const it of s.inbox.filter((x) => x.expires <= s.tick)) {
+    s.inbox = s.inbox.filter((x) => x !== it);
+    const def = eventById(it.id);
+    const msg = def.lapse ? def.lapse(s, c, it.data, geo) : 'The chance passed.';
+    logEvent(s, `${def.title}: you let it lapse. ${msg}`, 'info', [s.player], it.urgent);
+  }
+}
+
+/** Roll for new decisions. Rare by design: a few a year, never more than a handful waiting, never the same one twice in a row. */
 export function rollPlayerEvent(s: GameState, geo: Geo) {
   const c = s.countries[s.player];
-  if (!c.alive || s.pendingEvent || s.victory) return;
-  // follow-ups and queued decisions (ally attacked, ultimatums, supply disputes ...) take priority
+  if (!c.alive || s.victory) return;
+  expireInbox(s, geo);
+  // follow-ups and queued decisions (ally attacked, ultimatums, ...) take priority
   const due = s.scheduled.findIndex((x) => x.tick <= s.tick);
   if (due >= 0) {
     const sc = s.scheduled.splice(due, 1)[0];
     let id = sc.id;
     if (id === 'pipeline') id = getRelation(s, s.player, sc.data.from) > 40 ? 'pipeline_bonus' : 'pipeline_cutoff';
-    s.pendingEvent = { id, tick: s.tick, data: sc.data };
-    s.lastEventTick = s.tick;
+    pushInbox(s, id, sc.data);
     return;
   }
-  if (s.tick < 6 || s.tick - s.lastEventTick < 5 || s.tick % 2 !== 0) return;
-  if (nextRand(s) > 0.26) return;
+  if (s.inbox.length >= 3 || s.tick < 10 || s.tick - s.lastEventTick < 14 || s.tick % 2 !== 0) return;
+  if (nextRand(s) > 0.3) return;
   const pool: { def: EventDef; d: D; w: number }[] = [];
   for (const def of ALL_EVENTS) {
     if (def.weight <= 0) continue;
     if ((s.eventCooldown[def.id] ?? -9999) + def.cooldown > s.tick) continue;
+    if (s.recentEvents.includes(def.id)) continue;
     const d = def.eligible(s, c, geo);
     if (d) pool.push({ def, d, w: def.weight });
   }
@@ -227,21 +256,21 @@ export function rollPlayerEvent(s: GameState, geo: Geo) {
   let r = nextRand(s) * pool.reduce((t, x) => t + x.w, 0);
   let pick = pool[0];
   for (const x of pool) { r -= x.w; if (r <= 0) { pick = x; break; } }
-  s.pendingEvent = { id: pick.def.id, tick: s.tick, data: pick.d };
   s.eventCooldown[pick.def.id] = s.tick;
-  s.lastEventTick = s.tick;
+  pushInbox(s, pick.def.id, pick.d);
 }
 
-export function resolveEvent(s: GameState, geo: Geo, option: number): { ok: boolean; message: string } {
-  const pe = s.pendingEvent;
-  if (!pe) return { ok: false, message: 'No decision pending' };
-  const def = eventById(pe.id);
+/** Answer an inbox item (`uid`; defaults to the oldest). */
+export function resolveEvent(s: GameState, geo: Geo, option: number, uid?: number): { ok: boolean; message: string } {
+  const it = uid === undefined ? s.inbox[0] : s.inbox.find((x) => x.uid === uid);
+  if (!it) return { ok: false, message: 'No decision pending' };
+  const def = eventById(it.id);
   const c = s.countries[s.player];
   const opt = def.options[option];
   if (!opt) return { ok: false, message: 'Unknown option' };
   if (opt.enabled && !opt.enabled(s, c)) return { ok: false, message: 'Cannot afford that option' };
-  const msg = opt.apply(s, c, pe.data, geo);
-  s.pendingEvent = null;
+  const msg = opt.apply(s, c, it.data, geo);
+  s.inbox = s.inbox.filter((x) => x !== it);
   logEvent(s, `${def.title}: ${msg}`, 'info', [s.player]);
   return { ok: true, message: msg };
 }

@@ -167,7 +167,9 @@ export interface War {
   defenders: CountryId[];
   start: number;
   /** active offensives: province being contested, who attacks, progress 0..1 */
-  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number }[];
+  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean }[];
+  /** casualty milestone already reported (index into drama.MILESTONES) */
+  mile?: number;
   casualties: Record<number, number>;
   /** provinces captured (value, as share of enemy base weight) by each country in this war */
   gained: Record<number, number>;
@@ -181,7 +183,8 @@ export type OfferKind = 'trade' | 'nap' | 'alliance' | 'coop' | 'peace';
 export interface Offer { id: number; from: CountryId; kind: OfferKind; terms?: { kind: string; share?: number }; tick: number }
 
 export type LogKind = 'info' | 'war' | 'peace' | 'diplo' | 'econ' | 'danger' | 'territory';
-export interface LogEntry { seq: number; tick: number; text: string; kind: LogKind; countries: CountryId[]; important?: boolean }
+/** `big` entries get a full-width BREAKING banner, a sound and a ring on the map at `prov` */
+export interface LogEntry { seq: number; tick: number; text: string; kind: LogKind; countries: CountryId[]; important?: boolean; big?: boolean; prov?: number }
 
 export interface Market { priceE: number; priceF: number; scarcityE: number; scarcityF: number }
 
@@ -209,7 +212,22 @@ export interface GameState {
   /** last tick each AI proposal was sent to the player (prevents nagging) */
   offerLog: Record<string, number>;
   /** decision event waiting for the player (the game pauses until it is answered) */
-  pendingEvent: PendingEvent | null;
+  /** decisions waiting for the player: they never stop the clock, they lapse when ignored */
+  inbox: InboxItem[];
+  /** national megaprojects under way (player and AI) */
+  projects: ProjectRun[];
+  /** player trophies: id -> tick unlocked */
+  trophies: Record<string, number>;
+  /** the last end-of-year summary card shown to the player */
+  review: { tick: number; title: string; lines: string[] } | null;
+  /** the player's main rival (country id) or -1 */
+  rival: number;
+  /** the current world-wide crisis (recession, pandemic, cold war ...) and when the next one may start */
+  crisis: { id: string; start: number; end: number } | null;
+  nextCrisis: number;
+  nextProject: number;
+  nextInbox: number;
+  recentEvents: string[];
   eventCooldown: Record<string, number>;
   lastEventTick: number;
   goalsDone: Record<string, number>;
@@ -235,7 +253,8 @@ export interface Reaction { id: CountryId; delta: number; text: string }
 export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }
 export interface Scheduled { tick: number; id: string; data: Record<string, number> }
 export interface Resolution { id: number; kind: 'condemn' | 'sanction' | 'ceasefire' | 'aid'; target: CountryId; victim: number; tick: number; yes: number; no: number; passed: boolean | null }
-export interface PendingEvent { id: string; tick: number; data: Record<string, number> }
+export interface ProjectRun { uid: number; id: string; owner: CountryId; cost: number; weeks: number; done: number; start: number; stalled: boolean }
+export interface InboxItem { uid: number; id: string; tick: number; expires: number; urgent: boolean; data: Record<string, number> }
 
 export const START_YEAR = 2024;
 export const TICKS_PER_YEAR = 52;

@@ -25,6 +25,7 @@ export function TopBar() {
       </div>
       <div className="topbtns">
         <button className="iconbtn" aria-label="World rankings, wars and news" onClick={() => store.openDrawer('world')}>🌍<span className="hide-m"> World</span>{store.unread > 0 && <span className="badge">{Math.min(store.unread, 99)}</span>}</button>
+        <button className="iconbtn" aria-label={store.sound ? 'Mute sound' : 'Turn sound on'} aria-pressed={store.sound} onClick={() => store.setSound(!store.sound)}>{store.sound ? '🔊' : '🔇'}</button>
         <button className="iconbtn" aria-label="Menu" onClick={() => store.openDrawer('menu')}>☰</button>
       </div>
     </header>

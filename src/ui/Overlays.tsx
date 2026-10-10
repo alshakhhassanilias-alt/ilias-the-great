@@ -75,32 +75,47 @@ export function MapModes() {
   );
 }
 
-export function EventModal() {
+/** Decisions wait here. They never stop the game: answer when you like, or let them lapse. */
+export function InboxTray() {
   useStore();
   const s = store.state;
-  const pe = s?.pendingEvent;
-  if (!s || !pe) return null;
-  const def = eventById(pe.id);
+  if (!s || !s.inbox.length) return null;
   const c = s.countries[s.player];
   return (
-    <div className="scrim" role="presentation">
-      <div className="modal narrow event" role="dialog" aria-modal="true" aria-label={def.title}>
-        <div className="event-head"><span className="event-icon" aria-hidden="true">{def.icon}</span><div><div className="event-kicker">{dateLabel(s.tick)} · Decision</div><h2>{def.title}</h2></div></div>
-        <div className="modal-body">
-          <p className="event-text">{def.text(s, c, pe.data)}</p>
-          <div className="event-options">
-            {def.options.map((o, i) => {
-              const ok = !o.enabled || o.enabled(s, c);
-              return (
-                <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''}`} disabled={!ok}
-                  onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i)); store.resumeAfterEvent(); }}>
-                  {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>
-                </button>
-              );
-            })}
+    <div className="inbox" role="region" aria-label="Decisions waiting">
+      {s.inbox.map((it) => {
+        const def = eventById(it.id);
+        const open = store.inboxOpen === it.uid;
+        const left = Math.max(0, it.expires - s.tick);
+        const total = Math.max(1, it.expires - it.tick);
+        return (
+          <div key={it.uid} className={`inbox-item ${it.urgent ? 'urgent' : ''} ${open ? 'open' : ''}`}>
+            <button className="inbox-row" aria-expanded={open} onClick={() => store.openInbox(open ? null : it.uid)}>
+              <span className="inbox-icon" aria-hidden="true">{def.icon}</span>
+              <span className="inbox-title"><b>{def.title}</b><small>{it.urgent ? 'Urgent · ' : ''}{left} wk left</small></span>
+              <span className="inbox-go">{open ? '▾' : 'Decide'}</span>
+              <i className="inbox-bar" style={{ width: `${(100 * left) / total}%` }} />
+            </button>
+            {open && (
+              <div className="inbox-body">
+                <p className="event-text">{def.text(s, c, it.data)}</p>
+                <div className="event-options">
+                  {def.options.map((o, i) => {
+                    const ok = !o.enabled || o.enabled(s, c);
+                    return (
+                      <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''}`} disabled={!ok}
+                        onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i, it.uid)); store.inboxOpen = null; store.notify(); }}>
+                        {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button className="linkbtn" onClick={() => store.openInbox(null)}>Decide later (the game keeps running)</button>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -141,6 +156,33 @@ export function RippleCard() {
       {r.reactions.slice(0, 6).map((x) => (
         <div className="rr" key={x.id}><b className={x.delta < 0 ? 'bad' : 'good'}>{x.delta > 0 ? '+' : ''}{x.delta.toFixed(0)}</b><span>{x.text}</span></div>
       ))}
+    </div>
+  );
+}
+
+export function BreakingBanner() {
+  useStore();
+  const b = store.breaking;
+  if (!b) return null;
+  const danger = b.kind === 'war' || b.kind === 'danger';
+  return (
+    <button className={`breaking ${danger ? 'hot' : ''}`} key={b.seq} onClick={() => { store.dismissBreaking(); if (b.prov !== undefined && store.state) { const o = store.state.owner[b.prov]; store.select(o, b.prov, true); } }} aria-live="assertive">
+      <span className="breaking-tag">BREAKING</span>
+      <span className="breaking-text">{b.text}</span>
+    </button>
+  );
+}
+
+export function YearReview() {
+  useStore();
+  const s = store.state;
+  const r = s?.review;
+  if (!s || !r || store.reviewSeen >= r.tick || s.tick - r.tick > 30) return null;
+  return (
+    <div className="ripple review" role="status">
+      <button className="x" aria-label="Dismiss" onClick={() => { store.reviewSeen = r.tick; store.notify(); }}>×</button>
+      <h4>{r.title}</h4>
+      {r.lines.map((l, i) => <div className="rr" key={i} style={{ display: 'block' }}>{l}</div>)}
     </div>
   );
 }

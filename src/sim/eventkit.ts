@@ -10,6 +10,12 @@ export interface EventDef {
   eligible: (s: GameState, c: Country, geo: Geo) => D | null;
   text: (s: GameState, c: Country, d: D) => string;
   options: EventOption[];
+  /** seconds-of-game-time the offer stays open (weeks). Default 40; urgent items default to 14 */
+  ttl?: number;
+  /** urgent items are flagged red and slow fast-forward down */
+  urgent?: boolean;
+  /** what happens if the player lets it lapse (default: nothing, the chance is gone) */
+  lapse?: (s: GameState, c: Country, d: D, geo: Geo) => string;
 }
 
 export const name = (s: GameState, id: number) => s.countries[id].name;

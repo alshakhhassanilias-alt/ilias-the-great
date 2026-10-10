@@ -9,7 +9,7 @@ import { actDeclareWar, actPeace, buildProject, recruit, setBudget, actPropose, 
 import { manpower, strength } from '../src/sim/military';
 import { evaluatePeace, transferProvince, declareWar, warScore } from '../src/sim/war';
 import { neighborsOf } from '../src/sim/diplomacy';
-import { ALL_EVENTS as EVENTS, resolveEvent, rollPlayerEvent } from '../src/sim/events';
+import { ALL_EVENTS as EVENTS, eventById, resolveEvent, rollPlayerEvent } from '../src/sim/events';
 import { GOALS, stepGoals } from '../src/sim/goals';
 import { runOp } from '../src/sim/ops';
 import { actAirstrike, actCallAllies, actGuarantee, actMediate, actUltimatum, actBuild, actAid, actSummit } from '../src/sim/actions';
@@ -331,21 +331,36 @@ describe('diplomacy', () => {
 });
 
 describe('things to do: events, goals, covert ops, war actions', () => {
-  it('decision events appear regularly, pause for a choice, and apply their effects', () => {
+  it('decisions arrive in the inbox at a sane pace, never block the clock, and apply their effects', () => {
     const s = fresh('Poland');
-    let seen = 0;
-    for (let i = 0; i < 52 * 3 && seen < 30; i++) {
+    let seen = 0, maxInbox = 0;
+    const ids: string[] = [];
+    for (let i = 0; i < 52 * 6; i++) {
       tick(s, geo);
-      if (s.pendingEvent) {
-        seen++;
-        const before = s.countries[id('Poland')].eco.stability;
-        const r = resolveEvent(s, geo, 0);
+      maxInbox = Math.max(maxInbox, s.inbox.length);
+      const it = s.inbox[0];
+      if (it && s.tick % 5 === 0) {
+        seen++; ids.push(it.id);
+        const n = eventById(it.id).options.length;
+        let r = resolveEvent(s, geo, n - 1, it.uid); // the last option is the cautious one
+        for (let o = 0; !r.ok && o < n; o++) r = resolveEvent(s, geo, o, it.uid);
         expect(r.message.length).toBeGreaterThan(3);
-        expect(s.pendingEvent).toBeNull();
-        void before;
+        expect(s.inbox.find((x) => x.uid === it.uid)).toBeUndefined();
       }
     }
-    expect(seen).toBeGreaterThanOrEqual(6); // at least a couple of decisions per year
+    expect(seen).toBeGreaterThanOrEqual(12); // a few decisions every year
+    expect(seen).toBeLessThanOrEqual(52 * 6 / 6); // but never a flood
+    expect(maxInbox).toBeLessThanOrEqual(5);
+    // variety: no event twice in a row, and many different ones
+    for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
+    expect(new Set(ids).size).toBeGreaterThanOrEqual(8);
+  });
+  it('ignored decisions lapse by themselves instead of freezing the game', () => {
+    const s = fresh('Poland');
+    for (let i = 0; i < 52 * 4; i++) tick(s, geo); // never answer anything
+    expect(s.inbox.every((x) => x.expires > s.tick)).toBe(true);
+    expect(s.inbox.length).toBeLessThanOrEqual(5);
+    expect(s.log.some((e) => /let it lapse/.test(e.text))).toBe(true);
   });
   it('every event definition is internally consistent', () => {
     const s = fresh('Germany');
@@ -353,12 +368,12 @@ describe('things to do: events, goals, covert ops, war actions', () => {
     c.eco.cash = 1e12;
     for (const def of EVENTS) {
       const fr = id('France'), pl = id('Poland');
-      const d = def.eligible(s, c, geo) ?? { n: fr, from: fr, a: pl, b: fr, x: fr, l: fr, t: pl, ally: pl, aggressor: fr, war: -1, rid: -1, kind: 1, w: -1 };
+      const d = def.eligible(s, c, geo) ?? { o: fr, p: 3, n: fr, from: fr, a: pl, b: fr, x: fr, l: fr, t: pl, ally: pl, aggressor: fr, war: -1, rid: -1, kind: 1, w: -1 };
       expect(def.text(s, c, d).length).toBeGreaterThan(10);
       expect(def.options.length).toBeGreaterThanOrEqual(def.weight > 0 ? 2 : 1);
       for (let i = 0; i < def.options.length; i++) {
         const s2 = JSON.parse(JSON.stringify(s)) as GameState;
-        s2.pendingEvent = { id: def.id, tick: 1, data: d };
+        s2.inbox = [{ uid: 1, id: def.id, tick: 1, expires: 99, urgent: false, data: d }];
         const r = resolveEvent(s2, geo, i);
         if (def.options[i].label.includes('declare war') && !r.ok) continue;
         expect(r.ok, `${def.id}/${i}`).toBe(true);
@@ -469,7 +484,7 @@ describe('world politics: deals ripple through the system', () => {
     expect(w.defenders).not.toContain(id('Poland'));
     expect(s.scheduled.some((x) => x.id === 'ally_attacked')).toBe(true);
     rollPlayerEvent(s, geo);
-    expect(s.pendingEvent?.id).toBe('ally_attacked');
+    expect(s.inbox[0]?.id).toBe('ally_attacked');
     resolveEvent(s, geo, 0); // honour the alliance
     expect(w.defenders).toContain(id('Poland'));
   });
@@ -565,3 +580,148 @@ describe('world politics: deals ripple through the system', () => {
 });
 import { evaluateProposal } from '../src/sim/diplomacy';
 function evaluateProposalForTest(s: GameState, from: number, to: number) { return evaluateProposal(s, geo, from, to, 'alliance'); }
+
+import { actStartProject, actCancelProject } from '../src/sim/actions';
+import { PROJECTS, canStart, hasDone, runsOf } from '../src/sim/projects';
+import { CRISES, stepCrisis } from '../src/sim/crises';
+import { stepUnrest } from '../src/sim/unrest';
+import { pickRival } from '../src/sim/rival';
+
+describe('action layer: projects, crises, uprisings, rival, drama', () => {
+  it('megaprojects are funded weekly, finish with a payoff and announce themselves', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('Germany')];
+    c.eco.cash = 1e13;
+    const tech0 = c.eco.tech;
+    expect(actStartProject(s, c.id, 'education').ok).toBe(true);
+    expect(actStartProject(s, c.id, 'education').ok).toBe(false); // already running
+    const cash0 = c.eco.cash;
+    run(s, 10);
+    expect(c.eco.cash).toBeLessThan(cash0);
+    const w = PROJECTS.find((p) => p.id === 'education')!.weeks;
+    run(s, w);
+    expect(runsOf(s, c.id).some((r) => r.id === 'education')).toBe(false);
+    expect(hasDone(s, c.id, 'education')).toBe(true);
+    expect(c.eco.tech).toBeGreaterThan(tech0);
+    expect(s.log.some((e) => e.big && /Education Reform complete/.test(e.text))).toBe(true);
+    expect(canStart(s, c.id, 'education')).toBe('Already completed');
+  });
+  it('projects can be cancelled, are limited to two at once, and gated by technology', () => {
+    const s = fresh('Nigeria');
+    const c = s.countries[id('Nigeria')];
+    expect(canStart(s, c.id, 'space')).toMatch(/technology/);
+    c.eco.tech = 80; c.eco.cash = 1e12;
+    expect(actStartProject(s, c.id, 'cyber').ok).toBe(true);
+    expect(actStartProject(s, c.id, 'grid').ok).toBe(true);
+    expect(actStartProject(s, c.id, 'rail').ok).toBe(false);
+    const uid = runsOf(s, c.id)[0].uid;
+    expect(actCancelProject(s, c.id, uid).ok).toBe(true);
+    expect(runsOf(s, c.id)).toHaveLength(1);
+  });
+  it('a nuclear programme makes a nuclear power and the world reacts', () => {
+    const s = fresh('Turkey');
+    const c = s.countries[id('Turkey')];
+    c.eco.tech = 70; c.eco.cash = 1e13;
+    const rel0 = getRelation(s, id('Turkey'), id('Greece'));
+    actStartProject(s, c.id, 'nuclear');
+    run(s, 131);
+    expect(c.mil.nuclear).toBe(true);
+    expect(getRelation(s, id('Turkey'), id('Greece'))).toBeLessThan(rel0);
+  });
+  it('world crises start on schedule, hit every economy, end, and put a decision to the player', () => {
+    const s = fresh('Germany');
+    s.nextCrisis = 5;
+    run(s, 8);
+    expect(s.crisis).not.toBeNull();
+    expect(s.log.some((e) => e.big && /WORLD (CRISIS|BOOM)/.test(e.text))).toBe(true);
+    expect(s.scheduled.some((x) => /_response$/.test(x.id)) || s.inbox.some((x) => /_response$/.test(x.id))).toBe(true);
+    const end = s.crisis!.end;
+    run(s, end - s.tick + 2);
+    expect(s.crisis).toBeNull();
+    expect(CRISES.length).toBeGreaterThanOrEqual(6);
+  });
+  it('a recession lowers output relative to an identical world without one', () => {
+    const a = fresh('Germany'), b = fresh('Germany');
+    a.nextCrisis = 1e9; b.nextCrisis = 1e9;
+    b.crisis = { id: 'recession', start: 0, end: 60 };
+    run(a, 30); run(b, 30);
+    expect(b.countries[id('France')].eco.realGdp).toBeLessThan(a.countries[id('France')].eco.realGdp);
+    void stepCrisis;
+  });
+  it('conquered land can rise up, and a dead country is reborn with a government and an army', () => {
+    const s = fresh('Germany');
+    s.nextCrisis = 1e9;
+    s.tick = 40;
+    const E = s.countries[id('Estonia')], R = s.countries[id('Russia')];
+    // Russia swallows Estonia entirely
+    for (const p of [...E.provinces]) transferProvince(s, geo, p, R.id);
+    expect(E.alive).toBe(false);
+    for (const p of R.provinces) if (s.core[p] === E.id) s.integ[p] = 0.1;
+    R.eco.stability = 5;
+    for (let i = 0; i < 400 && !E.alive; i++) { s.tick = 41 + 4 * i; stepUnrest(s, geo); }
+    expect(E.alive).toBe(true);
+    expect(E.provinces.length).toBeGreaterThan(0);
+    expect(E.mil.troops).toBeGreaterThan(0);
+    expect(s.log.some((e) => e.big && /INDEPENDENCE/.test(e.text))).toBe(true);
+    expect(s.owner[E.provinces[0]]).toBe(E.id);
+    run(s, 40); // the reborn economy must stay sane
+    expect(Number.isFinite(E.eco.gdp) && E.eco.gdp > 0).toBe(true);
+  });
+  it('every player gets a sensible rival, and rival events are tied to it', () => {
+    const s = fresh('Poland');
+    expect(pickRival(s, geo)).toBeGreaterThanOrEqual(0);
+    run(s, 2);
+    expect(s.rival).toBeGreaterThanOrEqual(0);
+    expect(s.rival).not.toBe(s.player);
+    expect(s.log.some((e) => /main rival/.test(e.text))).toBe(true);
+    const ev = eventById('rival_spies');
+    expect(ev.eligible(s, s.countries[s.player], geo)).toEqual({ o: s.rival });
+  });
+  it('battles produce named reports, casualty milestones and breaking news', () => {
+    const s = fresh('Brazil');
+    s.nextCrisis = 1e9;
+    declareWar(s, geo, id('Russia'), id('Estonia'));
+    run(s, 80);
+    expect(s.log.some((e) => /Battle of/.test(e.text))).toBe(true);
+    expect(s.log.some((e) => e.big)).toBe(true);
+    expect(s.log.some((e) => e.prov !== undefined)).toBe(true);
+  });
+  it('a hundred weeks with no input produces no NaN and keeps the inbox bounded', () => {
+    const s = fresh('India');
+    run(s, 100);
+    for (const c of s.countries) if (c.alive) { expect(Number.isFinite(c.eco.gdp)).toBe(true); expect(Number.isFinite(c.eco.stability)).toBe(true); }
+    expect(s.inbox.length).toBeLessThanOrEqual(5);
+  });
+});
+
+import { TROPHIES, stepTrophies } from '../src/sim/trophies';
+describe('trophies and the year in review', () => {
+  it('trophies unlock once, announce themselves, and start-state ones are silent', () => {
+    const s = fresh('Germany');
+    run(s, 8);
+    // Germany already is a top-ten economy at the start: marked silently
+    expect(s.trophies.top10).toBe(-1);
+    expect(s.log.some((e) => /TROPHY UNLOCKED: Top ten/.test(e.text))).toBe(false);
+    const c = s.countries[id('Germany')];
+    c.eco.gdp = 1e15; // become number one
+    s.tick = 10; stepTrophies(s, geo);
+    expect(s.trophies.number1).toBeDefined();
+    expect(s.log.filter((e) => /TROPHY UNLOCKED: World number one/.test(e.text))).toHaveLength(1);
+    s.tick = 14; stepTrophies(s, geo);
+    expect(s.log.filter((e) => /TROPHY UNLOCKED: World number one/.test(e.text))).toHaveLength(1);
+    expect(TROPHIES.length).toBeGreaterThanOrEqual(15);
+  });
+  it('a nuclear programme earns the nuclear club trophy but starting nuclear does not', () => {
+    const r = fresh('Russia'); run(r, 8);
+    expect(r.trophies.nuclear).toBeUndefined();
+    const s = fresh('Turkey'); const c = s.countries[id('Turkey')];
+    run(s, 4); c.mil.nuclear = true; s.tick = 10; stepTrophies(s, geo);
+    expect(s.trophies.nuclear).toBeDefined();
+  });
+  it('a summary of the year appears every 52 weeks', () => {
+    const s = fresh('France');
+    run(s, 52);
+    expect(s.review?.title).toBe('2024 in review');
+    expect(s.review!.lines.length).toBeGreaterThanOrEqual(3);
+  });
+});

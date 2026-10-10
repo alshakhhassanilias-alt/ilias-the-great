@@ -5,7 +5,7 @@ import { TopBar } from './TopBar';
 import { TimeControls } from './TimeControls';
 import { SidePanel } from './SidePanel';
 import { Drawers } from './Drawers';
-import { EventModal, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
+import { BreakingBanner, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
 
 const insetBottom = () => {
@@ -44,12 +44,14 @@ export function App() {
           <Toasts />
           <Offers />
           <RippleCard />
+          <InboxTray />
+          <BreakingBanner />
+          <YearReview />
         </div>
         <SidePanel />
       </div>
       <Drawers />
       <VictoryBanner />
-      <EventModal />
     </div>
   );
 }

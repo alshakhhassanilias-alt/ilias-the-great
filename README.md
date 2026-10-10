@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 49 deterministic simulation tests (Vitest) |
+| `npm test` | 62 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -148,6 +148,20 @@ angry. Other systems: blocs (map mode), counter-blocs, Assembly resolutions with
 ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, ports…) that change hands in conquest,
 ~60 situational events with cooldowns and follow-ups, and rotating objectives (3 active at a time) with an advisor.
 
+### Action layer: things that happen *to* you and things you *do* (`projects.ts`, `crises.ts`, `unrest.ts`, `rival.ts`, `trophies.ts`, `events3.ts`)
+- **Decisions never block the game.** They wait in an inbox on the map, with a countdown; ignored ones lapse with a consequence
+  (an ultimatum you ignore may turn into war). Pausing for decisions is an option in Settings. At most a few decisions a year, never
+  the same one twice in a row.
+- **Breaking news**: world-shaking events (a capital falling, armies at the gates, a country wiped off the map, a rebirth, a crisis, a
+  trophy) get a banner, a sound and an expanding ring on the map. Battles have names and casualty counts. Sound is synthesised and can be muted.
+- **Megaprojects**: space programme, nuclear deterrent, fortress belt, cyber command, power grid, rail, AI initiative, carrier fleet,
+  education, green revolution. Funded weekly, years to build, spectacular payoff. The AI builds them too.
+- **World crises** (recession, pandemic, energy shock, harvest failure, new cold war, tech boom) hit every economy for months and give you a
+  response decision.
+- **Independence movements**: conquered land rises up when the occupier is unstable; a dead country can be reborn.
+- **A named rival** who spies, masses troops, courts your allies and grabs headlines; a "Right now" panel compares you with them.
+- **Trophies** and a **year in review** card.
+
 ## Data provenance — real vs generated
 * **Real (approximate, rounded, ~2023–24):** population, nominal GDP, military spending share, active troops,
   government type, nuclear status, capitals, debt ratios, rivalries and bloc membership. These come from the
@@ -163,7 +177,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 49 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 62 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

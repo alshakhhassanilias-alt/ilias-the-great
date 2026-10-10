@@ -23,6 +23,7 @@ import type { CountryId, Country, GameState, LogKind, ProvId, War } from './type
 
 import { logEvent } from './log';
 import { fortBonus, transferBuildings } from './buildings';
+import { fmtCas, isBigNews, MILESTONES } from './drama';
 export { logEvent };
 
 const CLAIM_SET = new Map<string, number>();
@@ -68,7 +69,9 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
     A.capital = A.provinces.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), A.provinces[0]);
     A.eco.stability = Math.max(0, A.eco.stability - 12);
     A.mil.exhaustion = Math.min(1, A.mil.exhaustion + 0.2);
-    logEvent(s, `${A.name} lost its capital region; the government relocated.`, 'war', [A.id, to], true);
+    const fell = s.stats[`capfall:${A.id}`] === undefined;
+    s.stats[`capfall:${A.id}`] = s.tick;
+    logEvent(s, `🏛 CAPITAL FALLS: ${s.countries[to].name} has taken ${geo.provinces[p].name || 'the capital region'}; the government of ${A.name} flees.`, 'war', [A.id, to], true, fell ? { big: true, prov: p } : { prov: p });
   }
   return f;
 }
@@ -76,7 +79,8 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
 function eliminateCountry(s: GameState, c: Country, by: CountryId) {
   c.alive = false;
   c.eco.pop = 0;
-  logEvent(s, `${c.name} has been annexed by ${s.countries[by].name} and no longer exists.`, 'territory', [c.id, by], true);
+  s.stats[`conq:${by}`] = (s.stats[`conq:${by}`] ?? 0) + 1;
+  logEvent(s, `${c.name} has been wiped off the map: annexed by ${s.countries[by].name}.`, 'territory', [c.id, by], true, { big: true, prov: s.countries[by].capital });
   for (const w of [...s.wars]) {
     w.attackers = w.attackers.filter((x) => x !== c.id);
     w.defenders = w.defenders.filter((x) => x !== c.id);
@@ -138,7 +142,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId): 
   A.lastWarDecl = s.tick;
   addRelation(s, a, d, -40);
   aggressionFallout(s, a, d, severity);
-  logEvent(s, `${A.name} declared war on ${D.name}!`, 'war', [a, d], true);
+  logEvent(s, `${A.name} declared war on ${D.name}!`, 'war', [a, d], true, isBigNews(s, a, d) ? { big: true, prov: D.capital } : undefined);
 
   // alliance calls
   if (s.settings.defensiveAlliances) {
@@ -450,12 +454,16 @@ export function stepWars(s: GameState, geo: Geo) {
       const defLossFrac = 0.0065 * Math.pow(clamp(ratio, 0.3, 3), 0.5) * (1 + 0.2 * Math.max(0, contrib[0].air));
       const defLoss = Math.min(E.mil.troops * 0.5, defShare * defLossFrac);
       applyLosses(s, E, defLoss, w, 0.7);
+      const atkLossBy = new Map<CountryId, number>();
       for (const { st, pa } of contrib) {
         const frac = pa / Pa;
         const atkLossFrac = 0.0075 * Math.pow(clamp(1 / ratio, 0.3, 3), 0.5) * (0.7 + 0.6 * terrain);
-        applyLosses(s, st.c, Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac), w, 1);
+        const al = Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac);
+        applyLosses(s, st.c, al, w, 1);
+        atkLossBy.set(st.c.id, al);
         void frac;
       }
+      for (const f of w.fronts) if (f.prov === p) { f.ld = (f.ld ?? 0) + defLoss; f.la = (f.la ?? 0) + (atkLossBy.get(f.by) ?? 0); }
       E.eco.damage = Math.min(1, E.eco.damage + 0.0025 * (imp(p, e) / sumImp) * Math.min(2, ratio));
       for (const { st } of contrib) {
         let front = w.fronts.find((f) => f.prov === p && f.by === st.c.id);
@@ -472,7 +480,30 @@ export function stepWars(s: GameState, geo: Geo) {
         const W = s.countries[winner];
         const name = geo.provinces[p].name || `a region of ${s.countries[s.core[p]].name}`;
         E.mil.exhaustion = Math.min(1, E.mil.exhaustion + 0.1 * f * 6);
-        logEvent(s, `${W.name} captured ${name} from ${E.name}.`, 'territory', [winner, e], winner === s.player || e === s.player);
+        const la = best.la ?? 0, ld = best.ld ?? 0;
+        const big = p === E.capital || isBigNews(s, winner, e);
+        logEvent(s, `Battle of ${name}: ${W.name} captured it from ${E.name}${la + ld > 2000 ? ` after fighting that cost ${fmtCas(la)} attackers and ${fmtCas(ld)} defenders` : ''}.`, 'territory', [winner, e], winner === s.player || e === s.player || big, big && p !== E.capital ? { big: true, prov: p } : { prov: p });
+      }
+    }
+    // --- 3b. drama: armies at the gates, casualty milestones
+    for (const fr of w.fronts) {
+      const E = s.countries[s.owner[fr.prov]];
+      if (!fr.gates && E && fr.prov === E.capital && fr.progress > 0.55) {
+        fr.gates = true;
+        if (s.tick - (s.stats[`gates:${E.id}`] ?? -999) < 78) continue;
+        s.stats[`gates:${E.id}`] = s.tick;
+        logEvent(s, `🔥 ${s.countries[fr.by].name}'s army is at the gates of ${geo.provinces[fr.prov].name || E.name + "'s capital"}!`, 'war', [fr.by, E.id], true, { big: true, prov: fr.prov });
+      }
+    }
+    {
+      const total = Object.values(w.casualties).reduce((t, x) => t + x, 0);
+      let m = w.mile ?? -1;
+      while (m + 1 < MILESTONES.length && total >= MILESTONES[m + 1]) m++;
+      if (m !== (w.mile ?? -1)) {
+        w.mile = m;
+        const involved = [...w.attackers, ...w.defenders];
+        const mine = involved.includes(s.player);
+        logEvent(s, `☠ The ${w.name} has now cost ${fmtCas(MILESTONES[m])} lives.`, 'danger', involved.slice(0, 3), mine || m >= 3, m >= 3 || (mine && m >= 2) ? { big: true, prov: s.countries[w.defenders[0]]?.capital } : undefined);
       }
     }
     // --- 4. unattended fronts decay

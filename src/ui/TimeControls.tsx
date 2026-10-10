@@ -1,5 +1,6 @@
 import { SPEEDS, store, useStore } from '../state/store';
 import { dateLabel } from '../sim/tick';
+import { crisisById, crisisLeft } from '../sim/crises';
 
 export function TimeControls() {
   useStore();
@@ -8,6 +9,7 @@ export function TimeControls() {
   return (
     <div className="timebox" role="group" aria-label="Time controls">
       <div className="date">{dateLabel(s.tick)}<small>{store.speed === 0 ? 'paused' : SPEEDS[store.speed].label.toLowerCase()}</small></div>
+      {s.crisis && (() => { const d = crisisById(s.crisis.id); return <div className={`crisis-chip ${d.id === 'boom' ? 'good' : ''}`} title={d.blurb}>{d.icon}<span className="t"> {d.title} ·</span> {crisisLeft(s)} wk</div>; })()}
       <div className="speedrow">
         {SPEEDS.map((sp, i) => (
           <button key={sp.label} className={`${i === 0 ? 'pause' : ''} ${store.speed === i ? 'on' : ''}`} title={`${sp.label}${i ? ` (${i})` : ' (space)'}`} aria-label={sp.label} aria-pressed={store.speed === i}

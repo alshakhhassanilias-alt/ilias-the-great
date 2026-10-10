@@ -31,7 +31,7 @@ const POWER = [[30, 40, 60], [86, 70, 110], [170, 70, 90], [232, 120, 60], [255,
 const STAB = [[170, 50, 50], [200, 130, 50], [190, 190, 80], [80, 160, 100], [50, 170, 140]];
 const REL = [[180, 50, 50], [120, 70, 80], [70, 80, 100], [60, 130, 110], [60, 190, 130]];
 
-interface Effect { prov: number; t0: number; color: string; kind: 'capture' | 'lost' }
+interface Effect { prov: number; t0: number; color: string; kind: 'capture' | 'lost' | 'ping' }
 
 function tile(size: number, draw: (c: CanvasRenderingContext2D) => void): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -223,6 +223,8 @@ export class MapRenderer {
   }
 
   // ------------------------------------------------------------------ colours
+  /** draw attention to a province (breaking news) */
+  ping(prov: number, color = '#ffd36a') { this.effects.push({ prov, t0: performance.now(), color, kind: 'ping' }); this.dirty = true; }
   private colorFor(state: GameState, c: number): string {
     const C = state.countries[c];
     const P = state.player;
@@ -490,10 +492,23 @@ export class MapRenderer {
     }
 
     // capture / loss effects
-    this.effects = this.effects.filter((e) => now - e.t0 < 1800);
+    this.effects = this.effects.filter((e) => now - e.t0 < (e.kind === 'ping' ? 3600 : 1800));
     for (const e of this.effects) {
-      const t = (now - e.t0) / 1800;
       const gp = geo.provinces[e.prov];
+      if (e.kind === 'ping') {
+        // three expanding rings: "look here, something big happened"
+        for (let i = 0; i < 3; i++) {
+          const tt = ((now - e.t0) / 3600) * 1.6 - i * 0.22;
+          if (tt <= 0 || tt >= 1) continue;
+          ctx.globalAlpha = (1 - tt) * 0.9;
+          ctx.strokeStyle = e.color;
+          ctx.lineWidth = (3.2 - 2 * tt) / k;
+          ctx.beginPath(); ctx.arc(gp.seed[0], gp.seed[1], (6 + tt * 70) / k, 0, 6.283); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      const t = (now - e.t0) / 1800;
       ctx.globalAlpha = (1 - t) * 0.65;
       ctx.fillStyle = e.kind === 'lost' ? '#ff5a4a' : '#ffffff';
       ctx.fill(this.geom.provPaths[e.prov], 'evenodd');

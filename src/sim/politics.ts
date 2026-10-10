@@ -10,7 +10,7 @@ import { nextRand } from './rng';
 import { clamp } from './util';
 import { logEvent } from './log';
 import {
-  addRelation, alliesOf, areAtWar, getRelation, isAtWar, sanctionLevel, warBetween, warsOf, areAtWar as atWar, touchTreaties,
+  addRelation, alliesOf, areAtWar, getRelation, isAtWar, sanctionLevel, warBetween, warsOf, areAtWar as atWar, touchTreaties, treatyVersion,
 } from './relations';
 import { applyTreaty, evaluateProposal, imposeSanction } from './diplomacy';
 import { makePeace } from './war';
@@ -20,10 +20,10 @@ import type { CountryId, GameState, Reaction, Resolution } from './types';
 export interface Bloc { id: number; name: string; members: CountryId[]; gdp: number; strength: number; leader: CountryId }
 
 // ------------------------------------------------------------------ blocs
-let blocCache: { tick: number; n: number; blocs: Bloc[]; map: Map<number, number> } | null = null;
-export function computeBlocs(s: GameState): { blocs: Bloc[]; of: Map<number, number> } {
-  const n = Object.keys(s.treaties).length;
-  if (blocCache && blocCache.tick === s.tick && blocCache.n === n) return { blocs: blocCache.blocs, of: blocCache.map };
+let blocCache: { st: GameState; tick: number; n: number; blocs: Bloc[]; map: Map<number, number> } | null = null;
+export function computeBlocs(s: GameState, sameTickOk = false): { blocs: Bloc[]; of: Map<number, number> } {
+  const n = treatyVersion(s);
+  if (blocCache && blocCache.st === s && blocCache.tick === s.tick && (sameTickOk || blocCache.n === n)) return { blocs: blocCache.blocs, of: blocCache.map };
   const adj = new Map<number, number[]>();
   for (const [k, t] of Object.entries(s.treaties)) {
     if (!t.alliance) continue;
@@ -60,7 +60,7 @@ export function computeBlocs(s: GameState): { blocs: Bloc[]; of: Map<number, num
   blocs.sort((a, b) => b.gdp - a.gdp);
   const map = new Map<number, number>();
   blocs.forEach((b, i) => { b.id = i; for (const m of b.members) map.set(m, i); });
-  blocCache = { tick: s.tick, n, blocs, map };
+  blocCache = { st: s, tick: s.tick, n, blocs, map };
   return { blocs, of: map };
 }
 

@@ -10,6 +10,8 @@ import { serialize, deserialize } from '../sim/save';
 import { DEFAULT_SETTINGS, type CountryId, type GameState, type LogEntry, type Settings } from '../sim/types';
 import { alliesOf, areAtWar } from '../sim/relations';
 import { neighborsOf } from '../sim/diplomacy';
+import { eventById } from '../sim/events';
+import { sfx, setSound, audio } from '../audio';
 import type { ActionResult } from '../sim/actions';
 
 export type Tab = 'overview' | 'economy' | 'military' | 'diplomacy';
@@ -22,7 +24,7 @@ export const SPEEDS = [
 ] as const;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
 
 const SAVE_KEY = 'world-order-save-v1';
 const AUTO_KEY = 'world-order-autosave-v1';
@@ -43,6 +45,14 @@ class Store {
   sheet: 'peek' | 'half' | 'full' = 'half';
   focusRequest = 0; // bumps when the map should pan to the selected country
   pauseOnWar = true;
+  pauseOnDecision = false;
+  reviewSeen = 0;
+  breaking: { seq: number; text: string; kind: LogEntry['kind']; prov?: number } | null = null;
+  pingSeq = 0; pingProv = -1; pingColor = '#ffd36a';
+  get sound() { return audio.enabled; }
+  setSound(on: boolean) { setSound(on); this.notify(); }
+  inboxOpen: number | null = null;
+  private lastInboxUid = 0;
   rippleSeen = '';
   helpStep = 0;
   preview = true; // true while showing the start-screen world
@@ -102,6 +112,7 @@ class Store {
     this.toasts = [];
     this.unread = 0;
     this.lastSeq = s.logSeq - 1;
+    this.lastInboxUid = s.nextInbox - 1;
     this.focusRequest++;
     this.startLoop();
     this.notify();
@@ -148,6 +159,11 @@ class Store {
       this.lastSeq = e.seq;
       const mine = e.countries.includes(s.player);
       if (e.important) this.unread++;
+      if (e.big) this.announce(e);
+      else if (mine && !this.preview) {
+        if (e.kind === 'war' && /declared war/.test(e.text) && e.countries[0] !== s.player) sfx('war');
+        else if (e.kind === 'territory' && /captured/.test(e.text)) sfx(e.countries[0] === s.player ? 'capture' : 'lost');
+      }
       if (mine && e.kind !== 'info' || (e.important && this.relevant(e))) this.toast(e.text, e.kind);
       if (this.pauseOnWar && e.kind === 'war' && mine && e.countries[0] !== s.player && /declared war|joins|honours/.test(e.text) && this.speed !== 0) {
         this.speed = 0;
@@ -155,12 +171,39 @@ class Store {
       }
     }
     if (s.victory && !this.victoryShown) { this.victoryShown = true; this.speed = 0; }
-    if (s.pendingEvent && this.speed !== 0) { this.resumeSpeed = this.speed; this.speed = 0; }
+    for (const it of s.inbox) {
+      if (it.uid <= this.lastInboxUid) continue;
+      this.lastInboxUid = it.uid;
+      if (it.urgent) {
+        this.toast(`${eventById(it.id).icon} ${eventById(it.id).title}: needs an answer`, 'danger');
+        sfx('alert');
+        if (this.speed > 1) this.speed = 1; // slow down, never stop
+      }
+      if (this.pauseOnDecision && this.speed !== 0) this.speed = 0;
+    }
   }
+  private breakTimer = 0;
+  private breakPrio = 0;
+  private breakAt = 0;
+  /** a world-shaking event: full-width banner, sound, a ring on the map. Rate-limited so fast-forward is not a slideshow of banners. */
+  private announce(e: LogEntry) {
+    if (this.preview) return;
+    const s = this.state!;
+    const prio = e.countries.includes(s.player) || this.relevant(e) || /TROPHY|WORLD |complete!/.test(e.text) ? 2 : 1;
+    const now = performance.now();
+    if (prio < 2 && this.speed >= 3) return; // background world news only when time is not racing
+    if (this.breaking && now - this.breakAt < 3800 && prio <= this.breakPrio) return; // let the current one be read
+    if (prio < 2 && now - this.breakAt < 2500) return;
+    this.breaking = { seq: e.seq, text: e.text, kind: e.kind, prov: e.prov };
+    this.breakPrio = prio; this.breakAt = now;
+    if (e.prov !== undefined) { this.pingSeq++; this.pingProv = e.prov; this.pingColor = e.kind === 'war' || e.kind === 'danger' ? '#ff6b5a' : '#ffd36a'; }
+    sfx(/TROPHY|complete!/.test(e.text) ? 'success' : e.kind === 'war' || e.kind === 'danger' ? 'war' : 'breaking');
+    clearTimeout(this.breakTimer);
+    this.breakTimer = window.setTimeout(() => { this.breaking = null; this.notify(); }, 9000);
+  }
+  dismissBreaking() { this.breaking = null; this.notify(); }
   private victoryShown = false;
-  resumeSpeed = 0;
-  /** after the player answers a decision event, continue at the speed they were using */
-  resumeAfterEvent() { if (this.resumeSpeed) { this.speed = this.resumeSpeed; this.resumeSpeed = 0; } }
+  openInbox(uid: number | null) { this.inboxOpen = uid; this.notify(); }
   private nearCache: { tick: number; set: Set<number> } | null = null;
   /** Is a world event close enough to the player (neighbour, ally, or a major power) to deserve a pop-up? */
   private relevant(e: LogEntry): boolean {

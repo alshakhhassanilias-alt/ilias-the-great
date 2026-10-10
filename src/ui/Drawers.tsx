@@ -1,3 +1,4 @@
+import { TROPHIES } from '../sim/trophies';
 import { useRef, useState } from 'react';
 import { store, useStore } from '../state/store';
 import { fmtMoney, fmtNum, pct } from './format';
@@ -53,7 +54,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
   const news = [...s.log].reverse().filter((l) => !onlyImportant || l.important || l.countries.includes(s.player)).slice(0, 80);
   return (
     <Modal title="World overview" onClose={onClose}>
-      <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'blocs', label: 'Blocs' }, { v: 'assembly', label: 'Assembly' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'news', label: 'News' }]} />
+      <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'blocs', label: 'Blocs' }, { v: 'assembly', label: 'Assembly' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'trophies', label: `Trophies ${Object.keys(s.trophies).length}/${TROPHIES.length}` }, { v: 'news', label: 'News' }]} />
       <div style={{ height: 12 }} />
       {tab === 'rankings' && (
         <>
@@ -100,6 +101,21 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
           </>
         );
       })()}
+      {tab === 'trophies' && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {TROPHIES.map((x) => {
+            const at = s.trophies[x.id];
+            const got = at !== undefined;
+            return (
+              <div className="card trophy" key={x.id} style={{ opacity: got ? 1 : 0.5, display: 'flex', gap: 12, alignItems: 'center' }}>
+                <span style={{ fontSize: 26, filter: got ? 'none' : 'grayscale(1)' }}>{x.icon}</span>
+                <div className="grow"><b>{x.title}</b><div className="hint">{x.desc}</div></div>
+                <span className="faint" style={{ fontSize: 11 }}>{got ? (at < 0 ? 'from the start' : dateLabel(at)) : 'locked'}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {tab === 'assembly' && (
         <>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>Twice a year the World Assembly votes on a resolution (condemn an aggressor, sanction a rogue state, demand a ceasefire, send aid). Your vote shifts relations with both camps, and passed resolutions have real effects.</p>
@@ -177,6 +193,7 @@ function SettingsDrawer({ onClose }: { onClose: () => void }) {
       <Slider label="AI aggression" value={st.aggression} min={0.3} max={2} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => upd({ aggression: v })} hint="Scales how willing AI countries are to start wars. Applies to new decisions immediately." />
       <div className="field"><label>Difficulty</label><Segmented<Difficulty> value={st.difficulty} onChange={(v) => upd({ difficulty: v })} options={[{ v: 'easy', label: 'Easy' }, { v: 'normal', label: 'Normal' }, { v: 'hard', label: 'Hard' }]} /></div>
       <label className="check"><input type="checkbox" checked={st.defensiveAlliances} onChange={(e) => upd({ defensiveAlliances: e.target.checked })} /><span><b>Defensive alliances</b><br /><span className="faint" style={{ fontSize: 12 }}>When off, attacked countries fight alone: a faster, more aggressive sandbox.</span></span></label>
+      <label className="check"><input type="checkbox" checked={store.pauseOnDecision} onChange={(e) => { store.pauseOnDecision = e.target.checked; store.notify(); }} /><span><b>Pause when a decision arrives</b><small>Off by default: decisions wait in the inbox and the game keeps running</small></span></label>
       <label className="check"><input type="checkbox" checked={store.pauseOnWar} onChange={(e) => { store.pauseOnWar = e.target.checked; store.notify(); }} /><span><b>Pause when a war involving me starts</b></span></label>
       <div className="field"><label>Victory condition</label>
         <select value={st.victory} onChange={(e) => upd({ victory: e.target.value as VictoryMode })}>
