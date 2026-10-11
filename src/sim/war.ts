@@ -26,6 +26,8 @@ import { logEvent } from './log';
 import { fortBonus, transferBuildings } from './buildings';
 import { addGrudge } from './leaders';
 import { fmtCas, isBigNews, MILESTONES } from './drama';
+import { bumpSupply, landSupply, neighbours, supplyNet, supplyReach } from './supply';
+import { bumpSupport, morale, onEnterWar, stepWarSupport, warSupport } from './warsupport';
 export { logEvent };
 
 const CLAIM_SET = new Map<string, number>();
@@ -63,6 +65,7 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   B.provinces.push(p);
   s.owner[p] = to;
   s.integ[p] = s.core[p] === to ? 1 : 0;
+  bumpSupply();
   transferBuildings(s, p, from, to);
   for (const w of s.wars) w.fronts = w.fronts.filter((fr) => fr.prov !== p);
   for (const c of [A, B]) c.mil.focus = c.mil.focus.filter((q) => s.owner[q] !== c.id);
@@ -71,6 +74,7 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
     A.capital = A.provinces.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), A.provinces[0]);
     A.eco.stability = Math.max(0, A.eco.stability - 12);
     A.mil.exhaustion = Math.min(1, A.mil.exhaustion + 0.2);
+    if (warsOf(s, A.id).length) bumpSupport(A, -0.08);
     const fell = s.stats[`capfall:${A.id}`] === undefined;
     s.stats[`capfall:${A.id}`] = s.tick;
     logEvent(s, `🏛 CAPITAL FALLS: ${s.countries[to].name} has taken ${geo.provinces[p].name || 'the capital region'}; the government of ${A.name} flees.`, 'war', [A.id, to], true, fell ? { big: true, prov: p } : { prov: p });
@@ -141,6 +145,8 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
     startProvs: { [a]: A.provinces.length, [d]: D.provinces.length },
   };
   s.wars.push(war);
+  onEnterWar(s, A, 'aggressor', justified);
+  onEnterWar(s, D, 'defender');
   A.lastWarDecl = s.tick;
   s.stats[`pair:${a}>${d}`] = s.tick;
   addGrudge(s, d, a, 'attacked it', 30);
@@ -161,6 +167,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
       if (joinsDefense(s, x, d, a)) {
         war.defenders.push(x);
         war.startProvs[x] = X.provinces.length;
+        onEnterWar(s, X, 'ally');
         addRelation(s, x, a, -25);
         logEvent(s, `${X.name} honours its alliance and joins the war on ${D.name}'s side.`, 'war', [x, d], x === s.player || d === s.player);
       } else {
@@ -174,6 +181,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
       if (X.ai.aggression > 0.4 && getRelation(s, x, d) < -45 && nextRand(s) < 0.3) {
         war.attackers.push(x);
         war.startProvs[x] = X.provinces.length;
+        onEnterWar(s, X, 'ally');
         logEvent(s, `${X.name} joins ${A.name}'s war against ${D.name}.`, 'war', [x, a, d]);
       }
     }
@@ -254,6 +262,9 @@ export function evaluatePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId
   will += 0.2 * Math.min(1, years / 3);
   if (capitalLost) will += 0.35;
   if (B.eco.stability < 25) { will += 0.3; reasons.push('Domestic unrest'); }
+  const ws = warSupport(B);
+  will += 0.7 * (0.5 - ws);
+  if (ws < 0.35) reasons.push(`War support only ${(ws * 100).toFixed(0)}%`); else if (ws > 0.7) reasons.push(`War support ${(ws * 100).toFixed(0)}%: the public wants victory`);
   will -= 0.25 * B.ai.aggression;
   const gainsB = (w.gained[b] ?? 0);
   let required = 0.4;
@@ -318,11 +329,9 @@ function competence(s: GameState, c: Country): number {
   return s.settings.difficulty === 'hard' ? 1.1 : s.settings.difficulty === 'easy' ? 0.92 : 1;
 }
 
-interface Candidate { prov: ProvId; amphibious: boolean; supply: number; score: number }
+interface Candidate { prov: ProvId; amphibious: boolean; supply: number; score: number; from: ProvId }
 
-function supplyReach(c: Country): number {
-  return 55 * (0.6 + 0.8 * (0.5 * c.eco.infra / 100 + 0.5 * c.eco.tech / 100));
-}
+export { supplyReach };
 function seaReach(c: Country): number {
   const np = navalPower(c.mil);
   if (np < 5e8) return 0;
@@ -342,17 +351,26 @@ export function attackCandidates(s: GameState, geo: Geo, c: Country, w: War): Ca
   const enemies = new Set(side === 0 ? w.defenders : w.attackers);
   const mineProvs: ProvId[] = [];
   for (const f of friends) for (const p of s.countries[f].provinces) mineProvs.push(p);
-  const base: ProvId[] = mineProvs.filter((p) => s.integ[p] >= 0.35 || s.core[p] === s.owner[p]);
   const out = new Map<ProvId, Candidate>();
-  const reach = supplyReach(c);
+  const net = supplyNet(s, geo, c.id);
+  const theirNets = new Map<CountryId, ReturnType<typeof supplyNet>>();
+  const pocketOf = (q: ProvId) => {
+    const o = s.owner[q];
+    let n = theirNets.get(o);
+    if (!n) { n = supplyNet(s, geo, o); theirNets.set(o, n); }
+    return n.dist[q] === Infinity;
+  };
   for (const p of mineProvs) {
     for (const q of geo.adj[p]) {
-      if (!enemies.has(s.owner[q])) continue;
-      let dmin = Infinity;
-      for (const b of base) { const d = geo.dist(b, q); if (d < dmin) dmin = d; }
-      const supply = clamp(1.1 - Math.pow(dmin / reach, 1.3) * 0.55, 0.3, 1);
+      if (!enemies.has(s.owner[q]) || out.has(q)) continue;
+      const ls = landSupply(s, geo, net, q);
+      const supply = ls.supply;
       const imp = geo.provinces[q].w * (q === s.countries[s.owner[q]].capital ? 3 : 1) + 0.3;
-      out.set(q, { prov: q, amphibious: false, supply, score: (imp * supply) / (1 + 0.6 * geo.provinces[q].terrain) });
+      // pincers: provinces we already touch from several sides are easier to cut off; encircled ones are easy prey
+      let sides = 0;
+      for (const n2 of geo.adj[q]) if (friends.has(s.owner[n2])) sides++;
+      const prey = pocketOf(q) ? 1.6 : 1;
+      out.set(q, { prov: q, amphibious: false, supply, from: ls.from, score: ((imp * supply) / (1 + 0.6 * geo.provinces[q].terrain)) * prey * (1 + 0.18 * Math.max(0, sides - 1)) });
     }
   }
   const sr = seaReach(c);
@@ -367,18 +385,19 @@ export function attackCandidates(s: GameState, geo: Geo, c: Country, w: War): Ca
         for (const b of myCoast) { const d = geo.dist(b, q); if (d < dmin) dmin = d; }
         if (dmin > sr) continue;
         const sup = navalSuperiority(c, E);
-        const supply = clamp(0.8 - 0.5 * (dmin / sr), 0.3, 0.8) * (0.8 + 0.2 * Math.max(0, sup));
+        const supply = clamp(0.8 - 0.5 * (dmin / sr), 0.3, 0.8) * (0.8 + 0.2 * Math.max(0, sup)) * (0.72 + 0.28 * net.capacity);
         const imp = geo.provinces[q].w * (q === E.capital ? 3 : 1) + 0.3;
-        out.set(q, { prov: q, amphibious: true, supply, score: (imp * supply * 0.7) / (1 + 0.6 * geo.provinces[q].terrain) });
+        out.set(q, { prov: q, amphibious: true, supply, from: -1, score: (imp * supply * 0.7) / (1 + 0.6 * geo.provinces[q].terrain) });
       }
     }
   }
   return [...out.values()];
 }
 
-interface Strike { c: Country; supply: number; amphibious: boolean; share: number }
+interface Strike { c: Country; supply: number; amphibious: boolean; share: number; from: ProvId }
 
 export function stepWars(s: GameState, geo: Geo) {
+  stepPockets(s, geo);
   for (const c of s.countries) c.eco.blockade = 0;
   for (const w of [...s.wars]) {
     if (!s.wars.includes(w)) continue;
@@ -404,7 +423,7 @@ export function stepWars(s: GameState, geo: Geo) {
         }
         for (const ch of chosen) {
           const list = strikes.get(ch.prov) ?? [];
-          list.push({ c, supply: ch.supply, amphibious: ch.amphibious, share: off / chosen.length });
+          list.push({ c, supply: ch.supply, amphibious: ch.amphibious, share: off / chosen.length, from: ch.from });
           strikes.set(ch.prov, list);
           if (!w.fronts.some((f) => f.prov === ch.prov && f.by === cid)) w.fronts.push({ prov: ch.prov, by: cid, progress: 0, amphibious: ch.amphibious });
         }
@@ -435,14 +454,15 @@ export function stepWars(s: GameState, geo: Geo) {
       const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (defW(p, e) / sumDef) * (1 + 0.25 * E.eco.infra / 100);
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def);
+      const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
         const C = st.c;
         const air = clamp(airSuperiority(C, E) + 0.03 * C.mil.bld.airbase - 0.015 * E.mil.bld.airbase, -1, 1.3);
         const intel = 1 + 0.2 * (C.mil.intel - E.mil.intel);
-        const pa = landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off;
+        const pa = landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C);
         contrib.push({ st, pa, air });
         Pa += pa;
       }
@@ -453,7 +473,7 @@ export function stepWars(s: GameState, geo: Geo) {
       const nuclearBrake = E.mil.nuclear ? contrib.reduce((t, x) => t + (x.st.c.mil.nuclear ? 0.85 : 0.45) * x.pa, 0) / Pa : 1; // fear of escalation limits advances on nuclear powers
       const amph = contrib.every((x) => x.st.amphibious) ? 0.7 : 1;
       const raw = 0.055 * clamp(Math.log(ratio) + 0.25, -1.2, 1.6) * sizeScale;
-      const delta = (raw > 0 ? Math.min(raw, 0.045) * nuclearBrake : raw) * (raw > 0 ? amph : 1);
+      const delta = (raw > 0 ? Math.min(raw, pocket ? 0.07 : 0.045) * nuclearBrake : raw) * (raw > 0 ? amph : 1);
       // casualties
       const defShare = defTroops;
       const defLossFrac = 0.0065 * Math.pow(clamp(ratio, 0.3, 3), 0.5) * (1 + 0.2 * Math.max(0, contrib[0].air));
@@ -472,7 +492,7 @@ export function stepWars(s: GameState, geo: Geo) {
       E.eco.damage = Math.min(1, E.eco.damage + 0.0025 * (imp(p, e) / sumImp) * Math.min(2, ratio));
       for (const { st } of contrib) {
         let front = w.fronts.find((f) => f.prov === p && f.by === st.c.id);
-        if (front) { front.atk = Math.round(st.share); front.def = Math.round(defTroops); }
+        if (front) { front.atk = Math.round(st.share); front.def = Math.round(defTroops); front.sup = Math.round(st.supply * 100) / 100; front.from = st.from; front.pocket = pocket; }
         if (!front) { front = { prov: p, by: st.c.id, progress: 0, amphibious: st.amphibious }; w.fronts.push(front); }
         const inc = delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length;
         front.rate = front.rate === undefined ? inc : front.rate * 0.7 + inc * 0.3;
@@ -495,6 +515,8 @@ export function stepWars(s: GameState, geo: Geo) {
         const W = s.countries[winner];
         const name = geo.provinces[p].name || `a region of ${s.countries[s.core[p]].name}`;
         E.mil.exhaustion = Math.min(1, E.mil.exhaustion + 0.1 * f * 6);
+        bumpSupport(W, 0.006 + 0.08 * Math.min(0.5, f));
+        bumpSupport(E, -(0.004 + 0.12 * Math.min(0.5, f)));
         addGrudge(s, e, winner, 'seized its land', 6);
         const la = best.la ?? 0, ld = best.ld ?? 0;
         const big = p === E.capital || isBigNews(s, winner, e);
@@ -554,8 +576,41 @@ export function stepWars(s: GameState, geo: Geo) {
       c.mil.exhaustion = clamp(c.mil.exhaustion + (0.0007 + 0.04 * c.eco.damage / 52 + 0.002 * c.eco.occupation) * tol, 0, 1);
     }
   }
+  stepWarSupport(s, geo);
   // integration of conquered land
   for (let p = 0; p < s.owner.length; p++) if (s.integ[p] < 1) s.integ[p] = Math.min(1, s.integ[p] + 0.004);
+}
+
+/** Encirclements: regions cut off from every supply hub bleed troops; new pockets make the news. */
+function stepPockets(s: GameState, geo: Geo) {
+  const seen = new Set<CountryId>();
+  for (const w of s.wars) for (const cid of [...w.attackers, ...w.defenders]) {
+    if (seen.has(cid)) continue;
+    seen.add(cid);
+    const c = s.countries[cid];
+    if (!c.alive) continue;
+    const net = supplyNet(s, geo, cid);
+    const n = net.pocket.length;
+    const before = c.mil.pocket ?? 0;
+    c.mil.pocket = n;
+    if (!n) continue;
+    // troops in the pocket run short of food, fuel and ammunition
+    const totalW = c.provinces.reduce((t, q) => t + geo.provinces[q].w, 0) || 1;
+    const share = net.pocket.reduce((t, q) => t + geo.provinces[q].w, 0) / totalW;
+    const loss = c.mil.troops * 0.004 * Math.min(0.5, share);
+    if (loss > 1) { c.mil.troops -= loss; c.mil.casualties += loss; w.casualties[cid] = (w.casualties[cid] ?? 0) + loss; }
+    if (n > before && (before === 0 || n >= before + 2) && s.tick - (s.stats[`pocket:${cid}`] ?? -999) > 12) {
+      s.stats[`pocket:${cid}`] = s.tick;
+      const p = net.pocket[0];
+      const name = geo.provinces[p].name || c.name;
+      const side = warSideOf(w, cid);
+      const foe = neighbours(geo)[p].map((q) => s.owner[q]).find((o) => o !== cid && warSideOf(w, o) >= 0 && warSideOf(w, o) !== side);
+      const enemy = foe ?? cid;
+      const involved = cid === s.player || enemy === s.player;
+      logEvent(s, `⭕ ENCIRCLED: ${c.name}'s forces ${n === 1 ? `in ${name}` : `in ${n} regions around ${name}`} are cut off from supplies${enemy !== cid ? ` by ${s.countries[enemy].name}` : ''} and fight at half strength.`, 'war', [cid, enemy], involved, involved ? { big: cid === s.player, prov: p } : { prov: p });
+      if (enemy !== cid) { bumpSupport(s.countries[enemy], 0.02); bumpSupport(c, -0.03); }
+    }
+  }
 }
 
 function applyLosses(s: GameState, c: Country, loss: number, w: War, popShare: number) {
@@ -588,6 +643,7 @@ export function callAllies(s: GameState, cid: CountryId): CountryId[] {
       if (nextRand(s) < clamp(p, 0.05, 0.9)) {
         mine.push(x);
         w.startProvs[x] = X.provinces.length;
+        onEnterWar(s, X, 'ally');
         addRelation(s, x, theirs[0], -20);
         joined.push(x);
         logEvent(s, `${X.name} answers ${s.countries[cid].name}'s call and joins the ${w.name}.`, 'war', [x, cid], true);

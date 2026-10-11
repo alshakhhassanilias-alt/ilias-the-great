@@ -114,8 +114,16 @@ export interface Military {
   procurement: number; // annual spend on new equipment
   nuclear: boolean;
   warEconomy: boolean; // war footing: faster procurement, but unrest and inflation
-  bld: { fort: number; airbase: number; port: number; factory: number; barracks: number }; // building levels owned (derived)
+  bld: { fort: number; airbase: number; port: number; factory: number; barracks: number; depot?: number }; // building levels owned (derived)
   unitCost: number; // annual cost per soldier at base prices (incl. support)
+  /** public support for the war effort 0..1 (0.6 = normal); optional for older saves */
+  warSupport?: number;
+  /** last week's change in war support, split by cause (for the explanation panel) */
+  wsParts?: Record<string, number>;
+  /** casualties counter at the previous tick (weekly losses drive war support) */
+  lastCas?: number;
+  /** number of own regions currently cut off from supplies */
+  pocket?: number;
 }
 
 export interface Personality {
@@ -176,7 +184,7 @@ export interface War {
   defenders: CountryId[];
   start: number;
   /** active offensives: province being contested, who attacks, progress 0..1 */
-  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean; rate?: number }[];
+  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean; rate?: number; sup?: number; from?: number; pocket?: boolean }[];
   /** casualty milestone already reported (index into drama.MILESTONES) */
   mile?: number;
   casualties: Record<number, number>;

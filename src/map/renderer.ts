@@ -17,6 +17,7 @@ import type { MapMode } from '../state/store';
 import { computeBlocs } from '../sim/politics';
 import { BDEF, type BType } from '../sim/buildings';
 import { airSuperiority } from '../sim/war';
+import { supplyNet, supplyPath } from '../sim/supply';
 import { Battlefield } from './battlefield';
 import { nationalColor } from './palette';
 import terrainUrl from '../data/generated/terrain.webp';
@@ -83,6 +84,25 @@ function tile(size: number, draw: (c: CanvasRenderingContext2D) => void): HTMLCa
   c.width = c.height = size;
   draw(c.getContext('2d')!);
   return c;
+}
+/** Points sampled along a gently rounded curve through the given points (quadratics through the midpoints). */
+function smoothPts(pts: number[]): number[] {
+  const n = pts.length / 2;
+  if (n < 3) return pts.slice();
+  const out = [pts[0], pts[1]];
+  let px = pts[0], py = pts[1];
+  for (let i = 1; i < n - 1; i++) {
+    const cx = pts[2 * i], cy = pts[2 * i + 1];
+    const ex = i === n - 2 ? pts[2 * n - 2] : (cx + pts[2 * i + 2]) / 2, ey = i === n - 2 ? pts[2 * n - 1] : (cy + pts[2 * i + 3]) / 2;
+    for (let s = 1; s <= 4; s++) { const u = s / 4, v = 1 - u; out.push(v * v * px + 2 * v * u * cx + u * u * ex, v * v * py + 2 * v * u * cy + u * u * ey); }
+    px = ex; py = ey;
+  }
+  return out;
+}
+function linePath(pts: number[]): Path2D {
+  const p = new Path2D();
+  for (let i = 0; i < pts.length; i += 2) if (i === 0) p.moveTo(pts[0], pts[1]); else p.lineTo(pts[i], pts[i + 1]);
+  return p;
 }
 function polyline(path: Path2D, pts: number[]) {
   for (let i = 0; i < pts.length; i += 2) {
@@ -757,6 +777,61 @@ export class MapRenderer {
     const planes: { x0: number; y0: number; x1: number; y1: number; color: string; seed: number }[] = [];
     const markers: { x: number; y: number; war: number; prov: number; by: number; mine: boolean; heat: number }[] = [];
     const counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }[] = [];
+    const supplies: { pts: number[]; sup: number; mine: boolean }[] = [];
+    const pockets: { x: number; y: number; n: number; mine: boolean }[] = [];
+    const myWar = (w: { attackers: number[]; defenders: number[] }) => w.attackers.includes(P) || w.defenders.includes(P);
+
+    // encircled pockets: cut-off land, hatched and ringed in orange
+    {
+      const seenC = new Set<number>();
+      for (const w of state.wars) for (const cid of [...w.attackers, ...w.defenders]) {
+        if (seenC.has(cid) || !state.countries[cid]?.alive) continue;
+        seenC.add(cid);
+        const pk = supplyNet(state, geo, cid).pocket;
+        if (!pk.length) continue;
+        const ring = new Path2D();
+        let cx = 0, cy = 0, n = 0;
+        for (const p of pk) { if (!this.geomVisible(p)) continue; ring.addPath(this.geom.provPaths[p]); const sd = geo.provinces[p].seed; cx += sd[0]; cy += sd[1]; n++; }
+        if (!n) continue;
+        const pat = this.stripeFor('rgba(255,150,40,0.9)');
+        pat.setTransform(new DOMMatrix().scale(1 / k));
+        ctx.globalAlpha = 0.32; ctx.fillStyle = pat; ctx.fill(ring, 'evenodd'); ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(20,10,4,0.7)'; ctx.lineWidth = 3.2 / k; ctx.stroke(ring);
+        ctx.strokeStyle = 'rgba(255,160,50,0.95)'; ctx.lineWidth = 1.5 / k; ctx.setLineDash([4 / k, 3 / k]); ctx.stroke(ring); ctx.setLineDash([]);
+        pockets.push({ x: cx / n, y: cy / n, n: pk.length, mine: cid === P });
+      }
+    }
+
+    // supply lines of the player's offensives (and of the enemies attacking it): hub → front, coloured by how well supplied
+    for (const w of state.wars) {
+      if (!myWar(w)) continue;
+      for (const fr of w.fronts) {
+        if (fr.amphibious || fr.from === undefined || fr.from < 0 || !this.geomVisible(fr.prov)) continue;
+        const mine = fr.by === P || (w.attackers.includes(P) ? w.attackers : w.defenders).includes(fr.by);
+        if (!mine && state.owner[fr.prov] !== P) continue;
+        const chain = supplyPath(supplyNet(state, geo, fr.by), fr.from, 40);
+        if (!chain.length) continue;
+        const pts: number[] = [];
+        for (let i = chain.length - 1; i >= 0; i--) { const sd = geo.provinces[chain[i]].seed; pts.push(sd[0], sd[1]); }
+        const tg = geo.provinces[fr.prov].seed, last = geo.provinces[fr.from].seed;
+        pts.push(last[0] + (tg[0] - last[0]) * 0.35, last[1] + (tg[1] - last[1]) * 0.35);
+        supplies.push({ pts: smoothPts(pts), sup: fr.sup ?? 1, mine });
+      }
+    }
+    for (const sl of supplies) {
+      const path = linePath(sl.pts);
+      const col = sl.sup < 0.55 ? '232,70,52' : sl.sup < 0.75 ? '240,180,60' : '110,215,140';
+      ctx.strokeStyle = 'rgba(12,8,4,0.6)'; ctx.lineWidth = (sl.mine ? 4 : 3) / k; ctx.stroke(path);
+      ctx.strokeStyle = `rgba(${col},${sl.mine ? 0.95 : 0.6})`; ctx.lineWidth = (sl.mine ? 1.9 : 1.2) / k;
+      ctx.setLineDash([5 / k, 3.5 / k]); ctx.stroke(path); ctx.setLineDash([]);
+      // the hub it starts from: a small crate
+      const hx = sl.pts[0], hy = sl.pts[1], r = (sl.mine ? 4.2 : 3.2) / k;
+      ctx.fillStyle = 'rgba(12,8,4,0.85)'; ctx.fillRect(hx - r - 1 / k, hy - r - 1 / k, 2 * r + 2 / k, 2 * r + 2 / k);
+      ctx.fillStyle = `rgb(${col})`; ctx.fillRect(hx - r, hy - r, 2 * r, 2 * r);
+      ctx.strokeStyle = 'rgba(12,8,4,0.8)'; ctx.lineWidth = 0.8 / k;
+      ctx.beginPath(); ctx.moveTo(hx - r, hy - r); ctx.lineTo(hx + r, hy + r); ctx.moveTo(hx + r, hy - r); ctx.lineTo(hx - r, hy + r); ctx.stroke();
+    }
+
     for (const w of state.wars) {
       for (const fr of w.fronts) {
         if (!this.geomVisible(fr.prov)) continue;
@@ -865,7 +940,7 @@ export class MapRenderer {
         }
       }
     }
-    this.battleData = { fronts, planes, markers, counters };
+    this.battleData = { fronts, planes, markers, counters, supplies, pockets };
   }
 
   private battleCanvas = document.createElement('canvas');
@@ -877,7 +952,9 @@ export class MapRenderer {
     planes: { x0: number; y0: number; x1: number; y1: number; color: string; seed: number }[];
     markers: { x: number; y: number; war: number; prov: number; by: number; mine: boolean; heat: number }[];
     counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }[];
-  } = { fronts: [], planes: [], markers: [], counters: [] };
+    supplies: { pts: number[]; sup: number; mine: boolean }[];
+    pockets: { x: number; y: number; n: number; mine: boolean }[];
+  } = { fronts: [], planes: [], markers: [], counters: [], supplies: [], pockets: [] };
   /** set by the map view: battles only animate while the clock runs */
   running = false;
 
@@ -891,10 +968,10 @@ export class MapRenderer {
     const moving = now - this.lastViewChange < 130;
     this.battlePending = viewChanged && moving && this.battleData.fronts.length > 0; // keep drawing until the crisp rebuild
     if (key !== this.battleKey || (viewChanged && !moving)) { this.battleKey = key; this.battleView = { ...this.view }; this.renderBattleLayer(state); }
-    const { fronts, planes, markers, counters } = this.battleData;
+    const { fronts, planes, markers, counters, supplies, pockets } = this.battleData;
     this.battleVisible = fronts.length > 0 && this.running;
     this.battleHits = [];
-    if (fronts.length) {
+    if (fronts.length || pockets.length) {
       const f = k / this.battleView.k;
       ctx.save();
       ctx.setTransform(f, 0, 0, f, (this.view.x - this.battleView.x * f) * this.dpr, (this.view.y - this.battleView.y * f) * this.dpr);
@@ -914,6 +991,21 @@ export class MapRenderer {
     for (const pl of planes) {
       const ph = ((t * 0.35 + pl.seed) % 1);
       this.drawPlane(ctx, pl.x0 + (pl.x1 - pl.x0) * ph * 1.3, pl.y0 + (pl.y1 - pl.y0) * ph * 1.3 - 4 / k, Math.atan2(pl.y1 - pl.y0, pl.x1 - pl.x0), pl.color, k, Math.sin(ph * Math.PI));
+    }
+    // convoys rolling along the supply lines towards the front
+    if (supplies.length) {
+      for (const sl of supplies) {
+        if (!sl.mine) continue;
+        const n = sl.pts.length / 2 - 1;
+        if (n < 1) continue;
+        for (let d = 0; d < 2; d++) {
+          const u = (((this.running ? t : 0) * 0.18 + d * 0.5 + sl.pts[0] * 0.01) % 1) * n;
+          const i = Math.min(n - 1, Math.floor(u)), f2 = u - i;
+          const x = sl.pts[2 * i] + (sl.pts[2 * i + 2] - sl.pts[2 * i]) * f2, y = sl.pts[2 * i + 1] + (sl.pts[2 * i + 3] - sl.pts[2 * i + 1]) * f2;
+          ctx.fillStyle = 'rgba(12,8,4,0.85)'; ctx.beginPath(); ctx.arc(x, y, 2.6 / k, 0, 6.283); ctx.fill();
+          ctx.fillStyle = sl.sup < 0.55 ? '#ff8a70' : sl.sup < 0.75 ? '#ffd27a' : '#c8ffd8'; ctx.beginPath(); ctx.arc(x, y, 1.6 / k, 0, 6.283); ctx.fill();
+        }
+      }
     }
     // particles (world units, constant screen size)
     this.particles = this.particles.filter((p) => now - p.t0 < (p.kind === 'flash' ? 380 : 1400));
@@ -950,9 +1042,19 @@ export class MapRenderer {
         sy += tries % 2 === 0 ? 24 * (tries + 1) : -24 * (tries + 1);
       }
       taken.push([sx - 16, sy - 9, sx + 16, sy + 13]);
-      this.drawCounter(ctx, sx, sy, c, k);
+      this.blitCounter(ctx, sx, sy, c, k);
     }
     for (const key of [...this.unitPos.keys()]) if (!seen.has(key)) this.unitPos.delete(key);
+    for (const pk of pockets) {
+      const sx = pk.x * V.k + V.x, sy = pk.y * V.k + V.y;
+      if (sx < -40 || sy < -20 || sx > this.w + 40 || sy > this.h + 20) continue;
+      const label = pk.n > 1 ? `ENCIRCLED ×${pk.n}` : 'ENCIRCLED';
+      ctx.font = `800 9.5px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(label).width + 12;
+      ctx.fillStyle = 'rgba(16,8,2,0.88)'; ctx.fillRect(sx - tw / 2, sy - 8, tw, 16);
+      ctx.strokeStyle = pk.mine ? '#ff6a4a' : '#ffa032'; ctx.lineWidth = 1.2; ctx.strokeRect(sx - tw / 2, sy - 8, tw, 16);
+      ctx.fillStyle = '#ffc070'; ctx.fillText(label, sx, sy + 0.5);
+    }
     for (const m of markers) {
       const sx = m.x * V.k + V.x, sy = m.y * V.k + V.y;
       this.battleHits.push({ x: sx, y: sy, war: m.war, prov: m.prov, by: m.by });
@@ -1029,6 +1131,26 @@ export class MapRenderer {
     ctx.setLineDash([3 / k, 5 / k]); ctx.lineDashOffset = -t * 16 / k;
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(cx, cy, hx, hy); ctx.stroke();
     ctx.setLineDash([]);
+  }
+
+  private counterSprites = new Map<string, HTMLCanvasElement>();
+  /** Counters are drawn once into small sprites (keyed by everything they show) and then just copied each frame. */
+  private blitCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }, k: number) {
+    const showLabel = k > this.fitK * 5 && c.troops > 0;
+    const divs = Math.max(1, Math.round(c.troops / 10000));
+    const key = `${c.color}|${divs}|${c.armor ? 1 : 0}|${Math.round(Math.max(0, Math.min(1, c.org)) * 29)}|${c.mine ? 1 : 0}${c.enemy ? 1 : 0}|${showLabel ? fmtNum(c.troops, 0) : ''}|${this.dpr}`;
+    let sp = this.counterSprites.get(key);
+    const W = 48, H = 44, ox = 24, oy = 14; // sprite box around the counter's centre (room for the shadow and the troop label)
+    if (!sp) {
+      if (this.counterSprites.size > 240) this.counterSprites.clear();
+      sp = document.createElement('canvas');
+      sp.width = Math.ceil(W * this.dpr); sp.height = Math.ceil(H * this.dpr);
+      const g = sp.getContext('2d')!;
+      g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.drawCounter(g, ox, oy, c, showLabel ? Infinity : 0);
+      this.counterSprites.set(key, sp);
+    }
+    ctx.drawImage(sp, Math.round((sx - ox) * this.dpr) / this.dpr, Math.round((sy - oy) * this.dpr) / this.dpr, W, H);
   }
 
   /**

@@ -129,7 +129,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
     readiness: 0.55 + 0.25 * clamp(B.milPct / 4, 0, 1), supply: 0.6,
     intel: clamp(0.2 + 0.25 * lg + (B.nuclear ? 0.1 : 0), 0.08, 0.9),
     milTech: clamp(tech0 + (MIL_EDGE[B.name] ?? 0) - (gdppc < 3000 ? 4 : 0), 5, 100), exhaustion: 0, casualties: 0,
-    commit: 0.6, autoAdvance: true, focus: [], upkeep: 0, procurement: 0, nuclear: B.nuclear, warEconomy: false, bld: { fort: 0, airbase: 0, port: 0, factory: 0, barracks: 0 }, unitCost,
+    commit: 0.6, autoAdvance: true, focus: [], upkeep: 0, procurement: 0, nuclear: B.nuclear, warEconomy: false, bld: { fort: 0, airbase: 0, port: 0, factory: 0, barracks: 0, depot: 0 }, unitCost, warSupport: 0.6,
   };
 
   const ag = clamp(

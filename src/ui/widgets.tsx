@@ -66,7 +66,7 @@ export function Segmented<T extends string | number>({ value, options, onChange,
   );
 }
 
-export function Note({ children, tone }: { children: ReactNode; tone?: 'warn' | 'bad' }) {
+export function Note({ children, tone }: { children: ReactNode; tone?: 'warn' | 'bad' | 'good' }) {
   return <div className={`note ${tone ?? ''}`}>{children}</div>;
 }
 

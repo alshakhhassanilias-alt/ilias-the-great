@@ -3,6 +3,7 @@
  * involved, and their outcomes change relations, treaties, wars and territory — not just numbers.
  */
 import { addGrudge } from './leaders';
+import { onEnterWar } from './warsupport';
 import { crisisById, cushion } from './crises';
 import { nextRand } from './rng';
 import { clamp } from './util';
@@ -30,7 +31,7 @@ export const EVENTS2: EventDef[] = [
       { label: 'Honour the alliance: join the war', hint: 'You enter the war on their side · relations with the ally +15 · reputation +3', apply: (s, c, d) => {
         const w = s.wars.find((x) => x.id === d.war);
         if (!w) return 'The war ended before you could act.';
-        if (!w.defenders.includes(c.id) && !w.attackers.includes(c.id)) { w.defenders.push(c.id); w.startProvs[c.id] = c.provinces.length; }
+        if (!w.defenders.includes(c.id) && !w.attackers.includes(c.id)) { w.defenders.push(c.id); w.startProvs[c.id] = c.provinces.length; onEnterWar(s, c, 'ally'); }
         addRelation(s, c.id, d.ally, 15); addRelation(s, c.id, d.aggressor, -30); rep(c, 3);
         logEvent(s, `${c.name} joins the war on ${name(s, d.ally)}'s side against ${name(s, d.aggressor)}.`, 'war', [c.id, d.ally, d.aggressor], true);
         return `You joined the war against ${name(s, d.aggressor)}.`;

@@ -7,13 +7,14 @@ import { clamp, fmtMoney } from './util';
 import { fund } from './actions';
 import type { Country, GameState, ProvId } from './types';
 
-export type BType = 'fort' | 'airbase' | 'port' | 'factory' | 'barracks';
-export const BTYPES: BType[] = ['fort', 'airbase', 'port', 'factory', 'barracks'];
+export type BType = 'fort' | 'airbase' | 'port' | 'factory' | 'barracks' | 'depot';
+export const BTYPES: BType[] = ['fort', 'depot', 'airbase', 'port', 'factory', 'barracks'];
 export const BDEF: Record<BType, { label: string; icon: string; cost: number; desc: string }> = {
   fort: { label: 'Fortress', icon: '🏰', cost: 0.004, desc: '+14% defence per level in this region' },
   airbase: { label: 'Airbase', icon: '✈', cost: 0.005, desc: '+3% air superiority per level (nation-wide)' },
   port: { label: 'Naval port', icon: '⚓', cost: 0.004, desc: 'Longer naval reach (+8 per level) and +1% trade' },
   factory: { label: 'Factory complex', icon: '🏭', cost: 0.006, desc: 'Adds industrial capital (+0.5% of GDP per level)' },
+  depot: { label: 'Supply hub', icon: '📦', cost: 0.003, desc: 'Starts supply lines here: armies near it fight fully supplied, and the region holds out if encircled' },
   barracks: { label: 'Barracks', icon: '🪖', cost: 0.003, desc: 'Readiness +2% and +0.5% of the workforce as manpower per level' },
 };
 export const MAX_LEVEL = 3;
@@ -23,7 +24,7 @@ export const levelOf = (s: GameState, p: ProvId, t: BType) => s.bld[key(p, t)] ?
 
 export function recount(s: GameState, ids?: number[]) {
   const targets = ids ?? s.countries.map((c) => c.id);
-  for (const id of targets) s.countries[id].mil.bld = { fort: 0, airbase: 0, port: 0, factory: 0, barracks: 0 };
+  for (const id of targets) s.countries[id].mil.bld = { fort: 0, airbase: 0, port: 0, factory: 0, barracks: 0, depot: 0 };
   for (const k of Object.keys(s.bld)) {
     const [p, t] = k.split(':');
     const owner = s.owner[Number(p)];

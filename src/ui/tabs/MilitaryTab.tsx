@@ -8,6 +8,8 @@ import { areAtWar, enemiesOf, isAtWar, warsOf } from '../../sim/relations';
 import { assessAttack } from '../../sim/ai';
 import { warScore } from '../../sim/war';
 import type { Budget } from '../../sim/types';
+import { HomeFront, SupplyLines, supTone } from './HomeFront';
+import { warSupport } from '../../sim/warsupport';
 
 export function MilitaryTab({ id }: { id: number }) {
   const s = store.state!;
@@ -54,8 +56,9 @@ export function MilitaryTab({ id }: { id: number }) {
         </div>
         <div className="card" style={{ marginTop: 8 }}>
           <MeterRow label="Readiness" value={m.readiness} color={m.readiness < 0.5 ? 'var(--red)' : 'var(--teal)'} hint="Training and maintenance funding. Low readiness cuts combat power." />
-          <MeterRow label="Logistics" value={m.supply} hint="Infrastructure & tech: how far armies can operate from friendly land." />
+          <MeterRow label="Logistics" value={m.supply} hint="Infrastructure & tech: how well supply lines carry ammunition, fuel and food to the front. Blockades cut it." />
           <MeterRow label="Intelligence" value={m.intel} color="var(--blue)" hint="Better intel reveals enemy numbers and gives a combat edge." />
+          {isAtWar(s, id) && <MeterRow label="War support" value={warSupport(c)} color={warSupport(c) < 0.3 ? 'var(--red)' : warSupport(c) < 0.45 ? 'var(--amber)' : 'var(--teal)'} hint="Public backing for the war: morale in battle, stability and willingness to keep fighting." />}
           <MeterRow label="War exhaustion" value={m.exhaustion} color={m.exhaustion > 0.6 ? 'var(--red)' : 'var(--amber)'} text={`${(m.exhaustion * 100).toFixed(0)}%`} hint="Rises with casualties, lost territory and damage; forces peace at the extreme." />
         </div>
         <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>Lifetime casualties: {fmtNum(m.casualties)}. Strength also depends on terrain, distance to the front (supply), air and naval superiority, and economic staying power — not just troop count.</div>
@@ -92,6 +95,9 @@ export function MilitaryTab({ id }: { id: number }) {
         </>
       )}
 
+      {mine && wars.length > 0 && <HomeFront id={id} />}
+      {mine && wars.length > 0 && <SupplyLines id={id} />}
+
       {mine && wars.length > 0 && (
         <Section title="Active offensives" hint="click a region on the map to inspect it">
           {wars.flatMap((w) => w.fronts.filter((f) => f.by === id)).length === 0 && <div className="faint" style={{ fontSize: 12.5 }}>No offensives under way yet. Your forces advance from your border into enemy regions.</div>}
@@ -109,6 +115,8 @@ export function MilitaryTab({ id }: { id: number }) {
                   {Math.round(Math.min(1, f.progress) * 100)}% · {f.rate && f.rate > 0.0005 ? `about ${Math.ceil((1 - Math.min(1, f.progress)) / f.rate)} weeks to capture at this pace` : f.rate !== undefined && f.rate < -0.0005 ? 'the attack is failing' : 'stalled'}
                   {f.atk && f.def ? ` · odds ${(f.atk / Math.max(1, f.def)).toFixed(1)}:1` : ''}
                   {(f.la || f.ld) ? ` · losses so far: yours ${fmtNum(f.la ?? 0)}, theirs ${fmtNum(f.ld ?? 0)}` : ''}
+                  {f.sup !== undefined && <> · <span style={{ color: supTone(f.sup) }}>supply {Math.round(f.sup * 100)}%</span></>}
+                  {f.pocket && ' · ⭕ defenders encircled'}
                 </div>
               </div>
             );
@@ -142,7 +150,7 @@ export function MilitaryTab({ id }: { id: number }) {
                 {enemies.map((x) => (
                   <div className="row" key={x}>
                     <span className="dot" style={{ background: nationalColor(s.countries[x]) }} />
-                    <button className="grow" style={{ background: 'none', border: 'none', textAlign: 'left', padding: 0 }} onClick={() => store.select(x, null, true)}>{s.countries[x].name}<div className="hint">exhaustion {(s.countries[x].mil.exhaustion * 100).toFixed(0)}% · {s.countries[x].provinces.length} provinces</div></button>
+                    <button className="grow" style={{ background: 'none', border: 'none', textAlign: 'left', padding: 0 }} onClick={() => store.select(x, null, true)}>{s.countries[x].name}<div className="hint">exhaustion {(s.countries[x].mil.exhaustion * 100).toFixed(0)}% · war support {Math.round(warSupport(s.countries[x]) * 100)}% · {s.countries[x].provinces.length} provinces</div></button>
                     {areAtWar(s, id, x) && <button className="btn" onClick={() => store.openPeace(x)}>Negotiate peace</button>}
                   </div>
                 ))}

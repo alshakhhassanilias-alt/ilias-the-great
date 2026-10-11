@@ -35,6 +35,8 @@ export function BattleCard() {
       <div className="bar"><i style={{ width: `${pct}%`, background: 'var(--red)' }} /></div>
       <div className="bc-row"><span>Situation</span><b className={r.trend === 'advancing' ? 'bad' : r.trend === 'pushed back' ? 'good' : ''}>{r.trend === 'advancing' ? `attacker advancing${r.etaWeeks ? ` · falls in ~${r.etaWeeks} wk` : ''}` : r.trend === 'pushed back' ? 'attack is being pushed back' : 'stalemate'}</b></div>
       <div className="bc-row"><span>Odds (troops)</span><b>{r.odds.toFixed(1)} : 1</b></div>
+      <div className="bc-row"><span>Attacker supply</span><b style={{ color: r.supply < 0.55 ? 'var(--red)' : r.supply < 0.75 ? 'var(--amber)' : undefined }}>{Math.round(r.supply * 100)}%{r.pocket ? ' · defenders encircled ⭕' : ''}</b></div>
+      <div className="bc-row"><span>War support</span><b>{Math.round(r.wsA * 100)}% vs {Math.round(r.wsD * 100)}%</b></div>
       <div className="bc-row"><span>Losses so far</span><b>{fmtNum(r.lossesAtk)} / {fmtNum(r.lossesDef)}</b></div>
       {r.mods.length > 0 && (
         <div className="bc-mods">
