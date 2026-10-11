@@ -1,3 +1,4 @@
+import { nationalColor } from '../../map/palette';
 import { store } from '../../state/store';
 import { Meter, Note, Section, Slider, Stat, MeterRow } from '../widgets';
 import { fmtMoney, fmtNum, fog, pct } from '../format';
@@ -139,7 +140,7 @@ export function MilitaryTab({ id }: { id: number }) {
                 </div>
                 {enemies.map((x) => (
                   <div className="row" key={x}>
-                    <span className="dot" style={{ background: `hsl(${s.countries[x].color},40%,45%)` }} />
+                    <span className="dot" style={{ background: nationalColor(s.countries[x]) }} />
                     <button className="grow" style={{ background: 'none', border: 'none', textAlign: 'left', padding: 0 }} onClick={() => store.select(x, null, true)}>{s.countries[x].name}<div className="hint">exhaustion {(s.countries[x].mil.exhaustion * 100).toFixed(0)}% · {s.countries[x].provinces.length} provinces</div></button>
                     {areAtWar(s, id, x) && <button className="btn" onClick={() => store.openPeace(x)}>Negotiate peace</button>}
                   </div>

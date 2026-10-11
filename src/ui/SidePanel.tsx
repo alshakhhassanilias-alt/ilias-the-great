@@ -1,3 +1,4 @@
+import { nationalColor } from '../map/palette';
 import { store, useStore, type Tab } from '../state/store';
 import { OverviewTab } from './tabs/OverviewTab';
 import { EconomyTab } from './tabs/EconomyTab';
@@ -28,7 +29,7 @@ export function SidePanel() {
       {c ? (
         <>
           <div className="side-head">
-            <span className="chip" style={{ background: c.id === s.player ? 'var(--teal)' : `hsl(${c.color},45%,45%)` }} />
+            <span className="chip" style={{ background: nationalColor(c) }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2>{c.name}</h2>
               <div className="sub">

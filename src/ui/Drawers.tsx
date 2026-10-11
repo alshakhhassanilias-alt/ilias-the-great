@@ -1,3 +1,4 @@
+import { nationalColor } from '../map/palette';
 import { TROPHIES } from '../sim/trophies';
 import { useRef, useState } from 'react';
 import { store, useStore } from '../state/store';
@@ -69,7 +70,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
             <tbody>
               {rows.map((c, i) => (
                 <tr key={c.id} className={`click ${c.id === s.player ? 'me' : ''}`} onClick={() => pick(c.id)}>
-                  <td>{i + 1}</td><td><span className="dot" style={{ background: `hsl(${c.color},45%,45%)`, display: 'inline-block', marginRight: 8 }} />{c.name}</td>
+                  <td>{i + 1}</td><td><span className="dot" style={{ background: nationalColor(c), display: 'inline-block', marginRight: 8 }} />{c.name}</td>
                   <td style={{ textAlign: 'right' }}>{fmt(val(c))}</td><td style={{ textAlign: 'right' }} className="muted">{fmtMoney(c.eco.gdp)}</td>
                 </tr>
               ))}

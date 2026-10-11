@@ -1,3 +1,4 @@
+import { nationalColor } from '../map/palette';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapView } from '../map/MapView';
 import { store, useStore } from '../state/store';
@@ -39,7 +40,7 @@ export function StartScreen() {
             <div className="picklist" role="listbox" aria-label="Countries">
               {list.map((x) => (
                 <button key={x.id} className="listitem" role="option" aria-selected={x.id === picked} style={x.id === picked ? { background: 'rgba(242,184,75,.12)' } : undefined} onClick={() => onPick(x.id)}>
-                  <span className="dot" style={{ background: `hsl(${x.color},45%,45%)` }} /><span style={{ flex: 1 }}>{x.name}</span><span className="faint num">{fmtMoney(x.eco.gdp)}</span>
+                  <span className="dot" style={{ background: nationalColor(x) }} /><span style={{ flex: 1 }}>{x.name}</span><span className="faint num">{fmtMoney(x.eco.gdp)}</span>
                 </button>
               ))}
             </div>

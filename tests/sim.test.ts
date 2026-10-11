@@ -428,9 +428,9 @@ describe('things to do: events, goals, covert ops, war actions', () => {
     actCallAllies(s, id('Russia'));
   });
   it('provinces have readable names and borders are precomputed', () => {
-    const named = geo.provinces.filter((p) => p.name.length > 2).length;
+    const named = geo.provinces.filter((p) => p.name.length >= 2).length; // real places can be short (Bo, Sierra Leone)
     expect(named).toBe(geo.provinces.length);
-    expect(geo.provinces[geo.provs0[id('Poland')][0]].name).toMatch(/Poland/);
+    expect(geo.provinces[geo.provs0[id('Poland')][0]].name).toMatch(/Warsaw|Poland/);
     expect(geo.provinces.reduce((t, p) => t + p.edges.length, 0)).toBeGreaterThan(3000);
     // every province boundary is accounted for by its own runs or its neighbours' runs
     const covered = new Set<number>();

@@ -11,6 +11,8 @@ type MPoly = Pt[][][];
 
 export interface EdgePath { n: number; path: Path2D }
 export interface LabelInfo { anchor: Pt; w: number; h: number; area: number }
+/** A curved label baseline through a country's main landmass: v(t) = a·t² + b·t + c in the (u, n) frame around (mx, my). */
+export interface LabelCurve { mx: number; my: number; ux: number; uy: number; nx: number; ny: number; t0: number; len: number; a: number; b: number; c: number; thick: number; area: number }
 
 function toMPoly(poly: number[][][]): MPoly {
   return poly.map((rings) => rings.map((flat) => {
@@ -95,6 +97,91 @@ export class MapGeometry {
     let best = start, bd = Infinity;
     for (const p of seen) { const d = Math.hypot(provs[p].seed[0] - cx, provs[p].seed[1] - cy); if (d < bd) { bd = d; best = p; } }
     return { anchor: [provs[best].seed[0], provs[best].seed[1]], w: x1 - x0, h: y1 - y0, area };
+  }
+
+  /** Provinces of the largest connected landmass an owner holds. */
+  mainComponent(state: GameState, owner: number): number[] {
+    const c = state.countries[owner];
+    if (!c.alive || !c.provinces.length) return [];
+    const provs = this.geo.provinces;
+    const mine = new Set(c.provinces);
+    const left = new Set(c.provinces);
+    let best: number[] = [], bestA = -1;
+    while (left.size) {
+      const start = left.values().next().value as number;
+      left.delete(start);
+      const comp = [start];
+      for (let i = 0; i < comp.length; i++) for (const q of this.geo.adj[comp[i]]) if (mine.has(q) && left.has(q)) { left.delete(q); comp.push(q); }
+      const a = comp.reduce((s, p) => s + provs[p].area, 0);
+      if (a > bestA) { bestA = a; best = comp; }
+    }
+    return best;
+  }
+
+  /** Fit a gently curved baseline along the long axis of a country's main landmass (for map-style labels). */
+  labelCurve(state: GameState, owner: number): LabelCurve | null {
+    const comp = this.mainComponent(state, owner);
+    if (!comp.length) return null;
+    const provs = this.geo.provinces;
+    const xs: number[] = [], ys: number[] = [];
+    let area = 0;
+    for (const p of comp) {
+      area += provs[p].area;
+      const ring = provs[p].poly[0]?.[0];
+      if (!ring) continue;
+      const step = Math.max(2, Math.floor(ring.length / 40) * 2);
+      for (let i = 0; i < ring.length; i += step) { xs.push(ring[i] / 10); ys.push(ring[i + 1] / 10); }
+      xs.push(provs[p].seed[0]); ys.push(provs[p].seed[1]);
+    }
+    const n = xs.length;
+    if (n < 3) return null;
+    let mx = 0, my = 0;
+    for (let i = 0; i < n; i++) { mx += xs[i]; my += ys[i]; }
+    mx /= n; my /= n;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+    let ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    // nearly round shapes read best horizontally; never set text steeper than 70 degrees
+    const elong = Math.sqrt(Math.max(sxx, syy) / Math.max(1e-6, Math.min(sxx, syy)));
+    if (elong < 1.35) ang *= Math.max(0, (elong - 1) / 0.35) * 0.6;
+    ang = Math.max(-1.22, Math.min(1.22, ang));
+    const ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux;
+    const ts: number[] = [], vs: number[] = [];
+    for (let i = 0; i < n; i++) { const dx = xs[i] - mx, dy = ys[i] - my; ts.push(dx * ux + dy * uy); vs.push(dx * nx + dy * ny); }
+    const sorted = [...ts].sort((a, b) => a - b);
+    const tmin = sorted[Math.floor(n * 0.04)], tmax = sorted[Math.floor(n * 0.96)];
+    const len = Math.max(0.5, tmax - tmin);
+    // spine: middle of the shape in 8 slices along the axis, then a least-squares parabola through them
+    const B = 8, lo = new Array(B).fill(Infinity), hi = new Array(B).fill(-Infinity);
+    for (let i = 0; i < n; i++) {
+      const bi = Math.min(B - 1, Math.max(0, Math.floor(((ts[i] - tmin) / len) * B)));
+      lo[bi] = Math.min(lo[bi], vs[i]); hi[bi] = Math.max(hi[bi], vs[i]);
+    }
+    const pt: [number, number][] = [], th: number[] = [];
+    for (let bi = 0; bi < B; bi++) if (isFinite(lo[bi])) { pt.push([tmin + ((bi + 0.5) / B) * len, (lo[bi] + hi[bi]) / 2]); th.push(hi[bi] - lo[bi]); }
+    let a = 0, b = 0, c = 0;
+    if (pt.length >= 3) {
+      // normal equations for v = a t^2 + b t + c
+      let s0 = 0, s1 = 0, s2 = 0, s3 = 0, s4 = 0, r0 = 0, r1 = 0, r2 = 0;
+      for (const [t, v] of pt) { const t2 = t * t; s0++; s1 += t; s2 += t2; s3 += t2 * t; s4 += t2 * t2; r0 += v; r1 += v * t; r2 += v * t2; }
+      const M = [[s4, s3, s2, r2], [s3, s2, s1, r1], [s2, s1, s0, r0]];
+      for (let i = 0; i < 3; i++) {
+        let piv = i;
+        for (let j = i + 1; j < 3; j++) if (Math.abs(M[j][i]) > Math.abs(M[piv][i])) piv = j;
+        [M[i], M[piv]] = [M[piv], M[i]];
+        if (Math.abs(M[i][i]) < 1e-9) continue;
+        for (let j = 0; j < 3; j++) if (j !== i) { const f = M[j][i] / M[i][i]; for (let k = i; k < 4; k++) M[j][k] -= f * M[i][k]; }
+      }
+      a = Math.abs(M[0][0]) > 1e-9 ? M[0][3] / M[0][0] : 0;
+      b = Math.abs(M[1][1]) > 1e-9 ? M[1][3] / M[1][1] : 0;
+      c = Math.abs(M[2][2]) > 1e-9 ? M[2][3] / M[2][2] : 0;
+      // keep the bend gentle: at most a sag of 12% of the length
+      const sag = Math.abs(a) * (len / 2) ** 2;
+      if (sag > len * 0.12) a *= (len * 0.12) / sag;
+    }
+    th.sort((x, y) => x - y);
+    const thick = th.length ? th[Math.floor(th.length / 2)] : len * 0.3;
+    return { mx, my, ux, uy, nx, ny, t0: (tmin + tmax) / 2, len, a, b, c, thick, area };
   }
 
   /** Bounding box of a country's main landmass (within reach of its capital), world coordinates. */

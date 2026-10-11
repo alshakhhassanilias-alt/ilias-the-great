@@ -84,8 +84,17 @@ touches the DOM or the map renderer; React only reads from the store. The whole 
 randomness comes from a seeded generator whose state is saved — **the same seed and actions always give the same
 world**, and a save resumes identically (both are tested).
 
-### Map rendering
-The terrain layer is drawn once into a cached canvas and moved with a GPU-composited CSS transform while you pan or zoom (with eased zoom and inertia); it is re-rendered crisply when the view settles or territory changes. National borders are the precomputed shared boundary runs between provinces, stroked when their two sides have different owners, so conquest needs no geometry maths. Armies, fronts and labels are drawn on a light overlay canvas.
+### Map rendering (`src/map/renderer.ts`)
+The map is drawn in the style of a grand-strategy atlas, all in Canvas 2D:
+- **Painted terrain**: a 4000×2080 texture (`src/data/generated/terrain.webp`, ~480 KB) made from Natural Earth's land-cover raster with shaded relief and its sea-floor relief, reprojected into the game's projection and masked with the game's own coastlines, so mountains, deserts, forests, ice and continental shelves show through.
+- **Translucent national colours** over the terrain (hand-picked for about 50 well-known countries, generated for the rest), occupied land hatched in the original owner's colour.
+- **Real geography**: rivers (more appear as you zoom), lakes, about 1,250 cities and 2,600 towns, sea and ocean names; regions are named after their real capital or largest town (Warsaw, Kraków, Lviv ...).
+- **Lit coastlines, dashed region lines, heavy national borders**; curved, letter-spaced serif country names that follow each country's shape (Cinzel), italic sea names (Cormorant Garamond).
+- **War**: red frontlines where warring sides meet, broad animated offensive arrows, NATO-style army counters with troop numbers; enemies outlined red and allies blue, so every country keeps its own colour.
+
+Performance: the static layer is drawn once into the visible canvas and moved with a GPU-composited CSS transform while you pan or zoom (eased zoom, inertia), then re-rendered crisply when the view settles or territory changes. National borders are precomputed shared boundary runs between provinces, stroked when their two sides have different owners. Labels, fronts and effects go on a light overlay canvas.
+
+Rebuilding the map assets (only needed if you change the geography; outputs are committed): download the Natural Earth files listed at the top of `scripts/build-terrain.py` and `scripts/build-features.ts` into one folder, then run `npm run build:map`, `npx tsx scripts/build-features.ts <folder>` and `python3 scripts/build-terrain.py <folder>`.
 
 ### Geography pipeline (`scripts/build-map.ts`)
 Natural Earth admin-0 (1:50m, via `world-atlas`, public domain) → Natural Earth projection → per-country
@@ -173,7 +182,9 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
   citation*; rows marked `E` in `src/data/countryData.ts` are rough game estimates.
 * **Game-generated:** everything derived — capital stock, productivity, tech and infrastructure levels, tax-rate
   split, equipment stocks, resource balances, terrain ruggedness, provinces and their weights, AI personalities.
-* Borders: Natural Earth (public domain). The game starts at peace in 2024 (no scripted wars or events).
+* Map data: Natural Earth (public domain) — borders, the NE1 land-cover/relief and sea-floor relief rasters, rivers, lakes, populated places and marine area names. The game starts at peace in 2024 (no scripted wars or events).
+* Fonts: Cinzel and Cormorant Garamond via Fontsource (SIL Open Font License), embedded in the build.
+* Leaders are fictional: names are generated, not real people.
 
 ## Status vs. the roadmap
 | Stage | Status |

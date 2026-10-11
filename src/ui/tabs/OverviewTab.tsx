@@ -1,3 +1,4 @@
+import { nationalColor } from '../../map/palette';
 import { store } from '../../state/store';
 import { Meter, Note, RelationBar, Section, Stat } from '../widgets';
 import { GOV, REGION, fog, fmtMoney, fmtNum, pct, relLabel, signedPct, sizeClass } from '../format';
@@ -161,7 +162,7 @@ export function OverviewTab({ id }: { id: number }) {
           <div className="card">
             {partners.map((p) => (
               <button key={p.id} className="listitem" style={{ padding: '6px 2px' }} onClick={() => store.select(p.id, null, true)}>
-                <span className="dot" style={{ background: `hsl(${s.countries[p.id].color},45%,45%)` }} />
+                <span className="dot" style={{ background: nationalColor(s.countries[p.id]) }} />
                 <span style={{ flex: 1 }}>{s.countries[p.id].name}</span>
                 <span className="faint num">{fmtMoney(p.volume)}</span>
                 <span className="num" style={{ width: 44, textAlign: 'right', fontWeight: 600 }}>{(p.share * 100).toFixed(0)}%</span>

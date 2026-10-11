@@ -52,7 +52,8 @@ export interface Geo {
   dist(a: number, b: number): number;
 }
 
-export function buildGeo(raw: RawWorld): Geo {
+/** `provCity` (optional, from features.json) names regions after their real capital or largest town. */
+export function buildGeo(raw: RawWorld, provCity?: Record<number, string>): Geo {
   const provinces: GeoProvince[] = [];
   const provs0: number[][] = [];
   raw.countries.forEach((c, ci) => {
@@ -74,6 +75,7 @@ export function buildGeo(raw: RawWorld): Geo {
     provs0.push(ids);
     nameRegions(c.name, ids.map((i) => provinces[i]));
   });
+  if (provCity) for (const p of provinces) if (!p.territory && provCity[p.id]) p.name = provCity[p.id];
   const adj: number[][] = provinces.map(() => []);
   for (const [a, b] of raw.adjacency) { adj[a].push(b); adj[b].push(a); }
   return {

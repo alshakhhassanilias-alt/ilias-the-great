@@ -33,6 +33,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     const wrap = wrapRef.current!;
     const r = new MapRenderer(canvas, overlayRef.current!, getGeom(), () => store.state);
     rendRef.current = r;
+    (window as unknown as { __renderer?: MapRenderer }).__renderer = r;
     const resize = () => {
       const rect = wrap.getBoundingClientRect();
       r.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, 2));
