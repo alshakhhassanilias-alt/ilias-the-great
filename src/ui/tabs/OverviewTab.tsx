@@ -8,6 +8,8 @@ import { strengthIndex } from '../../sim/military';
 import { warScore } from '../../sim/war';
 import { activeGoals, GOALS } from '../../sim/goals';
 import { popGrowthRate } from '../../sim/economy';
+import { traitById, grudgesOf } from '../../sim/leaders';
+import { dateLabel } from '../../sim/tick';
 import { ProjectsMini } from './Projects';
 import { SituationSection } from './Situation';
 import { DoctrinesSection } from './Doctrines';
@@ -61,6 +63,24 @@ export function OverviewTab({ id }: { id: number }) {
                 <button className="btn" onClick={() => { const r = store.act((g) => a.run(g, geo)); void r; }}>{a.label}</button>
               </div>
             ))}
+          </div>
+        </Section>
+      )}
+
+      {!mine && c.leader && (
+        <Section title="Leadership" hint={`in power ${Math.max(0, (s.tick - c.leader.since) / 52).toFixed(1)} yr`}>
+          <div className="card">
+            <div style={{ fontSize: 15, fontWeight: 650 }}>{c.leader.name}</div>
+            <div className="chips" style={{ margin: '6px 0' }}>
+              {c.leader.traits.map((t) => { const tr = traitById(t); return <span className="pill" key={t} title={tr.desc}>{tr.icon} {tr.title}</span>; })}
+            </div>
+            <div className="faint" style={{ fontSize: 12 }}>{c.leader.traits.map((t) => traitById(t).desc).join(' ')}</div>
+            {c.goal && <div style={{ marginTop: 8, fontSize: 13 }}><b>Wants:</b> {c.goal.text}</div>}
+            {(() => { const g = grudgesOf(s, id, s.player); return g.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div className="why-title">They have not forgotten</div>
+                {g.slice().sort((a, b) => b.w - a.w).slice(0, 4).map((x, i) => <div className="why-row" key={i}><span>You {x.why}</span><span className="faint">{dateLabel(x.tick)}</span></div>)}
+              </div>); })()}
           </div>
         </Section>
       )}

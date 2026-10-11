@@ -149,8 +149,15 @@ export interface Country {
   lastWarDecl: number;
   intent: string; // what this country is currently up to (AI), shown to the player
   /** national doctrines (economy / military / foreign policy) and when they last changed. Optional: derived from the government type when unset */
+  /** an AI country's head of government (fictional) and its long-term aim */
+  leader?: Leader;
+  goal?: NatGoal;
   doctrine?: { eco: string; mil: string; dip: string; changed: number };
 }
+
+export interface Leader { name: string; traits: [string, string]; since: number; /** personality deltas currently applied, so a successor can undo them */ applied: Partial<Record<'aggression' | 'expansion' | 'trade' | 'ideology' | 'caution', number>> }
+export interface NatGoal { kind: string; target: number; text: string; since: number }
+export interface Grudge { tick: number; why: string; w: number }
 
 export interface Treaty {
   trade: boolean;
@@ -218,6 +225,8 @@ export interface GameState {
   inbox: InboxItem[];
   /** national megaprojects under way (player and AI) */
   projects: ProjectRun[];
+  /** long memories: key `${victim}>${offender}` -> things the victim has not forgotten */
+  grudges: Record<string, Grudge[]>;
   /** player trophies: id -> tick unlocked */
   trophies: Record<string, number>;
   /** the last end-of-year summary card shown to the player */

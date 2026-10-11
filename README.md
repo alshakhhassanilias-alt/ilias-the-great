@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 68 deterministic simulation tests (Vitest) |
+| `npm test` | 73 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -163,6 +163,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 - **Trophies** and a **year in review** card.
 - **National doctrines**: three standing choices (economy, military, foreign policy), each with plain-number upsides and downsides; reforms cost money and can be done once a year.
 - **Explanations everywhere**: relations show a line-by-line "why they feel this way"; AI war declarations state their reason; front cards show odds, losses and an ETA; a "Coming up" list (elections, Assembly vote, project completions, decision deadlines).
+- **Leaders, goals and memory** (`leaders.ts`): every AI country has a (fictional) named leader with two traits (Hawk, Dove, Nationalist, Mercantilist ...) that change how it behaves; they succeed one another through elections, palace coups or death. Each country has a long-term goal (win back lost land, press claims, deter a neighbour, break sanctions ...) and a memory of wrongs done to it that fades over years and feeds revenge.
 - **Political calendar**: an election (or, in a one-party state, a leadership congress) every four years.
 
 ## Data provenance — real vs generated
@@ -180,7 +181,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 68 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 73 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

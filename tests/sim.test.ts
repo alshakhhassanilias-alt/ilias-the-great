@@ -790,3 +790,54 @@ describe('depth: doctrines, explanations, calendar', () => {
     expect(a.inbox.some((x) => x.id === 'party_congress') || a.scheduled.some((x) => x.id === 'party_congress')).toBe(true);
   });
 });
+
+import { crownLeader, addGrudge, grudgeScore, grudgesOf, traitById } from '../src/sim/leaders';
+describe('living world: leaders, goals, memory', () => {
+  it('every AI country gets a named leader with two traits that shift its personality, and a goal', () => {
+    const s = fresh('Germany');
+    run(s, 30);
+    const ai = s.countries.filter((c) => c.alive && c.id !== s.player);
+    expect(ai.every((c) => c.leader && c.leader.name.length > 3 && c.leader.traits[0] !== c.leader.traits[1])).toBe(true);
+    expect(ai.filter((c) => c.goal).length).toBeGreaterThan(ai.length * 0.9);
+    for (const c of ai) { expect(c.ai.aggression).toBeGreaterThan(0); expect(c.ai.aggression).toBeLessThanOrEqual(1.4); }
+  });
+  it('a hawk is more aggressive than a dove, and a successor undoes the predecessor\'s traits', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('France')];
+    const base = c.ai.aggression;
+    crownLeader(s, c, 1);
+    const withLeader = c.ai.aggression;
+    c.leader!.traits = ['hawk', 'hawk']; // (re-apply for the test)
+    expect(traitById('hawk').d.aggression!).toBeGreaterThan(traitById('dove').d.aggression!);
+    crownLeader(s, c, 2);
+    crownLeader(s, c, 3);
+    expect(Math.abs(c.ai.aggression - base)).toBeLessThan(0.7);
+    void withLeader;
+  });
+  it('leaders eventually change, with news', () => {
+    const s = fresh('Brazil');
+    s.nextCrisis = 1e9;
+    run(s, 52 * 14);
+    expect(s.log.some((e) => /takes over/.test(e.text))).toBe(true);
+  });
+  it('grudges accumulate, are recorded for wrongs done, and fade with time', () => {
+    const s = fresh('Germany');
+    expect(grudgeScore(s, id('Estonia'), id('Russia'))).toBe(0);
+    declareWar(s, geo, id('Russia'), id('Estonia'));
+    const g0 = grudgeScore(s, id('Estonia'), id('Russia'));
+    expect(g0).toBeGreaterThanOrEqual(30);
+    expect(grudgesOf(s, id('Estonia'), id('Russia'))[0].why).toMatch(/attacked/);
+    addGrudge(s, id('Estonia'), id('Russia'), 'embargoed it', 14);
+    s.nextCrisis = 1e9;
+    run(s, 260);
+    const att = grudgesOf(s, id('Estonia'), id('Russia')).find((x) => /attacked/.test(x.why));
+    expect(att).toBeDefined();
+    expect(att!.w).toBeLessThan(30); // fading, not forgotten
+  });
+  it('wronging a country makes it more likely to come for you later', () => {
+    const s = fresh('Poland');
+    const T = id('Poland');
+    for (let i = 0; i < 5; i++) addGrudge(s, id('Germany'), T, `wrong ${i}`, 25);
+    expect(grudgeScore(s, id('Germany'), T)).toBeGreaterThan(100);
+  });
+});

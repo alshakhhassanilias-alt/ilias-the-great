@@ -1,4 +1,5 @@
 /** Treaty proposals, sanctions and how other countries respond. */
+import { addGrudge } from './leaders';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
 import {
@@ -135,6 +136,7 @@ export function cancelTreaty(s: GameState, a: CountryId, b: CountryId, kind: Pro
 
 export function imposeSanction(s: GameState, from: CountryId, to: CountryId, level: 1 | 2) {
   if (sanctionLevel(s, from, to) >= level) return;
+  addGrudge(s, to, from, level === 2 ? 'embargoed it' : 'imposed sanctions on it', level === 2 ? 14 : 8);
   setSanction(s, from, to, level);
   const t = getTreaty(s, from, to);
   if (t) t.trade = false;

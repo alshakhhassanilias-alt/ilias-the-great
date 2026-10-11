@@ -24,6 +24,7 @@ import type { CountryId, Country, GameState, LogKind, ProvId, War } from './type
 
 import { logEvent } from './log';
 import { fortBonus, transferBuildings } from './buildings';
+import { addGrudge } from './leaders';
 import { fmtCas, isBigNews, MILESTONES } from './drama';
 export { logEvent };
 
@@ -132,7 +133,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   const justified = claimStrength(a, d) > 0.3 || getRelation(s, a, d) < -60;
   let severity = justified ? 2 : 7;
   const treaty = s.treaties[pairKey(a, d)];
-  if (treaty?.nap) { severity += 6; A.reputation = Math.max(0, A.reputation - 10); logEvent(s, `${A.name} broke its non-aggression pact with ${D.name}.`, 'diplo', [a, d], true); }
+  if (treaty?.nap) { addGrudge(s, d, a, 'broke a non-aggression pact with it', 15); severity += 6; A.reputation = Math.max(0, A.reputation - 10); logEvent(s, `${A.name} broke its non-aggression pact with ${D.name}.`, 'diplo', [a, d], true); }
   if (treaty?.alliance) { severity += 4; }
   if (treaty) { treaty.alliance = false; treaty.nap = false; treaty.trade = false; treaty.coop = false; touchTreaties(s); }
   const war: War = {
@@ -142,6 +143,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   s.wars.push(war);
   A.lastWarDecl = s.tick;
   s.stats[`pair:${a}>${d}`] = s.tick;
+  addGrudge(s, d, a, 'attacked it', 30);
   addRelation(s, a, d, -40);
   aggressionFallout(s, a, d, severity);
   logEvent(s, `${A.name} declared war on ${D.name}!${why ? ` Reason: ${why}.` : justified ? ' It claims the land is rightfully its own.' : ''}`, 'war', [a, d], true, isBigNews(s, a, d) ? { big: true, prov: D.capital } : undefined);
@@ -492,6 +494,7 @@ export function stepWars(s: GameState, geo: Geo) {
         const W = s.countries[winner];
         const name = geo.provinces[p].name || `a region of ${s.countries[s.core[p]].name}`;
         E.mil.exhaustion = Math.min(1, E.mil.exhaustion + 0.1 * f * 6);
+        addGrudge(s, e, winner, 'seized its land', 6);
         const la = best.la ?? 0, ld = best.ld ?? 0;
         const big = p === E.capital || isBigNews(s, winner, e);
         logEvent(s, `Battle of ${name}: ${W.name} captured it from ${E.name}${la + ld > 2000 ? ` after fighting that cost ${fmtCas(la)} attackers and ${fmtCas(ld)} defenders` : ''}.`, 'territory', [winner, e], winner === s.player || e === s.player || big, big && p !== E.capital ? { big: true, prov: p } : { prov: p });

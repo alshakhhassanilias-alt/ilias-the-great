@@ -11,6 +11,7 @@ import { hasGuarantee, guarantorsOf } from '../../sim/relations';
 import { actCancel, actDeclareWar, actPropose, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
 import { evaluateProposal, PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
 import { alliesOf, areAtWar, baseRelation, relationBreakdown, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
+import { grudgesOf } from '../../sim/leaders';
 import { assessAttack } from '../../sim/ai';
 import { claimStrength } from '../../sim/war';
 
@@ -63,6 +64,7 @@ export function DiplomacyTab({ id }: { id: number }) {
             {relationBreakdown(s, id, s.player).map((p, i) => (
               <div className="why-row" key={i}><span>{p.label}</span><b className={p.v < 0 ? 'bad' : 'good'}>{p.v > 0 ? '+' : ''}{p.v}</b></div>
             ))}
+            {grudgesOf(s, id, s.player).slice(0, 3).map((g, i) => <div className="why-row" key={'g' + i}><span>They remember: you {g.why}</span><b className="bad">grudge</b></div>)}
             {claim > 0.3 && <div className="why-row"><span>{c.name} claims land you hold</span><b className="bad">risk of war</b></div>}
           </div>
         </div>

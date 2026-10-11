@@ -361,3 +361,4 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .doc-chip.cur { border-color: var(--green); }
 .doc-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
 .doc-detail { font-size: 12.5px; margin-top: 8px; line-height: 1.5; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -2,6 +2,7 @@
  * Actions available to both the player and AI. Every action takes effect IMMEDIATELY (no timers):
  * money moves now, capacity / forces / stats change now, and the next tick reflects the new state.
  */
+import { addGrudge } from './leaders';
 import type { Geo } from './geo';
 import { clamp } from './util';
 import { manpower } from './military';
@@ -157,7 +158,7 @@ export function actPropose(s: GameState, geo: Geo, cid: number, to: number, kind
   const r = propose(s, geo, cid, to, kind);
   return r.accept ? ok('Accepted!') : fail(r.reasons.join(' · ') || 'Declined');
 }
-export function actCancel(s: GameState, cid: number, to: number, kind: Proposal): ActionResult { cancelTreaty(s, cid, to, kind); return ok('Treaty cancelled'); }
+export function actCancel(s: GameState, cid: number, to: number, kind: Proposal): ActionResult { addGrudge(s, to, cid, `cancelled its ${kind === 'alliance' ? 'alliance' : kind === 'trade' ? 'trade deal' : 'treaty'}`, kind === 'alliance' ? 14 : 5); cancelTreaty(s, cid, to, kind); return ok('Treaty cancelled'); }
 export function actSanction(s: GameState, cid: number, to: number, level: 0 | 1 | 2): ActionResult {
   if (level === 0) liftSanction(s, cid, to); else imposeSanction(s, cid, to, level);
   return ok(level === 0 ? 'Sanctions lifted' : level === 1 ? 'Sanctions imposed' : 'Embargo imposed');

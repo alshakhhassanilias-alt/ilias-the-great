@@ -7,6 +7,7 @@ import { stepProjects } from './projects';
 import { stepCrisis } from './crises';
 import { stepRival } from './rival';
 import { stepDoctrines } from './doctrines';
+import { stepLeaders } from './leaders';
 import { stepCalendar } from './events3';
 import { stepReview, stepTrophies } from './trophies';
 import { stepUnrest } from './unrest';
@@ -73,6 +74,7 @@ export function tick(s: GameState, geo: Geo) {
   stepCrisis(s, geo);
   stepRival(s, geo);
   stepDoctrines(s);
+  stepLeaders(s, geo);
   stepTrophies(s, geo);
   stepReview(s, geo);
   stepUnrest(s, geo);

@@ -4,6 +4,7 @@
  * scripted against the player. Decisions: fiscal & military posture, treaty proposals, sanctions,
  * war declaration (power ratio incl. logistics/terrain/allies/deterrence + desire), and peace.
  */
+import { grudgeScore } from './leaders';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
 import { nextRand } from './rng';
@@ -199,7 +200,9 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     const need = 1.5 - 0.5 * Math.min(1, c.ai.aggression);
     if (ratio < need) continue;
     const claim = claimStrength(c.id, t);
-    let desire = c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
+    const revenge = Math.min(0.25, grudgeScore(s, c.id, t) / 220) * (0.6 + c.ai.aggression);
+    const goalPull = c.goal && c.goal.target === t && (c.goal.kind === 'revanche' || c.goal.kind === 'claims') ? 0.15 : 0;
+    let desire = revenge + goalPull + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
     if (t === s.player) desire *= mods(T).deter * (s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1);
