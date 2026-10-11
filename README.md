@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 73 deterministic simulation tests (Vitest) |
+| `npm test` | 77 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -90,9 +90,11 @@ The map is drawn in the style of a grand-strategy atlas, all in Canvas 2D:
 - **Translucent national colours** over the terrain (hand-picked for about 50 well-known countries, generated for the rest), occupied land hatched in the original owner's colour.
 - **Real geography**: rivers (more appear as you zoom), lakes, about 1,250 cities and 2,600 towns, sea and ocean names; regions are named after their real capital or largest town (Warsaw, Kraków, Lviv ...).
 - **Lit coastlines, dashed region lines, heavy national borders**; curved, letter-spaced serif country names that follow each country's shape (Cinzel), italic sea names (Cormorant Garamond).
-- **War**: red frontlines where warring sides meet, broad animated offensive arrows, NATO-style army counters with troop numbers; enemies outlined red and allies blue, so every country keeps its own colour.
+- **War**: contested regions are split (visually) into small cells that fall to the attacker one by one as the offensive progresses, so the front visibly creeps forward or is pushed back instead of whole regions flipping at once (`src/map/battlefield.ts`). A glowing red line shows where the fighting is, with artillery flashes and smoke, aircraft when one side rules the skies, broad offensive arrows, and NATO-style army counters (divisions, infantry/armour symbol, strength bar) that slide forward with the front. Garrison counters show where your and your enemies' idle troops stand. Click a ⚔ marker for the **battle report** (`src/sim/battle.ts`): forces, odds, ground taken, an ETA, losses, every modifier (terrain, fortresses, air superiority, intelligence, amphibious landing, equipment and tech, nuclear deterrence, doctrines) and actions (air strike, make it a priority, dig in, call allies, negotiate).
 
-Performance: the static layer is drawn once into the visible canvas and moved with a GPU-composited CSS transform while you pan or zoom (eased zoom, inertia), then re-rendered crisply when the view settles or territory changes. National borders are precomputed shared boundary runs between provinces, stroked when their two sides have different owners. Labels, fronts and effects go on a light overlay canvas.
+Performance: labels, outlines and frontlines are drawn into the cached layer, the terrain has its own cache with pre-scaled copies, battles are cached per week and only the animated bits are drawn per frame, conquests batch their redraws, panels refresh at a steady rate while the clock runs, and the backing resolution is capped at 1.5x on touch screens. `node scripts/perf-browser.mjs 4` measures frame rates with the CPU slowed 4x.
+
+The static layer is drawn once into the visible canvas and moved with a GPU-composited CSS transform while you pan or zoom (eased zoom, inertia), then re-rendered crisply when the view settles or territory changes. National borders are precomputed shared boundary runs between provinces, stroked when their two sides have different owners. Labels, fronts and effects go on a light overlay canvas.
 
 Rebuilding the map assets (only needed if you change the geography; outputs are committed): download the Natural Earth files listed at the top of `scripts/build-terrain.py` and `scripts/build-features.ts` into one folder, then run `npm run build:map`, `npx tsx scripts/build-features.ts <folder>` and `python3 scripts/build-terrain.py <folder>`.
 
@@ -173,6 +175,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 - **National doctrines**: three standing choices (economy, military, foreign policy), each with plain-number upsides and downsides; reforms cost money and can be done once a year.
 - **Explanations everywhere**: relations show a line-by-line "why they feel this way"; AI war declarations state their reason; front cards show odds, losses and an ETA; a "Coming up" list (elections, Assembly vote, project completions, decision deadlines).
 - **Leaders, goals and memory** (`leaders.ts`): every AI country has a (fictional) named leader with two traits (Hawk, Dove, Nationalist, Mercantilist ...) that change how it behaves; they succeed one another through elections, palace coups or death. Each country has a long-term goal (win back lost land, press claims, deter a neighbour, break sanctions ...) and a memory of wrongs done to it that fades over years and feeds revenge.
+- **Goals tab** (`src/ui/tabs/GoalsTab.tsx`, `src/ui/guides.ts`): 40 objectives (three active, never handed out already complete) with how-to tips, plus a country check-up (growth, budget, debt, inflation, jobs, energy, food, stability, infrastructure, army vs threats, readiness, forts, allies, trade, reputation, sanctions). Guidance depends on difficulty: Easy gives full explanations and one-tap fixes, Normal gives status lights, tips and one top priority, Hard gives none (the Overview advisor follows the same rule).
 - **Political calendar**: an election (or, in a one-party state, a leadership congress) every four years.
 
 ## Data provenance — real vs generated
@@ -192,7 +195,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 73 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 77 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

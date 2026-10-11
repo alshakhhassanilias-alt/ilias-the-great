@@ -95,12 +95,13 @@ export function MilitaryTab({ id }: { id: number }) {
       {mine && wars.length > 0 && (
         <Section title="Active offensives" hint="click a region on the map to inspect it">
           {wars.flatMap((w) => w.fronts.filter((f) => f.by === id)).length === 0 && <div className="faint" style={{ fontSize: 12.5 }}>No offensives under way yet. Your forces advance from your border into enemy regions.</div>}
-          {wars.flatMap((w) => w.fronts.filter((f) => f.by === id)).map((f) => {
+          {wars.flatMap((w) => w.fronts.filter((f) => f.by === id).map((f) => ({ f, w }))).map(({ f, w }) => {
             const gp = geo.provinces[f.prov];
             return (
               <div className="card" key={`${f.prov}-${f.by}`} style={{ marginBottom: 8 }}>
                 <div className="row" style={{ border: 'none', padding: 0 }}>
                   <div className="grow"><b>{gp.name}</b><div className="hint">{f.amphibious ? 'Amphibious landing · ' : ''}{s.countries[s.owner[f.prov]].name} · you {f.atk ? fmtNum(f.atk) : '…'} vs {f.def ? fmtNum(f.def) : '…'} defenders</div></div>
+                  <button className="btn" onClick={() => store.openBattle({ war: w.id, prov: f.prov, by: f.by })}>Report<small>odds & modifiers</small></button>
                   <button className="btn" onClick={() => store.act((g) => actAirstrike(g, g.player, f.prov))}>Air strike<small>{fmtMoney(0.0015 * e.gdp)}</small></button>
                 </div>
                 <div style={{ marginTop: 6 }}><Meter value={Math.min(1, f.progress)} color="var(--accent)" /></div>

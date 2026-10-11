@@ -15,9 +15,10 @@ const STEPS: { title: string; body: string[] }[] = [
     'Alliances form blocs. Rivals answer with counter-blocs. The World Assembly votes on resolutions and your vote shifts relations. You can guarantee a country\'s security, send aid, hold summits, mediate wars, or issue ultimatums.' ] },
   { title: 'War and the military', body: [
     'Armies fight region by region. Strength depends on troops, equipment quality, technology, readiness, supply distance, terrain, air and naval power, and fortifications. Build fortresses, airbases, ports, factories and barracks in your regions (click a region).',
+    'Watch the front move: contested regions fall cell by cell in the attacker\'s colour, the red line shows where the fighting is, and army counters show divisions and their strength. Click a ⚔ marker for the battle report (odds, terrain, forts, air power, losses) and actions such as air strikes or digging in.',
     'Peace talks offer ceasefires, territory or concessions. If an ally is attacked you will be asked whether to honour the alliance. Rivals may send an ultimatum before attacking.' ] },
   { title: 'Things to do', body: [
-    'Your advisor (Overview tab) suggests one-tap actions. Objectives give direction, and new ones appear as you complete them. Decisions wait in a small inbox on the map and never stop the clock; open one when you are ready. The news ticker (bottom) shows what the rest of the world is doing.',
+    'The Goals tab holds your objectives and a check-up of your country. How much help you get depends on difficulty: full guides with one-tap fixes on Easy, a few hints on Normal, none on Hard. Decisions wait in a small inbox on the map and never stop the clock; open one when you are ready. The news ticker (bottom) shows what the rest of the world is doing.',
     'There is no single right way to play: trader, peacemaker, bloc builder or conqueror. Press ☰ → How to play any time to read this again.' ] },
 ];
 

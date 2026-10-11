@@ -841,3 +841,54 @@ describe('living world: leaders, goals, memory', () => {
     expect(grudgeScore(s, id('Germany'), T)).toBeGreaterThan(100);
   });
 });
+
+import { battleReport } from '../src/sim/battle';
+import { countryChecks, goalHelp, guideLevel, topPriority } from '../src/ui/guides';
+import { activeGoals as activeGoals2, GOALS as GOALS2 } from '../src/sim/goals';
+describe('battles, guides and objectives', () => {
+  it('a battle report explains odds, terrain, forts and who is attacking', () => {
+    const s = fresh('Poland');
+    s.nextCrisis = 1e9;
+    declareWar(s, geo, id('Poland'), id('Belarus'));
+    run(s, 6);
+    const w = s.wars[0];
+    const fr = w.fronts.find((f) => f.by === id('Poland'))!;
+    expect(fr).toBeDefined();
+    const r = battleReport(s, geo, w.id, fr.prov, fr.by)!;
+    expect(r.role).toBe('attacker');
+    expect(r.attacker).toBe(id('Poland'));
+    expect(r.name).toMatch(/^Battle of /);
+    expect(r.mods.some((m) => /plains|Hills|Mountains/.test(m.label))).toBe(true);
+    expect(r.atkTroops).toBeGreaterThan(0);
+    expect(r.progress).toBeGreaterThanOrEqual(0);
+    // a neutral observer sees the same battle as an observer
+    const o = fresh('Brazil'); declareWar(o, geo, id('Russia'), id('Estonia')); run(o, 4);
+    const f2 = o.wars[0].fronts[0];
+    if (f2) expect(battleReport(o, geo, o.wars[0].id, f2.prov, f2.by)!.role).toBe('observer');
+  });
+  it('guides depend on difficulty: full on easy, limited on normal, none on hard', () => {
+    expect(guideLevel(fresh('Germany', { difficulty: 'easy' }))).toBe('full');
+    expect(guideLevel(fresh('Germany', { difficulty: 'normal' }))).toBe('limited');
+    expect(guideLevel(fresh('Germany', { difficulty: 'hard' }))).toBe('none');
+  });
+  it('the country check-up flags real problems and offers fixes', () => {
+    const s = fresh('Poland');
+    const c = s.countries[id('Poland')];
+    c.eco.stability = 25; c.eco.energyCap = c.eco.energyDemand * 0.5;
+    const checks = countryChecks(s, c, geo);
+    const stab = checks.find((x) => /Stability/.test(x.title))!;
+    expect(stab.status).toBe('bad');
+    expect(stab.fix).toBeDefined();
+    expect(checks.find((x) => /Energy/.test(x.title))!.status).toBe('bad');
+    expect(topPriority(checks)!.status).toBe('bad');
+    const r = stab.fix!.run!(s, geo);
+    expect(r.ok).toBe(true);
+  });
+  it('every objective has a how-to tip, and new objectives are never already complete', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('Germany')];
+    for (const g of GOALS2) expect(goalHelp(g.id, s, c, geo).how.length, g.id).toBeGreaterThan(10);
+    expect(GOALS2.length).toBeGreaterThanOrEqual(40);
+    for (const g of activeGoals2(s)) expect(g.progress(s, c).value).toBeLessThan(0.9);
+  });
+});

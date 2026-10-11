@@ -87,6 +87,22 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('declaring war takes effect immediately', (await S(pg)).wars >= 1);
   await pg.click('button[aria-label="Very fast"]'); await sleep(2500); await answerEvent(pg); await sleep(500);
   check('simulation keeps running after the player declares war', (await S(pg)).tick > s1.tick + 5);
+  // battles: zoom onto the front, click a battle marker, the report opens
+  await pg.click('button[aria-label="Pause"]');
+  await pg.evaluate(() => { const s = window.__store.state; const R = window.__renderer; const b = R.geom.focusBox(s, s.player); R.focusBox([b[0], b[1], b[2] + 12, b[3]], 0, 440, false); });
+  await sleep(900);
+  const hits = await pg.evaluate(() => window.__renderer.battleHits);
+  if (hits.length) {
+    const mapBox = await pg.locator('.map-wrap').boundingBox();
+    await pg.mouse.click(mapBox.x + hits[0].x, mapBox.y + hits[0].y);
+    await sleep(300);
+  }
+  check('clicking a battle opens the battle report', hits.length > 0 && (await pg.locator('.battle-card').count()) === 1, `(${hits.length} battles)`);
+  if (await pg.locator('.battle-card .x').count()) await pg.click('.battle-card .x');
+  // goals tab
+  await pg.evaluate(() => window.__store.select(window.__store.state.player, null, false));
+  await pg.click('.tabs button:has-text("Goals")');
+  check('the Goals tab shows objectives and the country check-up', (await pg.locator('.goal-card').count()) >= 1 && (await pg.locator('.check-row').count()) >= 5);
   await pg.click('button[aria-label="Pause"]');
   // save / load
   await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Save game")');

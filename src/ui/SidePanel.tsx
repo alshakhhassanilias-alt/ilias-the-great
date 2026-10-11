@@ -1,6 +1,7 @@
 import { nationalColor } from '../map/palette';
-import { store, useStore, type Tab } from '../state/store';
+import { store, useStoreThrottled, type Tab } from '../state/store';
 import { OverviewTab } from './tabs/OverviewTab';
+import { GoalsTab } from './tabs/GoalsTab';
 import { EconomyTab } from './tabs/EconomyTab';
 import { MilitaryTab } from './tabs/MilitaryTab';
 import { DiplomacyTab } from './tabs/DiplomacyTab';
@@ -8,11 +9,11 @@ import { GOV, REGION, relLabel } from './format';
 import { getRelation, isAtWar } from '../sim/relations';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' }, { id: 'economy', label: 'Economy' }, { id: 'military', label: 'Military' }, { id: 'diplomacy', label: 'Diplomacy' },
+  { id: 'overview', label: 'Overview' }, { id: 'goals', label: 'Goals' }, { id: 'economy', label: 'Economy' }, { id: 'military', label: 'Military' }, { id: 'diplomacy', label: 'Diplomacy' },
 ];
 
 export function SidePanel() {
-  useStore();
+  useStoreThrottled(450);
   const s = store.state!;
   const id = store.selected;
   const c = id !== null ? s.countries[id] : null;
@@ -42,12 +43,13 @@ export function SidePanel() {
             {c.id !== s.player && <button className="iconbtn" title="Back to your country" aria-label="Back to your country" onClick={() => store.select(s.player, null, true)}>⌂</button>}
           </div>
           <nav className="tabs" role="tablist">
-            {TABS.map((t) => (
+            {TABS.filter((t) => t.id !== 'goals' || c.id === s.player).map((t) => (
               <button key={t.id} role="tab" aria-selected={store.tab === t.id} className={store.tab === t.id ? 'on' : ''} onClick={() => { store.setTab(t.id); if (store.sheet === 'peek') store.setSheet('half'); }}>{t.label}</button>
             ))}
           </nav>
           <div className="side-body" key={`${c.id}-${store.tab}`}>
-            {store.tab === 'overview' && <OverviewTab id={c.id} />}
+            {(store.tab === 'overview' || (store.tab === 'goals' && c.id !== s.player)) && <OverviewTab id={c.id} />}
+            {store.tab === 'goals' && c.id === s.player && <GoalsTab />}
             {store.tab === 'economy' && <EconomyTab id={c.id} />}
             {store.tab === 'military' && <MilitaryTab id={c.id} />}
             {store.tab === 'diplomacy' && <DiplomacyTab id={c.id} />}

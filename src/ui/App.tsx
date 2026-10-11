@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { store, useStore } from '../state/store';
+import { store, useStoreSelect } from '../state/store';
 import { MapView } from '../map/MapView';
 import { TopBar } from './TopBar';
 import { TimeControls } from './TimeControls';
@@ -7,6 +7,7 @@ import { SidePanel } from './SidePanel';
 import { Drawers } from './Drawers';
 import { BreakingBanner, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
+import { BattleCard } from './BattleCard';
 
 const insetBottom = () => {
   if (window.innerWidth >= 900) return 0;
@@ -16,7 +17,8 @@ const insetBottom = () => {
 const insetRight = () => (window.innerWidth >= 900 ? 440 : 0);
 
 export function App() {
-  useStore();
+  // only the screen layout lives here; every panel subscribes to the state it shows
+  useStoreSelect(() => `${store.state ? 1 : 0}|${store.preview}|${store.sheet}`);
   useEffect(() => { if (!store.state) store.startPreview(); }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,6 +47,7 @@ export function App() {
           <Offers />
           <RippleCard />
           <InboxTray />
+          <BattleCard />
           <BreakingBanner />
           <YearReview />
         </div>

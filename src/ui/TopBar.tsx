@@ -1,9 +1,9 @@
-import { store, useStore } from '../state/store';
+import { store, useStoreThrottled } from '../state/store';
 import { fmtMoney, pct, signedPct } from './format';
 import { fiscalNow } from '../sim/economy';
 
 export function TopBar() {
-  useStore();
+  useStoreThrottled(300);
   const s = store.state!;
   const c = s.countries[s.player];
   const e = c.eco;

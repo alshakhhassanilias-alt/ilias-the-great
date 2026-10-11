@@ -90,7 +90,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .side-head h2 { margin: 0; font-size: 20px; line-height: 1.15; letter-spacing: 0.01em; }
 .side-head .sub { color: var(--muted); font-size: 12px; margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); padding: 0 6px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
-.tabs button { background: none; border: none; padding: 11px 13px; color: var(--muted); font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; letter-spacing: 0.02em; }
+.tabs button { background: none; border: none; padding: 11px 10px; color: var(--muted); font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; letter-spacing: 0.02em; }
 .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
 .tabs button:hover:not(.on) { color: var(--text); }
 .side-body { overflow-y: auto; padding: 12px 16px 28px; flex: 1; min-height: 0; -webkit-overflow-scrolling: touch; }
@@ -362,3 +362,51 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .doc-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
 .doc-detail { font-size: 12.5px; margin-top: 8px; line-height: 1.5; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* vignette in CSS: free compared with painting a gradient every frame */
+.map-wrap::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.42) 100%); }
+
+/* ---- battle report card ---- */
+.battle-card { position: absolute; right: 12px; top: 56px; z-index: 32; width: min(340px, calc(100% - 24px)); max-height: calc(100% - 140px); overflow: auto; background: #0b1726; border: 1px solid #c8553f; border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); animation: slidein .2s ease; }
+.battle-card h3 { margin: 2px 0 8px; font-size: 17px; }
+.battle-card .x { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--muted); font-size: 18px; }
+.bc-kicker { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #ff8a6a; font-weight: 700; }
+.bc-sides { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+.bc-sides > div { display: flex; flex-direction: column; font-size: 13px; }
+.bc-sides > div:last-child { text-align: right; align-items: flex-end; }
+.bc-sides i { display: block; width: 26px; height: 6px; border-radius: 3px; margin-bottom: 3px; }
+.bc-sides small { color: var(--muted); font-size: 11px; }
+.bc-sides .vs { color: var(--muted); font-size: 12px; font-style: italic; }
+.bc-forces { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+.bc-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 3px 0; }
+.bc-mods { margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 6px; }
+.bc-mods b.atk { color: #ff9a7a; } .bc-mods b.def { color: #8fc8ff; }
+.battle-card .btnrow { margin-top: 10px; }
+@media (max-width: 900px) { .battle-card { top: auto; bottom: calc(var(--map-bottom, 0px) + 54px); right: 8px; left: 8px; width: auto; max-height: 50vh; } }
+
+/* ---- goals tab ---- */
+.guide-level { margin: 10px 0 2px; padding: 8px 12px; border-radius: 9px; font-size: 12.5px; line-height: 1.4; border: 1px solid var(--line); background: var(--panel-2); }
+.guide-level.full { border-color: rgba(60,190,130,.5); }
+.guide-level.limited { border-color: rgba(242,184,75,.5); }
+.guide-level.none { border-color: rgba(224,84,84,.5); }
+.goal-cards { display: grid; gap: 8px; }
+.goal-card { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 12px; }
+.gc-top { display: flex; justify-content: space-between; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+.gc-pct { color: var(--muted); letter-spacing: 0; }
+.gc-title { display: block; font-size: 14.5px; margin: 2px 0; }
+.gc-desc { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.gc-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.gc-how { font-size: 12px; margin-top: 6px; line-height: 1.4; color: #d9cfae; }
+.card.top-priority { border-color: rgba(242,184,75,.6); margin-bottom: 8px; }
+.card.checks { margin-bottom: 8px; }
+.check-row { display: flex; gap: 10px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+.check-row:first-of-type { border-top: none; }
+.check-row .faint { font-size: 11.5px; line-height: 1.35; margin-top: 1px; }
+.ck-dot { width: 14px; text-align: center; font-size: 11px; }
+.check-row.good .ck-dot { color: var(--green); } .check-row.warn .ck-dot { color: var(--amber); } .check-row.bad .ck-dot { color: var(--red); }
+.goals-peek { width: 100%; text-align: left; color: var(--text); cursor: pointer; }
+@media (max-width: 900px) {
+  .battle-card { font-size: 12.5px; padding: 10px 12px; max-height: calc(100vh - var(--map-bottom, 0px) - 190px); }
+  .battle-card h3 { font-size: 15px; margin-bottom: 6px; }
+  .bc-row, .battle-card .why-row { font-size: 12px; padding: 2px 0; }
+  .battle-card .btn small { display: none; }
+}

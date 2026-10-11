@@ -88,6 +88,32 @@ export const GOALS: Goal[] = [
     progress: (s, c) => { const n = s.owner.filter((o, p) => o === c.id && s.core[p] !== c.id).length; return { value: n > 0 ? 1 : 0, text: `${n} regions held` }; }, pay: (c) => { c.eco.cash += 0.01 * c.eco.gdp; c.mil.exhaustion = Math.max(0, c.mil.exhaustion - 0.1); } },
   { id: 'spymaster', theme: 'military', title: 'Spymaster', desc: 'Raise your intelligence rating to 70%.', reward: `Reward: ${R(0.004)}`, when: (_s, c) => c.mil.intel < 0.7,
     progress: (_s, c) => ({ value: clamp(c.mil.intel / 0.7, 0, 1), text: `${(c.mil.intel * 100).toFixed(0)}% / 70%` }), pay: cash(0.004) },
+  // ------------------------------------------------ newer systems
+  { id: 'megaproject', theme: 'economy', title: 'A monument to the nation', desc: 'Complete any megaproject (Economy tab).', reward: `Reward: ${R(0.006)} · stability +3`,
+    progress: (s, c) => { if (Object.keys(s.stats).some((k) => k.startsWith(`proj:${c.id}:`))) return { value: 1, text: 'built' }; const r = s.projects.filter((x) => x.owner === c.id).map((x) => x.done / x.weeks); const v = r.length ? Math.max(...r) : 0; return { value: Math.min(0.99, v), text: r.length ? `${Math.round(v * 100)}% built` : 'none started' }; },
+    pay: (c) => { c.eco.cash += 0.006 * c.eco.gdp; c.eco.stability = clamp(c.eco.stability + 3, 0, 100); } },
+  { id: 'doctrine', theme: 'politics', title: 'A clear direction', desc: 'Adopt a national doctrine (Overview tab).', reward: `Reward: stability +2 · reputation +2`, when: (_s, c) => !c.doctrine,
+    progress: (_s, c) => ({ value: c.doctrine ? 1 : 0, text: c.doctrine ? 'adopted' : 'none yet' }), pay: (c) => { c.eco.stability = clamp(c.eco.stability + 2, 0, 100); c.reputation = clamp(c.reputation + 2, 0, 100); } },
+  { id: 'outgrow', theme: 'economy', title: 'Overtake your rival', desc: 'Grow your economy past your rival\'s.', reward: `Reward: ${R(0.012)} · reputation +4`, when: (s, c) => s.rival >= 0 && s.countries[s.rival]?.alive && s.countries[s.rival].eco.gdp > c.eco.gdp && s.countries[s.rival].eco.gdp < c.eco.gdp * 2.5,
+    progress: (s, c) => { const r = s.countries[s.rival]; const v = r?.alive ? c.eco.gdp / r.eco.gdp : 1; return { value: clamp(v, 0, 1), text: r?.alive ? `${Math.round(v * 100)}% of ${r.name}` : 'rival gone' }; }, pay: (c) => { c.eco.cash += 0.012 * c.eco.gdp; c.reputation = clamp(c.reputation + 4, 0, 100); } },
+  { id: 'reserves', theme: 'economy', title: 'A war chest', desc: 'Hold cash reserves worth 3% of GDP.', reward: `Reward: stability +2`, when: (_s, c) => c.eco.cash < 0.02 * c.eco.gdp,
+    progress: (_s, c) => ({ value: clamp(c.eco.cash / (0.03 * c.eco.gdp), 0, 1), text: `${((c.eco.cash / c.eco.gdp) * 100).toFixed(1)}% / 3%` }), pay: (c) => { c.eco.stability = clamp(c.eco.stability + 2, 0, 100); } },
+  { id: 'inflation', theme: 'economy', title: 'Tame inflation', desc: 'Bring inflation below 3%.', reward: `Reward: ${R(0.004)} · stability +2`, when: (_s, c) => c.eco.inflation > 0.04,
+    progress: (_s, c) => ({ value: clamp(1 - (c.eco.inflation - 0.03) / 0.07, 0, 1), text: `${(c.eco.inflation * 100).toFixed(1)}% (goal 3%)` }), pay: (c) => { c.eco.cash += 0.004 * c.eco.gdp; c.eco.stability = clamp(c.eco.stability + 2, 0, 100); } },
+  { id: 'prosperity', theme: 'economy', title: 'Richer citizens', desc: 'Raise GDP per person by 10%.', reward: `Reward: stability +3 · ${R(0.006)}`,
+    progress: (s, c) => { const b = stat(s, 'pc0') || (s.stats.pc0 = c.eco.gdp / c.eco.pop); const v = c.eco.gdp / c.eco.pop / b; return { value: clamp((v - 1) / 0.1, 0, 1), text: `+${Math.max(0, (v - 1) * 100).toFixed(1)}% / 10%` }; }, pay: (c) => { c.eco.stability = clamp(c.eco.stability + 3, 0, 100); c.eco.cash += 0.006 * c.eco.gdp; } },
+  { id: 'weather', theme: 'economy', title: 'Weather the storm', desc: 'Keep growing during a world crisis.', reward: `Reward: ${R(0.01)} · reputation +3`, when: (s) => !!s.crisis && s.crisis.id !== 'boom',
+    progress: (s, c) => ({ value: !s.crisis ? (c.eco.growth > 0 ? 1 : 0) : c.eco.growth > 0 ? clamp((s.tick - s.crisis.start) / Math.max(1, s.crisis.end - s.crisis.start), 0, 1) : 0, text: c.eco.growth > 0 ? `growing ${(c.eco.growth * 100).toFixed(1)}%` : 'shrinking' }), pay: (c) => { c.eco.cash += 0.01 * c.eco.gdp; c.reputation = clamp(c.reputation + 3, 0, 100); } },
+  { id: 'mandate', theme: 'politics', title: 'A strong mandate', desc: 'Push public approval above 60%.', reward: `Reward: stability +3`, when: (_s, c) => c.gov === 'D' || c.gov === 'F',
+    progress: (_s, c) => { const a = clamp(50 + 0.45 * (c.eco.stability - 50) + 500 * (c.eco.growth - 0.02) - 250 * Math.max(0, c.eco.inflation - 0.04), 5, 95); return { value: clamp((a - 40) / 20, 0, 1), text: `${a.toFixed(0)}% / 60%` }; }, pay: (c) => { c.eco.stability = clamp(c.eco.stability + 3, 0, 100); } },
+  { id: 'detente', theme: 'politics', title: 'Détente', desc: 'Sign a non-aggression pact with your rival.', reward: `Reward: reputation +5 · stability +2`, when: (s, c) => s.rival >= 0 && !!s.countries[s.rival]?.alive && !areAtWar(s, c.id, s.rival),
+    progress: (s, c) => { const t = s.treaties[c.id < s.rival ? `${c.id}-${s.rival}` : `${s.rival}-${c.id}`]; return { value: t?.nap ? 1 : clamp((getRelation(s, c.id, s.rival) + 50) / 100, 0, 0.9), text: t?.nap ? 'signed' : `relations ${getRelation(s, c.id, s.rival).toFixed(0)}` }; }, pay: (c) => { c.reputation = clamp(c.reputation + 5, 0, 100); c.eco.stability = clamp(c.eco.stability + 2, 0, 100); } },
+  { id: 'offensive', theme: 'military', title: 'Break through', desc: 'Hold three captured regions at once.', reward: `Reward: readiness +5% · war exhaustion −5%`, when: (s, c) => isAtWar(s, c.id),
+    progress: (s, c) => { const n = s.owner.filter((o, p) => o === c.id && s.core[p] !== c.id).length; return { value: bar(n, 3), text: `${n} / 3 regions` }; }, pay: (c) => { c.mil.readiness = clamp(c.mil.readiness + 0.05, 0, 1); c.mil.exhaustion = clamp(c.mil.exhaustion - 0.05, 0, 1); } },
+  { id: 'victory', theme: 'military', title: 'Dictate the peace', desc: 'End a war with territory ceded to you.', reward: `Reward: ${R(0.012)} · reputation −2`, when: (s, c) => isAtWar(s, c.id),
+    progress: (s) => ({ value: stat(s, 'warWins') > 0 ? 1 : 0, text: `${stat(s, 'warWins')} won` }), pay: (c) => { c.eco.cash += 0.012 * c.eco.gdp; c.reputation = clamp(c.reputation - 2, 0, 100); } },
+  { id: 'navy', theme: 'military', title: 'Blue-water navy', desc: 'Grow your navy by half.', reward: `Reward: ${R(0.004)}`, when: (_s, c) => c.mil.equipNavy > 0,
+    progress: (s, c) => { const b = stat(s, 'navy0') || (s.stats.navy0 = Math.max(1, c.mil.equipNavy)); return { value: clamp((c.mil.equipNavy / b - 1) / 0.5, 0, 1), text: `+${Math.max(0, (c.mil.equipNavy / b - 1) * 100).toFixed(0)}% / 50%` }; }, pay: cash(0.004) },
 ];
 
 function relevant(g: Goal, s: GameState, c: Country) { return !g.when || g.when(s, c); }
@@ -102,7 +128,8 @@ function refill(s: GameState, c: Country) {
   s.goalsActive = s.goalsActive.filter((id) => s.goalsDone[id] === undefined);
   while (s.goalsActive.length < 3) {
     const have = new Set(s.goalsActive.map((id) => GOALS.find((g) => g.id === id)!.theme));
-    const pool = GOALS.filter((g) => s.goalsDone[g.id] === undefined && !s.goalsActive.includes(g.id) && relevant(g, s, c));
+    // never hand out a goal that is already (almost) achieved: it would complete instantly and mean nothing
+    const pool = GOALS.filter((g) => s.goalsDone[g.id] === undefined && !s.goalsActive.includes(g.id) && relevant(g, s, c) && g.progress(s, c).value < 0.9);
     if (!pool.length) break;
     pool.sort((a, b) => (have.has(a.theme) ? 1 : 0) - (have.has(b.theme) ? 1 : 0) || hash01('goal', a.id, c.id, s.goalsActive.length) - hash01('goal', b.id, c.id, s.goalsActive.length));
     s.goalsActive.push(pool[0].id);

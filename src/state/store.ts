@@ -2,7 +2,7 @@
  * Game store: owns the GameState, the simulation clock (pause / speeds), selection, notifications and saves.
  * The simulation itself is plain TypeScript (src/sim); React only reads from here.
  */
-import { useSyncExternalStore } from 'react';
+import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { loadGeo } from '../sim/load';
 import { createGame } from '../sim/init';
 import { tick as simTick } from '../sim/tick';
@@ -14,7 +14,7 @@ import { eventById } from '../sim/events';
 import { sfx, setSound, audio } from '../audio';
 import type { ActionResult } from '../sim/actions';
 
-export type Tab = 'overview' | 'economy' | 'military' | 'diplomacy';
+export type Tab = 'overview' | 'goals' | 'economy' | 'military' | 'diplomacy';
 export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
 /** Ticks (weeks) per real second. Deliberately gentle: a year takes ~1m45s at Slow, 52s at Normal. */
 export const SPEEDS = [
@@ -51,6 +51,9 @@ class Store {
   pauseOnDecision = false;
   autoSlow = true;
   reviewSeen = 0;
+  /** the battle whose report card is open */
+  battle: { war: number; prov: number; by: number } | null = null;
+  openBattle(b: { war: number; prov: number; by: number } | null) { this.battle = b; this.notify(); }
   breaking: { seq: number; text: string; kind: LogEntry['kind']; prov?: number } | null = null;
   pingSeq = 0; pingProv = -1; pingColor = '#ffd36a';
   get sound() { return audio.enabled; }
@@ -71,13 +74,16 @@ class Store {
 
   subscribe = (fn: () => void) => { this.listeners.add(fn); return () => this.listeners.delete(fn); };
   getVersion = () => this.version;
-  notify(force = true) {
+  /** true when the latest notification came from the player (click, key), false when it came from the clock */
+  lastUser = true;
+  notify(force = true, user = force) {
     const now = performance.now();
     if (!force && now - this.lastNotify < 90) {
       // throttled: make sure the latest state still gets rendered shortly afterwards
-      if (!this.notifyTimer) this.notifyTimer = window.setTimeout(() => { this.notifyTimer = 0; this.notify(true); }, 100);
+      if (!this.notifyTimer) this.notifyTimer = window.setTimeout(() => { this.notifyTimer = 0; this.notify(true, false); }, 100);
       return;
     }
+    this.lastUser = user;
     this.lastNotify = now;
     this.version++;
     this.listeners.forEach((l) => l());
@@ -224,9 +230,10 @@ class Store {
     return e.countries.some((c) => this.nearCache!.set.has(c));
   }
   toast(text: string, kind: LogEntry['kind'] = 'info') {
+    if (this.toasts.some((x) => x.text === text)) return; // no duplicates
     const t = { id: this.toastId++, text, kind };
-    this.toasts = [...this.toasts.slice(-3), t];
-    setTimeout(() => { this.toasts = this.toasts.filter((x) => x.id !== t.id); this.notify(); }, 7000);
+    this.toasts = [...this.toasts.slice(-2), t]; // at most three on screen
+    setTimeout(() => { this.toasts = this.toasts.filter((x) => x.id !== t.id); this.notify(); }, 5500);
   }
   dismissToast(id: number) { this.toasts = this.toasts.filter((x) => x.id !== id); this.notify(); }
 
@@ -306,6 +313,28 @@ export const store = new Store();
 (globalThis as unknown as { __store?: Store }).__store = store;
 export function useStore() {
   useSyncExternalStore(store.subscribe, store.getVersion);
+  return store;
+}
+/** Re-render only when the selected (primitive) value changes. */
+export function useStoreSelect<T extends string | number | boolean | null>(sel: () => T): T {
+  return useSyncExternalStore(store.subscribe, sel);
+}
+/**
+ * For heavy panels: re-render immediately after player actions, but at most every `ms` while the clock runs,
+ * so a busy simulation never makes the interface stutter.
+ */
+export function useStoreThrottled(ms: number) {
+  const [, force] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    let last = 0, timer = 0;
+    const fn = () => {
+      const now = performance.now();
+      if (store.lastUser || now - last >= ms) { last = now; if (timer) { clearTimeout(timer); timer = 0; } force(); }
+      else if (!timer) timer = window.setTimeout(() => { timer = 0; last = performance.now(); force(); }, ms - (now - last));
+    };
+    const un = store.subscribe(fn);
+    return () => { un(); if (timer) clearTimeout(timer); };
+  }, [ms]);
   return store;
 }
 export const defaultSettings = (): Settings => ({ ...DEFAULT_SETTINGS });

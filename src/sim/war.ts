@@ -283,6 +283,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
   }
   const tp = termProvinces(s, geo, a, b, t);
   if (tp) for (const p of tp.provs) if (s.owner[p] === tp.from) transferProvince(s, geo, p, tp.to);
+  if (tp && tp.provs.length && tp.to === s.player) s.stats.warWins = (s.stats.warWins ?? 0) + 1;
   const lbl = ({ status_quo: 'ceasefire on current lines', restore: 'a return to pre-war borders', demand: 'territorial concessions', concede: 'concessions by the sender', surrender: 'total surrender' } as const)[t.kind];
   logEvent(s, `${A.name} and ${B.name} signed peace (${lbl}).`, 'peace', [a, b], a === s.player || b === s.player);
   w.attackers = w.attackers.filter((x) => x !== a && x !== b);

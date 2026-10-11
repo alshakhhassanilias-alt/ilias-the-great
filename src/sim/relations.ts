@@ -125,10 +125,14 @@ const treatyIdx = new WeakMap<GameState, TreatyIndex & { dirty: boolean }>();
 const treatyVer = new WeakMap<GameState, number>();
 export const treatyVersion = (s: GameState) => treatyVer.get(s) ?? 0;
 export function touchTreaties(s: GameState) { treatyVer.set(s, treatyVersion(s) + 1); const i = treatyIdx.get(s); if (i) i.dirty = true; }
+/** While the weekly tick runs, AI queries may use the index as it was at the start of the week (rebuilt once per tick). */
+let inTick = false;
+export const setInTick = (v: boolean) => { inTick = v; };
+export const isInTick = () => inTick;
 function index(s: GameState): TreatyIndex {
   let i = treatyIdx.get(s);
   const n = s.countries.length;
-  if (!i || i.dirty || i.tick !== s.tick) {
+  if (!i || i.tick !== s.tick || (i.dirty && !inTick)) {
     i = { tick: s.tick, n, dirty: false, ally: Array.from({ length: n }, () => []), trade: Array.from({ length: n }, () => []), nap: Array.from({ length: n }, () => []), coop: Array.from({ length: n }, () => []) };
     for (const k in s.treaties) {
       const t = s.treaties[k];

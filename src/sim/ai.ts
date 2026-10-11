@@ -65,7 +65,8 @@ function threatLevel(s: GameState, geo: Geo, c: Country): number {
   // hostile alliance blocs worry everyone they are hostile to, even far away
   for (const b of computeBlocs(s, true).blocs.slice(0, 4)) {
     if (b.members.includes(c.id)) continue;
-    const avg = b.members.reduce((t, m) => t + getRelation(s, c.id, m), 0) / b.members.length;
+    const sample = b.members.length > 8 ? [b.leader, ...b.members.filter((m) => m !== b.leader).slice(0, 7)] : b.members; // a sample is enough to judge a bloc
+    const avg = sample.reduce((t, m) => t + getRelation(s, c.id, m), 0) / sample.length;
     if (avg < -25) th += Math.min(0.5, (b.strength / mine) * 0.15);
   }
   return clamp(th, 0, 1.5);

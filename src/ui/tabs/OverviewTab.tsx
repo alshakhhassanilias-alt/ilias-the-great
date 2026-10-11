@@ -11,7 +11,7 @@ import { activeGoals, GOALS } from '../../sim/goals';
 import { popGrowthRate } from '../../sim/economy';
 import { traitById, grudgesOf } from '../../sim/leaders';
 import { dateLabel } from '../../sim/tick';
-import { ProjectsMini } from './Projects';
+import { guideLevel } from '../guides';
 import { SituationSection } from './Situation';
 import { DoctrinesSection } from './Doctrines';
 import { ProvincePanel } from './ProvincePanel';
@@ -35,7 +35,8 @@ export function OverviewTab({ id }: { id: number }) {
   const rl = relLabel(rel);
   const gdp = fog(s, c, e.gdp, 'gdp');
   const alerts = mine ? alertsFor(c, s) : [];
-  const advice = mine ? advisor(c, s, geo) : [];
+  const gl = guideLevel(s);
+  const advice = mine && gl !== 'none' ? advisor(c, s, geo).slice(0, gl === 'full' ? 4 : 1) : [];
   const brief = mine ? briefing(s, c) : null;
   const pr = store.selectedProv;
   const wars = warsOf(s, id);
@@ -101,18 +102,11 @@ export function OverviewTab({ id }: { id: number }) {
 
       {pr !== null && <ProvincePanel p={pr} />}
 
-      {mine && (
-        <Section title="Objectives" hint={`${Object.keys(s.goalsDone).length}/${GOALS.length} done`}>
-          <div className="card" style={{ padding: '4px 12px' }}>
-            {goals.map((g) => { const p = g.progress(s, c); return (
-              <div className="goal" key={g.id}>
-                <b><span className="faint" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', marginRight: 6 }}>{g.theme}</span>{g.title}</b><div className="hint">{g.desc}</div>
-                <Meter value={p.value} color="var(--accent)" />
-                <div className="meta"><span>{p.text}</span><span>{g.reward}</span></div>
-              </div>); })}
-            <ProjectsMini />
-            {goals.length === 0 && <div className="goal"><b>All objectives complete.</b><div className="hint">Set your own goals — or conquer the world.</div></div>}
-          </div>
+      {mine && goals.length > 0 && (
+        <Section title="Objectives" hint="details in the Goals tab">
+          <button className="card goals-peek" onClick={() => store.setTab('goals')}>
+            {goals.map((g) => { const p = g.progress(s, c); return <div className="why-row" key={g.id}><span>{g.title}</span><b>{Math.round(p.value * 100)}%</b></div>; })}
+          </button>
         </Section>
       )}
 

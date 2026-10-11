@@ -36,7 +36,9 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     (window as unknown as { __renderer?: MapRenderer }).__renderer = r;
     const resize = () => {
       const rect = wrap.getBoundingClientRect();
-      r.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, 2));
+      // phones: cap the backing resolution at 1.5x (sharp enough, far cheaper to paint)
+      const cap = window.matchMedia?.('(pointer: coarse)').matches ? 1.5 : 2;
+      r.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, cap));
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -62,6 +64,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     r.plain = store.preview;
     r.selected = store.selected;
     r.selectedProv = store.selectedProv;
+    r.running = store.speed > 0 && !store.preview;
     r.dirty = true;
   }
   const lastPing = useRef(store.pingSeq);
@@ -132,6 +135,8 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     const hover = (x: number, y: number) => {
       const rr = rendRef.current!;
       const st = store.state;
+      const bh = rr.hitBattle(x, y);
+      if (bh && st) { rr.hoverOwner = -1; rr.dirty = true; setTip({ x, y, text: `Battle of ${store.geo.provinces[bh.prov].name}`, sub: 'Click for the battle report' }); return; }
       const pr = pick(x, y);
       if (pr === null || !st) { rr.hoverOwner = -1; setTip(null); rr.dirty = true; return; }
       const o = st.owner[pr];
@@ -142,6 +147,9 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       setTip({ x, y, text: shortName(C.name), sub });
     };
     const click = (x: number, y: number) => {
+      // battle markers take priority: open the battle report
+      const bh = !onPick ? rendRef.current?.hitBattle(x, y) : null;
+      if (bh) { store.openBattle({ war: bh.war, prov: bh.prov, by: bh.by }); return; }
       const pr = pick(x, y);
       const st = store.state;
       if (pr === null || !st) { if (!onPick) store.select(null); return; }

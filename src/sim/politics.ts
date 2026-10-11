@@ -9,6 +9,7 @@ import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp } from './util';
 import { logEvent } from './log';
+import { isInTick as inTickNow } from './relations';
 import {
   addRelation, alliesOf, areAtWar, getRelation, isAtWar, sanctionLevel, warBetween, warsOf, areAtWar as atWar, touchTreaties, treatyVersion,
 } from './relations';
@@ -23,7 +24,7 @@ export interface Bloc { id: number; name: string; members: CountryId[]; gdp: num
 let blocCache: { st: GameState; tick: number; n: number; blocs: Bloc[]; map: Map<number, number> } | null = null;
 export function computeBlocs(s: GameState, sameTickOk = false): { blocs: Bloc[]; of: Map<number, number> } {
   const n = treatyVersion(s);
-  if (blocCache && blocCache.st === s && blocCache.tick === s.tick && (sameTickOk || blocCache.n === n)) return { blocs: blocCache.blocs, of: blocCache.map };
+  if (blocCache && blocCache.st === s && blocCache.tick === s.tick && (sameTickOk || inTickNow() || blocCache.n === n)) return { blocs: blocCache.blocs, of: blocCache.map };
   const adj = new Map<number, number[]>();
   for (const [k, t] of Object.entries(s.treaties)) {
     if (!t.alliance) continue;

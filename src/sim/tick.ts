@@ -1,3 +1,4 @@
+import { setInTick } from './relations';
 import type { Geo } from './geo';
 import { stepEconomies } from './economy';
 import { stepWars, forcePeaceAll, logEvent } from './war';
@@ -63,6 +64,10 @@ function checkVictory(s: GameState, geo: Geo) {
 
 /** Advance the world by one week. Deterministic given (state, rng). */
 export function tick(s: GameState, geo: Geo) {
+  setInTick(true);
+  try { tickInner(s, geo); } finally { setInTick(false); }
+}
+function tickInner(s: GameState, geo: Geo) {
   s.tick++;
   stepEconomies(s, geo);
   stepWars(s, geo);
