@@ -16,6 +16,8 @@ const STEPS: { title: string; body: string[] }[] = [
   { title: 'War and the military', body: [
     'Armies fight region by region. Strength depends on troops, equipment quality, technology, readiness, supply distance, terrain, air and naval power, and fortifications. Build fortresses, airbases, ports, factories and barracks in your regions (click a region).',
     'Watch the front move: contested regions fall cell by cell in the attacker\'s colour, the red line shows where the fighting is, and army counters show divisions and their strength. Click a ⚔ marker for the battle report (odds, terrain, forts, air power, losses) and actions such as air strikes or digging in.',
+    'Supply lines: armies are fed from your capital, big cities, 📦 supply hubs and open ports. The deeper you push, the weaker the attack, so build a supply hub near the front. Cut an enemy region off from every hub and it is ENCIRCLED: its defenders fight at half strength.',
+    'War support (top bar while at war): victories and defending your homeland raise it; casualties and a long war wear it down. Low support lowers morale and stability. Use propaganda, war bonds or censorship in the Military tab.',
     'Peace talks offer ceasefires, territory or concessions. If an ally is attacked you will be asked whether to honour the alliance. Rivals may send an ultimatum before attacking.' ] },
   { title: 'Things to do', body: [
     'The Goals tab holds your objectives and a check-up of your country. How much help you get depends on difficulty: full guides with one-tap fixes on Easy, a few hints on Normal, none on Hard. Decisions wait in a small inbox on the map and never stop the clock; open one when you are ready. The news ticker (bottom) shows what the rest of the world is doing.',

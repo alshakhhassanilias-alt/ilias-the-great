@@ -165,6 +165,8 @@ export class MapRenderer {
   private landPath = new Path2D();
   private terrainCache = document.createElement('canvas');
   private terrainKey = '';
+  /** terrain cache placement: zoom, translation (CSS px) and size (CSS px) */
+  private tcK = 0; private tcX = 0; private tcY = 0; private tcW = 0; private tcH = 0;
   private terrainMips: (HTMLCanvasElement | HTMLImageElement)[] = [];
   private baseSel: number | null = -2;
   private baseMode = '';
@@ -176,8 +178,17 @@ export class MapRenderer {
   private battlefield: Battlefield;
 
   /** `base` is the visible map canvas (moved with a CSS transform while the view changes); `overlay` sits on top. */
-  constructor(base: HTMLCanvasElement, private overlay: HTMLCanvasElement, public geom: MapGeometry, private getState: () => GameState | null) {
+  /** labels live on their own canvas so a conquest (which repaints colours and borders) does not have to redraw every name */
+  private labels: HTMLCanvasElement | null;
+  private lctx: CanvasRenderingContext2D | null = null;
+  private labelView: View = { k: 1, x: 0, y: 0 };
+  private labelsStale = false;
+  private lastLabels = 0;
+  private labelTransform = '';
+  constructor(base: HTMLCanvasElement, private overlay: HTMLCanvasElement, public geom: MapGeometry, private getState: () => GameState | null, labels: HTMLCanvasElement | null = null) {
     this.base = base;
+    this.labels = labels;
+    this.lctx = labels?.getContext('2d') ?? null;
     this.bctx = base.getContext('2d', { alpha: false })!;
     this.ctx = this.bctx;
     this.octx = overlay.getContext('2d')!;
@@ -232,6 +243,10 @@ export class MapRenderer {
     this.base.height = Math.round((h + 2 * this.margin) * dpr);
     this.base.style.width = `${w + 2 * this.margin}px`;
     this.base.style.height = `${h + 2 * this.margin}px`;
+    if (this.labels) {
+      this.labels.width = this.base.width; this.labels.height = this.base.height;
+      this.labels.style.width = this.base.style.width; this.labels.style.height = this.base.style.height;
+    }
     const [x0, y0, x1, y1] = this.geom.bounds;
     this.fitK = Math.min(w / (x1 - x0 + 20), h / (y1 - y0 + 20));
     this.minK = this.fitK * 0.85;
@@ -414,16 +429,30 @@ export class MapRenderer {
     const idle = t0 - this.lastViewChange > 130;
     const moved = Math.abs(f - 1) > 0.001 || Math.abs(ox + this.margin) > 0.5 || Math.abs(oy + this.margin) > 0.5;
     const farScale = f < 0.7 || f > 1.45;
-    let render = false;
+    let render = false, ownersOnly = false;
+    // while dragging, an uncovered edge is refilled at most ~8 times a second (a thin dark strip for a moment beats a stutter)
+    const refill = !covered && (idle || t0 - this.lastBase > 120);
+    if (!covered && !refill) this.dirty = true;
     if (!this.baseValid || this.baseSel !== this.selected || this.baseMode !== this.mode) render = true;
     else if (this.baseHardDirty) {
       // territory changed: batch redraws (at most ~3 a second) unless the view also needs one
-      if (!covered || t0 - this.lastBase > 320) render = true; else this.dirty = true;
+      if (refill) render = true;
+      else if (covered && t0 - this.lastBase > 320) { render = true; ownersOnly = true; } else this.dirty = true;
     }
-    else if (!covered || (farScale && t0 - this.lastBase > 90)) render = true;
+    else if (refill || (farScale && t0 - this.lastBase > 90)) render = true;
     else if (idle && moved) render = true;
     else if (this.baseSoftDirty && t0 - this.lastBase > 450 && idle) render = true;
-    if (render) this.renderBase(state);
+    // while the view moves, names are just carried along by the CSS transform and redrawn once it settles
+    if (render) this.renderBase(state, !ownersOnly && (!this.baseValid || this.lastLabels === 0 || this.baseSel !== this.selected));
+    else if (this.labelsStale && this.lctx && idle && (t0 - this.lastLabels > 1800 || t0 - this.lastViewChange < 600)) {
+      // names follow conquered land a moment later, in their own frame, so the war never stutters on text
+      this.renderLabels(state);
+    }
+    if (this.labels) {
+      const lv = this.labelView, f3 = v.k / lv.k;
+      const tf = `translate3d(${(v.x - lv.x * f3).toFixed(2)}px, ${(v.y - lv.y * f3).toFixed(2)}px, 0) scale(${f3.toFixed(5)})`;
+      if (tf !== this.labelTransform) { this.labelTransform = tf; this.labels.style.transform = tf; }
+    }
 
     {
       const f2 = v.k / this.baseView.k;
@@ -444,11 +473,25 @@ export class MapRenderer {
 
   /** Whether another frame is needed even if nothing was touched (animations running). */
   animating(state: GameState | null) {
-    return !!state && (this.battleVisible || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
+    return !!state && (this.battleVisible || this.labelsStale || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
   }
 
   // ------------------------------------------------------------------ base layer
-  private renderBase(state: GameState) {
+  private renderLabels(state: GameState) {
+    const lc = this.lctx!;
+    const tl = performance.now();
+    const m = this.margin, dpr = this.dpr;
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.clearRect(0, 0, this.labels!.width, this.labels!.height);
+    lc.setTransform(dpr, 0, 0, dpr, dpr * m, dpr * m);
+    this.drawLabels(lc, state);
+    this.labelView = { k: this.view.k, x: this.view.x + m, y: this.view.y + m };
+    this.labelsStale = false;
+    this.lastLabels = performance.now();
+    this.stats.labelMs = this.lastLabels - tl;
+  }
+
+  private renderBase(state: GameState, withLabels = true) {
     const t0 = performance.now();
     const ctx = this.bctx;
     const { k, x, y } = this.view;
@@ -465,43 +508,54 @@ export class MapRenderer {
     const vis = (p: number) => { const b = geo.provinces[p].bbox; return !(b[2] < vx0 || b[0] > vx1 || b[3] < vy0 || b[1] > vy1); };
     const zoomIn = k / this.fitK; // 1 = whole world
 
-    // 1. painted terrain (or a plain ocean while the texture loads)
+    // 1. painted terrain (or a plain ocean while the texture loads). The terrain only depends on the view, so it is
+    //    rendered into a larger cache (an extra border all round, at most one cache pixel per CSS pixel) and simply
+    //    copied with an offset while you pan; it is redrawn only when you zoom or pan beyond the cached border.
     const ti = performance.now();
-    const tkey = `${!!this.terrain}|${k}|${x}|${y}|${W}|${H}`;
-    if (this.terrainKey !== tkey) {
-      // terrain (+ grain) only changes with the view: render it into its own cache, then just blit it
+    const Wc = W / dpr, Hc = H / dpr; // base canvas size in CSS px
+    const tsc = Math.min(1, dpr);
+    const pad = Math.round(Math.max(this.w, this.h) * 0.35);
+    const T = this.terrainCache;
+    let sx0 = this.tcX - (x + m), sy0 = this.tcY - (y + m);
+    const tkey = `${!!this.terrain}|${Wc}|${Hc}|${tsc}`;
+    if (this.terrainKey !== tkey || this.tcK !== k || sx0 < 0 || sy0 < 0 || sx0 + Wc > this.tcW || sy0 + Hc > this.tcH) {
       this.terrainKey = tkey;
-      const tc = this.terrainCache;
-      if (tc.width !== W || tc.height !== H) { tc.width = W; tc.height = H; }
-      const t2 = tc.getContext('2d')!;
+      this.tcK = k; this.tcW = Wc + 2 * pad; this.tcH = Hc + 2 * pad;
+      this.tcX = x + m + pad; this.tcY = y + m + pad;
+      sx0 = pad; sy0 = pad;
+      const cw = Math.ceil(this.tcW * tsc), ch = Math.ceil(this.tcH * tsc);
+      if (T.width !== cw || T.height !== ch) { T.width = cw; T.height = ch; }
+      const t2 = T.getContext('2d', { alpha: false })!;
       t2.setTransform(1, 0, 0, 1, 0, 0);
-      t2.fillStyle = '#03070c'; t2.fillRect(0, 0, W, H);
-      t2.setTransform(dpr * k, 0, 0, dpr * k, dpr * (x + m), dpr * (y + m));
+      t2.fillStyle = '#03070c'; t2.fillRect(0, 0, cw, ch);
+      t2.setTransform(tsc * k, 0, 0, tsc * k, tsc * this.tcX, tsc * this.tcY);
+      const cx0 = -this.tcX / k, cy0 = -this.tcY / k, cx1 = (this.tcW - this.tcX) / k, cy1 = (this.tcH - this.tcY) / k;
       if (this.terrain) {
         t2.imageSmoothingEnabled = true;
         t2.imageSmoothingQuality = 'low';
-        // pick the smallest pre-scaled copy that still has enough detail, and copy only the visible part of it
-        const need = k * dpr; // screen pixels per map unit
+        // pick the smallest pre-scaled copy that still has enough detail, and copy only the part in view
+        const need = k * tsc; // cache pixels per map unit
         const lvl = this.terrainMips.find((c) => c.width / TEX_W >= need * 0.9) ?? this.terrainMips[this.terrainMips.length - 1];
         const s = lvl.width / TEX_W;
-        const sx0 = clamp(vx0, 0, TEX_W), sy0 = clamp(vy0, 0, TEX_H), sx1 = clamp(vx1, 0, TEX_W), sy1 = clamp(vy1, 0, TEX_H);
-        if (sx1 > sx0 && sy1 > sy0) t2.drawImage(lvl, sx0 * s, sy0 * s, (sx1 - sx0) * s, (sy1 - sy0) * s, sx0, sy0, sx1 - sx0, sy1 - sy0);
+        const ax0 = clamp(cx0, 0, TEX_W), ay0 = clamp(cy0, 0, TEX_H), ax1 = clamp(cx1, 0, TEX_W), ay1 = clamp(cy1, 0, TEX_H);
+        if (ax1 > ax0 && ay1 > ay0) t2.drawImage(lvl, ax0 * s, ay0 * s, (ax1 - ax0) * s, (ay1 - ay0) * s, ax0, ay0, ax1 - ax0, ay1 - ay0);
         if (this.grain && zoomIn > 2.2) {
           this.grain.setTransform(new DOMMatrix().scale(0.9 / 192));
           t2.globalCompositeOperation = 'soft-light';
           t2.globalAlpha = clamp((zoomIn - 2.2) / 8, 0, 0.32);
           t2.fillStyle = this.grain;
-          t2.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0); // a plain rectangle: far cheaper than the land outline, and soft-light barely touches the dark sea
+          t2.fillRect(cx0, cy0, cx1 - cx0, cy1 - cy0); // a plain rectangle: far cheaper than the land outline, and soft-light barely touches the dark sea
           t2.globalCompositeOperation = 'source-over';
           t2.globalAlpha = 1;
         }
       } else {
         t2.fillStyle = '#0b1b2b';
-        t2.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+        t2.fillRect(cx0, cy0, cx1 - cx0, cy1 - cy0);
       }
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(this.terrainCache, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(T, sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc, 0, 0, W, H);
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (x + m), dpr * (y + m));
     this.stats.imageMs = performance.now() - ti;
 
@@ -605,11 +659,15 @@ export class MapRenderer {
     this.baseSel = this.selected;
     this.baseMode = this.mode;
 
-    // 8. labels (country names, seas, cities): drawn once per base render, so they cost nothing per frame
-    const tl = performance.now();
-    ctx.setTransform(dpr, 0, 0, dpr, dpr * m, dpr * m);
-    this.drawLabels(ctx, state);
-    this.stats.labelMs = performance.now() - tl;
+    // 8. labels (country names, seas, cities): on their own layer when there is one, otherwise into the base
+    if (this.lctx) {
+      if (withLabels) this.renderLabels(state); else this.labelsStale = true;
+    } else {
+      const tl = performance.now();
+      ctx.setTransform(dpr, 0, 0, dpr, dpr * m, dpr * m);
+      this.drawLabels(ctx, state);
+      this.stats.labelMs = performance.now() - tl;
+    }
 
     this.baseValid = true;
     this.baseHardDirty = false;
@@ -945,6 +1003,7 @@ export class MapRenderer {
 
   private battleCanvas = document.createElement('canvas');
   private battleKey = '';
+  private lastBattle = 0;
   private battleView: View = { k: 0, x: 0, y: 0 };
   private battlePending = false;
   private battleData: {
@@ -967,7 +1026,10 @@ export class MapRenderer {
     const viewChanged = bv.k !== k || bv.x !== this.view.x || bv.y !== this.view.y;
     const moving = now - this.lastViewChange < 130;
     this.battlePending = viewChanged && moving && this.battleData.fronts.length > 0; // keep drawing until the crisp rebuild
-    if (key !== this.battleKey || (viewChanged && !moving)) { this.battleKey = key; this.battleView = { ...this.view }; this.renderBattleLayer(state); }
+    // at high speed weeks fly by several times a second: rebuild at most ~3 times a second (the view settling always rebuilds)
+    const due = key !== this.battleKey && (now - this.lastBattle > 330 || key.split('|')[1] !== this.battleKey.split('|')[1]);
+    if (due || (viewChanged && !moving)) { this.battleKey = key; this.battleView = { ...this.view }; this.lastBattle = now; this.renderBattleLayer(state); }
+    else if (key !== this.battleKey) this.dirty = true;
     const { fronts, planes, markers, counters, supplies, pockets } = this.battleData;
     this.battleVisible = fronts.length > 0 && this.running;
     this.battleHits = [];

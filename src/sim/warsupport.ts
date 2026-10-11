@@ -57,6 +57,14 @@ export function onEnterWar(s: GameState, c: Country, role: 'aggressor' | 'defend
 
 export function stepWarSupport(s: GameState, geo: Geo) {
   void geo;
+  // one pass over the map: how much of each country's homeland is held by someone it is at war with
+  const cores = new Map<CountryId, number>(), occ = new Map<CountryId, number>();
+  if (s.wars.length) for (let p = 0; p < s.core.length; p++) {
+    const k = s.core[p];
+    cores.set(k, (cores.get(k) ?? 0) + 1);
+    const o = s.owner[p];
+    if (o !== k && s.wars.some((w) => { const a = warSideOf(w, k), b = warSideOf(w, o); return a >= 0 && b >= 0 && a !== b; })) occ.set(k, (occ.get(k) ?? 0) + 1);
+  }
   for (const c of s.countries) {
     if (!c.alive) continue;
     const wars = warsOf(s, c.id);
@@ -76,9 +84,8 @@ export function stepWarSupport(s: GameState, geo: Geo) {
     parts.casualties = -Math.min(0.012, 25 * (weekly / Math.max(1e5, c.eco.pop)) * (CAS_TOL[c.gov] ?? 1) * (aggressor ? 1 : 0.5));
     const years = Math.max(...wars.map((w) => (s.tick - w.start) / 52));
     parts.fatigue = -(aggressor ? 0.0012 : 0.0005) * (years > 2 ? 1.5 : 1);
-    let occupied = 0, cores = 0;
-    for (let p = 0; p < s.core.length; p++) if (s.core[p] === c.id) { cores++; if (s.owner[p] !== c.id && wars.some((w) => warSideOf(w, s.owner[p]) >= 0 && warSideOf(w, s.owner[p]) !== warSideOf(w, c.id))) occupied++; }
-    if (occupied) parts.homeland = 0.004 * Math.min(1, (occupied / Math.max(1, cores)) * 5);
+    const occupied = occ.get(c.id) ?? 0;
+    if (occupied) parts.homeland = 0.004 * Math.min(1, (occupied / Math.max(1, cores.get(c.id) ?? 1)) * 5);
     let score = 0;
     for (const w of wars) {
       const side = warSideOf(w, c.id);

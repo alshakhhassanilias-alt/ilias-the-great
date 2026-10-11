@@ -22,7 +22,22 @@ for (const [a, b, v] of RIVALRIES) {
   RIV.set(Math.min(ia, ib) * 1000 + Math.max(ia, ib), v);
 }
 
-export const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+const KEYS: string[] = new Array(N_COUNTRIES * N_COUNTRIES);
+/** "lo-hi" key of a country pair (cached: it is looked up hundreds of thousands of times a year) */
+export const pairKey = (a: number, b: number) => {
+  const lo = a < b ? a : b, hi = a < b ? b : a;
+  if (hi >= N_COUNTRIES || lo < 0) return `${lo}-${hi}`;
+  const i = lo * N_COUNTRIES + hi;
+  return KEYS[i] ?? (KEYS[i] = `${lo}-${hi}`);
+};
+
+const PAIRS = new Map<string, [number, number]>();
+/** the two country ids of a "lo-hi" pair key (cached; treaty tables are walked every week) */
+export const pairOf = (k: string): [number, number] => {
+  let v = PAIRS.get(k);
+  if (!v) { const i = k.indexOf('-'); v = [Number(k.slice(0, i)), Number(k.slice(i + 1))]; PAIRS.set(k, v); }
+  return v;
+};
 
 export function getTreaty(s: GameState, a: CountryId, b: CountryId): Treaty | undefined {
   return s.treaties[pairKey(a, b)];

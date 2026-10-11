@@ -137,6 +137,11 @@ function chooseGoal(s: GameState, geo: Geo, c: Country): NatGoal {
   return mk('growth', -1, 'Stay the world’s leading economy');
 }
 
+/** Give every AI country its first leader and aim (done when the game is created, so the first week has no spike). */
+export function initLeaders(s: GameState, geo: Geo) {
+  for (const c of s.countries) if (c.alive && c.id !== s.player && !c.leader) { crownLeader(s, c, 0); c.goal = chooseGoal(s, geo, c); }
+}
+
 // ------------------------------------------------------------------ the weekly step
 export function stepLeaders(s: GameState, geo: Geo) {
   if (s.tick % 4 === 3) decayGrudges(s);

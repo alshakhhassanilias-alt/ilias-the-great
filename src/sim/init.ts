@@ -6,6 +6,7 @@
  * game-generated estimates, not real statistics.
  */
 import { setGeoRef } from './geoRef';
+import { initLeaders } from './leaders';
 import {
   BILATERAL_ALLIANCES, COUNTRY_BASE, CSTO, DEBT_RATIO, ENERGY_RATIO, EU, FOOD_RATIO, GROWTH, NATO,
   type CountryBase,
@@ -274,5 +275,6 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     rank: ranked.findIndex((c) => c.id === player) + 1, gdp: P.eco.gdp, tech: P.eco.tech, debt: P.eco.debt / P.eco.gdp,
   };
   logEvent(state, `Game begins January ${START_YEAR}. You lead ${P.name}.`, 'info', [player]);
+  initLeaders(state, geo);
   return state;
 }

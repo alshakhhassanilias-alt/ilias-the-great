@@ -9,7 +9,7 @@ import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp } from './util';
 import { logEvent } from './log';
-import { isInTick as inTickNow } from './relations';
+import { isInTick as inTickNow, pairOf } from './relations';
 import {
   addRelation, alliesOf, areAtWar, getRelation, isAtWar, sanctionLevel, warBetween, warsOf, areAtWar as atWar, touchTreaties, treatyVersion,
 } from './relations';
@@ -28,7 +28,7 @@ export function computeBlocs(s: GameState, sameTickOk = false): { blocs: Bloc[];
   const adj = new Map<number, number[]>();
   for (const [k, t] of Object.entries(s.treaties)) {
     if (!t.alliance) continue;
-    const [a, b] = k.split('-').map(Number);
+    const [a, b] = pairOf(k);
     if (!s.countries[a]?.alive || !s.countries[b]?.alive) continue;
     (adj.get(a) ?? adj.set(a, []).get(a)!).push(b);
     (adj.get(b) ?? adj.set(b, []).get(b)!).push(a);

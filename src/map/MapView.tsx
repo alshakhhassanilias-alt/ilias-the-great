@@ -22,6 +22,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   useStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const labelRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const rendRef = useRef<MapRenderer | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number; text: string; sub: string } | null>(null);
@@ -31,7 +32,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   useEffect(() => {
     const canvas = canvasRef.current!;
     const wrap = wrapRef.current!;
-    const r = new MapRenderer(canvas, overlayRef.current!, getGeom(), () => store.state);
+    const r = new MapRenderer(canvas, overlayRef.current!, getGeom(), () => store.state, labelRef.current);
     rendRef.current = r;
     (window as unknown as { __renderer?: MapRenderer }).__renderer = r;
     const resize = () => {
@@ -189,6 +190,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   return (
     <div className="map-wrap" ref={wrapRef}>
       <canvas ref={canvasRef} className="map-canvas" aria-label="World map" />
+      <canvas ref={labelRef} className="map-canvas map-labels" aria-hidden="true" />
       <canvas ref={overlayRef} className="map-overlay" aria-hidden="true" />
       {tip && (
         <div className="map-tip" style={{ left: tip.x + 14, top: tip.y + 14 }}>

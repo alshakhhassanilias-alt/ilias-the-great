@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 77 deterministic simulation tests (Vitest) |
+| `npm test` | 84 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -37,6 +37,8 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Objectives:** ten optional goals (grow GDP, open markets, build infrastructure, climb the rankings, win your first conquest ...) that pay out immediately.
 * **Covert operations:** gather intelligence, influence, steal technology, sabotage, incite unrest; success depends on the intelligence gap.
 * **Active war play:** per-region offensives with progress bars and troop counts, air strikes, calling allies, total mobilisation, war economy, manual or automatic targeting.
+* **Supply lines and encirclement:** every army is fed from supply hubs (capital, big cities, 📦 supply-hub buildings, open ports). Pushing deep, through mountains or freshly conquered land, stretches the line; cut a region off and its defenders fight at half strength. Supply lines, convoys and ENCIRCLED pockets are drawn on the map.
+* **War support:** the public's backing for each war rises with victories and an invaded homeland and falls with casualties, a long war and hardship. It changes army morale, stability and how soon a government wants peace; run propaganda, sell war bonds or censor the press to manage it.
 * **Conquest you can see:** captured regions flash, are hatched in the original owner's colours until integrated, borders re-draw instantly, armies and battle pulses are drawn on the map, regions have names ("North-East Poland").
 
 ## How to play
@@ -51,7 +53,9 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
      fiscal position, tax and spending sliders, instant projects (factories, infrastructure, power, farms, R&D),
      borrowing / repaying / printing money, trade and resource balances.
    * **Military** — forces, readiness, logistics, intelligence, exhaustion; budget and procurement mix; recruit,
-     demobilise, buy equipment; offensive commitment and manual or automatic targeting; peace talks.
+     demobilise, buy equipment; offensive commitment and manual or automatic targeting; peace talks. At war it also
+     shows the **home front** (war support, why it moves, propaganda / war bonds / censorship) and **supply lines**
+     (supply per offensive, encircled pockets, a one-tap "build a supply hub here" suggestion).
    * **Diplomacy** — relations breakdown, treaty proposals (with a likelihood preview and reasons), sanctions and
      embargoes, war declaration (with an odds estimate), pending offers from AI countries.
 4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–4 = speed.
@@ -92,7 +96,7 @@ The map is drawn in the style of a grand-strategy atlas, all in Canvas 2D:
 - **Lit coastlines, dashed region lines, heavy national borders**; curved, letter-spaced serif country names that follow each country's shape (Cinzel), italic sea names (Cormorant Garamond).
 - **War**: contested regions are split (visually) into small cells that fall to the attacker one by one as the offensive progresses, so the front visibly creeps forward or is pushed back instead of whole regions flipping at once (`src/map/battlefield.ts`). A glowing red line shows where the fighting is, with artillery flashes and smoke, aircraft when one side rules the skies, broad offensive arrows, and NATO-style army counters (divisions, infantry/armour symbol, strength bar) that slide forward with the front. Garrison counters show where your and your enemies' idle troops stand. Click a ⚔ marker for the **battle report** (`src/sim/battle.ts`): forces, odds, ground taken, an ETA, losses, every modifier (terrain, fortresses, air superiority, intelligence, amphibious landing, equipment and tech, nuclear deterrence, doctrines) and actions (air strike, make it a priority, dig in, call allies, negotiate).
 
-Performance: labels, outlines and frontlines are drawn into the cached layer, the terrain has its own cache with pre-scaled copies, battles are cached per week and only the animated bits are drawn per frame, conquests batch their redraws, panels refresh at a steady rate while the clock runs, and the backing resolution is capped at 1.5x on touch screens. `node scripts/perf-browser.mjs 4` measures frame rates with the CPU slowed 4x.
+Performance: country and city names live on their own canvas layer (a conquest repaints colours and borders without redrawing every name; names catch up a moment later in a separate frame), outlines and frontlines are drawn into the cached layer, the terrain has its own oversized cache that is just shifted while you pan (redrawn only on zoom), unit counters are cached as sprites, the battle layer is rebuilt at most ~3 times a second at high speed, and the AI's first leaders are chosen when the game is created, battles are cached per week and only the animated bits are drawn per frame, conquests batch their redraws, panels refresh at a steady rate while the clock runs, and the backing resolution is capped at 1.5x on touch screens. `node scripts/perf-browser.mjs 4` measures frame rates with the CPU slowed 4x.
 
 The static layer is drawn once into the visible canvas and moved with a GPU-composited CSS transform while you pan or zoom (eased zoom, inertia), then re-rendered crisply when the view settles or territory changes. National borders are precomputed shared boundary runs between provinces, stroked when their two sides have different owners. Labels, fronts and effects go on a light overlay canvas.
 
@@ -132,9 +136,20 @@ Output converges to `Y*` over a few months; nominal GDP = real × price level. O
 Strength = troops × equipment quality × technology × readiness (+ air and naval power), not a bare headcount.
 War is resolved per contested province each week:
 
-* attacker power = committed troops × quality × tech × readiness × **supply** (distance from friendly integrated land,
-  logistics) × air support × intel edge × amphibious penalty;
-* defender power = field troops reinforced where pressure is highest × fortification × **terrain** × capital bonus;
+* attacker power = committed troops × quality × tech × readiness × **supply** × air support × intel edge × amphibious
+  penalty × **morale** (war support);
+* defender power = field troops reinforced where pressure is highest × fortification × **terrain** × capital bonus ×
+  morale × 0.55 if the region is **encircled**;
+* **supply** (`supply.ts`): each week every country at war runs a shortest-path search from its hubs (capital, its
+  largest home cities, supply-hub buildings, and coasts while not blockaded) over its own, allied and co-belligerent
+  land. A step costs distance × terrain, ×1.8 through land conquered recently. Front supply = 1.08 − 0.5·(path /
+  reach)^1.4 (25–100%) × logistics capacity (infrastructure, tech, blockade, war economy). Own land no hub can reach
+  and that touches the enemy is a **pocket**: its defenders fight at 55%, bleed troops and fall faster;
+* **war support** (`warsupport.ts`, 0–100%, normal 60%): starts high for defenders (rally round the flag), lower
+  for unprovoked aggressors; weekly drivers are casualties (democracies feel them most, defenders half as much),
+  war length, an invaded homeland, war score, inflation/blockade/bombing and unrest, plus one-off swings from battles
+  won and lost. It sets morale (×0.85–1.10), adds exhaustion and costs stability when low, and enters every peace
+  evaluation;
 * progress = f(ln(attack/defence)); a province changes hands at 100% and takes its population and output with it;
   conquered land has to be integrated (unrest) and is remembered as belonging to its original owner;
 * air superiority bombs infrastructure; naval superiority blockades trade; nuclear powers brake invasions;
@@ -195,7 +210,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 77 unit tests + e2e smoke test, ~7 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 84 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

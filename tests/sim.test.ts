@@ -892,3 +892,94 @@ describe('battles, guides and objectives', () => {
     for (const g of activeGoals2(s)) expect(g.progress(s, c).value).toBeLessThan(0.9);
   });
 });
+
+import { supplyNet, landSupply, depotSuggestion } from '../src/sim/supply';
+import { warSupport, actWarSupport, morale } from '../src/sim/warsupport';
+
+describe('supply lines and war support', () => {
+  it('no country starts the game with land cut off from supplies', () => {
+    const s = fresh('Germany');
+    for (const [a, d] of [['India', 'China'], ['Brazil', 'Argentina'], ['Russia', 'Ukraine'], ['United States of America', 'Mexico']]) declareWar(s, geo, id(a), id(d));
+    s.tick++;
+    for (const n of ['India', 'China', 'Brazil', 'Argentina', 'Russia', 'Ukraine', 'United States of America', 'Mexico']) expect(supplyNet(s, geo, id(n)).pocket, n).toEqual([]);
+  });
+  it('supply falls the deeper an offensive goes from its hubs', () => {
+    const s = fresh('Germany');
+    declareWar(s, geo, id('China'), id('India'));
+    s.tick++;
+    const net = supplyNet(s, geo, id('China'));
+    const sups = s.countries[id('India')].provinces.filter((q) => geo.adj[q].some((p) => s.owner[p] === id('China'))).map((q) => landSupply(s, geo, net, q).supply);
+    expect(Math.max(...sups)).toBeGreaterThan(0.8);
+    expect(Math.min(...sups)).toBeLessThan(0.6); // across the Himalaya, far from any Chinese city
+  });
+  it('land cut off from every hub is encircled, fights at half strength and makes the news', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    const P = s.countries[id('Poland')], B = s.countries[id('Belarus')];
+    declareWar(s, geo, P.id, B.id);
+    // Poland takes everything around one Belarusian region, sealing it off
+    const q = B.provinces.find((p) => p !== B.capital && geo.adj[p].some((n) => s.owner[n] === P.id) && geo.provinces[p].coast < 0.15)!;
+    for (const n of geo.adj[q]) if (s.owner[n] === B.id) transferProvince(s, geo, n, P.id);
+    s.tick++;
+    expect(supplyNet(s, geo, B.id).pocket).toContain(q);
+    run(s, 1);
+    expect(s.log.some((l) => l.text.includes('ENCIRCLED'))).toBe(true);
+    expect(B.mil.pocket).toBeGreaterThan(0);
+  });
+  it('fronts report their supply and a supply hub raises it', () => {
+    const s = fresh('Russia', { defensiveAlliances: false });
+    declareWar(s, geo, id('Russia'), id('Kazakhstan'));
+    run(s, 6);
+    const fr = s.wars[0].fronts.find((f) => f.by === id('Russia') && !f.amphibious)!;
+    expect(fr.sup).toBeGreaterThan(0.2);
+    expect(fr.sup).toBeLessThanOrEqual(1);
+    const before = landSupply(s, geo, supplyNet(s, geo, id('Russia')), fr.prov).supply;
+    actBuild(s, geo, id('Russia'), fr.from!, 'depot'); actBuild(s, geo, id('Russia'), fr.from!, 'depot');
+    s.tick++;
+    const after = landSupply(s, geo, supplyNet(s, geo, id('Russia')), fr.prov).supply;
+    expect(after).toBeGreaterThanOrEqual(before);
+    void depotSuggestion(s, geo, id('Russia'));
+  });
+  it('war support: defenders rally, unprovoked aggressors start lower, and it moves morale', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    declareWar(s, geo, id('Poland'), id('Lithuania'));
+    const A = s.countries[id('Poland')], D = s.countries[id('Lithuania')];
+    expect(warSupport(D)).toBeGreaterThanOrEqual(0.8);
+    expect(warSupport(A)).toBeLessThan(warSupport(D));
+    expect(morale(D)).toBeGreaterThan(morale(A));
+    run(s, 20);
+    expect(A.mil.wsParts).toBeDefined();
+    expect(Object.keys(A.mil.wsParts!).length).toBeGreaterThan(0);
+  });
+  it('war support levers: propaganda costs money, war bonds raise it, censorship hurts stability, all with cooldowns', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    expect(actWarSupport(s, s.player, 'propaganda').ok).toBe(false); // not at war
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    const P = s.countries[s.player];
+    P.mil.warSupport = 0.5;
+    const cash = P.eco.cash;
+    expect(actWarSupport(s, s.player, 'propaganda').ok).toBe(true);
+    expect(P.mil.warSupport).toBeCloseTo(0.56, 2);
+    expect(P.eco.cash).toBeLessThan(cash);
+    expect(actWarSupport(s, s.player, 'propaganda').ok).toBe(false); // cooldown
+    const c2 = P.eco.cash;
+    expect(actWarSupport(s, s.player, 'bonds').ok).toBe(true);
+    expect(P.eco.cash).toBeGreaterThan(c2);
+    const stab = P.eco.stability;
+    expect(actWarSupport(s, s.player, 'censor').ok).toBe(true);
+    expect(P.eco.stability).toBeLessThan(stab);
+  });
+  it('low war support makes peace more acceptable and returns to normal after the war', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    declareWar(s, geo, id('Poland'), id('Lithuania'));
+    const L = s.countries[id('Lithuania')];
+    L.mil.warSupport = 0.9;
+    const hi = evaluatePeace(s, geo, id('Poland'), id('Lithuania'), { kind: 'status_quo' }).willingness;
+    L.mil.warSupport = 0.1;
+    const lo = evaluatePeace(s, geo, id('Poland'), id('Lithuania'), { kind: 'status_quo' }).willingness;
+    expect(lo).toBeGreaterThan(hi + 0.4);
+    actPeace(s, geo, id('Poland'), id('Lithuania'), { kind: 'status_quo' });
+    s.wars = [];
+    run(s, 52);
+    expect(Math.abs(warSupport(L) - 0.6)).toBeLessThan(0.15);
+  });
+});

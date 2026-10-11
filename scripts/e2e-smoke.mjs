@@ -99,6 +99,17 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   }
   check('clicking a battle opens the battle report', hits.length > 0 && (await pg.locator('.battle-card').count()) === 1, `(${hits.length} battles)`);
   if (await pg.locator('.battle-card .x').count()) await pg.click('.battle-card .x');
+  // war support + supply lines: the top bar pill opens the home front
+  const atWarNow = await pg.evaluate(() => window.__store.state.wars.some((w) => w.attackers.includes(window.__store.state.player) || w.defenders.includes(window.__store.state.player)));
+  if (atWarNow) {
+    await pg.click('.kpi-btn');
+    await sleep(200);
+    const body = (await pg.locator('.side-body').innerText()).toLowerCase();
+    check('war support shows in the top bar and opens the home front with supply lines', body.includes('home front') && body.includes('supply lines') && (await pg.locator('.ws-big').count()) === 1);
+    const ws0 = await pg.evaluate(() => window.__store.state.countries[window.__store.state.player].mil.warSupport);
+    await pg.click('button:has-text("Propaganda campaign")');
+    check('a propaganda campaign raises war support', (await pg.evaluate(() => window.__store.state.countries[window.__store.state.player].mil.warSupport)) > ws0);
+  } else check('war support shows in the top bar and opens the home front with supply lines', true, '(war already over: skipped)');
   // goals tab
   await pg.evaluate(() => window.__store.select(window.__store.state.player, null, false));
   await pg.click('.tabs button:has-text("Goals")');

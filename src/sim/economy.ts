@@ -15,7 +15,7 @@ import type { Geo } from './geo';
 import { clamp } from './util';
 import { logEvent } from './log';
 import { stepMilitary } from './military';
-import { getRelation, warsOf } from './relations';
+import { getRelation, pairOf, warsOf } from './relations';
 import { HIST_EVERY, HIST_MAX } from './types';
 
 export const ALPHA = 0.35;
@@ -165,7 +165,7 @@ export function aggregateWorld(s: GameState): WorldAgg {
   const sanctionedBy = new Array(n).fill(0), boost = new Array(n).fill(0), selfHarm = new Array(n).fill(0);
   const share = (c: Country) => clamp((2.5 * c.eco.gdp) / Math.max(gdp, 1), 0.01, 0.5);
   for (const [k, t] of Object.entries(s.treaties)) {
-    const [a, b] = k.split('-').map(Number);
+    const [a, b] = pairOf(k);
     const A = s.countries[a], B = s.countries[b];
     if (!A.alive || !B.alive) continue;
     if (t.trade) {
