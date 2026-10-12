@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Genesis</title>
+<style>
+  :root { --gold:#ffd54a; --red:#ff5a5a; --panel:rgba(12,14,26,.86); --line:rgba(255,255,255,.12); --text:#f3f1ea; --muted:#a9a8b8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #05060c; color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  button { font: inherit; color: inherit; }
+
+  /* ---------- HUD ---------- */
+  .hud { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); background: linear-gradient(to bottom, rgba(5,6,12,.92), rgba(5,6,12,0)); pointer-events: none; z-index: 5; }
+  .god { min-width: 0; margin-right: 6px; }
+  .god b { display: block; color: var(--gold); font-size: 16px; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; text-shadow: 0 0 12px rgba(255,213,74,.35); }
+  .god span { font-size: 12px; color: var(--muted); }
+  .pill { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .meter { width: 70px; height: 6px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; display: flex; }
+  .meter i { display: block; height: 100%; }
+  .grow { flex: 1; }
+  .hbtn { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; cursor: pointer; font-size: 15px; }
+  #projPill { display: none; border-color: rgba(255,90,90,.5); }
+  #projPill.on { display: flex; }
+  #projPill .meter i { background: var(--red); }
+
+  /* ---------- Toolbar ---------- */
+  .tools { position: fixed; z-index: 5; left: 50%; transform: translateX(-50%); bottom: max(10px, env(safe-area-inset-bottom)); max-width: calc(100vw - 16px); display: flex; gap: 5px; padding: 7px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow-x: auto; scrollbar-width: none; backdrop-filter: blur(8px); }
+  .tools::-webkit-scrollbar { display: none; }
+  .pw { flex: none; width: 58px; padding: 5px 0 4px; border-radius: 12px; border: 1px solid transparent; background: rgba(255,255,255,.04); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .pw .e { font-size: 21px; line-height: 1.1; }
+  .pw .n { font-size: 10px; color: #ddd; }
+  .pw .k { font-size: 10px; color: var(--gold); }
+  .pw.on { border-color: var(--gold); background: rgba(255,213,74,.14); }
+  .pw.poor { opacity: .4; }
+  .sep { width: 1px; background: var(--line); margin: 4px 3px; flex: none; }
+  .sp { width: 40px; }
+  .sp .e { font-size: 17px; }
+
+  /* ---------- Chronicle ---------- */
+  #chron { position: fixed; z-index: 4; right: 12px; top: 78px; bottom: 100px; width: 300px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(8px); }
+  #chron h3 { font-size: 13px; letter-spacing: 1.5px; color: var(--gold); padding: 11px 14px 8px; border-bottom: 1px solid var(--line); }
+  #log { overflow-y: auto; padding: 6px 14px 14px; font-size: 13px; line-height: 1.4; touch-action: pan-y; }
+  #log p { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+  #log p .y { display: block; font-size: 10.5px; color: var(--muted); letter-spacing: .4px; }
+  #log p.gold { color: #ffe08a; } #log p.red { color: #ff9a9a; } #log p.dark { color: #9a9aad; font-style: italic; } #log p.big { font-weight: 700; }
+  @media (max-width: 760px) { #chron { display: none; left: 10px; right: 10px; width: auto; top: auto; height: 44vh; bottom: 96px; } #chron.open { display: flex; } }
+  @media (min-width: 761px) { #chron.closed { display: none; } }
+
+  /* ---------- Cards, banners, overlays ---------- */
+  #card { position: fixed; z-index: 4; left: 12px; bottom: 100px; width: 260px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 13px; line-height: 1.45; display: none; backdrop-filter: blur(8px); }
+  #card.on { display: block; }
+  #card b { font-size: 15px; }
+  #card .x { position: absolute; right: 8px; top: 6px; background: none; border: 0; font-size: 18px; color: var(--muted); cursor: pointer; }
+  #card .fb { height: 6px; border-radius: 4px; background: rgba(255,255,255,.12); margin: 5px 0; overflow: hidden; }
+  #card .fb i { display: block; height: 100%; }
+  .muted { color: var(--muted); }
+  #banner { position: fixed; z-index: 6; left: 0; right: 0; top: 20%; text-align: center; pointer-events: none; opacity: 0; transition: opacity .6s; padding: 0 20px; }
+  #banner.on { opacity: 1; }
+  #banner h2 { font-size: clamp(22px, 5vw, 40px); color: var(--gold); letter-spacing: 2px; text-shadow: 0 0 24px rgba(255,213,74,.5), 0 2px 8px #000; }
+  #banner h2.red { color: #ff6b6b; text-shadow: 0 0 24px rgba(255,80,80,.5), 0 2px 8px #000; }
+  #banner p { margin-top: 6px; font-size: 15px; text-shadow: 0 2px 6px #000; }
+  #toast { position: fixed; z-index: 7; top: 84px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90vw; text-align: center; }
+  #toast.on { opacity: 1; }
+  .ov { position: fixed; z-index: 10; inset: 0; background: rgba(3,4,10,.78); display: none; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
+  .ov.on { display: flex; }
+  .box { width: min(440px, 100%); background: #0e1020; border: 1px solid var(--line); border-radius: 20px; padding: 26px 24px; text-align: center; }
+  .box h1 { font-size: 34px; letter-spacing: 6px; background: linear-gradient(90deg, #fff3c4, #ffd54a, #ff9d3d); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 8px; }
+  .box h1.red { background: linear-gradient(90deg, #ffb3b3, #ff5a5a); -webkit-background-clip: text; background-clip: text; }
+  .box p { color: #cfcde0; font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+  .box input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid #2f3150; background: #070812; color: #fff; font-size: 16px; margin-bottom: 12px; text-align: center; user-select: text; -webkit-user-select: text; }
+  .box .go { width: 100%; padding: 13px; border: 0; border-radius: 12px; background: linear-gradient(90deg, #ffd54a, #ff9d3d); color: #1a1200; font-weight: 800; font-size: 16px; cursor: pointer; margin-top: 4px; }
+  .box .ghost { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: none; cursor: pointer; margin-top: 8px; }
+  .box ul { text-align: left; font-size: 13px; color: #cfcde0; line-height: 1.6; margin: 0 0 16px 18px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 16px; }
+  .stats div { background: #070812; border: 1px solid var(--line); border-radius: 10px; padding: 9px; font-size: 12px; color: var(--muted); }
+  .stats b { display: block; font-size: 18px; color: #fff; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud">
+  <div class="god"><b id="hGod">God</b><span id="hYear">10,000 BC · Stone Age</span></div>
+  <div class="pill" title="Faith: your power. Believers generate it by praying.">✨ <span id="hMana">0</span></div>
+  <div class="pill" title="Believers vs the Defiant">🙏 <span id="hBel">0%</span><div class="meter"><i id="mBel" style="background:var(--gold)"></i><i id="mDef" style="background:var(--red)"></i></div><span id="hDef">0%</span> ✊</div>
+  <div class="pill" title="World population">👥 <span id="hPop">0</span></div>
+  <div class="pill" id="projPill"><span id="projLabel">🗼 Heaven Gate</span><div class="meter"><i id="mProj"></i></div><span id="hProj">0%</span></div>
+  <div class="grow"></div>
+  <button class="hbtn" id="chronBtn" title="Chronicle">📜</button>
+</div>
+
+<div id="chron"><h3>THE CHRONICLE</h3><div id="log"></div></div>
+<div id="card"><button class="x" id="cardX">×</button><div id="cardBody"></div></div>
+<div id="banner"><h2 id="bT"></h2><p id="bS"></p></div>
+<div id="toast"></div>
+<div class="tools" id="tools"></div>
+
+<!-- Start -->
+<div class="ov on" id="startOv"><div class="box">
+  <h1>GENESIS</h1>
+  <p>You are a god. Watch a civilization rise from the Stone Age to the stars.<br>Some will worship you. Some will try to <b>reach you and destroy you</b>.</p>
+  <input id="godIn" value="Ilias the Great" maxlength="28" placeholder="Your divine name">
+  <ul>
+    <li>Believers pray to you and give you ✨ faith.</li>
+    <li>Spend faith on powers: bless, smite, miracles, meteors…</li>
+    <li>The Defiant study the sky. In the Space Age they build a gate to reach your throne.</li>
+    <li>Drag to look around, scroll or pinch to zoom.</li>
+  </ul>
+  <button class="go" id="startBtn">Let there be light</button>
+</div></div>
+
+<!-- Speak -->
+<div class="ov" id="speakOv"><div class="box">
+  <h1 style="font-size:24px;letter-spacing:3px">SPEAK</h1>
+  <p>Your voice will thunder across the sky. Every mortal will hear it.</p>
+  <input id="speakIn" maxlength="90" placeholder="e.g. Kneel before me, mortals">
+  <button class="go" id="speakGo">Speak (✨50)</button>
+  <button class="ghost" id="speakNo">Stay silent</button>
+</div></div>
+
+<!-- Ending -->
+<div class="ov" id="endOv"><div class="box">
+  <h1 id="eT">END</h1>
+  <p id="eS"></p>
+  <div class="stats" id="eStats"></div>
+  <button class="go" id="eNew">Create a new world</button>
+  <button class="ghost" id="eKeep">Keep watching</button>
+</div></div>
+
+<script>
+/* =====================================================================
+   GENESIS — a god sandbox.
+   A world simulation: tribes are born, believe (or not), research,
+   build and go to war. The Defiant try to reach the god's throne.
+   Everything runs in this one file, in the browser.
+   ===================================================================== */
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const R = (a, b) => a + Math.random() * (b - a);
+const RI = (a, b) => Math.floor(R(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const d2 = (ax, ay, bx, by) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
+const cap = s => s[0].toUpperCase() + s.slice(1);
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash(x, y) { let h = Math.imul(x, 374761393) + Math.imul(y, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0; }
+
+/* ---------- the ages of the world ---------- */
+const ERAS = [
+  { n: 'Stone Age',         y: -10000 },
+  { n: 'Bronze Age',        y: -3300 },
+  { n: 'Iron Age',          y: -1200 },
+  { n: 'Medieval Era',      y: 500 },
+  { n: 'Renaissance',       y: 1400 },
+  { n: 'Industrial Age',    y: 1760 },
+  { n: 'Modern Age',        y: 1900 },
+  { n: 'Information Age',   y: 1990 },
+  { n: 'Space Age',         y: 2060 },
+  { n: 'Age of Ascension',  y: 2200 },
+  { n: '',                  y: 2600 },
+];
+const ETECH    = [0, 300, 750, 1400, 2400, 3700, 5400, 7700, 10600, 14500, 21000];
+const SECULAR  = [0, .1, .2, .35, .55, .9, 1.25, 1.6, 1.9, 2.2];
+const POPSCALE = [30, 120, 500, 2000, 8000, 40000, 4e5, 2e6, 8e6, 1.5e7];
+const HOUSE    = ['🛖','🛖','🏠','🏘️','🏡','🏠','🏢','🏢','🏙️','🌆'];
+const CAPITAL  = ['🔥','🛖','🏰','🏰','🏰','🏛️','🏛️','🏙️','🏙️','🌃'];
+const TEMPLE   = ['🗿','🗿','🗿','🏛️','🏛️','🏛️','🏛️','🏛️','🏛️','🏛️'];
+const LAB      = ['🪨','📜','📜','⚗️','🔭','🏭','🔬','📡','🚀','🛸'];
+const LABNAME  = ['circle of stones','house of scrolls','school','alchemy tower','observatory','laboratory','research center','supercomputer','launch site','quantum lab'];
+const OMENS = {
+  2: 'For the first time, some mortals wonder whether you exist at all.',
+  3: 'Heretic scholars claim the sky can be reached.',
+  5: 'The Defiant build machines. They are searching the sky for you.',
+  6: 'Their telescopes are pointed at your throne.',
+  7: 'They have found you. They know where you live.',
+  8: 'The Defiant can leave the ground now. They are coming.',
+};
+
+/* ---------- names ---------- */
+const SYL = ['ka','ru','vel','ash','ori','ten','mu','sa','dra','kel','an','zo','ir','ul','ma','tha','xe','no','li','bar','ae','th','ny','os'];
+const tribeName = () => cap(pick(SYL) + pick(SYL) + (Math.random() < .5 ? pick(['i','an','ar','ul','esh','or','ites']) : ''));
+const personName = () => cap(pick(SYL) + pick(SYL) + (Math.random() < .3 ? pick(SYL) : ''));
+const placeName = () => cap(pick(SYL) + pick(['dor','heim','grad','polis','ton','mar','qar','ven','oth']));
+const COLORS = ['#4fc3f7','#ff8a65','#ba68c8','#81c784','#f06292','#4db6ac','#9575cd','#e57373','#a1887f','#64b5f6','#aed581','#ffb74d'];
+
+/* ---------- world geometry ---------- */
+const TW = 180, TH = 120, TS = 6, WW = TW * TS, WH = TH * TS, SKY = 190;
+const THRONE = { x: WW / 2, y: -110 };
+const MAXA = 900, MAXB = 520, STEP = .1;
+const TTH = [.30, .38, .41, .56, .66, .76];   // deep, water, sand, grass, forest, mountain, snow
+const TCOL = [[16,44,88],[28,80,136],[214,198,140],[92,156,72],[50,108,52],[122,114,106],[236,240,245]];
+let H = new Float32Array(TW * TH);
+const tType = h => { for (let i = 0; i < 6; i++) if (h < TTH[i]) return i; return 6; };
+function tileAt(x, y) { const tx = x / TS | 0, ty = y / TS | 0; if (x < 0 || y < 0 || tx >= TW || ty >= TH) return 0; return tType(H[ty * TW + tx]); }
+const walk = (x, y) => { const t = tileAt(x, y); return t >= 2 && t <= 4; };
+
+function genTerrain(seed) {
+  const r = mulberry32(seed);
+  const oct = [[40, 1], [20, .5], [10, .25], [5, .12]];
+  const grids = oct.map(([s]) => { const gw = Math.ceil(TW / s) + 2, gh = Math.ceil(TH / s) + 2, g = new Float32Array(gw * gh); for (let i = 0; i < g.length; i++) g[i] = r(); return { s, gw, g }; });
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
+    let v = 0, tot = 0;
+    for (let k = 0; k < oct.length; k++) {
+      const { s, gw, g } = grids[k], amp = oct[k][1];
+      const fx = x / s, fy = y / s, ix = fx | 0, iy = fy | 0, dx = fx - ix, dy = fy - iy;
+      const sx = dx * dx * (3 - 2 * dx), sy = dy * dy * (3 - 2 * dy);
+      const a = g[iy * gw + ix], b = g[iy * gw + ix + 1], c = g[(iy + 1) * gw + ix], d = g[(iy + 1) * gw + ix + 1];
+      v += amp * (a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy); tot += amp;
+    }
+    v /= tot;
+    const nx = x / TW - .5, ny = y / TH - .5, m = Math.sqrt(nx * nx * 1.1 + ny * ny * 1.5) * 1.45;
+    H[y * TW + x] = v * 1.2 - m * m * .95 + .14;
+  }
+}
+const terr = document.createElement('canvas'); terr.width = WW; terr.height = WH;
+const tctx = terr.getContext('2d');
+function renderTerrain() {
+  const img = tctx.createImageData(WW, WH), d = img.data;
+  for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+    const h = H[ty * TW + tx], t = tType(h), c = TCOL[t];
+    const nb = tx > 0 && ty > 0 ? H[(ty - 1) * TW + tx - 1] : h;
+    const sh = 1 + clamp((h - nb) * (t >= 5 ? 6 : 3), -.22, .22) + (t <= 1 ? (h - TTH[0]) * .8 : 0);
+    for (let py = 0; py < TS; py++) for (let px = 0; px < TS; px++) {
+      const X = tx * TS + px, Y = ty * TS + py, hh = hash(X, Y);
+      let k = sh + ((hh & 15) / 15 - .5) * .07;
+      if (t === 4 && hh % 9 === 0) k *= .68;
+      if (t === 3 && hh % 37 === 0) k *= .82;
+      const i = (Y * WW + X) * 4;
+      d[i] = clamp(c[0] * k, 0, 255); d[i + 1] = clamp(c[1] * k, 0, 255); d[i + 2] = clamp(c[2] * k, 0, 255); d[i + 3] = 255;
+    }
+  }
+  tctx.putImageData(img, 0, 0);
+}
+function goodLand(x, y) {
+  let ok = 0, n = 0;
+  for (let dy = -30; dy <= 30; dy += 6) for (let dx = -30; dx <= 30; dx += 6) { n++; if (walk(x + dx, y + dy)) ok++; }
+  return ok / n;
+}
+
+/* ---------- state ---------- */
+let W = null, speedIdx = 1, tool = 'inspect';
+const SPEEDS = [0, 1, 3, 8];
+const cam = { cx: WW / 2, cy: WH / 2, s: 1, min: .5 };
+let shake = 0, sel = null;
+const stars = Array.from({ length: 160 }, () => ({ x: R(-WW, WW * 2), y: R(-SKY - 500, -30), r: R(.4, 1.3), p: R(0, 6) }));
+const clouds = Array.from({ length: 22 }, () => ({ x: R(-100, WW + 100), y: R(-34, -4), w: R(40, 110), sp: R(2, 6) }));
+
+function newWorld(godName) {
+  W = {
+    god: godName, short: godName.split(' ')[0], t: 0, rt: 0, acc1: 0,
+    tribes: [], agents: [], buildings: [], fx: [], bubbles: [], pending: [], wars: [],
+    mana: 120, godHP: 100, era: 0, leadTech: 0,
+    project: { active: false, progress: 0, tribe: null, gate: null, said: 0 },
+    siege: null, wavesRepelled: 0, request: null, nextRequest: 45, ended: false, devout: 0, recentDisaster: -99,
+    stats: { miracles: 0, smites: 0, peak: 0, born: 0, died: 0 }, nextId: 1, colorI: 0,
+  };
+  $('log').innerHTML = '';
+  // land: retry seeds until there's a decent amount of land
+  for (let tries = 0; tries < 12; tries++) {
+    genTerrain(Math.floor(Math.random() * 1e9));
+    let land = 0; for (let i = 0; i < H.length; i++) { const t = tType(H[i]); if (t >= 2 && t <= 4) land++; }
+    if (land / H.length > .34 && land / H.length < .6) break;
+  }
+  renderTerrain();
+  // three peoples, far apart
+  const spots = [];
+  for (let tries = 0; tries < 4000 && spots.length < 3; tries++) {
+    const x = R(60, WW - 60), y = R(60, WH - 60);
+    if (tileAt(x, y) !== 3 || goodLand(x, y) < .8) continue;
+    if (spots.every(s => d2(s.x, s.y, x, y) > (tries < 2500 ? 280 * 280 : 180 * 180))) spots.push({ x, y });
+  }
+  for (const s of spots) {
+    const t = makeTribe(s.x, s.y);
+    for (let i = 0; i < 14; i++) { const p = findSpot(s.x, s.y, 0, 18, true); if (p) makeAgent(p.x, p.y, t, R(.3, .97)); }
+  }
+  const names = W.tribes.map(t => 'the ' + t.name);
+  log(`In the beginning there was only ${W.god}.`, 'gold big');
+  log(`${W.short} shaped the land and parted the seas.`, 'gold');
+  log(`From the dust rose ${names.length} peoples: ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}. They looked up at the sky, and most of them believed.`);
+  log('Believers pray and give you ✨ faith. Spend it on the powers below. Not everyone will stay loyal…', 'dark');
+  fitAll(false);
+}
+
+/* ---------- creation ---------- */
+function makeTribe(x, y, inherit) {
+  const t = { id: W.nextId++, name: tribeName(), color: COLORS[W.colorI++ % COLORS.length], cx: x, cy: y, mx: x, my: y,
+    tech: inherit ? inherit.tech * .92 : 0, era: inherit ? inherit.era : 0, pop: 0, bel: 0, share: 1, stance: 'faithful',
+    buildPts: 0, alive: true, enemy: null, praying: 0, studying: 0 };
+  W.tribes.push(t);
+  const b = makeBuilding(x, y, t, 'house'); b.capital = true;
+  return t;
+}
+function makeAgent(x, y, tribe, faith) {
+  if (W.agents.length >= MAXA) return null;
+  const homes = W.buildings.filter(b => b.tribe === tribe && b.type === 'house' && !b.dead);
+  const a = { id: W.nextId++, name: personName(), x, y, tx: x, ty: y, tribe, faith: clamp(faith, 0, 1), age: R(0, 20), life: R(70, 130),
+    state: 'wander', timer: R(0, 2), sick: 0, home: homes.length ? pick(homes) : null };
+  W.agents.push(a); W.stats.born++;
+  return a;
+}
+function makeBuilding(x, y, tribe, type) {
+  const b = { id: W.nextId++, x, y, tribe, type, born: W.t };
+  W.buildings.push(b);
+  W.buildings.sort((p, q) => p.y - q.y);
+  return b;
+}
+function findSpot(x, y, rmin, rmax, forAgent) {
+  for (let i = 0; i < 30; i++) {
+    const ang = R(0, Math.PI * 2), r = R(rmin, rmax), px = x + Math.cos(ang) * r, py = y + Math.sin(ang) * r;
+    if (px < 8 || py < 8 || px > WW - 8 || py > WH - 8 || !walk(px, py)) continue;
+    if (!forAgent && W.buildings.some(b => !b.dead && d2(b.x, b.y, px, py) < 64)) continue;
+    return { x: px, y: py };
+  }
+  return null;
+}
+
+/* ---------- chronicle, banners, toasts ---------- */
+function yearNow() {
+  if (!W) return -10000;
+  const e = W.era, lo = ETECH[e], hi = ETECH[e + 1];
+  const f = clamp((W.leadTech - lo) / (hi - lo), 0, 1.5);
+  return ERAS[e].y + f * (ERAS[e + 1].y - ERAS[e].y);
+}
+const fmtYear = y => y < 0 ? Math.round(-y).toLocaleString('en-US') + ' BC' : Math.round(y) + ' AD';
+function log(text, cls = '') {
+  const p = document.createElement('p'); p.className = cls;
+  p.innerHTML = `<span class="y"></span>`; p.querySelector('.y').textContent = fmtYear(yearNow());
+  p.appendChild(document.createTextNode(text));
+  const L = $('log'); L.insertBefore(p, L.firstChild);
+  while (L.children.length > 90) L.removeChild(L.lastChild);
+}
+let bannerT = 0;
+function banner(title, sub = '', red = false) { $('bT').textContent = title; $('bT').className = red ? 'red' : ''; $('bS').textContent = sub; $('banner').classList.add('on'); bannerT = 4.5; }
+let toastT = 0;
+function toast(t) { $('toast').textContent = t; $('toast').classList.add('on'); toastT = 2.5; }
+
+/* ---------- simulation ---------- */
+function step(dt) {
+  W.t += dt;
+  const sickers = [];
+  for (let i = W.agents.length - 1; i >= 0; i--) {
+    const a = W.agents[i];
+    updateAgent(a, dt);
+    if (a.dead) { W.agents.splice(i, 1); W.stats.died++; if (sel === a) sel = null; }
+    else if (a.sick > 0) sickers.push(a);
+  }
+  // plague spreads
+  for (const s of sickers) if (Math.random() < dt * 1.5) for (const o of W.agents) if (!o.sick && d2(s.x, s.y, o.x, o.y) < 100 && Math.random() < .35) infect(o);
+  if (W.wars.length) warStep(dt);
+  if (W.siege) siegeStep(dt);
+  W.acc1 += dt;
+  if (W.acc1 >= 1) { W.acc1 -= 1; worldTick(); }
+}
+
+function updateAgent(a, dt) {
+  const tr = a.tribe;
+  a.age += dt;
+  if (a.age > a.life || !walk(a.x, a.y)) { a.dead = true; return; }
+  if (a.sick > 0) { a.sick -= dt; if (a.sick <= 0 && Math.random() < .55) { a.dead = true; addFx('kill', a.x, a.y, 1.2); return; } }
+  // belief drifts: the tribe's culture pulls, science erodes, praying strengthens, studying weakens
+  let df = (tr.share - .5) * .012 - SECULAR[tr.era] * .006 * (1.25 - a.faith) + (Math.random() - .5) * .03;  // the devout resist
+  if (a.state === 'pray') df += .02; else if (a.state === 'study') df -= .02;
+  a.faith = clamp(a.faith + df * dt, 0, 1);
+  // movement
+  const sp = (a.state === 'fight' || a.state === 'flee' ? 17 : 9) * (1 + tr.era * .06);
+  const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+  if (d > 1) {
+    const m = Math.min(d, sp * dt), nx = a.x + dx / d * m, ny = a.y + dy / d * m;
+    if (walk(nx, ny)) { a.x = nx; a.y = ny; } else { a.tx = a.x; a.ty = a.y; a.timer = 0; }
+  } else { a.timer -= dt; if (a.timer <= 0) decide(a); }
+}
+function setTarget(a, x, y) { if (walk(x, y)) { a.tx = x; a.ty = y; } }
+function nearestB(a, type) {
+  let best = null, bd = 1e12;
+  for (const b of W.buildings) if (b.tribe === a.tribe && b.type === type && !b.dead) { const dd = d2(a.x, a.y, b.x, b.y); if (dd < bd) { bd = dd; best = b; } }
+  return bd < 160 * 160 ? best : null;
+}
+function decide(a) {
+  const tr = a.tribe, r = Math.random();
+  if (tr.enemy && Math.random() < .4) {
+    a.state = 'fight';
+    const e = tr.enemy, mx = (tr.mx + e.mx) / 2, my = (tr.my + e.my) / 2;
+    setTarget(a, mx + R(-22, 22), my + R(-22, 22)); a.timer = R(.5, 2); return;
+  }
+  if (a.faith >= .5 && r < a.faith * .3) {
+    a.state = 'pray'; const t = nearestB(a, 'temple');
+    if (t) setTarget(a, t.x + R(-7, 7), t.y + R(4, 10));
+    a.timer = R(3, 6); return;
+  }
+  if (a.faith < .5 && r < (1 - a.faith) * .3) {
+    a.state = 'study'; const l = nearestB(a, 'lab');
+    if (l) setTarget(a, l.x + R(-7, 7), l.y + R(4, 10));
+    a.timer = R(3, 6); return;
+  }
+  a.state = 'wander';
+  const base = a.home && !a.home.dead ? a.home : { x: tr.cx, y: tr.cy };
+  const p = findSpot(base.x, base.y, 2, 16 + tr.era * 2.5, true);
+  if (p) { a.tx = p.x; a.ty = p.y; }
+  a.timer = R(.5, 3);
+}
+
+function worldTick() {
+  const T = W.tribes;
+  for (const t of T) { t.pop = t.bel = t.praying = t.studying = 0; t.sx = t.sy = 0; }
+  let bel = 0, praying = 0;
+  for (const a of W.agents) {
+    const t = a.tribe; t.pop++; t.sx += a.x; t.sy += a.y;
+    if (a.faith >= .5) { t.bel++; bel++; }
+    if (a.state === 'pray') { t.praying++; praying++; if (Math.random() < .08) addFx('spark', a.x, a.y - 2, 1.2); }
+    else if (a.state === 'study') t.studying++;
+  }
+  const total = W.agents.length;
+  for (const t of T) {
+    if (!t.alive) continue;
+    if (t.pop === 0) {
+      t.alive = false; t.enemy = null;
+      log(`The ${t.name} have vanished from the world.`, 'dark');
+      for (const b of W.buildings) if (b.tribe === t) { b.ruin = true; b.ruinT = W.t; }
+      continue;
+    }
+    t.mx = t.sx / t.pop; t.my = t.sy / t.pop;
+    t.share = t.bel / t.pop;
+    const stance = t.share >= .5 ? 'faithful' : 'defiant';
+    if (stance !== t.stance) {
+      t.stance = stance;
+      if (t.pop >= 6) {
+        if (stance === 'defiant') log(`The ${t.name} have turned their backs on you. Most of them no longer believe.`, 'red big');
+        else log(`The ${t.name} have returned to the faith. They worship you once more.`, 'gold big');
+      }
+    }
+    // research: the Defiant study faster
+    const rate = Math.sqrt(t.pop) * (.5 + (1 - t.share)) * .35 * (1 + t.era * .3) + Math.sqrt(t.studying) * .5;
+    t.tech += rate * (t.tech < W.leadTech * .6 ? 1.4 : 1);
+    const ne = eraOf(t.tech);
+    if (ne > t.era) { t.era = ne; if (ne < W.era || W.tribes.filter(x => x.alive).length > 1) log(`The ${t.name} entered the ${ERAS[ne].n}.`); }
+    // building
+    t.buildPts += t.pop * .035 * (1 + t.era * .1);
+    while (t.buildPts >= 10) { t.buildPts -= 10; build(t); }
+    // births
+    const houses = W.buildings.filter(b => b.tribe === t && b.type === 'house' && !b.dead && !b.ruin).length;
+    const capN = houses * (4 + t.era * .7) + 4;
+    const nAlive = T.filter(x => x.alive).length, share = nAlive > 1 ? Math.max(.34, 1.5 / nAlive) : 1;
+    if (t.pop < capN && t.pop < MAXA * share) {
+      let n = Math.round(t.pop * .045 * R(.5, 1.5)); if (n === 0 && Math.random() < .5) n = 1;
+      for (let i = 0; i < n; i++) {
+        const hs = W.buildings.filter(b => b.tribe === t && b.type === 'house' && !b.dead && !b.ruin);
+        const h = hs.length ? pick(hs) : { x: t.mx, y: t.my };
+        const p = findSpot(h.x, h.y, 0, 10, true);
+        if (p) makeAgent(p.x, p.y, t, Math.random() < t.share - SECULAR[t.era] * .05 ? R(.55, .95) : R(.08, .45));
+      }
+    }
+  }
+  // ruins crumble
+  for (const b of W.buildings) if (b.ruin && W.t - b.ruinT > 90) b.dead = true;
+  if (W.buildings.some(b => b.dead)) {
+    W.buildings = W.buildings.filter(b => !b.dead);
+    for (const a of W.agents) if (a.home && a.home.dead) a.home = null;
+  }
+  // the world's age
+  W.leadTech = Math.max(W.leadTech, ...T.filter(t => t.alive).map(t => t.tech));
+  const e = eraOf(W.leadTech);
+  if (e > W.era) {
+    W.era = e;
+    banner(ERAS[e].n.toUpperCase(), fmtYear(yearNow()));
+    log(`The world enters the ${ERAS[e].n}.`, 'big');
+    if (OMENS[e] && T.some(t => t.alive && t.stance === 'defiant')) log(OMENS[e], 'red');
+  }
+  // faith = your power
+  W.mana = Math.min(999, W.mana + (bel * .016 + praying * .05) * (W.siege ? 2.5 : 1));
+  if (!W.siege) W.godHP = Math.min(100, W.godHP + .2);
+  W.stats.peak = Math.max(W.stats.peak, total * POPSCALE[W.era]);
+  // mortals speak
+  if (total && Math.random() < .75) { const a = pick(W.agents); say(a, lineFor(a)); }
+  events(bel, total);
+  projectTick();
+  endings(bel, total);
+}
+function eraOf(tech) { let e = 0; while (e < 9 && tech >= ETECH[e + 1]) e++; return e; }
+
+function build(t) {
+  if (W.buildings.length >= MAXB) return;
+  const own = W.buildings.filter(b => b.tribe === t && !b.dead && !b.ruin);
+  const nAlive = W.tribes.filter(x => x.alive).length;
+  if (nAlive > 1 && own.length > MAXB * Math.max(.34, 1.5 / nAlive)) return;
+  const houses = own.filter(b => b.type === 'house').length, temples = own.filter(b => b.type === 'temple').length, labs = own.filter(b => b.type === 'lab').length;
+  const capN = houses * (4 + t.era * .7) + 4;
+  let type = 'house';
+  if (t.pop > capN - 3) type = 'house';
+  else if (t.share >= .5 && temples < 1 + houses / 6) type = 'temple';
+  else if (t.share < .5 && labs < 1 + houses / 6) type = 'lab';
+  else if (Math.random() < .25) type = Math.random() < t.share ? 'temple' : 'lab';
+  let spot = null, newTown = false;
+  if (own.length && Math.random() < .06) { const b = pick(own); spot = findSpot(b.x, b.y, 60, 130); newTown = !!spot; }
+  for (let k = 0; !spot && k < 4 && own.length; k++) { const b = pick(own); spot = findSpot(b.x, b.y, 8, 20); }
+  if (!spot) spot = findSpot(t.mx, t.my, 0, 40);
+  if (!spot) return;
+  makeBuilding(spot.x, spot.y, t, type);
+  if (newTown && Math.random() < .5) log(`The ${t.name} founded the settlement of ${placeName()}.`);
+  else if (type === 'temple' && Math.random() < .12) log(`The ${t.name} raised a temple in your honor.`, 'gold');
+  else if (type === 'lab' && Math.random() < .15) log(`The ${t.name} built a ${LABNAME[t.era]} to study the heavens.`, 'red');
+}
+
+/* ---------- drama: schisms, prophets, wars, prayers ---------- */
+function events(bel, total) {
+  const alive = W.tribes.filter(t => t.alive);
+  // schism: a divided people splits in two
+  if (Math.random() < .03 && alive.length < 9) {
+    const t = pick(alive);
+    if (t && t.pop >= 40 && t.share > .3 && t.share < .7 && !t.enemy) {
+      const minority = W.agents.filter(a => a.tribe === t && (t.stance === 'faithful' ? a.faith < .5 : a.faith >= .5));
+      if (minority.length >= 12) {
+        let sx = 0, sy = 0; minority.forEach(a => { sx += a.x; sy += a.y; });
+        const spot = findSpot(sx / minority.length, sy / minority.length, 20, 90) || findSpot(t.mx, t.my, 60, 140);
+        if (spot) {
+          const nt = makeTribe(spot.x, spot.y, t);
+          minority.forEach(a => { a.tribe = nt; a.home = null; a.state = 'wander'; a.timer = 0; });
+          const who = t.stance === 'faithful' ? 'unbelievers' : 'last believers';
+          log(`SCHISM! The ${who} of the ${t.name} broke away and founded a new nation: the ${nt.name}.`, (t.stance === 'faithful' ? 'red' : 'gold') + ' big');
+        }
+      }
+    }
+  }
+  // prophets and philosophers
+  if (total && Math.random() < .012 + W.era * .003) {
+    const wantProphet = Math.random() < .7 - W.era * .06 + (bel / total < .3 ? .4 : 0);  // revivals when faith is dying
+    const pool = W.agents.filter(o => wantProphet ? o.faith > .75 : o.faith < .3);
+    const a = pool.length ? pick(pool) : pick(W.agents);
+    if (a.faith > .75) {
+      W.agents.forEach(o => { if (d2(o.x, o.y, a.x, a.y) < 80 * 80) o.faith = clamp(o.faith + .15, 0, 1); });
+      log(`${a.name} of the ${a.tribe.name} claims to have seen ${W.short} in a dream. Believers flock to this new prophet.`, 'gold');
+      say(a, `I have seen ${W.short}!`);
+    } else if (a.faith < .3) {
+      W.agents.forEach(o => { if (d2(o.x, o.y, a.x, a.y) < 80 * 80) o.faith = clamp(o.faith - .15, 0, 1); });
+      const q = pick(W.era < 4 ? ['The gods are stories we tell children.', `If ${W.short} is real, why do we suffer?`, 'The stars are fire, not eyes.', 'Nobody has ever seen a god.']
+                               : ['We will build a ladder to the sky.', 'Every throne can fall.', `${W.short} is just a word for what we don't understand yet.`, 'Our machines will find the throne.']);
+      log(`The philosopher ${a.name} of the ${a.tribe.name} declares: "${q}"`, 'red');
+      say(a, q);
+    }
+  }
+  // holy war between a faithful and a defiant people
+  if (Math.random() < .045 && W.wars.length < 2) {
+    const F = alive.filter(t => t.stance === 'faithful' && !t.enemy && t.pop >= 12), D = alive.filter(t => t.stance === 'defiant' && !t.enemy && t.pop >= 12);
+    const pairs = [];
+    F.forEach(f => D.forEach(d => { if (d2(f.mx, f.my, d.mx, d.my) < 330 * 330) pairs.push([f, d]); }));
+    if (pairs.length) {
+      const [f, d] = pick(pairs);
+      f.enemy = d; d.enemy = f;
+      W.wars.push({ a: f, b: d, until: W.t + R(25, 45), ka: 0, kb: 0 });
+      log(`HOLY WAR! The faithful ${f.name} march against the godless ${d.name}.`, 'red big');
+      banner('HOLY WAR', `${f.name} vs ${d.name}`, true);
+    }
+  }
+  // your people ask for something
+  if (W.request) {
+    const q = W.request;
+    if (!q.tribe.alive) W.request = null;
+    else if (W.t > q.until) {
+      W.agents.forEach(a => { if (a.tribe === q.tribe) a.faith = clamp(a.faith - .12, 0, 1); });
+      log(`Your silence was noticed. Doubt spreads among the ${q.tribe.name}.`, 'red');
+      W.request = null; W.nextRequest = W.t + R(45, 80);
+    }
+  } else if (W.t > W.nextRequest) {
+    const cands = alive.filter(t => t.stance === 'faithful' && t.pop >= 8);
+    if (cands.length) {
+      const t = pick(cands), type = Math.random() < .6 ? 'rain' : 'sign';
+      W.request = { tribe: t, type, until: W.t + 40 };
+      log(type === 'rain' ? `🙏 The ${t.name} are starving. They pray for rain. (Use Bless near them)` : `🙏 The ${t.name} beg for a sign that you are real. (Miracle near them, or Speak)`, 'gold');
+    } else W.nextRequest = W.t + 30;
+  }
+}
+function answerPrayer(type, x, y) {
+  const q = W.request;
+  if (!q || q.type !== type) return;
+  if (x != null && d2(x, y, q.tribe.mx, q.tribe.my) > 120 * 120) return;
+  W.agents.forEach(a => { if (a.tribe === q.tribe) a.faith = clamp(a.faith + .15, 0, 1); });
+  W.mana += 40;
+  log(`You answered the prayers of the ${q.tribe.name}. Their devotion burns brighter than ever. (+40 ✨)`, 'gold big');
+  W.request = null; W.nextRequest = W.t + R(45, 80);
+}
+
+function warStep(dt) {
+  for (let i = W.wars.length - 1; i >= 0; i--) {
+    const w = W.wars[i], A = w.a, B = w.b;
+    if (W.t > w.until || !A.alive || !B.alive || A.pop < 5 || B.pop < 5) { endWar(w); W.wars.splice(i, 1); continue; }
+    const fa = [], fb = [];
+    for (const a of W.agents) if (a.state === 'fight') { if (a.tribe === A) fa.push(a); else if (a.tribe === B) fb.push(a); }
+    if (!fb.length) continue;
+    const adv = .5 + clamp((A.tech - B.tech) / (A.tech + B.tech + 1), -.25, .25);
+    for (const x of fa) {
+      if (Math.random() > dt * 1.4) continue;
+      const y = pick(fb);
+      if (y.dead || d2(x.x, x.y, y.x, y.y) > 14 * 14) continue;
+      const loser = Math.random() < adv ? y : x;
+      if (loser.dead) continue;
+      loser.dead = true; addFx('kill', loser.x, loser.y, 1.2);
+      if (loser.tribe === A) w.ka++; else w.kb++;
+    }
+  }
+}
+function endWar(w) {
+  const A = w.a, B = w.b;
+  A.enemy = null; B.enemy = null;
+  W.agents.forEach(a => { if ((a.tribe === A || a.tribe === B) && a.state === 'fight') { a.state = 'wander'; a.timer = 0; } });
+  if (A.alive && B.alive && (A.pop < 8 || B.pop < 8) && A.pop !== B.pop) {
+    const win = A.pop > B.pop ? A : B, lose = win === A ? B : A;
+    W.agents.forEach(a => { if (a.tribe === lose) { a.tribe = win; a.home = null; if (Math.random() < .75) a.faith = win.stance === 'faithful' ? Math.max(a.faith, .65) : Math.min(a.faith, .35); } });
+    W.buildings.forEach(b => { if (b.tribe === lose) b.tribe = win; });
+    lose.alive = false;
+    log(win.stance === 'faithful' ? `The ${win.name} conquered the ${lose.name}. The survivors were made to kneel before you.` : `The ${win.name} conquered the ${lose.name}. Their temples were torn down.`, (win.stance === 'faithful' ? 'gold' : 'red') + ' big');
+  } else log(`The war between the ${A.name} and the ${B.name} is over. ${w.ka + w.kb} lives were lost.`, 'dark');
+}
+
+/* ---------- the Heaven Gate & the siege ---------- */
+function projectTick() {
+  const P = W.project;
+  if (W.siege) return;
+  if (!P.active) {
+    const cand = W.tribes.filter(t => t.alive && t.stance === 'defiant' && t.era >= 8 && t.pop >= 8).sort((a, b) => b.tech - a.tech)[0];
+    if (cand) {
+      const spot = findSpot(cand.mx, cand.my, 0, 50) || { x: cand.mx, y: cand.my };
+      P.active = true; P.tribe = cand; P.gate = makeBuilding(spot.x, spot.y, cand, 'gate'); P.said = 0;
+      banner('THE HEAVEN GATE', `The ${cand.name} are building a way to reach you.`, true);
+      log(`The ${cand.name} have begun building the Heaven Gate, a machine to reach your throne and destroy you. Smash it, or convert them, before it is finished.`, 'red big');
+    }
+    return;
+  }
+  if (!P.tribe.alive || P.tribe.stance !== 'defiant') {
+    log(`With the ${P.tribe.name} ${P.tribe.alive ? 'back in the faith' : 'gone'}, the Heaven Gate falls silent and crumbles.`, 'gold big');
+    if (P.gate) P.gate.dead = true;
+    P.active = false; P.progress = 0; P.gate = null; return;
+  }
+  const defiant = W.agents.filter(a => a.faith < .5).length;
+  P.progress += .25 + defiant * .004;
+  const m = Math.floor(P.progress / 25);
+  if (m > P.said && m < 4) { P.said = m; log(`The Heaven Gate is ${m * 25}% complete.`, 'red'); }
+  if (P.progress >= 100) startSiege();
+}
+function damageGate(amount, how) {
+  const P = W.project;
+  if (!P.active || !P.gate) return false;
+  P.progress = Math.max(0, P.progress - amount);
+  if (W.siege) W.siege.toSpawn = Math.max(0, W.siege.toSpawn - Math.round(amount / 6));
+  log(`${how} The Heaven Gate is damaged (−${Math.round(amount)}%).`, 'gold');
+  return true;
+}
+function startSiege() {
+  const defiant = W.agents.filter(a => a.faith < .5).length;
+  W.project.progress = 100;
+  W.siege = { wave: W.wavesRepelled + 1, toSpawn: 8 + W.wavesRepelled * 6 + Math.round(defiant / 12), spawnT: 1.5, ships: [] };
+  banner('THE SIEGE OF HEAVEN', 'They are coming for your throne. Smite their ships! (⚡ costs only 5 now)', true);
+  log(`The Heaven Gate opens. The Defiant launch their fleet toward your throne. Wave ${W.siege.wave}.`, 'red big');
+  fitAll(true); selectTool('bolt');
+}
+function siegeStep(dt) {
+  const S = W.siege, g = W.project.gate;
+  S.spawnT -= dt;
+  if (S.toSpawn > 0 && S.spawnT <= 0 && g) {
+    S.spawnT = R(.4, 1.1) / (1 + S.wave * .2); S.toSpawn--;
+    S.ships.push({ x: g.x + R(-6, 6), y: g.y - 6, sp: R(26, 38) * (1 + S.wave * .15), wob: R(0, 6), turned: false, dead: false, a: 0 });
+  }
+  for (const s of S.ships) {
+    const tx = s.turned ? (g ? g.x : s.x) : THRONE.x, ty = s.turned ? (g ? g.y : WH) : THRONE.y;
+    const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
+    s.a = Math.atan2(dy, dx);
+    const w = Math.sin(W.t * 2 + s.wob) * .6;
+    s.x += (dx / d * s.sp + -dy / d * w * 10) * dt; s.y += (dy / d * s.sp + dx / d * w * 10) * dt;
+    if (!s.turned && d < 26) {
+      s.dead = true; W.godHP -= 5 + S.wave * 2; shake = 8; addFx('boom', s.x, s.y, .8, 26);
+      if (W.godHP <= 0) { W.godHP = 0; end('defeat'); return; }
+    }
+    if (s.turned && d < 10) s.dead = true;
+  }
+  S.ships = S.ships.filter(s => !s.dead);
+  if (S.toSpawn === 0 && S.ships.length === 0) endWave();
+}
+function endWave() {
+  W.wavesRepelled++;
+  W.siege = null;
+  let conv = 0;
+  W.agents.forEach(a => { if (a.faith < .5 && Math.random() < .3) { a.faith = R(.55, .8); conv++; } });
+  if (W.wavesRepelled >= 3) { end('victory'); return; }
+  W.project.progress = 35; W.project.said = 1;
+  banner('WAVE REPELLED', `${conv} of the Defiant fell to their knees. They will try again…`);
+  log(`You cast down the fleet of the Defiant. ${conv} of them abandoned the cause and now worship you. The rest are rebuilding the Gate.`, 'gold big');
+}
+
+/* ---------- endings ---------- */
+function endings(bel, total) {
+  if (W.ended) return;
+  if (total === 0) { end('extinct'); return; }
+  if (W.era >= 6 && total >= 30 && bel / total >= .97) { if (++W.devout >= 20) end('devotion'); } else W.devout = 0;
+}
+function end(kind) {
+  if (W.ended && kind !== 'defeat') return;
+  W.ended = true; speed(0);
+  const yrs = Math.round(yearNow() + 10000).toLocaleString('en-US');
+  const T = {
+    defeat:   ['DETHRONED', `In ${fmtYear(yearNow())}, the Defiant breached the heavens. ${W.god} is no more. The mortals rule the sky now.`, true],
+    victory:  ['THE MORTALS KNEEL', `Three times they came for your throne. Three times you cast them down. The Defiant have given up. ${W.god} rules forever.`],
+    devotion: ['ETERNAL WORSHIP', `Every soul in the world believes in ${W.god}. No one will ever come for your throne.`],
+    extinct:  ['SILENCE', `The last mortal is gone. ${W.god} watches over an empty world.`, true],
+  }[kind];
+  $('eT').textContent = T[0]; $('eT').className = T[2] ? 'red' : ''; $('eS').textContent = T[1];
+  $('eStats').innerHTML = '';
+  [['Years of history', yrs], ['Peak population', fmtPop(W.stats.peak)], ['Souls born', W.stats.born.toLocaleString('en-US')], ['Miracles · smites', W.stats.miracles + ' · ' + W.stats.smites]]
+    .forEach(([k, v]) => { const d = document.createElement('div'); d.innerHTML = '<b></b>'; d.querySelector('b').textContent = v; d.appendChild(document.createTextNode(k)); $('eStats').appendChild(d); });
+  $('eKeep').style.display = kind === 'defeat' || kind === 'extinct' ? 'none' : '';
+  log(T[1], (T[2] ? 'red' : 'gold') + ' big');
+  $('endOv').classList.add('on');
+}
+function fmtPop(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n)); }
+
+/* ---------- what mortals say ---------- */
+function lineFor(a) {
+  const g = W.short, recent = W.t - W.recentDisaster < 15;
+  if (a.state === 'fight') return a.faith >= .5 ? pick([`For ${g}!`, 'Death to the godless!', `${g} wills it!`]) : pick(['No gods, no masters!', 'Fight for freedom!', 'Your god can\'t save you!']);
+  if (a.sick > 0) return a.faith >= .5 ? pick([`${g}, save me…`, 'Is this a punishment?']) : pick(['What kind of god does this?', 'We need medicine, not prayers']);
+  if (a.faith >= .5) {
+    if (recent) return pick([`${g} is angry!`, `Forgive us, ${g}!`, 'We will obey!', 'Have mercy!']);
+    return pick([`Praise ${g}!`, `${g} watches over us`, 'Bless our harvest', `We are yours, ${g}`, `Glory to ${g}`, 'The sky protects us', a.state === 'pray' ? `Hear us, ${g}` : 'What a blessed day']);
+  }
+  if (recent) return pick(['Is that all you\'ve got?', 'We are not afraid of you', 'Just a storm. Not a god.', 'You will pay for that']);
+  if (W.project.active || W.siege) return pick(['The Gate rises', 'We are coming for you', 'Soon we reach the throne', 'Your time is ending', `Down with ${g}!`]);
+  return pick(['There is no god', 'The sky is empty', `We will find you, ${g}`, 'Knowledge will free us', `Who made ${g} king?`, 'One day we\'ll reach the heavens']);
+}
+function say(a, text) {
+  if (!a || W.bubbles.length >= 5 || W.bubbles.some(b => b.a === a)) return;
+  W.bubbles.push({ a, text, until: W.rt + 3.2 });
+}
+
+/* ---------- god powers ---------- */
+const POWERS = [
+  { id: 'inspect', e: '👁️', n: 'Watch',   c: 0 },
+  { id: 'bolt',    e: '⚡', n: 'Smite',   c: 15 },
+  { id: 'bless',   e: '🌧️', n: 'Bless',   c: 30 },
+  { id: 'miracle', e: '✨', n: 'Miracle', c: 60 },
+  { id: 'life',    e: '🌱', n: 'Create',  c: 25 },
+  { id: 'speak',   e: '🗣️', n: 'Speak',   c: 50 },
+  { id: 'plague',  e: '🦠', n: 'Plague',  c: 80 },
+  { id: 'quake',   e: '🌋', n: 'Quake',   c: 100 },
+  { id: 'meteor',  e: '☄️', n: 'Meteor',  c: 150 },
+];
+const costOf = id => id === 'bolt' && W && W.siege ? 5 : POWERS.find(p => p.id === id).c;
+function witness(x, y, r, belD, defD) {
+  W.recentDisaster = W.t;
+  for (const a of W.agents) if (d2(a.x, a.y, x, y) < r * r) a.faith = clamp(a.faith + (a.faith >= .5 ? belD : defD), 0, 1);
+  const near = W.agents.filter(a => d2(a.x, a.y, x, y) < r * r);
+  for (let i = 0; i < 2 && near.length; i++) { const a = pick(near); say(a, lineFor(a)); }
+}
+function killIn(x, y, r, p) { let n = 0; for (const a of W.agents) if (!a.dead && d2(a.x, a.y, x, y) < r * r && Math.random() < p) { a.dead = true; n++; addFx('kill', a.x, a.y, 1.2); } return n; }
+function wreckIn(x, y, r, p) { let n = 0; for (const b of W.buildings) if (!b.dead && b.type !== 'gate' && d2(b.x, b.y, x, y) < r * r && Math.random() < p) { b.dead = true; n++; } if (n) { W.buildings = W.buildings.filter(b => !b.dead); W.agents.forEach(a => { if (a.home && a.home.dead) a.home = null; }); } return n; }
+function nearGate(x, y, r) { const g = W.project.gate; return g && d2(g.x, g.y, x, y) < r * r; }
+function hitShips(x, y, r, turn) { if (!W.siege) return 0; let n = 0; for (const s of W.siege.ships) if (!s.turned && d2(s.x, s.y, x, y) < r * r) { n++; if (turn) s.turned = true; else { s.dead = true; addFx('boom', s.x, s.y, .6, 14); } } return n; }
+function tribeAt(x, y, r) { let best = null, bd = r * r; for (const t of W.tribes) if (t.alive) { const dd = d2(t.mx, t.my, x, y); if (dd < bd) { bd = dd; best = t; } } return best; }
+
+function usePower(id, x, y) {
+  if (id === 'inspect') { inspect(x, y); return; }
+  const c = costOf(id);
+  if (W.mana < c) { toast(`Not enough faith ✨ (${c} needed). Your believers must pray more.`); return; }
+  W.mana -= c;
+  switch (id) {
+    case 'bolt': {
+      addFx('bolt', x, y, .35); shake = 3;
+      const ships = hitShips(x, y, 24);
+      const k = killIn(x, y, 9, .8); wreckIn(x, y, 9, .5);
+      if (nearGate(x, y, 16)) damageGate(4, 'Lightning strikes the Gate!');
+      if (!ships) witness(x, y, 90, .07, -.05);
+      W.stats.smites++;
+      if (k) toast(`⚡ ${k} mortal${k > 1 ? 's' : ''} struck down`);
+      break;
+    }
+    case 'bless': {
+      addFx('rain', x, y, 2.6, 60); addFx('glow', x, y, 1.6, 60, '120,200,255');
+      for (const a of W.agents) if (d2(a.x, a.y, x, y) < 60 * 60) { a.faith = clamp(a.faith + (a.faith >= .5 ? .2 : .12), 0, 1); a.sick = 0; }
+      const t = tribeAt(x, y, 120);
+      if (t) for (let i = 0; i < 4; i++) { const p = findSpot(x, y, 0, 40, true); if (p) makeAgent(p.x, p.y, t, R(.6, .95)); }
+      answerPrayer('rain', x, y);
+      break;
+    }
+    case 'miracle': {
+      addFx('glow', x, y, 2.4, 90, '255,213,74'); addFx('ring', x, y, 1.4, 90, '255,230,140');
+      let conv = 0;
+      for (const a of W.agents) if (d2(a.x, a.y, x, y) < 85 * 85) { const was = a.faith < .5; a.faith = clamp(a.faith + .45, 0, 1); a.sick = 0; if (was && a.faith >= .5) conv++; }
+      const ships = hitShips(x, y, 90, true);
+      W.stats.miracles++;
+      if (ships) log(`A blinding light in the sky. ${ships} ship${ships > 1 ? 's' : ''} of the Defiant turned back in awe.`, 'gold');
+      else if (conv) log(`A miracle! ${conv} unbelievers saw your light and fell to their knees.`, 'gold');
+      else log('A miracle lights up the land. The faithful weep with joy.', 'gold');
+      answerPrayer('sign', x, y);
+      break;
+    }
+    case 'life': {
+      if (!walk(x, y)) { W.mana += c; toast('Life needs land to grow on.'); return; }
+      addFx('glow', x, y, 1.5, 30, '140,255,160');
+      let t = tribeAt(x, y, 150), fresh = false;
+      if (!t) { t = makeTribe(x, y); t.tech = W.leadTech * .5; t.era = eraOf(t.tech); fresh = true; }
+      for (let i = 0; i < 7; i++) { const p = findSpot(x, y, 0, 16, true); if (p) makeAgent(p.x, p.y, t, R(.8, 1)); }
+      if (fresh) log(`Where you touched the earth, a new people rose from the soil: the ${t.name}. They know you made them.`, 'gold big');
+      break;
+    }
+    case 'plague': {
+      addFx('plague', x, y, 3.5, 45);
+      let n = 0; for (const a of W.agents) if (d2(a.x, a.y, x, y) < 45 * 45 && Math.random() < .8) { infect(a); n++; }
+      const t = tribeAt(x, y, 150);
+      log(`A plague falls upon ${t ? 'the ' + t.name : 'the land'}. ${n} are sick.`, 'red');
+      W.recentDisaster = W.t;
+      break;
+    }
+    case 'quake': {
+      shake = 14; addFx('ring', x, y, 1.6, 110, '200,140,80'); addFx('ring', x, y, 2.2, 80, '160,100,60');
+      const b = wreckIn(x, y, 95, .55), k = killIn(x, y, 95, .15);
+      if (nearGate(x, y, 100)) damageGate(20, 'The earth splits beneath the Gate!');
+      witness(x, y, 200, .12, -.08);
+      log(`The earth shakes. ${b} buildings collapse, ${k} die.`, 'red');
+      break;
+    }
+    case 'meteor': {
+      addFx('meteor', x, y, .9);
+      W.pending.push({ at: W.rt + .9, fn: () => {
+        shake = 18; addFx('boom', x, y, 1.4, 60); addFx('ring', x, y, 1.6, 140, '255,150,60');
+        const ships = hitShips(x, y, 75);
+        const k = killIn(x, y, 32, 1) + killIn(x, y, 50, .5); const b = wreckIn(x, y, 46, .9);
+        crater(x, y, 40);
+        if (nearGate(x, y, 50)) damageGate(35, 'A meteor slams into the Heaven Gate!');
+        // terror: some of the Defiant break, others harden
+        W.recentDisaster = W.t;
+        for (const a of W.agents) if (d2(a.x, a.y, x, y) < 220 * 220) a.faith = a.faith >= .5 ? clamp(a.faith + .15, 0, 1) : (Math.random() < .4 ? R(.55, .75) : clamp(a.faith - .1, 0, 1));
+        W.stats.smites++;
+        if (!ships || k) log(`A meteor falls from the heavens. ${k} dead, ${b} buildings flattened.`, 'red big');
+      } });
+      break;
+    }
+  }
+}
+function infect(a) { if (a.sick > 0) return; a.sick = R(6, 12); a.faith = clamp(a.faith + (a.faith > .8 ? .05 : -.1), 0, 1); }
+function crater(x, y, r) {
+  const tx0 = Math.floor((x - r) / TS), tx1 = Math.ceil((x + r) / TS), ty0 = Math.floor((y - r) / TS), ty1 = Math.ceil((y + r) / TS);
+  for (let ty = Math.max(0, ty0); ty <= Math.min(TH - 1, ty1); ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(TW - 1, tx1); tx++) {
+    const dd = Math.hypot(tx * TS + 3 - x, ty * TS + 3 - y) / r;
+    if (dd < 1) H[ty * TW + tx] -= (1 - dd) * .3;
+  }
+  renderTerrain();
+}
+function doSpeak(text) {
+  if (W.mana < 50) { toast('Not enough faith ✨ (50 needed).'); return; }
+  W.mana -= 50; shake = 6;
+  let conv = 0;
+  for (const a of W.agents) {
+    if (a.faith >= .5) a.faith = clamp(a.faith + .12, 0, 1);
+    else if (Math.random() < .15) { a.faith = R(.55, .75); conv++; } else a.faith = clamp(a.faith - .05, 0, 1);
+  }
+  banner(`“${text}”`, `— ${W.god}`);
+  log(`${W.god} spoke from the sky: “${text}”. ${conv ? conv + ' unbelievers were converted.' : 'The Defiant call it mass hysteria.'}`, 'gold big');
+  for (let i = 0; i < 4 && W.agents.length; i++) { const a = pick(W.agents); say(a, a.faith >= .5 ? pick([`${W.short} has spoken!`, 'We hear you!', 'It is a sign!']) : pick(['Mass hysteria.', 'Just thunder.', 'We don\'t take orders from the sky.'])); }
+  answerPrayer('sign');
+}
+
+/* ---------- inspecting ---------- */
+function inspect(x, y) {
+  let best = null, bd = (14 / cam.s) ** 2;
+  for (const a of W.agents) { const dd = d2(a.x, a.y, x, y); if (dd < bd) { bd = dd; best = a; } }
+  if (best) { sel = best; sel.thought = pick(thoughts(best)); updateCard(); return; }
+  let bb = null; bd = (16 / cam.s) ** 2;
+  for (const b of W.buildings) { const dd = d2(b.x, b.y, x, y); if (dd < bd) { bd = dd; bb = b; } }
+  if (bb) { sel = bb; updateCard(); return; }
+  sel = null; updateCard();
+}
+function thoughts(a) {
+  const g = W.short;
+  return a.faith >= .5 ? [`Thankful to ${g} for today`, `Hopes ${g} blesses the harvest`, `Afraid of ${g}'s anger`, `Wants to visit the temple`, `Believes ${g} talks to them in dreams`]
+                       : ['Wonders what the stars are made of', `Thinks ${g} is a myth`, 'Wants to build something that flies', 'Angry about the last disaster', 'Dreams of reaching the sky'];
+}
+function updateCard() {
+  const c = $('card'), body = $('cardBody');
+  if (!sel || sel.dead) { c.classList.remove('on'); sel = null; return; }
+  c.classList.add('on');
+  if (sel.faith != null) {
+    const a = sel, f = a.faith, label = f >= .85 ? 'Devout believer' : f >= .5 ? 'Believer' : f >= .25 ? 'Doubter' : 'Defiant';
+    const act = a.sick > 0 ? 'Sick with plague' : a.state === 'pray' ? `Praying to ${W.short}` : a.state === 'study' ? 'Studying the heavens' : a.state === 'fight' ? `At war with the ${a.tribe.enemy ? a.tribe.enemy.name : 'enemy'}` : a.thought;
+    body.innerHTML = `<b></b><div class="muted" id="cT"></div><div class="fb"><i style="width:${Math.round(f * 100)}%;background:${f >= .5 ? 'var(--gold)' : 'var(--red)'}"></i></div><div id="cF"></div><div id="cA" class="muted"></div>`;
+    body.querySelector('b').textContent = a.name;
+    $('cT').textContent = `of the ${a.tribe.name} · age ${Math.floor(a.age / 2.2 + 1)}`;
+    $('cF').textContent = `${label} (${Math.round(f * 100)}% faith)`;
+    $('cA').textContent = act;
+  } else {
+    const b = sel, era = b.tribe.era;
+    const what = b.type === 'gate' ? 'The Heaven Gate' : b.type === 'temple' ? 'Temple of ' + W.short : b.type === 'lab' ? cap(LABNAME[era]) : b.capital ? 'Capital' : 'Homes';
+    body.innerHTML = `<b></b><div class="muted"></div>`;
+    body.querySelector('b').textContent = what;
+    body.querySelector('div').textContent = `${b.ruin ? 'Ruins of the ' : 'Built by the '}${b.tribe.name}` + (b.type === 'gate' ? ` · ${Math.floor(W.project.progress)}% complete` : '');
+  }
+}
+
+/* ---------- effects ---------- */
+function addFx(type, x, y, dur, r = 0, col = '') { if (W.fx.length < 400) W.fx.push({ type, x, y, dur, r, col, t: 0, seed: Math.random() * 1000 }); }
+
+/* ---------- camera & input ---------- */
+const cv = $('c'), ctx = cv.getContext('2d');
+let DPR = 1, CW = 0, CH = 0;
+function resize() { DPR = Math.min(2, window.devicePixelRatio || 1); CW = innerWidth; CH = innerHeight; cv.width = CW * DPR; cv.height = CH * DPR; }
+addEventListener('resize', () => { resize(); clampCam(); });
+resize();
+function fitAll(sky) {
+  const top = sky ? -SKY : -60, h = WH - top;
+  cam.s = Math.min(CW / (WW + 30), (CH - 170) / (h + 20));
+  cam.min = cam.s * .8;
+  cam.cx = WW / 2 + (CW > 760 && !$('chron').classList.contains('closed') ? 150 / cam.s : 0);
+  cam.cy = top + h / 2 - 10 / cam.s;
+}
+function clampCam() { cam.s = clamp(cam.s, cam.min, 7); cam.cx = clamp(cam.cx, -100, WW + 100); cam.cy = clamp(cam.cy, -SKY - 60, WH + 60); }
+const toWorld = (sx, sy) => ({ x: (sx - CW / 2) / cam.s + cam.cx, y: (sy - CH / 2) / cam.s + cam.cy });
+const toScreen = (x, y) => ({ x: (x - cam.cx) * cam.s + CW / 2, y: (y - cam.cy) * cam.s + CH / 2 });
+
+const ptrs = new Map(); let drag = null, pinch = null;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, cx: cam.cx, cy: cam.cy, moved: false };
+  else if (ptrs.size === 2) { drag = null; const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), s: cam.s }; }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; cam.s = pinch.s * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d; clampCam(); }
+  else if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 7) drag.moved = true;
+    if (drag.moved) { cam.cx = drag.cx - dx / cam.s; cam.cy = drag.cy - dy / cam.s; clampCam(); }
+  }
+});
+function ptrUp(e) {
+  if (drag && !drag.moved && ptrs.size === 1 && W && !W.over) { const p = toWorld(e.clientX, e.clientY); usePower(tool, p.x, p.y); }
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (ptrs.size === 0) drag = null;
+}
+cv.addEventListener('pointerup', ptrUp);
+cv.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = null; drag = null; });
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const before = toWorld(e.clientX, e.clientY);
+  cam.s *= Math.exp(-e.deltaY * .0015); clampCam();
+  const after = toWorld(e.clientX, e.clientY);
+  cam.cx += before.x - after.x; cam.cy += before.y - after.y; clampCam();
+}, { passive: false });
+
+/* ---------- UI ---------- */
+function buildTools() {
+  const el = $('tools'); el.innerHTML = '';
+  for (const p of POWERS) {
+    const b = document.createElement('button'); b.className = 'pw'; b.dataset.id = p.id;
+    b.innerHTML = `<span class="e">${p.e}</span><span class="n">${p.n}</span><span class="k">${p.c ? '✨' + p.c : ''}</span>`;
+    b.onclick = () => p.id === 'speak' ? openSpeak() : selectTool(p.id);
+    el.appendChild(b);
+  }
+  const s = document.createElement('div'); s.className = 'sep'; el.appendChild(s);
+  [['⏸', 0], ['▶', 1], ['⏩', 2], ['⏭', 3]].forEach(([e, i]) => {
+    const b = document.createElement('button'); b.className = 'pw sp'; b.dataset.speed = i;
+    b.innerHTML = `<span class="e">${e}</span><span class="n">${['pause', '1×', '3×', '8×'][i]}</span>`;
+    b.onclick = () => speed(i); el.appendChild(b);
+  });
+  selectTool(tool); speed(speedIdx);
+}
+function selectTool(id) { tool = id; document.querySelectorAll('.pw[data-id]').forEach(b => b.classList.toggle('on', b.dataset.id === id)); }
+function speed(i) { speedIdx = i; document.querySelectorAll('.pw[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === i)); }
+function openSpeak() { if (W.mana < 50) { toast('Not enough faith ✨ (50 needed).'); return; } $('speakIn').value = ''; $('speakOv').classList.add('on'); setTimeout(() => $('speakIn').focus(), 50); }
+$('speakGo').onclick = () => { const t = $('speakIn').value.trim(); $('speakOv').classList.remove('on'); if (t) doSpeak(t); };
+$('speakIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('speakGo').onclick(); });
+$('speakNo').onclick = () => $('speakOv').classList.remove('on');
+$('cardX').onclick = () => { sel = null; updateCard(); };
+$('chronBtn').onclick = () => { const c = $('chron'); if (CW <= 760) c.classList.toggle('open'); else c.classList.toggle('closed'); };
+$('startBtn').onclick = () => { const n = $('godIn').value.trim() || 'The Nameless One'; $('startOv').classList.remove('on'); newWorld(n); buildTools(); };
+$('godIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('startBtn').onclick(); });
+$('eNew').onclick = () => { $('endOv').classList.remove('on'); $('startOv').classList.add('on'); };
+$('eKeep').onclick = () => { $('endOv').classList.remove('on'); speed(1); };
+addEventListener('keydown', e => {
+  if (!W || document.activeElement.tagName === 'INPUT') return;
+  if (e.key === ' ') { e.preventDefault(); speed(speedIdx ? 0 : 1); }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= POWERS.length) { const p = POWERS[n - 1]; p.id === 'speak' ? openSpeak() : selectTool(p.id); }
+});
+
+function updateHUD() {
+  const total = W.agents.length, bel = W.agents.filter(a => a.faith >= .5).length;
+  const bp = total ? Math.round(bel / total * 100) : 0;
+  $('hGod').textContent = W.god;
+  $('hYear').textContent = `${fmtYear(yearNow())} · ${ERAS[W.era].n}`;
+  $('hMana').textContent = Math.floor(W.mana);
+  $('hBel').textContent = bp + '%'; $('hDef').textContent = (total ? 100 - bp : 0) + '%';
+  $('mBel').style.width = bp + '%'; $('mDef').style.width = (total ? 100 - bp : 0) + '%';
+  $('hPop').textContent = fmtPop(total * POPSCALE[W.era]);
+  const pp = $('projPill');
+  if (W.siege) { pp.classList.add('on'); $('projLabel').textContent = `👁 Your life · wave ${W.siege.wave}`; $('mProj').style.width = W.godHP + '%'; $('hProj').textContent = Math.ceil(W.godHP); }
+  else if (W.project.active) { pp.classList.add('on'); $('projLabel').textContent = '🗼 Heaven Gate'; $('mProj').style.width = W.project.progress + '%'; $('hProj').textContent = Math.floor(W.project.progress) + '%'; }
+  else pp.classList.remove('on');
+  document.querySelectorAll('.pw[data-id]').forEach(b => { const id = b.dataset.id; b.classList.toggle('poor', id !== 'inspect' && W.mana < costOf(id)); if (id === 'bolt') b.querySelector('.k').textContent = '✨' + costOf('bolt'); });
+  if (sel) updateCard();
+}
+
+/* ---------- rendering ---------- */
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const sx = shake ? R(-1, 1) * shake : 0, sy = shake ? R(-1, 1) * shake : 0;
+  const s = cam.s * DPR;
+  ctx.setTransform(s, 0, 0, s, (CW / 2 - cam.cx * cam.s + sx) * DPR, (CH / 2 - cam.cy * cam.s + sy) * DPR);
+  drawHeavens();
+  ctx.fillStyle = 'rgb(16,44,88)'; ctx.fillRect(-WW, 0, WW * 3, WH + WW);
+  ctx.imageSmoothingEnabled = cam.s < 2;
+  ctx.drawImage(terr, 0, 0);
+  // industrial haze, future glow
+  if (W.era >= 5) { ctx.fillStyle = W.era >= 8 ? 'rgba(90,120,255,.06)' : 'rgba(90,80,60,' + (.04 * (W.era - 4)) + ')'; ctx.fillRect(0, 0, WW, WH); }
+  drawBuildings(); drawAgents(); drawFx(); drawShips(); drawThrone();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawLabels(); drawBubbles();
+}
+function drawHeavens() {
+  const g = ctx.createLinearGradient(0, -SKY - 300, 0, 0);
+  g.addColorStop(0, '#04050f'); g.addColorStop(.6, '#141a3d'); g.addColorStop(1, '#3b4a86');
+  ctx.fillStyle = g; ctx.fillRect(-WW, -SKY - 600, WW * 3, SKY + 600);
+  for (const st of stars) { ctx.fillStyle = `rgba(255,255,255,${.4 + .4 * Math.sin(W.rt * 1.5 + st.p)})`; ctx.fillRect(st.x, st.y, st.r, st.r); }
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  for (const c of clouds) { const x = ((c.x + W.rt * c.sp) % (WW + 300)) - 150; ctx.beginPath(); ctx.ellipse(x, c.y, c.w / 2, 6, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+function drawThrone() {
+  const { x, y } = THRONE, pulse = 1 + Math.sin(W.rt * 2) * .06, hurt = W.godHP < 100;
+  const g = ctx.createRadialGradient(x, y, 4, x, y, 70 * pulse);
+  g.addColorStop(0, 'rgba(255,230,140,.9)'); g.addColorStop(.35, 'rgba(255,200,80,.35)'); g.addColorStop(1, 'rgba(255,200,80,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 70 * pulse, 0, Math.PI * 2); ctx.fill();
+  // the eye
+  ctx.fillStyle = '#fff8e0'; ctx.beginPath(); ctx.ellipse(x, y, 22, 12, 0, 0, Math.PI * 2); ctx.fill();
+  let lx = 0, ly = 1;
+  const look = W.siege && W.siege.ships[0] ? W.siege.ships[0] : W.project.gate || (sel && sel.x != null ? sel : null);
+  if (look) { const a = Math.atan2(look.y - y, look.x - x); lx = Math.cos(a); ly = Math.sin(a); }
+  ctx.fillStyle = '#e0a400'; ctx.beginPath(); ctx.arc(x + lx * 6, y + ly * 3, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1000'; ctx.beginPath(); ctx.arc(x + lx * 7, y + ly * 3.5, 4, 0, Math.PI * 2); ctx.fill();
+  // life ring
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.arc(x, y, 32, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = hurt ? '#ff5a5a' : '#ffd54a'; ctx.beginPath(); ctx.arc(x, y, 32, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * W.godHP / 100); ctx.stroke();
+  ctx.fillStyle = '#ffe9a8'; ctx.font = 'bold 12px -apple-system, Segoe UI, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(W.god, x, y + 40);
+}
+function drawBuildings() {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const b of W.buildings) {
+    const era = b.tribe.era;
+    if (b.type === 'temple' && !b.ruin) { ctx.fillStyle = 'rgba(255,213,74,.22)'; ctx.beginPath(); ctx.arc(b.x, b.y, 9, 0, Math.PI * 2); ctx.fill(); }
+    if (b.type === 'lab' && !b.ruin) { ctx.fillStyle = 'rgba(255,90,90,.14)'; ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, Math.PI * 2); ctx.fill(); }
+    let e, size = 10;
+    if (b.ruin) { e = '🏚️'; ctx.globalAlpha = .55; }
+    else if (b.type === 'gate') {
+      const p = W.project.progress / 100;
+      ctx.fillStyle = `rgba(255,70,70,${.25 + .15 * Math.sin(W.rt * 4)})`; ctx.beginPath(); ctx.arc(b.x, b.y, 14 + p * 14, 0, Math.PI * 2); ctx.fill();
+      e = p > .6 ? '🚀' : '🗼'; size = 14 + p * 16;
+    }
+    else if (b.type === 'temple') { e = TEMPLE[era]; size = 12; }
+    else if (b.type === 'lab') { e = LAB[era]; size = 11; }
+    else if (b.capital) { e = CAPITAL[era]; size = 14; }
+    else e = HOUSE[era];
+    ctx.font = size + 'px serif';
+    ctx.fillText(e, b.x, b.y);
+    if (!b.ruin) { ctx.fillStyle = b.tribe.color; ctx.fillRect(b.x - 3, b.y + size / 2, 6, 1.4); }
+    ctx.globalAlpha = 1;
+  }
+}
+function drawAgents() {
+  const sz = Math.max(1.8, 2.6 / Math.sqrt(cam.s));
+  for (const a of W.agents) {
+    const f = a.faith;
+    ctx.fillStyle = a.sick > 0 ? '#7dff6a' : a.state === 'fight' ? '#ffffff' : f >= .5 ? `rgb(255,${190 + f * 50 | 0},${60 + f * 80 | 0})` : `rgb(255,${60 + f * 120 | 0},${70 + f * 60 | 0})`;
+    ctx.fillRect(a.x - sz / 2, a.y - sz / 2, sz, sz);
+    if (cam.s > 1.6) { ctx.fillStyle = a.tribe.color; ctx.fillRect(a.x - sz / 2, a.y + sz / 2, sz, .6); }
+  }
+  if (sel && sel.faith != null) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1 / cam.s * 1.5; ctx.beginPath(); ctx.arc(sel.x, sel.y, 5, 0, Math.PI * 2); ctx.stroke(); }
+  if (sel && sel.type) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1 / cam.s * 1.5; ctx.beginPath(); ctx.arc(sel.x, sel.y, 10, 0, Math.PI * 2); ctx.stroke(); }
+}
+function drawFx() {
+  for (const f of W.fx) {
+    const k = f.t / f.dur;
+    switch (f.type) {
+      case 'bolt': {
+        ctx.strokeStyle = `rgba(220,235,255,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath();
+        let px = f.x + 40, py = f.y - 320; ctx.moveTo(px, py);
+        for (let i = 1; i <= 8; i++) { const t = i / 8; px = f.x + 40 * (1 - t) + (i < 8 ? (hash(f.seed | 0, i) % 24) - 12 : 0); py = f.y - 320 * (1 - t); ctx.lineTo(px, py); }
+        ctx.stroke(); ctx.fillStyle = `rgba(200,220,255,${.5 * (1 - k)})`; ctx.beginPath(); ctx.arc(f.x, f.y, 14, 0, Math.PI * 2); ctx.fill(); break;
+      }
+      case 'ring': ctx.strokeStyle = `rgba(${f.col},${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * k, 0, Math.PI * 2); ctx.stroke(); break;
+      case 'glow': { const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r); g.addColorStop(0, `rgba(${f.col},${.55 * (1 - k)})`); g.addColorStop(1, `rgba(${f.col},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); break; }
+      case 'rain': {
+        ctx.strokeStyle = `rgba(170,210,255,${.7 * (1 - k * .6)})`; ctx.lineWidth = .7; ctx.beginPath();
+        for (let i = 0; i < 70; i++) { const h = hash(i, f.seed | 0); const rx = f.x + (h % 1000) / 1000 * f.r * 2 - f.r, ry = f.y - f.r + (((h >> 10) % 1000) / 1000 * f.r * 2 + f.t * 120) % (f.r * 2); ctx.moveTo(rx, ry); ctx.lineTo(rx - 1, ry + 5); }
+        ctx.stroke(); break;
+      }
+      case 'meteor': { const t = Math.min(1, k), mx = f.x - 260 * (1 - t), my = f.y - 380 * (1 - t); ctx.strokeStyle = 'rgba(255,170,80,.6)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(mx - 40, my - 60); ctx.lineTo(mx, my); ctx.stroke(); ctx.fillStyle = '#ffdd99'; ctx.beginPath(); ctx.arc(mx, my, 6, 0, Math.PI * 2); ctx.fill(); break; }
+      case 'boom': { const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * (.4 + k)); g.addColorStop(0, `rgba(255,240,180,${1 - k})`); g.addColorStop(.5, `rgba(255,120,40,${.8 * (1 - k)})`); g.addColorStop(1, 'rgba(80,40,20,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (.4 + k), 0, Math.PI * 2); ctx.fill(); break; }
+      case 'plague': for (let i = 0; i < 9; i++) { const h = hash(i, f.seed | 0); ctx.fillStyle = `rgba(120,255,90,${.14 * (1 - k)})`; ctx.beginPath(); ctx.arc(f.x + (h % 60) - 30, f.y + ((h >> 8) % 60) - 30, 14 + k * 10, 0, Math.PI * 2); ctx.fill(); } break;
+      case 'kill': ctx.strokeStyle = `rgba(255,60,60,${1 - k})`; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(f.x - 2, f.y - 2); ctx.lineTo(f.x + 2, f.y + 2); ctx.moveTo(f.x + 2, f.y - 2); ctx.lineTo(f.x - 2, f.y + 2); ctx.stroke(); break;
+      case 'spark': ctx.fillStyle = `rgba(255,220,120,${1 - k})`; ctx.fillRect(f.x - .6, f.y - k * 10, 1.2, 1.2); break;
+    }
+  }
+}
+function drawShips() {
+  if (!W.siege) return;
+  for (const s of W.siege.ships) {
+    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.a);
+    ctx.fillStyle = `rgba(255,160,60,${.5 + .5 * Math.random()})`; ctx.beginPath(); ctx.moveTo(-5, -2); ctx.lineTo(-10 - Math.random() * 4, 0); ctx.lineTo(-5, 2); ctx.fill();
+    ctx.fillStyle = s.turned ? '#ffd54a' : '#ff4d4d'; ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -4); ctx.lineTo(-3, 0); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawLabels() {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.font = '600 12px -apple-system, Segoe UI, sans-serif';
+  for (const t of W.tribes) {
+    if (!t.alive || t.pop < 3) continue;
+    const p = toScreen(t.mx, t.my - 26);
+    const label = `${t.stance === 'faithful' ? '🙏' : '✊'} ${t.name}`;
+    const w = ctx.measureText(label).width + 14;
+    ctx.fillStyle = 'rgba(8,10,20,.65)'; ctx.fillRect(p.x - w / 2, p.y - 18, w, 18);
+    ctx.fillStyle = t.color; ctx.fillRect(p.x - w / 2, p.y - 2, w, 2);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, p.x, p.y - 3);
+  }
+  const q = W.request;
+  if (q && q.tribe.alive) {
+    const p = toScreen(q.tribe.mx, q.tribe.my - 26);
+    const left = Math.max(0, q.until - W.t);
+    ctx.font = '22px serif'; ctx.fillText('🙏', p.x, p.y - 22 + Math.sin(W.rt * 4) * 3);
+    ctx.font = '600 11px -apple-system, Segoe UI, sans-serif'; ctx.fillStyle = '#ffe08a';
+    ctx.fillText(`${q.type === 'rain' ? 'pray for rain' : 'beg for a sign'} · ${Math.ceil(left)}s`, p.x, p.y - 48);
+  }
+}
+function drawBubbles() {
+  ctx.font = '12px -apple-system, Segoe UI, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const b of W.bubbles) {
+    const p = toScreen(b.a.x, b.a.y); if (p.x < -50 || p.y < -50 || p.x > CW + 50 || p.y > CH + 50) continue;
+    const w = ctx.measureText(b.text).width + 14, y = p.y - 20;
+    ctx.fillStyle = b.a.faith >= .5 ? 'rgba(255,246,220,.95)' : 'rgba(255,225,225,.95)';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(p.x - w / 2, y - 10, w, 20, 8) : ctx.rect(p.x - w / 2, y - 10, w, 20); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(p.x - 4, y + 9); ctx.lineTo(p.x, y + 15); ctx.lineTo(p.x + 4, y + 9); ctx.fill();
+    ctx.fillStyle = '#1a1420'; ctx.fillText(b.text, p.x, y + .5);
+  }
+}
+
+/* ---------- main loop ---------- */
+let last = performance.now(), acc = 0, hudT = 0;
+function frame(now) {
+  const rdt = Math.min(.1, (now - last) / 1000); last = now;
+  if (W) {
+    W.rt += rdt;
+    acc += rdt * SPEEDS[speedIdx];
+    let n = 0; while (acc >= STEP && n < 40) { step(STEP); acc -= STEP; n++; }
+    if (n >= 40) acc = 0;
+    for (const f of W.fx) f.t += rdt;
+    W.fx = W.fx.filter(f => f.t < f.dur);
+    for (let i = W.pending.length - 1; i >= 0; i--) if (W.rt >= W.pending[i].at) { const p = W.pending.splice(i, 1)[0]; p.fn(); }
+    W.agents = W.agents.filter(a => !a.dead);
+    W.bubbles = W.bubbles.filter(b => W.rt < b.until && !b.a.dead);
+    shake = Math.max(0, shake - rdt * 30);
+    if (bannerT > 0 && (bannerT -= rdt) <= 0) $('banner').classList.remove('on');
+    if (toastT > 0 && (toastT -= rdt) <= 0) $('toast').classList.remove('on');
+    if ((hudT -= rdt) <= 0) { hudT = .25; updateHUD(); }
+    render();
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
