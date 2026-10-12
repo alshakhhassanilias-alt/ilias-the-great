@@ -125,5 +125,11 @@ export function actAssignGeneral(s: GameState, cid: number, id: number, prov: nu
     if (other && other !== g) { other.front = g.front; other.pinned = false; }
   }
   g.front = prov; g.pinned = prov >= 0;
+  // with army groups in play, the general takes over an army and makes the region its objective
+  if (c.isPlayer && prov >= 0 && s.armies?.length && s.owner[prov] !== cid) {
+    const a = s.armies.find((x) => x.general === g.id) ?? s.armies.find((x) => x.order !== 'hold' && x.order !== 'defend') ?? s.armies[0];
+    a.general = g.id; a.target = prov;
+    if (a.order === 'hold' || a.order === 'defend') a.order = 'advance';
+  }
   return { ok: true, message: prov >= 0 ? `General ${g.name} takes command of the offensive.` : `General ${g.name} now commands the home defence.` };
 }

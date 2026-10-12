@@ -5,6 +5,7 @@ import { stepWars, forcePeaceAll, logEvent } from './war';
 import { stepPartisans } from './specops';
 import { stepAutopilot } from './modes';
 import { stepLegacy } from './legacy';
+import { stepArmies } from './armies';
 import { stepAIGen } from './ai';
 import { nextRand } from './rng';
 import { stepProjects } from './projects';
@@ -85,6 +86,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepEconomiesGen(s, geo);
   yield;
   stepWars(s, geo);
+  stepArmies(s, geo);
   stepPartisans(s);
   yield;
   yield* stepAIGen(s, geo);

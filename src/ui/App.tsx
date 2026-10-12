@@ -8,6 +8,7 @@ import { Drawers } from './Drawers';
 import { BreakingBanner, Splash, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
 import { BattleCard } from './BattleCard';
+import { ArmyPanel } from './ArmyPanel';
 import { AgendaDraft, HistoryBook, TermReview } from './Legacy';
 
 const insetBottom = () => {
@@ -49,6 +50,7 @@ export function App() {
           <RippleCard />
           <InboxTray />
           <BattleCard />
+          <ArmyPanel />
           <BreakingBanner />
           <YearReview />
           <Splash />

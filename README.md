@@ -12,7 +12,7 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
 
 ## Play without installing anything
-Download **`play/world-order.html`** (single file, 1.3 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage.
+Download **`play/world-order.html`** (single file, about 4 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage.
 
 ## Quick start
 
@@ -24,12 +24,18 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 91 deterministic simulation tests (Vitest) |
+| `npm test` | 98 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
 | `npx tsx scripts/war-test.ts Russia Ukraine 3` | War scenario harness used to tune combat pacing |
 | `npx tsx scripts/debug-country.ts 20 China,Russia` | Per-country growth-factor diagnostics |
+
+## Two modes, and as much control as you want
+* **🌍 Sandbox** — the open world: play forever, or set the start (today / world depression / new cold war / détente), random events on or off, nuclear weapons on or off, and an end year.
+* **📜 Legacy** — a political career of up to 40 years. Terms of four years; at each inauguration you pick up to three promises from five **agenda cards** (about 20 kinds: economic miracle, balanced books, full employment, energy independence, rearmament, a great alliance, reclaiming lost land, lasting peace ...), each with a live progress bar and a once-per-term signature action. Eight weeks before the vote a **campaign** starts; the result depends on approval, promises kept or broken, fatigue and your campaign choices. Every term ends with a **newspaper review**. Lose and you lead the **opposition** (or go into exile in an autocracy): rallies, exposés, coalitions and foreign backing raise your support, a weak government can be forced into a snap vote, and a comeback returns you to power — two failed comebacks end the career. Retiring, losing your country or reaching the end of the era opens the **history book**: a legacy score in six parts (prosperity, power, standing, the people, promises, terms, wars), a grade from S to F, an epithet and a verdict, after which you can keep playing the world as a sandbox.
+* **Control levels** — Economy, Military and Diplomacy can each be **Auto** (ministers and generals run it; pick an economic focus), **Guided** (they propose a plan, you approve) or **Hands-on**, with presets Leader / Strategist / Commander. Change it any time in Settings.
+* **Army groups** — with the military on Guided or Hands-on your field forces form 3–6 armies, drawn as banners on the map with their commander. Drag a banner onto an enemy region to set its objective, or onto your own land to hold it; give orders Advance, Encircle (pincers, +25% against cut-off regions), Raid (half the losses, economic damage, slower gains), Hold (the region and its neighbours defend much harder) or Defend capital; change each army's share of the troops and its commander.
 
 ## What keeps it busy
 * **Decision events** (about 5 a year, 16 kinds): strikes, energy shocks, border incidents, research breakthroughs, disasters, scandals, investment offers, refugees, central-bank calls, coup plots, trade delegations, arms deals, harvest failures, tax demands, allies asking for help, resource discoveries. The game pauses and each choice has real costs and effects.
@@ -47,7 +53,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 
 ## How to play
 
-1. **Pick a country** on the start-screen map (or search 190+ countries). Set difficulty, starting economic
+1. **Pick a mode** (Sandbox or Legacy), your control level and **a country** on the start-screen map (or search 190+ countries). Set difficulty, starting economic
    conditions (historical / crisis / prosperous), AI aggression, defensive alliances on/off, and a victory condition.
 2. **Read the map.** Click/tap a country to inspect it; drag to pan, wheel or pinch to zoom. Map modes: Political,
    Relations, Wealth, Power, Stability. Your territory has a gold outline; enemies are red, allies blue.
@@ -79,6 +85,9 @@ src/
     diplomacy.ts treaties, sanctions, offers      relations.ts  relation model + treaty/war queries
     ai.ts        personalities, economic policy, diplomacy, war and peace decisions
     actions.ts   every player/AI action (immediate effect)     tick.ts   one-week step, victory, instability
+    modes.ts     game modes, control levels, autopilot, world starts
+    legacy.ts    Legacy career: terms, elections, opposition, score     agenda.ts  agenda cards
+    armies.ts    the player's army groups: orders, objectives, hold bonus
     save.ts      JSON save/load                   rng.ts    seeded PRNG stored in the save
   map/            geometry.ts (Path2D, runtime border unions, picking)  renderer.ts (canvas)  MapView.tsx
   state/store.ts  clock/speeds, selection, toasts, autosave — the only bridge between sim and React
@@ -215,7 +224,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 91 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 98 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

@@ -1,6 +1,7 @@
 import { nationalColor } from '../../map/palette';
 import { store } from '../../state/store';
 import { AutopilotBanner } from '../Autopilot';
+import { ArmyGroups } from '../ArmyPanel';
 import { ctl } from '../../sim/modes';
 import { Meter, Note, Section, Slider, Stat, MeterRow } from '../widgets';
 import { fmtMoney, fmtNum, fog, pct } from '../format';
@@ -107,6 +108,7 @@ export function MilitaryTab({ id }: { id: number }) {
 
       {mine && wars.length > 0 && <HomeFront id={id} />}
       {mine && wars.length > 0 && <SupplyLines id={id} />}
+      {mine && <ArmyGroups />}
       {mine && (wars.length > 0 || (c.generals?.length ?? 0) > 0) && <HighCommand id={id} />}
       {mine && wars.length > 0 && (() => {
         const diary = [...s.log].reverse().filter((l) => l.countries.includes(id) && (l.kind === 'territory' || l.kind === 'war')).slice(0, 8);

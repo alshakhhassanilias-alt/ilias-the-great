@@ -92,7 +92,7 @@ export function stepLegacy(s: GameState, geo: Geo) {
   const L = s.legacy;
   if (!L || s.settings.mode !== 'legacy' || L.status === 'ended') return;
   const c = s.countries[s.player];
-  if (!c.alive) { endLegacy(s, `${c.name} was wiped off the map. ${L.leader}'s story ends in defeat and exile.`); return; }
+  if (!c.alive) { if (L.status === 'office') closeTerm(s, 'ended', `${c.name} falls; the government is swept away.`); endLegacy(s, `${c.name} was wiped off the map. ${L.leader}'s story ends in defeat and exile.`); return; }
   if (isAtWar(s, c.id)) s.stats[`legacyWar:${c.id}`] = s.tick;
   if (L.status === 'office') {
     // the people's mood accumulates week by week
@@ -135,9 +135,9 @@ export function stepLegacy(s: GameState, geo: Geo) {
 
 /** Vote share at an election (or loyalty at a party congress). */
 export function voteShare(s: GameState): number {
-  const L = s.legacy!, c = s.countries[s.player];
-  const kept = L.agenda.filter((a) => a.done).length, failed = L.agenda.length - kept;
-  const fatigue = Math.max(0, L.term - 2) * 2.5;
+  const L = s.legacy, c = s.countries[s.player];
+  const kept = L ? L.agenda.filter((a) => a.done).length : 0, failed = L ? L.agenda.length - kept : 0;
+  const fatigue = Math.max(0, (L?.term ?? 1) - 2) * 2.5;
   const diff = s.settings.difficulty === 'easy' ? 4 : s.settings.difficulty === 'hard' ? -4 : 0;
   return clamp(approval(s, c) * 0.8 + 9 + 3.5 * kept - 2 * failed - fatigue + diff + (s.stats.campaign ?? 0), 2, 95);
 }

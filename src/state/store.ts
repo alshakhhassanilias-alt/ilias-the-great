@@ -79,6 +79,10 @@ class Store {
   /** floating words over the map ("CAPTURED", "ENCIRCLED" ...), handed to the map renderer */
   callouts: { prov: number; text: string; color: string }[] = [];
   private lastHist = 0;
+  /** army group selected on the map (and whether the next map click sets its objective) */
+  selectedArmy: number | null = null;
+  armyAim = false;
+  selectArmy(id: number | null) { this.selectedArmy = id; this.armyAim = false; this.notify(); }
   /** Legacy: newest term newspaper already read, and whether the history book was closed */
   termSeen = 0;
   bookSeen = false;

@@ -5,6 +5,7 @@ import { MapRenderer } from './renderer';
 import { areAtWar, getRelation } from '../sim/relations';
 import { shortName } from '../sim/util';
 import { toggleFocus } from '../sim/actions';
+import { actArmyTarget } from '../sim/armies';
 import { sfx } from '../audio';
 
 let geomSingleton: MapGeometry | null = null;
@@ -86,6 +87,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     r.selected = store.selected;
     r.selectedProv = store.selectedProv;
     r.running = store.speed > 0 && !store.preview;
+    r.selectedArmy = store.selectedArmy;
     r.dirty = true;
   }
   const lastPing = useRef(store.pingSeq);
@@ -110,6 +112,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     let moved = 0;
     let pinch = 0;
     let lastMove = 0;
+    let dragArmy: number | null = null;
     const rel = (e: PointerEvent) => { const b = canvas.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
     const pick = (x: number, y: number) => {
       const rr = rendRef.current!;
@@ -122,6 +125,8 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       const p = rel(e);
       pts.set(e.pointerId, p);
       if (pts.size === 1) { start = { ...p, t: performance.now() }; moved = 0; lastMove = e.timeStamp; }
+      // grabbing one of your armies: drag it onto a region to give it an objective
+      dragArmy = !onPick && pts.size === 1 && e.button === 0 ? rendRef.current!.hitArmy(p.x, p.y) : null;
       if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); }
     };
     const move = (e: PointerEvent) => {
@@ -132,7 +137,12 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
         if (e.pointerType === 'mouse') hover(p.x, p.y);
         return;
       }
-      if (pts.size === 1) {
+      if (pts.size === 1 && dragArmy !== null) {
+        moved += Math.abs(p.x - prev.x) + Math.abs(p.y - prev.y);
+        rr.dragArmy = moved > 6 ? { id: dragArmy, x: p.x, y: p.y, prov: pick(p.x, p.y) } : null;
+        rr.dirty = true;
+        setTip(null);
+      } else if (pts.size === 1) {
         rr.panBy(p.x - prev.x, p.y - prev.y, e.timeStamp - lastMove); lastMove = e.timeStamp;
         moved += Math.abs(p.x - prev.x) + Math.abs(p.y - prev.y);
         setTip(null);
@@ -151,12 +161,23 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       const had = pts.has(e.pointerId);
       pts.delete(e.pointerId);
       pinch = 0;
+      if (dragArmy !== null && had) {
+        const id = dragArmy; dragArmy = null;
+        const rr = rendRef.current!;
+        rr.dragArmy = null; rr.dirty = true;
+        if (moved < 8) { store.selectArmy(store.selectedArmy === id ? null : id); return; }
+        const pr = pick(p.x, p.y);
+        if (pr !== null) aimArmy(id, pr);
+        return;
+      }
       if (had && pts.size === 0 && moved < 8 && performance.now() - start.t < 600) click(p.x, p.y);
       else if (had && pts.size === 0) rendRef.current?.releasePan();
     };
     const hover = (x: number, y: number) => {
       const rr = rendRef.current!;
       const st = store.state;
+      const ah = rr.hitArmy(x, y);
+      if (ah !== null && st?.armies) { const a = st.armies.find((q) => q.id === ah); if (a) { setTip({ x, y, text: a.name, sub: 'Click to select · drag onto a region to send it there' }); return; } }
       const bh = rr.hitBattle(x, y);
       if (bh && st) { rr.hoverOwner = -1; rr.dirty = true; setTip({ x, y, text: `Battle of ${store.geo.provinces[bh.prov].name}`, sub: 'Click for the battle report' }); return; }
       const pr = pick(x, y);
@@ -174,7 +195,21 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       parts.push(o === st.player ? 'your country' : war ? 'at war with you' : `relations ${Math.round(getRelation(st, o, st.player))}`);
       setTip({ x, y, text: shortName(C.name), sub: parts.join(' · ') });
     };
+    const aimArmy = (id: number, pr: number) => {
+      const r2 = store.act((g) => actArmyTarget(g, store.geo, id, pr));
+      if (r2.ok) { const a = store.state?.armies?.find((x) => x.id === id); store.mapCallout(pr, `${a?.name.toUpperCase() ?? 'ARMY'} ${store.state?.owner[pr] === store.state?.player ? '🛡 HOLD' : '➤'}`, '#ffcf5a'); }
+      store.selectedArmy = id; store.armyAim = false; store.notify();
+    };
+    const context = (e: MouseEvent) => {
+      // right-click with an army selected: send it there
+      if (store.selectedArmy === null || onPick) return;
+      e.preventDefault();
+      const p = rel(e as unknown as PointerEvent);
+      const pr = pick(p.x, p.y);
+      if (pr !== null) aimArmy(store.selectedArmy, pr);
+    };
     const click = (x: number, y: number) => {
+      if (store.selectedArmy !== null && store.armyAim && !onPick) { const pr = pick(x, y); if (pr !== null) aimArmy(store.selectedArmy, pr); return; }
       // battle markers take priority: open the battle report
       const bh = !onPick ? rendRef.current?.hitBattle(x, y) : null;
       if (bh) { store.openBattle({ war: bh.war, prov: bh.prov, by: bh.by }); return; }
@@ -203,7 +238,9 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', leave);
     canvas.addEventListener('wheel', wheel, { passive: false });
+    canvas.addEventListener('contextmenu', context);
     return () => {
+      canvas.removeEventListener('contextmenu', context);
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up);

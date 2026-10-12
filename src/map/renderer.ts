@@ -490,7 +490,7 @@ export class MapRenderer {
 
   /** Whether another frame is needed even if nothing was touched (animations running). */
   animating(state: GameState | null) {
-    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.fx.count > 0 || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
+    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.fx.count > 0 || !!this.dragArmy || (this.selectedArmy !== null && this.running) || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
   }
 
   // ------------------------------------------------------------------ base layer
@@ -848,6 +848,99 @@ export class MapRenderer {
 
     // battles: cells falling to the attacker, the live frontline, artillery, aircraft, army counters
     this.drawBattles(ctx, state, now);
+    // the player's army groups (on top of everything, they are what you command)
+    this.drawArmies(ctx, state, now);
+  }
+
+  // ------------------------------------------------------------------ army groups
+  selectedArmy: number | null = null;
+  /** while dragging an army: the pointer position and the region under it */
+  dragArmy: { id: number; x: number; y: number; prov: number | null } | null = null;
+  armyHits: { id: number; x: number; y: number }[] = [];
+  hitArmy(sx: number, sy: number) {
+    let best: number | null = null, bd = 22 * 22;
+    for (const a of this.armyHits) { const d = (a.x - sx) ** 2 + (a.y - sy) ** 2; if (d < bd) { bd = d; best = a.id; } }
+    return best;
+  }
+  private drawArmies(ctx: CanvasRenderingContext2D, state: GameState, now: number) {
+    this.armyHits = [];
+    const armies = state.armies;
+    if (!armies?.length || (state.settings.control?.military ?? 'hands') === 'auto') return;
+    const geo = this.geom.geo, V = this.view, P = state.player;
+    const col = this.colorSnap[P] || '#c33';
+    const ORDER_COL: Record<string, string> = { advance: '#ffcf5a', encircle: '#ff9a3c', raid: '#c58cff', hold: '#7fc1ff', defend: '#7fc1ff' };
+    const ORDER_ICON: Record<string, string> = { advance: '➤', encircle: '⭕', raid: '⚡', hold: '🛡', defend: '🏛' };
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const byAt = new Map<number, number>();
+    armies.forEach((a, i) => {
+      const at = a.at >= 0 ? a.at : state.countries[P].capital;
+      const n = byAt.get(at) ?? 0; byAt.set(at, n + 1);
+      const sd = geo.provinces[at].seed;
+      const sx = sd[0] * V.k + V.x + n * 34 - 10, sy = sd[1] * V.k + V.y - 26 - (n % 2) * 6;
+      const sel = this.selectedArmy === a.id;
+      const oc = ORDER_COL[a.order] ?? '#fff';
+      // objective: a dashed arrow towards the target region
+      const tgt = this.dragArmy?.id === a.id ? null : a.target;
+      if (tgt !== null && tgt >= 0) {
+        const td = geo.provinces[tgt].seed;
+        const tx = td[0] * V.k + V.x, ty = td[1] * V.k + V.y;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(10,6,2,0.75)'; ctx.lineWidth = sel ? 5 : 4; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.strokeStyle = oc; ctx.lineWidth = sel ? 2.6 : 1.8; ctx.setLineDash([7, 5]); ctx.lineDashOffset = -(now / 40) % 12;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.setLineDash([]);
+        const ang = Math.atan2(ty - sy, tx - sx);
+        ctx.fillStyle = oc; ctx.strokeStyle = 'rgba(10,6,2,0.9)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - 12 * Math.cos(ang - 0.45), ty - 12 * Math.sin(ang - 0.45)); ctx.lineTo(tx - 12 * Math.cos(ang + 0.45), ty - 12 * Math.sin(ang + 0.45)); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(tx, ty, 9 + 2 * Math.sin(now / 200), 0, 6.283); ctx.strokeStyle = oc; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.restore();
+      }
+      // the token: a banner in the national colour with the army's number, its order and its general's stars
+      const w = 30, h = 36;
+      ctx.save();
+      if (sel) { ctx.shadowColor = oc; ctx.shadowBlur = 16; }
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath(); ctx.ellipse(sx, sy + h / 2 + 4, 15, 4, 0, 0, 6.283); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(sx - w / 2, sy - h / 2); ctx.lineTo(sx + w / 2, sy - h / 2); ctx.lineTo(sx + w / 2, sy + h / 2 - 9); ctx.lineTo(sx, sy + h / 2); ctx.lineTo(sx - w / 2, sy + h / 2 - 9); ctx.closePath();
+      const g = ctx.createLinearGradient(sx, sy - h / 2, sx, sy + h / 2);
+      g.addColorStop(0, '#fff6dc'); g.addColorStop(0.12, col); g.addColorStop(1, '#1d140a');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = sel ? 2.4 : 1.6; ctx.strokeStyle = sel ? '#fff3c4' : '#d6ab52'; ctx.stroke();
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(10,6,2,0.9)'; ctx.stroke();
+      ctx.fillStyle = '#fff8e6'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `700 13px ${LABEL_FONT}`; ctx.fillText(ROMAN[i] ?? String(i + 1), sx, sy - 6);
+      ctx.font = `12px ${UI_FONT}`; ctx.fillText(ORDER_ICON[a.order] ?? '', sx, sy + 8);
+      const gen = state.countries[P].generals?.find((x) => x.id === a.general && x.status === 'active');
+      if (gen) { const st = '★'.repeat(Math.min(5, 1 + Math.floor(gen.xp / 25))); ctx.font = `700 8px ${UI_FONT}`; ctx.fillStyle = '#ffcf5a'; ctx.fillText(st, sx, sy - h / 2 - 5); }
+      ctx.restore();
+      this.armyHits.push({ id: a.id, x: sx, y: sy });
+    });
+    // dragging: a live line to the region under the pointer
+    const d = this.dragArmy;
+    if (d) {
+      const hit = this.armyHits.find((x) => x.id === d.id);
+      if (hit) {
+        const enemy = d.prov !== null && state.owner[d.prov] !== P;
+        const c2 = enemy ? '#ffcf5a' : '#7fc1ff';
+        if (d.prov !== null) {
+          ctx.setTransform(this.dpr * V.k, 0, 0, this.dpr * V.k, this.dpr * V.x, this.dpr * V.y);
+          ctx.fillStyle = enemy ? 'rgba(255,200,80,0.22)' : 'rgba(120,190,255,0.2)';
+          ctx.fill(this.geom.provPaths[d.prov], 'evenodd');
+          ctx.strokeStyle = c2; ctx.lineWidth = 2 / V.k; ctx.stroke(this.geom.provPaths[d.prov]);
+          ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        }
+        ctx.strokeStyle = c2; ctx.lineWidth = 2.5; ctx.setLineDash([8, 5]);
+        ctx.beginPath(); ctx.moveTo(hit.x, hit.y); ctx.lineTo(d.x, d.y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.font = `700 12px ${UI_FONT}`; ctx.fillStyle = c2; ctx.textAlign = 'left';
+        ctx.fillText(d.prov === null ? '' : enemy ? `Attack ${geo.provinces[d.prov].name}` : `Hold ${geo.provinces[d.prov].name}`, d.x + 12, d.y - 10);
+      }
+    }
+    ctx.restore();
   }
 
   /** Battle markers drawn this frame, in screen coordinates, so a click can open the battle report. */
@@ -916,6 +1009,7 @@ export class MapRenderer {
     const pockets: { x: number; y: number; n: number; mine: boolean }[] = [];
     const arrows: { sx: number; sy: number; cx: number; cy: number; hx: number; hy: number; mine: boolean }[] = [];
     const myWar = (w: { attackers: number[]; defenders: number[] }) => w.attackers.includes(P) || w.defenders.includes(P);
+    const armiesOn = !!state.armies?.length && (state.settings.control?.military ?? 'hands') !== 'auto';
 
     // encircled pockets: cut-off land, hatched and ringed in orange
     {
@@ -1068,7 +1162,8 @@ export class MapRenderer {
         const off = Math.max(cells.size * 0.9, 22 / k);
         const atk = state.countries[fr.by], def = state.countries[defender];
         const gA = generalAt(atk, fr.prov);
-        counters.push({ gen: gA ? stars(gA) : 0, key: `a${w.id}:${fr.prov}:${fr.by}`, x: bx - (dx / dl) * off, y: by - (dy / dl) * off, color: atkCol, troops: fr.atk ?? 0, org: atk.mil.readiness * (1 - atk.mil.exhaustion), armor: atk.mil.equipArmy / Math.max(1, atk.mil.troops) > 140000, enemy: fr.by !== P && !side.includes(P), mine });
+        // with army groups in command, the player's own formations are the banners, not counters
+        if (!(fr.by === P && armiesOn)) counters.push({ gen: gA ? stars(gA) : 0, key: `a${w.id}:${fr.prov}:${fr.by}`, x: bx - (dx / dl) * off, y: by - (dy / dl) * off, color: atkCol, troops: fr.atk ?? 0, org: atk.mil.readiness * (1 - atk.mil.exhaustion), armor: atk.mil.equipArmy / Math.max(1, atk.mil.troops) > 140000, enemy: fr.by !== P && !side.includes(P), mine });
         const gD = homeCommander(def);
         counters.push({ gen: gD ? stars(gD) : 0, key: `d${w.id}:${fr.prov}`, x: bx + (dx / dl) * off, y: by + (dy / dl) * off, color: this.colorSnap[defender] || '#888', troops: fr.def ?? 0, org: def.mil.readiness * (1 - def.mil.exhaustion), armor: def.mil.equipArmy / Math.max(1, def.mil.troops) > 140000, enemy: defender !== P && side.includes(P), mine: defender === P });
         markers.push({ x: bx, y: by, war: w.id, prov: fr.prov, by: fr.by, mine: mine || defender === P, heat: intensity });
@@ -1082,6 +1177,7 @@ export class MapRenderer {
       for (const cid of who) {
         const C = state.countries[cid];
         if (!C?.alive || !C.provinces.length) continue;
+        if (cid === P && armiesOn) continue;
         for (const g of this.garrisonsOf(state, cid)) {
           const gp = geo.provinces[g.prov];
           if (!this.geomVisible(g.prov)) continue;

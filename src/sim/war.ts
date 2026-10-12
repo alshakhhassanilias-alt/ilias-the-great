@@ -20,7 +20,7 @@ import {
 } from './relations';
 import { potentialOutput } from './economy';
 import { airPower, landPower, navalPower, strength } from './military';
-import type { CountryId, Country, GameState, LogKind, ProvId, War } from './types';
+import type { ArmyOrder, CountryId, Country, GameState, LogKind, ProvId, War } from './types';
 
 import { logEvent } from './log';
 import { fortBonus, transferBuildings } from './buildings';
@@ -28,6 +28,7 @@ import { addGrudge } from './leaders';
 import { fmtCas, isBigNews, MILESTONES } from './drama';
 import { bumpSupply, landSupply, neighbours, supplyNet, supplyReach } from './supply';
 import { opsOf } from './specops';
+import { armiesActive, armyStrikes, holdBonus } from './armies';
 import { bumpSupport, morale, onEnterWar, stepWarSupport, warSupport } from './warsupport';
 import { assignGenerals, attackBonus, defenceBonus, ensureGenerals, generalAfterBattle, generalAt, homeCommander, supplyBonus } from './generals';
 export { logEvent };
@@ -417,7 +418,7 @@ export function attackCandidates(s: GameState, geo: Geo, c: Country, w: War): Ca
   return [...out.values()];
 }
 
-interface Strike { c: Country; supply: number; amphibious: boolean; share: number; from: ProvId }
+interface Strike { c: Country; supply: number; amphibious: boolean; share: number; from: ProvId; order?: ArmyOrder }
 
 export function stepWars(s: GameState, geo: Geo) {
   stepPockets(s, geo);
@@ -434,6 +435,21 @@ export function stepWars(s: GameState, geo: Geo) {
         const cands = attackCandidates(s, geo, c, w);
         if (!cands.length) continue;
         const off = c.mil.troops * clamp(c.mil.commit, 0.05, 1) * c.mil.readiness / wr(s, cid);
+        if (c.isPlayer && armiesActive(s)) {
+          // the player's army groups choose their own targets
+          const scoreMap = new Map(cands.map((x) => [x.prov, x.score]));
+          for (const g of c.generals ?? []) if (!g.pinned) g.front = -1;
+          for (const st of armyStrikes(s, geo, c, cands, off, (p) => scoreMap.get(p) ?? 0)) {
+            const list = strikes.get(st.prov) ?? [];
+            const same = list.find((x) => x.c === c && x.order === st.army.order);
+            if (same) same.share += st.share; else list.push({ c, supply: st.supply, amphibious: st.amphibious, share: st.share, from: st.from, order: st.army.order });
+            strikes.set(st.prov, list);
+            const g = c.generals?.find((x) => x.id === st.army.general && x.status === 'active');
+            if (g && !g.pinned && !generalAt(c, st.prov)) g.front = st.prov;
+            if (!w.fronts.some((f) => f.prov === st.prov && f.by === cid)) w.fronts.push({ prov: st.prov, by: cid, progress: 0, amphibious: st.amphibious });
+          }
+          continue;
+        }
         const nTargets = clamp(Math.floor(Math.sqrt(off / 50000)), 1, 4);
         let chosen: Candidate[];
         if (c.isPlayer && !c.mil.autoAdvance) {
@@ -478,7 +494,7 @@ export function stepWars(s: GameState, geo: Geo) {
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
       const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)));
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) : 1));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
@@ -487,7 +503,7 @@ export function stepWars(s: GameState, geo: Geo) {
         const intel = 1 + 0.2 * (C.mil.intel - E.mil.intel);
         const gen = generalAt(C, p);
         st.supply = Math.min(1, st.supply * supplyBonus(gen));
-        const pa = attackBonus(gen, pocket) * landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C);
+        const pa = (st.order === 'encircle' && pocket ? 1.25 : 1) * attackBonus(gen, pocket) * landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C);
         contrib.push({ st, pa, air });
         Pa += pa;
       }
@@ -509,7 +525,8 @@ export function stepWars(s: GameState, geo: Geo) {
       for (const { st, pa } of contrib) {
         const frac = pa / Pa;
         const atkLossFrac = 0.0075 * Math.pow(clamp(1 / ratio, 0.3, 3), 0.5) * (0.7 + 0.6 * terrain);
-        const al = Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac);
+        const al = Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac) * (st.order === 'raid' ? 0.5 : 1);
+        if (st.order === 'raid') E.eco.damage = Math.min(1, E.eco.damage + 0.0015);
         applyLosses(s, st.c, al, w, 1);
         atkLossBy.set(st.c.id, al);
         void frac;
@@ -520,7 +537,7 @@ export function stepWars(s: GameState, geo: Geo) {
         let front = w.fronts.find((f) => f.prov === p && f.by === st.c.id);
         if (front) { front.atk = Math.round(st.share); front.def = Math.round(defTroops); front.sup = Math.round(st.supply * 100) / 100; front.from = st.from; front.pocket = pocket; }
         if (!front) { front = { prov: p, by: st.c.id, progress: 0, amphibious: st.amphibious }; w.fronts.push(front); }
-        const inc = delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length;
+        const inc = delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length * (st.order === 'raid' && delta > 0 ? 0.6 : 1);
         front.rate = front.rate === undefined ? inc : front.rate * 0.7 + inc * 0.3;
         front.progress = clamp(front.progress + inc, 0, 1.2);
       }

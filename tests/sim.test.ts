@@ -1072,3 +1072,94 @@ describe('round 9: smooth weeks, generals, special operations, war history', () 
     expect(inv.warships).toBeGreaterThan(20);
   });
 });
+
+import { ctl, setControl, CONTROL_PRESETS } from '../src/sim/modes';
+import { actChooseAgenda, actOpposition, actRetire, continueAsSandbox, grade, voteShare } from '../src/sim/legacy';
+import { AGENDA, agendaById, dealHand } from '../src/sim/agenda';
+import { actArmyOrder, actArmyTarget, ensureArmies, holdBonus } from '../src/sim/armies';
+
+describe('round 11: modes, control levels, Legacy, army groups', () => {
+  it('sandbox world options: no nukes, random events off, a cold war start', () => {
+    const s = fresh('Germany', { nukes: false, randomEvents: false, world: 'coldwar' });
+    expect(s.countries.some((c) => c.mil.nuclear)).toBe(false);
+    expect(s.crisis?.id).toBe('coldwar');
+    run(s, 60);
+    expect(s.inbox.filter((x) => !['ally_attacked', 'assembly'].includes(x.id)).length).toBe(0);
+  });
+  it('an endless sandbox can be given an end year', () => {
+    const s = fresh('Germany', { endYear: 2025 });
+    run(s, 60);
+    expect(s.victory?.text).toMatch(/2025/);
+  });
+  it('the economic autopilot manages the budget; guided sends treasury proposals', () => {
+    const s = fresh('Italy', { control: { ...CONTROL_PRESETS.leader.control } });
+    expect(ctl(s, 'economy')).toBe('auto');
+    const b0 = JSON.stringify(s.countries[s.player].budget);
+    run(s, 30);
+    expect(JSON.stringify(s.countries[s.player].budget)).not.toBe(b0);
+    const g = fresh('Italy', { control: { economy: 'guided', military: 'hands', diplomacy: 'hands' } });
+    run(g, 26);
+    expect(g.inbox.some((x) => x.id === 'treasury_plan') || g.log.some((l) => /treasury/i.test(l.text))).toBe(true);
+    setControl(g, 'economy', 'hands');
+    expect(ctl(g, 'economy')).toBe('hands');
+  });
+  it('Legacy: inauguration deals agenda cards, which can be chosen and tracked', () => {
+    const s = fresh('Poland', { mode: 'legacy', leaderName: 'Ada Nowak' });
+    const L = s.legacy!;
+    expect(L.leader).toBe('Ada Nowak');
+    expect(L.hand.length).toBe(5);
+    for (const id of L.hand) expect(agendaById(id)).toBeDefined();
+    expect(actChooseAgenda(s, L.hand.slice(0, 3)).ok).toBe(true);
+    expect(L.agenda.length).toBe(3);
+    expect(L.hand.length).toBe(0);
+    expect(voteShare(s)).toBeGreaterThan(0);
+    expect(AGENDA.length).toBeGreaterThanOrEqual(20);
+    expect(dealHand(s, s.countries[s.player], 2).length).toBe(5);
+  });
+  it('Legacy: an election after four years either renews the mandate or sends you into opposition, and opposition can win back power', () => {
+    const s = fresh('Poland', { mode: 'legacy' });
+    const L = s.legacy!;
+    actChooseAgenda(s, []);
+    L.nextVote = s.tick + 12; // a snap election after a disastrous spell
+    for (let i = 0; i < 14; i++) { s.countries[s.player].eco.stability = Math.min(s.countries[s.player].eco.stability, 22); run(s, 1); for (const it of [...s.inbox]) resolveEvent(s, geo, 0, it.uid); }
+    expect(L.terms.length).toBeGreaterThanOrEqual(1);
+    if (L.status === 'opposition') {
+      expect(actOpposition(s, 'rally').ok).toBe(true);
+      expect(actOpposition(s, 'rally').ok).toBe(false); // cooldown
+      L.opposition!.support = 80;
+      L.nextVote = s.tick + 1;
+      run(s, 2);
+      expect(L.status).toBe('office');
+      expect(L.terms.at(-1)!.result).toBe('returned');
+    }
+  });
+  it('Legacy: retiring writes the history books, and the world continues as a sandbox', () => {
+    const s = fresh('Japan', { mode: 'legacy' });
+    actChooseAgenda(s, s.legacy!.hand.slice(0, 2));
+    run(s, 30);
+    expect(actRetire(s).ok).toBe(true);
+    expect(s.legacy!.status).toBe('ended');
+    expect(['S', 'A', 'B', 'C', 'D', 'F']).toContain(grade(s.legacy!.score));
+    continueAsSandbox(s);
+    expect(s.settings.mode).toBe('sandbox');
+    run(s, 5);
+  });
+  it('army groups: orders and objectives steer the offensive; holding armies stiffen the defence', () => {
+    const s = fresh('Poland', { defensiveAlliances: false, control: { economy: 'hands', military: 'guided', diplomacy: 'hands' } });
+    const B = s.countries[id('Belarus')];
+    actDeclareWar(s, geo, s.player, B.id);
+    run(s, 1);
+    expect(s.armies?.length).toBe(3);
+    expect(actArmyTarget(s, geo, 1, B.capital).ok).toBe(true);
+    expect(s.armies![0].target).toBe(B.capital);
+    run(s, 3);
+    const fr = s.wars[0].fronts.filter((f) => f.by === s.player).map((f) => f.prov);
+    const near = Math.min(...fr.map((p) => (p === B.capital ? 0 : geo.dist(p, B.capital))));
+    expect(near).toBeLessThan(60);
+    // a holding army on the capital
+    ensureArmies(s);
+    actArmyOrder(s, 3, 'defend');
+    expect(holdBonus(s, geo, s.countries[s.player].capital)).toBeGreaterThan(1.2);
+    expect(actArmyTarget(s, geo, 2, id('Germany') === s.owner[s.countries[id('Germany')].capital] ? s.countries[id('Germany')].capital : 0).ok).toBe(false); // not at war with Germany
+  });
+});

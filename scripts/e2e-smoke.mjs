@@ -123,6 +123,58 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('save then load restores the earlier state', (await S(pg)).tick === saved);
   await pg.close();
 }
+// ---------------- Legacy mode ----------------
+{
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 860 } });
+  watch(pg);
+  await pg.addInitScript(() => { try { localStorage.setItem('wo-tutorial-1', '1'); } catch {} });
+  await pg.goto(URL);
+  await pg.waitForSelector('.start');
+  await pg.click('.mode-card:has-text("Legacy")');
+  await pg.fill('input[type=search]', 'Poland'); await pg.click('.picklist button:has-text("Poland")');
+  await pg.click('.start-side .foot .btn.primary');
+  await pg.waitForSelector('.app');
+  await pg.waitForSelector('.agenda-card');
+  check('Legacy: taking office deals five agenda cards', (await pg.locator('.agenda-card').count()) === 5);
+  await pg.click('.agenda-card >> nth=0'); await pg.click('.agenda-card >> nth=1'); await pg.click('.agenda-card >> nth=3');
+  await pg.click('button:has-text("Swear to this agenda")');
+  check('Legacy: the chosen promises become the agenda', (await pg.evaluate(() => window.__store.state.legacy.agenda.length)) === 3 && (await pg.locator('.agenda-card').count()) === 0);
+  await pg.click('.legacy-chip');
+  const dossier = (await pg.locator('.legacy-modal').innerText()).toLowerCase();
+  check('Legacy: the chip opens the legacy dossier', dossier.includes('legacy') && dossier.includes('prosperity'));
+  await pg.close();
+}
+// ---------------- army groups ----------------
+{
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 860 } });
+  watch(pg);
+  await pg.addInitScript(() => { try { localStorage.setItem('wo-tutorial-1', '1'); } catch {} });
+  await pg.goto(URL);
+  await pg.waitForSelector('.start');
+  await pg.fill('input[type=search]', 'Poland'); await pg.click('.picklist button:has-text("Poland")');
+  await pg.click('.ctl-preset:has-text("Strategist")');
+  await pg.click('label.check:has-text("Defensive alliances") input');
+  await pg.click('.start-side .foot .btn.primary');
+  await pg.waitForSelector('.app');
+  await quiet(pg, true);
+  await pg.evaluate(() => { const s = window.__store.state; const id = s.countries.findIndex((c) => c.name === 'Belarus'); window.__store.select(id, null, false); });
+  await pg.click('.tabs button:has-text("Diplomacy")');
+  await pg.click('button:has-text("Declare war")'); await pg.click('.btnrow button:has-text("Declare war")');
+  await pg.evaluate(() => { const st = window.__store; st.closeSplash(); for (let i = 0; i < 3; i++) st.stepOnce(); st.select(st.state.player, null, false); st.toasts = []; st.breaking = null; st.notify(); });
+  await pg.evaluate(() => { const r = window.__renderer; const s = window.__store.state; const geo = window.__store.geo; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const n of ['Poland', 'Belarus']) for (const p of s.countries.find((c) => c.name === n).provinces) { const bb = geo.provinces[p].bbox; x0 = Math.min(x0, bb[0]); y0 = Math.min(y0, bb[1]); x1 = Math.max(x1, bb[2]); y1 = Math.max(y1, bb[3]); } r.focusBox([x0, y0, x1, y1], 0, 470, false); });
+  await sleep(800);
+  const info = await pg.evaluate(() => { const r = window.__renderer; const s = window.__store.state; const geo = window.__store.geo; const B = s.countries.find((c) => c.name === 'Belarus'); const sd = geo.provinces[B.capital].seed; return { n: s.armies?.length ?? 0, h: r.armyHits[0], tx: sd[0] * r.view.k + r.view.x, ty: sd[1] * r.view.k + r.view.y, cap: B.capital }; });
+  check('armies: going to war forms army groups on the map', info.n >= 3 && !!info.h, `(${info.n} armies)`);
+  if (info.h) {
+    const box = await pg.locator('.map-wrap').boundingBox();
+    await pg.mouse.move(box.x + info.h.x, box.y + info.h.y); await pg.mouse.down();
+    for (let i = 1; i <= 10; i++) await pg.mouse.move(box.x + info.h.x + (info.tx - info.h.x) * i / 10, box.y + info.h.y + (info.ty - info.h.y) * i / 10);
+    await pg.mouse.up(); await sleep(200);
+    const tgt = await pg.evaluate((id) => window.__store.state.armies.find((a) => a.id === id).target, info.h.id);
+    check('armies: dragging an army onto an enemy region sets its objective', tgt === info.cap, `(target ${tgt})`);
+  }
+  await pg.close();
+}
 // ---------------- mobile ----------------
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
