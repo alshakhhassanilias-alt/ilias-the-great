@@ -12,6 +12,9 @@ import { areAtWar, warBetween } from '../sim/relations';
 import type { Difficulty, VictoryMode } from '../sim/types';
 import { computeBlocs, RES_LABEL, tensionIndex } from '../sim/politics';
 import { HelpModal } from './Help';
+import { LegacyDossier } from './Legacy';
+import { ControlPicker } from './ControlPicker';
+import { setControl } from '../sim/modes';
 import { Meter } from './widgets';
 
 function Modal({ title, onClose, children, narrow }: { title: string; onClose: () => void; children: React.ReactNode; narrow?: boolean }) {
@@ -35,6 +38,7 @@ export function Drawers() {
   if (open === 'settings') return <SettingsDrawer onClose={close} />;
   if (open === 'peace') return <PeaceDrawer onClose={close} />;
   if (open === 'help') return <HelpModal onClose={close} />;
+  if (open === 'legacy' && store.state.legacy) return <LegacyDossier onClose={close} />;
   return null;
 }
 
@@ -216,6 +220,9 @@ function SettingsDrawer({ onClose }: { onClose: () => void }) {
       <Slider label="AI aggression" value={st.aggression} min={0.3} max={2} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => upd({ aggression: v })} hint="Scales how willing AI countries are to start wars. Applies to new decisions immediately." />
       <div className="field"><label>Difficulty</label><Segmented<Difficulty> value={st.difficulty} onChange={(v) => upd({ difficulty: v })} options={[{ v: 'easy', label: 'Easy' }, { v: 'normal', label: 'Normal' }, { v: 'hard', label: 'Hard' }]} /></div>
       <label className="check"><input type="checkbox" checked={st.defensiveAlliances} onChange={(e) => upd({ defensiveAlliances: e.target.checked })} /><span><b>Defensive alliances</b><br /><span className="faint" style={{ fontSize: 12 }}>When off, attacked countries fight alone: a faster, more aggressive sandbox.</span></span></label>
+      <div className="field"><label>How much do you steer?</label>
+        <ControlPicker compact value={s.settings.control ?? { economy: 'hands', military: 'hands', diplomacy: 'hands' }} onChange={(v) => store.act((g) => { for (const k of ['economy', 'military', 'diplomacy'] as const) if (v[k] !== (g.settings.control?.[k] ?? 'hands')) setControl(g, k, v[k]); return { ok: true, message: '' }; }, true)} />
+      </div>
       <div className="field"><label>Graphics</label><Segmented<'auto' | 'high' | 'medium' | 'low'> value={store.graphics} onChange={(v) => store.setGraphics(v)} options={[{ v: 'auto', label: 'Auto' }, { v: 'high', label: 'Beautiful' }, { v: 'medium', label: 'Balanced' }, { v: 'low', label: 'Fast' }]} />
         <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>Auto starts high and lowers the effects by itself if your device struggles. Fast keeps battles still and draws at normal resolution.</div></div>
       <label className="check"><input type="checkbox" checked={store.autoSlow} onChange={(e) => { store.autoSlow = e.target.checked; store.notify(); }} /><span><b>Slow down on big news about me</b><small>Fast-forward drops to Normal when something major happens to you</small></span></label>

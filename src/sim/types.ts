@@ -5,6 +5,12 @@ export type VictoryMode = 'none' | 'economic' | 'conquest' | 'hegemon';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type StartCondition = 'historical' | 'crisis' | 'prosperous';
 
+export type GameMode = 'sandbox' | 'legacy';
+/** how much the player steers each area: the advisers run it, propose and you approve, or you do it all */
+export type ControlLevel = 'auto' | 'guided' | 'hands';
+export type ControlArea = 'economy' | 'military' | 'diplomacy';
+export type WorldStart = 'current' | 'depression' | 'coldwar' | 'peace';
+
 export interface Settings {
   seed: number;
   aggression: number; // AI aggression multiplier 0.3 .. 2.0
@@ -12,6 +18,18 @@ export interface Settings {
   start: StartCondition;
   defensiveAlliances: boolean;
   victory: VictoryMode;
+  /** the fields below are optional so older saves still load */
+  mode?: GameMode;
+  control?: Record<ControlArea, ControlLevel>;
+  /** what the economic autopilot aims for */
+  econFocus?: 'growth' | 'stability' | 'military';
+  randomEvents?: boolean;
+  nukes?: boolean;
+  world?: WorldStart;
+  /** sandbox: stop at this year (null = endless) */
+  endYear?: number | null;
+  /** the player's (fictional) name, used in Legacy */
+  leaderName?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -21,6 +39,13 @@ export const DEFAULT_SETTINGS: Settings = {
   start: 'historical',
   defensiveAlliances: true,
   victory: 'none',
+  mode: 'sandbox',
+  control: { economy: 'hands', military: 'hands', diplomacy: 'hands' },
+  econFocus: 'growth',
+  randomEvents: true,
+  nukes: true,
+  world: 'current',
+  endYear: null,
 };
 
 /** Policy levers. Rates and spending shares are fractions (0.25 = 25%) of GDP / tax base. */
@@ -292,6 +317,10 @@ export interface GameState {
   stats: Record<string, number>;
   /** finished wars, newest last (optional for older saves) */
   warHistory?: WarRecord[];
+  /** Legacy mode: your career as head of government */
+  legacy?: LegacyState;
+  /** the player's army groups (commanded in Guided / Hands-on military) */
+  armies?: Army[];
 }
 export interface Reaction { id: CountryId; delta: number; text: string }
 export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }
@@ -305,3 +334,36 @@ export const TICKS_PER_YEAR = 52;
 export const DT = 1 / TICKS_PER_YEAR;
 export const HIST_EVERY = 4;
 export const HIST_MAX = 120;
+
+export interface AgendaPick { id: string; start: number; base: number; done: boolean; failed?: boolean }
+export interface TermRecord { term: number; start: number; end: number; score: number; headline: string; lines: string[]; result: 'reelected' | 'defeated' | 'retired' | 'ended' | 'ousted' | 'returned' | 'removed' }
+export interface LegacyState {
+  leader: string; title: string;
+  status: 'office' | 'opposition' | 'ended';
+  term: number; termStart: number; nextVote: number;
+  agenda: AgendaPick[];
+  /** cards offered at the start of a term (non-empty: the player is choosing) */
+  hand: string[];
+  score: number; parts: Record<string, number>;
+  terms: TermRecord[];
+  opposition?: { support: number; since: number; attempts: number; gov: string };
+  start: { gdppc: number; rank: number; provinces: number; pop: number; stability: number; tick: number; power: number; rep?: number; allies?: number };
+  endReason?: string;
+  maxYear: number;
+  /** milestones already written into the history book */
+  chronicle: { tick: number; text: string }[];
+}
+
+export type ArmyOrder = 'advance' | 'hold' | 'encircle' | 'raid' | 'defend';
+export interface Army {
+  id: number; name: string;
+  /** share of the field army (weights, normalised over all armies) */
+  weight: number;
+  order: ArmyOrder;
+  /** the region it is ordered towards (enemy: attack it; own: stand there), -1 none */
+  target: number;
+  /** general in command (id), -1 none */
+  general: number;
+  /** where it was last seen (province), for drawing */
+  at: number;
+}

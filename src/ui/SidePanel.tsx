@@ -10,6 +10,8 @@ import { getRelation, isAtWar } from '../sim/relations';
 import { Emblem } from './art/Emblem';
 import { TAB_ICONS } from './art/Icons';
 import { traitById } from '../sim/leaders';
+import { OppositionDesk } from './Legacy';
+import { isFree } from '../sim/legacy';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' }, { id: 'goals', label: 'Goals' }, { id: 'economy', label: 'Economy' }, { id: 'military', label: 'Military' }, { id: 'diplomacy', label: 'Diplomacy' },
@@ -20,6 +22,7 @@ export function SidePanel() {
   const s = store.state!;
   const id = store.selected;
   const c = id !== null ? s.countries[id] : null;
+  const opposition = s.settings.mode === 'legacy' && s.legacy?.status === 'opposition';
   const order = ['peek', 'half', 'full'] as const;
   const step = (dir: 1 | -1) => store.setSheet(order[Math.max(0, Math.min(2, order.indexOf(store.sheet) + dir))]);
   const cycle = () => store.setSheet(store.sheet === 'half' ? 'full' : store.sheet === 'full' ? 'peek' : 'half');
@@ -53,7 +56,9 @@ export function SidePanel() {
               <button key={t.id} role="tab" aria-selected={store.tab === t.id} className={store.tab === t.id ? 'on' : ''} onClick={() => { store.setTab(t.id); if (store.sheet === 'peek') store.setSheet('half'); }}>{(() => { const Ic = TAB_ICONS[t.id]; return <span className="desk-only tab-ic"><Ic /></span>; })()}{t.label}</button>
             ))}
           </nav>
-          <div className="side-body" key={`${c.id}-${store.tab}`}>
+          <div className={`side-body ${opposition ? 'locked' : ''}`} key={`${c.id}-${store.tab}`}>
+            {opposition && c.id === s.player && <div className="opp-wrap"><div className="note warn" style={{ marginBottom: 8 }}>{isFree(c.gov) ? `You lead the opposition. ${s.legacy!.opposition!.gov}'s government runs ${c.name}; you can watch, campaign and wait for the vote.` : `You are in exile. ${s.legacy!.opposition!.gov} rules ${c.name}.`}</div><OppositionDesk /></div>}
+            {opposition && c.id !== s.player && <div className="opp-wrap"><div className="note warn" style={{ marginBottom: 8 }}>Out of power, you can only watch the world.</div></div>}
             {(store.tab === 'overview' || (store.tab === 'goals' && c.id !== s.player)) && <OverviewTab id={c.id} />}
             {store.tab === 'goals' && c.id === s.player && <GoalsTab />}
             {store.tab === 'economy' && <EconomyTab id={c.id} />}

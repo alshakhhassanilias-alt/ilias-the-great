@@ -3,6 +3,7 @@ import { fmtMoney, pct, signedPct } from './format';
 import { fiscalNow } from '../sim/economy';
 import { warSupport } from '../sim/warsupport';
 import { isAtWar } from '../sim/relations';
+import { LegacyChip } from './Legacy';
 
 export function TopBar() {
   useStoreThrottled(300);
@@ -17,6 +18,7 @@ export function TopBar() {
         <svg width="26" height="26" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#0d1b2a" stroke="#f2b84b" strokeWidth="2" /><path d="M2 16h28M16 2c6 5 6 23 0 28M16 2c-6 5-6 23 0 28" fill="none" stroke="#f2b84b" strokeWidth="1.4" /></svg>
         <span>World Order</span>
       </div>
+      <LegacyChip />
       <div className="kpis" role="list">
         <div className="kpi" role="listitem"><label>Treasury</label><b className={e.cash <= 0 ? 'warn' : ''}>{fmtMoney(e.cash)}</b><small className={bal < 0 ? 'bad' : 'good'}>{bal >= 0 ? '+' : ''}{fmtMoney(fn.balance)}/yr</small></div>
         <div className={`kpi ${isAtWar(s, c.id) ? "hide-s" : ""}`} role="listitem"><label>GDP</label><b>{fmtMoney(e.gdp)}</b><small className={e.growth < 0 ? 'bad' : ''}>{signedPct(e.growth)} real</small></div>

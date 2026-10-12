@@ -28,7 +28,7 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 1;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
 
 const SAVE_KEY = 'world-order-save-v1';
 const AUTO_KEY = 'world-order-autosave-v1';
@@ -79,6 +79,9 @@ class Store {
   /** floating words over the map ("CAPTURED", "ENCIRCLED" ...), handed to the map renderer */
   callouts: { prov: number; text: string; color: string }[] = [];
   private lastHist = 0;
+  /** Legacy: newest term newspaper already read, and whether the history book was closed */
+  termSeen = 0;
+  bookSeen = false;
   get sound() { return audio.enabled; }
   setSound(on: boolean) { setSound(on); this.notify(); }
   inboxOpen: number | null = null;
@@ -149,6 +152,8 @@ class Store {
     this.lastSeq = s.logSeq - 1;
     this.lastInboxUid = s.nextInbox - 1;
     this.lastHist = s.warHistory?.length ?? 0;
+    this.termSeen = s.stats.reviewTerm ?? 0;
+    this.bookSeen = false;
     this.splash = null; this.callouts = [];
     this.focusRequest++;
     this.startLoop();
@@ -247,6 +252,9 @@ class Store {
       const rec = hist[this.lastHist++];
       if (!this.preview && (rec.a === s.player || rec.b === s.player)) this.showSplash({ kind: 'peace', rec });
     }
+    // Legacy: the agenda draft and the newspaper are big moments: the clock stops for them
+    const L = s.legacy;
+    if (L && s.settings.mode === 'legacy' && !this.preview && this.speed !== 0 && ((L.status === 'office' && L.hand.length > 0) || (s.stats.reviewTerm ?? 0) > this.termSeen || (L.status === 'ended' && !this.bookSeen))) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
     if (s.victory && !this.victoryShown) { this.victoryShown = true; this.speed = 0; }
     for (const it of s.inbox) {
       if (it.uid <= this.lastInboxUid) continue;

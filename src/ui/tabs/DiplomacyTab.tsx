@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AutopilotBanner } from '../Autopilot';
 import { store } from '../../state/store';
 import { Note, RelationBar, Section } from '../widgets';
 import { relLabel } from '../format';
@@ -225,6 +226,7 @@ function OwnDiplomacy() {
   ) : <span className="faint">none</span>;
   return (
     <>
+      <AutopilotBanner area="diplomacy" />
       {s.offers.length > 0 && (
         <Section title="Pending offers">
           {s.offers.map((o) => (

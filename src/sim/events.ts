@@ -242,7 +242,8 @@ export function rollPlayerEvent(s: GameState, geo: Geo) {
     pushInbox(s, id, sc.data);
     return;
   }
-  if (s.inbox.length >= 2 || s.tick < 14 || s.tick - s.lastEventTick < 22 || s.tick % 2 !== 0) return;
+  if (s.settings.randomEvents === false) return;
+  if (s.inbox.length >= 2 || s.tick < 14 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 15 : 22) || s.tick % 2 !== 0) return;
   if (nextRand(s) > 0.3) return;
   const pool: { def: EventDef; d: D; w: number }[] = [];
   for (const def of ALL_EVENTS) {
@@ -302,6 +303,7 @@ const WORLD: { id: string; w: number; run: (s: GameState, c: Country, geo: Geo) 
 ];
 
 export function stepWorldEvents(s: GameState, geo: Geo) {
+  if (s.settings.randomEvents === false) return;
   if (s.tick % 2 !== 0 || nextRand(s) > 0.42) return;
   const alive = s.countries.filter((c) => c.alive && c.id !== s.player);
   // larger countries draw more headlines

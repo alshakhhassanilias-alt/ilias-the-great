@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { store } from '../../state/store';
+import { AutopilotBanner } from '../Autopilot';
+import { ctl } from '../../sim/modes';
 import { Note, Section, Segmented, Slider, Stat, MeterRow } from '../widgets';
 import { fmtMoney, fmtNum, pct, signed, signedPct } from '../format';
 import { LineChart } from '../LineChart';
@@ -38,8 +40,10 @@ export function EconomyTab({ id }: { id: number }) {
   );
   const gdp = fog(s, c, e.gdp, 'gdp2');
 
+  const delegated = mine && ctl(s, 'economy') === 'auto';
   return (
     <>
+      {mine && <AutopilotBanner area="economy" />}
       <Section title="Why is the economy moving?" hint={`growth ${signedPct(e.growth)}`}>
         <Note>{growthNarrative(c)}</Note>
         <div className="card" style={{ marginTop: 8 }}>
@@ -93,7 +97,7 @@ export function EconomyTab({ id }: { id: number }) {
         </div>
       </Section>
 
-      {mine && (
+      {mine && !delegated && (
         <>
           <Section title="Taxes" hint="immediate effect on revenue">
             <div className="card">

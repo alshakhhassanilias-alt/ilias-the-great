@@ -72,8 +72,9 @@ function threatLevel(s: GameState, geo: Geo, c: Country): number {
   return clamp(th, 0, 1.5);
 }
 
-function manageEconomy(s: GameState, geo: Geo, c: Country) {
-  updateIntent(s, geo, c);
+/** The AI's budget and force management. The player's autopilot reuses it: `eco` for the budget, `mil` for forces. */
+export function manageEconomy(s: GameState, geo: Geo, c: Country, eco = true, mil = true) {
+  if (!c.isPlayer) updateIntent(s, geo, c);
   const e = c.eco, b = c.budget;
   const atWar = isAtWar(s, c.id);
   const rev = e.revenue / e.gdp;
@@ -84,8 +85,16 @@ function manageEconomy(s: GameState, geo: Geo, c: Country) {
   const th = threatLevel(s, geo, c);
   const desiredMil = clamp((e.prev.mil0 ?? b.military) * (1 + 0.4 * Math.min(1, th)) * (0.92 + 0.16 * s.settings.aggression * c.ai.aggression) * (atWar ? 1.6 : 1), 0, 0.2);
   const step = 0.001;
-  if (b.military < desiredMil - step) b.military = Math.min(desiredMil, b.military + step * (atWar ? 3 : 1));
-  else if (b.military > desiredMil + step && !atWar) b.military = Math.max(desiredMil, b.military - step);
+  if (mil) {
+    if (b.military < desiredMil - step) b.military = Math.min(desiredMil, b.military + step * (atWar ? 3 : 1));
+    else if (b.military > desiredMil + step && !atWar) b.military = Math.max(desiredMil, b.military - step);
+  }
+  if (eco) manageBudget(s, geo, c, th, atWar, deficit, target, debtRatio);
+  if (mil) manageForces(s, geo, c, th, atWar);
+}
+
+function manageBudget(s: GameState, geo: Geo, c: Country, th: number, atWar: boolean, deficit: number, target: number, debtRatio: number) {
+  const e = c.eco, b = c.budget;
 
   if (deficit > target + 0.01) {
     if (!atWar && th < 0.3 && b.military > (e.prev.mil0 ?? 0) * 0.7) b.military -= 0.001;
@@ -109,6 +118,11 @@ function manageEconomy(s: GameState, geo: Geo, c: Country) {
     else if (e.infra < 60) buildProject(s, c.id, 'infra', 0.005);
     else buildProject(s, c.id, 'industry', 0.01);
   }
+  void geo;
+}
+
+function manageForces(s: GameState, geo: Geo, c: Country, th: number, atWar: boolean) {
+  const e = c.eco;
   // fortify threatened borders, expand industry
   if ((atWar || th > 0.45) && e.cash > 0.01 * e.gdp && rand(s) < 0.5) {
     const hostile = new Set(atWar ? enemiesOf(s, c.id) : [mainThreat(s, geo, c).who]);

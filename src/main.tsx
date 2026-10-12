@@ -13,5 +13,6 @@ import '@fontsource/barlow-condensed/latin-700.css';
 import '@fontsource/cinzel/latin-700.css';
 import './styles.css';
 import './desktop.css';
+import './legacy.css';
 
 createRoot(document.getElementById('root')!).render(<App />);

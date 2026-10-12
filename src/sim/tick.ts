@@ -3,6 +3,8 @@ import type { Geo } from './geo';
 import { stepEconomiesGen } from './economy';
 import { stepWars, forcePeaceAll, logEvent } from './war';
 import { stepPartisans } from './specops';
+import { stepAutopilot } from './modes';
+import { stepLegacy } from './legacy';
 import { stepAIGen } from './ai';
 import { nextRand } from './rng';
 import { stepProjects } from './projects';
@@ -46,6 +48,11 @@ function checkVictory(s: GameState, geo: Geo) {
     if (!s.victory) s.victory = { achieved: false, text: `${P.name} has been annexed. Game over.` };
     return;
   }
+  if (!s.victory && s.settings.endYear && START_YEAR + s.tick / TICKS_PER_YEAR >= s.settings.endYear) {
+    s.victory = { achieved: true, text: `The year ${s.settings.endYear} has come. ${P.name} ends the era with a GDP of $${(P.eco.gdp / 1e12).toFixed(2)} trillion and ${P.provinces.length} regions.` };
+    logEvent(s, s.victory.text, 'info', [s.player], true);
+    return;
+  }
   if (s.victory || s.settings.victory === 'none' || s.tick % 13 !== 0) return;
   let worldGdp = 0, worldW = 0, myW = 0;
   for (const c of s.countries) if (c.alive) worldGdp += c.eco.gdp;
@@ -81,6 +88,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepPartisans(s);
   yield;
   yield* stepAIGen(s, geo);
+  stepAutopilot(s, geo);
   checkInstability(s, geo);
   stepWorldEvents(s, geo);
   yield;
@@ -99,6 +107,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCalendar(s);
   rollPlayerEvent(s, geo);
   stepGoals(s);
+  stepLegacy(s, geo);
   checkVictory(s, geo);
 }
 

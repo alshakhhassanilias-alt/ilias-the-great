@@ -7,6 +7,8 @@
  */
 import { setGeoRef } from './geoRef';
 import { initLeaders } from './leaders';
+import { applyWorldStart } from './modes';
+import { initLegacy } from './legacy';
 import {
   BILATERAL_ALLIANCES, COUNTRY_BASE, CSTO, DEBT_RATIO, ENERGY_RATIO, EU, FOOD_RATIO, GROWTH, NATO,
   type CountryBase,
@@ -276,5 +278,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
   };
   logEvent(state, `Game begins January ${START_YEAR}. You lead ${P.name}.`, 'info', [player]);
   initLeaders(state, geo);
+  applyWorldStart(state);
+  if (settings.mode === 'legacy') initLegacy(state);
   return state;
 }

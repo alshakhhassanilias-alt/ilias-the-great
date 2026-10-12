@@ -1,5 +1,7 @@
 import { nationalColor } from '../../map/palette';
 import { store } from '../../state/store';
+import { AutopilotBanner } from '../Autopilot';
+import { ctl } from '../../sim/modes';
 import { Meter, Note, Section, Slider, Stat, MeterRow } from '../widgets';
 import { fmtMoney, fmtNum, fog, pct } from '../format';
 import { actAirstrike, actCallAllies, actTotalMobilization, actWarEconomy, BUDGET_LIMITS, buyEquipment, demobilize, recruit, setAutoAdvance, setBudget, setCommit } from '../../sim/actions';
@@ -46,8 +48,10 @@ export function MilitaryTab({ id }: { id: number }) {
     </button>
   );
 
+  const milCtl = ctl(s, 'military');
   return (
     <>
+      {mine && <AutopilotBanner area="military" />}
       <Section title="Forces" hint={`#${rank} in the world`}>
         <div className="grid2">
           <Stat label="Active troops" value={f(m.troops, 'troops')} sub={mine ? `manpower pool ${fmtNum(mpool)}` : undefined} />
@@ -70,7 +74,7 @@ export function MilitaryTab({ id }: { id: number }) {
         <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>Lifetime casualties: {fmtNum(m.casualties)}. Strength also depends on terrain, distance to the front (supply), air and naval superiority, and economic staying power — not just troop count.</div>
       </Section>
 
-      {mine && (
+      {mine && milCtl === 'hands' && (
         <>
           <Section title="Military budget" hint="% of GDP">
             <div className="card">
@@ -146,7 +150,7 @@ export function MilitaryTab({ id }: { id: number }) {
         </Section>
       )}
 
-      {mine && wars.length > 0 && (
+      {mine && wars.length > 0 && milCtl !== 'auto' && (
         <Section title="Operations">
           <div className="card">
             <Slider label="Offensive commitment" value={m.commit} min={0.05} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => store.act((g) => setCommit(g, g.player, v), true)}

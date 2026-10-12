@@ -14,6 +14,8 @@ import { runOp } from './ops';
 import { levelOf, recount, setLevel } from './buildings';
 import { canStart, startProject } from './projects';
 import type { Country, GameState } from './types';
+import { voteShare as votePollFn } from './legacy';
+const votePoll = (s: GameState) => votePollFn(s);
 import type { Geo } from './geo';
 
 const rival = (s: GameState): Country | null => (s.rival >= 0 && s.countries[s.rival]?.alive ? s.countries[s.rival] : null);
@@ -27,7 +29,61 @@ function escalate(s: GameState, from: number, c: Country): string {
   return `${name(s, from)} took your silence as weakness.`;
 }
 
+const BUDGET_LABEL: Record<string, string> = { taxIncome: 'income tax', taxCorporate: 'corporate tax', taxVat: 'VAT', social: 'public services', infra: 'infrastructure', industry: 'industrial policy', education: 'education & research', military: 'defence', intel: 'intelligence', milArmy: 'army share', milAir: 'air force share', milNavy: 'navy share' };
+const describeBudget = (c: Country, d: D) => Object.entries(d).map(([k, v]) => {
+  const cur = (c.budget as unknown as Record<string, number>)[k] ?? 0;
+  return `${v > cur ? 'raise' : 'cut'} ${BUDGET_LABEL[k] ?? k} from ${(cur * 100).toFixed(1)}% to ${(v * 100).toFixed(1)}%`;
+}).join('; ');
+
+const camp = (s: GameState, v: number) => { s.stats.campaign = (s.stats.campaign ?? 0) + v; };
+const polls = (s: GameState) => (s.legacy?.status === 'opposition' ? s.legacy.opposition?.support ?? 40 : votePoll(s));
+
 export const EVENTS3: EventDef[] = [
+  {
+    id: 'legacy_campaign', icon: '🗳', title: 'The election campaign begins', weight: 0, cooldown: 0, ttl: 8, urgent: true,
+    eligible: () => null,
+    text: (s, c) => `Eight weeks to election day in ${c.name}. The polls put you at ${polls(s).toFixed(0)}%. You need a majority. How do you campaign?`,
+    options: [
+      { label: 'Run on your record', hint: 'No cost · the result rests on what you achieved', apply: () => 'You campaigned on your record.' },
+      { label: 'Promise tax cuts', hint: 'Polls +4 · income tax −1 point after the vote', apply: (s, c) => { camp(s, 4); c.budget.taxIncome = clamp(c.budget.taxIncome - 0.01, 0, 0.6); return 'Tax cuts were promised, and delivered.'; } },
+      { label: 'Big spending pledges', hint: 'Costs 0.5% of GDP · polls +5', enabled: canPay(0.005), apply: (s, c) => { pay(s, c, 0.005); camp(s, 5); return 'New hospitals, schools and bridges were announced in every town.'; } },
+      { label: 'Rally the nation around the flag', hint: 'Polls +3 · war support +5% if at war · reputation −1', apply: (s, c) => { camp(s, 3); if (isAtWar(s, c.id)) c.mil.warSupport = Math.min(1, (c.mil.warSupport ?? 0.6) + 0.05); rep(c, -1); return 'The campaign wrapped itself in the flag.'; } },
+      { label: 'Go negative on your opponent', hint: 'Polls +2 to +7 (risky) · stability −2', apply: (s, c) => { camp(s, 2 + Math.round(nextRand(s) * 5)); stab(c, -2); return 'The campaign turned ugly.'; } },
+    ],
+    lapse: () => 'You let the campaign run itself.',
+  },
+  {
+    id: 'legacy_loyalty', icon: '🏛', title: 'The leadership will be decided', weight: 0, cooldown: 0, ttl: 8, urgent: true,
+    eligible: () => null,
+    text: (s) => `In eight weeks the ruling circle decides whether you stay. Loyalty to you stands at about ${polls(s).toFixed(0)}%. Rival factions are counting votes.`,
+    options: [
+      { label: 'Reward the loyal generals', hint: 'Costs 0.4% of GDP · loyalty +5', enabled: canPay(0.004), apply: (s, c) => { pay(s, c, 0.004); camp(s, 5); return 'Promotions and villas for the faithful.'; } },
+      { label: 'Purge the rival faction', hint: 'Loyalty +7 · stability −4 · reputation −3', apply: (s, c) => { camp(s, 7); stab(c, -4); rep(c, -3); return 'Several ministers disappeared from public life.'; } },
+      { label: 'Promise careful reforms', hint: 'Loyalty +3 · stability +1', apply: (s, c) => { camp(s, 3); stab(c, 1); return 'You promised a modernised, orderly future.'; } },
+      { label: 'Trust your record', hint: 'No cost', apply: () => 'You trusted the elite to recognise your achievements.' },
+    ],
+    lapse: () => 'You left the factions to their scheming.',
+  },
+  {
+    id: 'legacy_comeback', icon: '🔥', title: 'The comeback campaign', weight: 0, cooldown: 0, ttl: 8, urgent: true,
+    eligible: () => null,
+    text: (s, c) => `The vote that decides whether you return to power is eight weeks away. Support for you stands at ${polls(s).toFixed(0)}% against the government of ${s.legacy?.opposition?.gov ?? 'your rival'} in ${c.name}.`,
+    options: [
+      { label: 'Tour every town', hint: 'Support +3', apply: (s) => { camp(s, 3); return 'You shook a hundred thousand hands.'; } },
+      { label: 'A bold new manifesto', hint: 'Support +2 to +6', apply: (s) => { camp(s, 2 + Math.round(nextRand(s) * 4)); return 'Your manifesto set the agenda.'; } },
+      { label: 'Unite the opposition', hint: 'Support +4 · you will owe your partners', apply: (s, c) => { camp(s, 4); stab(c, -1); return 'Old rivals lined up behind you.'; } },
+    ],
+    lapse: () => 'The campaign drifted.',
+  },
+  {
+    id: 'treasury_plan', icon: '🏦', title: 'The treasury proposes a budget', weight: 0, cooldown: 0, ttl: 12,
+    eligible: () => null,
+    text: (_s, c, d) => `Your finance minister has looked at the books and proposes to ${describeBudget(c, d)}. The deficit is ${((c.eco.spending - c.eco.revenue) / c.eco.gdp * 100).toFixed(1)}% of GDP and debt ${(c.eco.debt / c.eco.gdp * 100).toFixed(0)}%.`,
+    options: [
+      { label: 'Approve the plan', hint: 'The budget changes as proposed', apply: (_s, c, d) => { for (const [k, v] of Object.entries(d)) (c.budget as unknown as Record<string, number>)[k] = v; return 'The new budget passed.'; } },
+      { label: 'Reject it', hint: 'Keep the current budget', apply: () => 'You kept the budget as it is.' },
+    ],
+  },
   // ------------------------------------------------------------------ the political calendar
   {
     id: 'election', icon: '🗳', title: 'Election day approaches', weight: 0, cooldown: 0, ttl: 20,
@@ -324,7 +380,7 @@ function electionResult(s: GameState, c: Country, bonus: number): string {
 /** Schedules the player's next election / congress (every four years). */
 export function stepCalendar(s: GameState) {
   const c = s.countries[s.player];
-  if (!c.alive) return;
+  if (!c.alive || (s.legacy && s.settings.mode === 'legacy')) return; // Legacy runs its own elections
   if (s.stats.nextVote === undefined) s.stats.nextVote = 96 + Math.floor(nextRand(s) * 30);
   if (s.tick >= s.stats.nextVote) {
     s.scheduled.push({ tick: s.tick, id: c.gov === 'D' || c.gov === 'F' ? 'election' : 'party_congress', data: {} });

@@ -8,6 +8,7 @@ import { Drawers } from './Drawers';
 import { BreakingBanner, Splash, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
 import { BattleCard } from './BattleCard';
+import { AgendaDraft, HistoryBook, TermReview } from './Legacy';
 
 const insetBottom = () => {
   if (window.innerWidth >= 900) return 0;
@@ -56,6 +57,9 @@ export function App() {
       </div>
       <Drawers />
       <VictoryBanner />
+      <AgendaDraft />
+      <TermReview />
+      <HistoryBook />
     </div>
   );
 }
