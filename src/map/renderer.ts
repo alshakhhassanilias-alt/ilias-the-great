@@ -19,6 +19,7 @@ import { BDEF, type BType } from '../sim/buildings';
 import { airSuperiority } from '../sim/war';
 import { supplyNet, supplyPath } from '../sim/supply';
 import { generalAt, homeCommander, stars } from '../sim/generals';
+import { Fx } from './fx';
 import { Battlefield } from './battlefield';
 import { nationalColor } from './palette';
 import terrainUrl from '../data/generated/terrain.webp';
@@ -402,6 +403,7 @@ export class MapRenderer {
           const src = geo.adj[p].find((q) => state.owner[q] === state.owner[p]);
           const o = geo.provinces[src ?? p].seed;
           this.effects.push({ prov: p, t0: now, color: this.colorFor(state, state.owner[p]), kind: prev === state.player ? 'lost' : 'capture', ox: o[0], oy: o[1], mine: state.owner[p] === state.player || prev === state.player });
+          if (this.quality === 2) { const sd = geo.provinces[p].seed; this.fx.capture(sd[0], sd[1], this.colorFor(state, state.owner[p]), now); }
         }
       }
       if (state.owner[p] !== state.core[p]) {
@@ -488,7 +490,7 @@ export class MapRenderer {
 
   /** Whether another frame is needed even if nothing was touched (animations running). */
   animating(state: GameState | null) {
-    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
+    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.fx.count > 0 || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
   }
 
   // ------------------------------------------------------------------ base layer
@@ -856,6 +858,11 @@ export class MapRenderer {
     return best;
   }
   private particles: { x: number; y: number; t0: number; kind: 'flash' | 'smoke'; s: number }[] = [];
+  /** high-quality effects (Beautiful graphics) */
+  private fx = new Fx();
+  private lastFxT = 0;
+  private lastCounterT = 0;
+  private unitPos = new Map<string, [number, number]>();
   private garrisonCache = new Map<number, { key: string; list: { prov: number; troops: number }[] }>();
   /** Where a country keeps the troops not committed to offensives: its capital and the borders facing hostile neighbours. */
   private garrisonsOf(state: GameState, cid: number) {
@@ -907,6 +914,7 @@ export class MapRenderer {
     const counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }[] = [];
     const supplies: { pts: number[]; sup: number; mine: boolean }[] = [];
     const pockets: { x: number; y: number; n: number; mine: boolean }[] = [];
+    const arrows: { sx: number; sy: number; cx: number; cy: number; hx: number; hy: number; mine: boolean }[] = [];
     const myWar = (w: { attackers: number[]; defenders: number[] }) => w.attackers.includes(P) || w.defenders.includes(P);
 
     // encircled pockets: cut-off land, hatched and ringed in orange
@@ -1034,7 +1042,8 @@ export class MapRenderer {
         // the offensive's arrow, from the attacker's ground to the fighting
         if (src !== null) {
           const s0 = geo.provinces[src].seed;
-          this.drawArrow(ctx, s0[0], s0[1], bx, by, fr.amphibious || !!airOp, airOp ? [150, 205, 255] : mine ? [255, 196, 64] : [235, 60, 44], k, t, prog);
+          const ar = this.drawArrow(ctx, s0[0], s0[1], bx, by, fr.amphibious || !!airOp, airOp ? [150, 205, 255] : mine ? [255, 196, 64] : [235, 60, 44], k, t, prog);
+          if (ar) arrows.push({ ...ar, mine });
           if (airOp) {
             // parachutes drifting down over the drop zone
             for (let i = 0; i < 3; i++) {
@@ -1080,7 +1089,7 @@ export class MapRenderer {
         }
       }
     }
-    this.battleData = { fronts, planes, markers, counters, supplies, pockets };
+    this.battleData = { fronts, planes, markers, counters, supplies, pockets, arrows };
   }
 
   private battleCanvas: HTMLCanvasElement = document.createElement('canvas');
@@ -1099,6 +1108,7 @@ export class MapRenderer {
     counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }[];
     supplies: { pts: number[]; sup: number; mine: boolean }[];
     pockets: { x: number; y: number; n: number; mine: boolean }[];
+    arrows?: { sx: number; sy: number; cx: number; cy: number; hx: number; hy: number; mine: boolean }[];
   } = { fronts: [], planes: [], markers: [], counters: [], supplies: [], pockets: [] };
   /** set by the map view: battles only animate while the clock runs */
   running = false;
@@ -1137,10 +1147,33 @@ export class MapRenderer {
     const V = this.view;
     this.battleHits = markers.map((m) => ({ x: m.x * V.k + V.x, y: m.y * V.k + V.y, war: m.war, prov: m.prov, by: m.by }));
     if (this.quality === 0) return; // low quality: a still picture of the war, no ambient animation
+    if (this.quality === 2) {
+      // Beautiful: soft shell bursts, sparks, rings and drifting smoke; contrails; pulses down the arrows
+      const dt = Math.min(0.1, Math.max(0, (now - (this.lastFxT || now)) / 1000));
+      this.lastFxT = now;
+      if (this.running) for (const fr of fronts) {
+        const rate = 3.2 * fr.heat; // shells per second on this front
+        if (Math.random() >= 1 - Math.exp(-rate * dt)) continue;
+        let px = fr.bx, py = fr.by;
+        if (fr.segs.length) { const i = Math.floor(Math.random() * (fr.segs.length / 4)) * 4; const u = Math.random(); px = fr.segs[i] + (fr.segs[i + 2] - fr.segs[i]) * u; py = fr.segs[i + 1] + (fr.segs[i + 3] - fr.segs[i + 1]) * u; }
+        const jit = fr.size * 0.7;
+        this.fx.shell(px + (Math.random() - 0.5) * jit, py + (Math.random() - 0.5) * jit, now, 0.75 + 0.5 * fr.heat);
+      }
+      for (const a of this.battleData.arrows ?? []) this.fx.arrowPulse(ctx, a, k, this.running ? t : 0);
+      this.fx.draw(ctx, k, now);
+      for (const pl of planes) {
+        const speed = 0.35;
+        const at = (back: number): [number, number] => { const ph = ((((t - back) * speed + pl.seed) % 1) + 1) % 1; return [pl.x0 + (pl.x1 - pl.x0) * ph * 1.3, pl.y0 + (pl.y1 - pl.y0) * ph * 1.3 - 4 / k]; };
+        const ph = ((t * speed + pl.seed) % 1);
+        this.fx.plane(ctx, at, Math.atan2(pl.y1 - pl.y0, pl.x1 - pl.x0), pl.color, k, Math.sin(ph * Math.PI), now);
+        // bombs fall where the aircraft cross the target
+        if (this.running && ph > 0.7 && ph < 0.78 && Math.random() < 0.25) { const [bx2, by2] = at(0.15); this.fx.shell(bx2, by2, now, 0.6); }
+      }
+    } else {
     // artillery: flashes and smoke along the lines (only while time runs)
-    const rate = this.quality === 2 ? 0.12 : 0.06;
+    const rate = 0.06;
     if (this.running) for (const fr of fronts) {
-      if (Math.random() >= rate * fr.heat || this.particles.length >= (this.quality === 2 ? 70 : 30)) continue;
+      if (Math.random() >= rate * fr.heat || this.particles.length >= 30) continue;
       let px = fr.bx, py = fr.by;
       if (fr.segs.length) { const i = Math.floor(Math.random() * (fr.segs.length / 4)) * 4; const u = Math.random(); px = fr.segs[i] + (fr.segs[i + 2] - fr.segs[i]) * u; py = fr.segs[i + 1] + (fr.segs[i + 3] - fr.segs[i + 1]) * u; }
       const jit = fr.size * 0.6;
@@ -1151,6 +1184,7 @@ export class MapRenderer {
     for (const pl of planes) {
       const ph = ((t * 0.35 + pl.seed) % 1);
       this.drawPlane(ctx, pl.x0 + (pl.x1 - pl.x0) * ph * 1.3, pl.y0 + (pl.y1 - pl.y0) * ph * 1.3 - 4 / k, Math.atan2(pl.y1 - pl.y0, pl.x1 - pl.x0), pl.color, k, Math.sin(ph * Math.PI));
+    }
     }
     // the frontline crackles: sparks of light run along it while the battle goes on
     if (this.quality === 2 && this.running) {
@@ -1188,6 +1222,30 @@ export class MapRenderer {
     // a pulsing ring around each battle marker (the marker itself is part of the battle layer)
     ctx.save();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.quality === 2 && k > this.fitK * 1.5) {
+      // Beautiful: army counters glide to their new positions as the front moves
+      const { counters } = this.battleData;
+      const seen = new Set<string>();
+      const taken: [number, number, number, number][] = this.battleHits.map((m) => [m.x - 12, m.y - 12, m.x + 12, m.y + 12]);
+      const overlaps = (r: [number, number, number, number]) => taken.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]);
+      const ease = 1 - Math.pow(0.0015, Math.min(0.1, (now - (this.lastCounterT || now)) / 1000));
+      this.lastCounterT = now;
+      for (const c of [...counters].sort((a, b) => Number(b.mine) - Number(a.mine) || b.troops - a.troops).slice(0, this.w < 600 ? 12 : 28)) {
+        seen.add(c.key);
+        let pos = this.unitPos.get(c.key);
+        if (!pos) { pos = [c.x, c.y]; this.unitPos.set(c.key, pos); }
+        pos[0] += (c.x - pos[0]) * ease; pos[1] += (c.y - pos[1]) * ease;
+        let sx = pos[0] * V.k + V.x, sy = pos[1] * V.k + V.y;
+        for (let tries = 0; tries < 6; tries++) {
+          const r: [number, number, number, number] = [sx - 16, sy - 9, sx + 16, sy + 13];
+          if (!overlaps(r)) break;
+          sy += tries % 2 === 0 ? 24 * (tries + 1) : -24 * (tries + 1);
+        }
+        taken.push([sx - 16, sy - 9, sx + 16, sy + 13]);
+        this.blitCounter(ctx, sx, sy, c, k);
+      }
+      for (const key of [...this.unitPos.keys()]) if (!seen.has(key)) this.unitPos.delete(key);
+    }
     for (const m of this.battleHits) {
       const src = markers.find((x) => x.prov === m.prov && x.by === m.by);
       const pulse = 0.5 + 0.5 * Math.sin(t * 5 + m.x * 0.05);
@@ -1210,7 +1268,7 @@ export class MapRenderer {
     const taken: [number, number, number, number][] = markers.map((m) => { const sx = m.x * V.k + V.x, sy = m.y * V.k + V.y; return [sx - 12, sy - 12, sx + 12, sy + 12]; });
     const overlaps = (r: [number, number, number, number]) => taken.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]);
     const cap = this.quality === 0 ? 8 : this.w < 600 ? 12 : 28;
-    if (showCounters) for (const c of [...counters].sort((a, b) => Number(b.mine) - Number(a.mine) || b.troops - a.troops).slice(0, cap)) {
+    if (showCounters && this.quality < 2) for (const c of [...counters].sort((a, b) => Number(b.mine) - Number(a.mine) || b.troops - a.troops).slice(0, cap)) {
       let sx = c.x * V.k + V.x, sy = c.y * V.k + V.y;
       for (let tries = 0; tries < 6; tries++) {
         const r: [number, number, number, number] = [sx - 16, sy - 9, sx + 16, sy + 13];
@@ -1266,7 +1324,7 @@ export class MapRenderer {
   /** A broad, tapered offensive arrow along a gentle curve, with marching light inside it. */
   private drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, amphibious: boolean, col: number[], k: number, t: number, progress: number) {
     const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
-    if (L < 1e-6) return;
+    if (L < 1e-6) return null;
     const bend = (amphibious ? 0.22 : 0.1) * L;
     const cx = (x0 + x1) / 2 + (-dy / L) * bend, cy = (y0 + y1) / 2 + (dx / L) * bend;
     const sx = x0 + dx * 0.12, sy = y0 + dy * 0.12; // start a little inside the source region
@@ -1294,14 +1352,30 @@ export class MapRenderer {
     ctx.lineTo(hx + (hty / htl) * hw, hy - (htx / htl) * hw);
     for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]);
     ctx.closePath();
-    ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${0.55 + 0.25 * Math.min(1, progress)})`;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(20,10,6,0.75)'; ctx.lineWidth = 0.8 / k; ctx.stroke();
+    if (this.quality === 2) {
+      // painted like a staff map: a dark casing, a colour that strengthens towards the head, a lit edge
+      const g = ctx.createLinearGradient(sx, sy, x1, y1);
+      const a = 0.62 + 0.28 * Math.min(1, progress);
+      g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},0.12)`);
+      g.addColorStop(0.45, `rgba(${col[0]},${col[1]},${col[2]},${(a * 0.8).toFixed(2)})`);
+      g.addColorStop(1, `rgba(${Math.min(255, col[0] + 20)},${Math.min(255, col[1] + 20)},${Math.min(255, col[2] + 20)},${a.toFixed(2)})`);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+      ctx.fillStyle = g; ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(16,8,4,0.9)'; ctx.lineWidth = 1.5 / k; ctx.stroke();
+      ctx.strokeStyle = `rgba(255,245,220,0.35)`; ctx.lineWidth = 0.6 / k; ctx.stroke();
+    } else {
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${0.55 + 0.25 * Math.min(1, progress)})`;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(20,10,6,0.75)'; ctx.lineWidth = 0.8 / k; ctx.stroke();
+    }
     // marching light
     ctx.strokeStyle = 'rgba(255,250,230,0.75)'; ctx.lineWidth = 0.9 / k;
     ctx.setLineDash([3 / k, 5 / k]); ctx.lineDashOffset = -t * 16 / k;
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(cx, cy, hx, hy); ctx.stroke();
     ctx.setLineDash([]);
+    return { sx, sy, cx, cy, hx, hy };
   }
 
   private counterSprites = new Map<string, HTMLCanvasElement>();

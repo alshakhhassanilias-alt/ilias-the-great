@@ -235,6 +235,8 @@
   .breaking-tag { background: #1b1408; color: #f1e6c9; font: 700 13px var(--display); letter-spacing: 0.18em; padding: 0 14px; writing-mode: horizontal-tb; }
   .breaking.hot .breaking-tag { background: #9b1d10; color: #fff3df; }
   .breaking-text { font: 700 17px/1.25 var(--display); letter-spacing: 0.02em; color: #1b1408; padding: 9px 16px 11px; text-transform: none; }
+  .breaking { left: 62px; right: auto; top: 60px; width: min(600px, calc(100% - 140px)); }
+  .toasts { top: 160px; }
   .gazette { display: block; font: 600 10px var(--cond); letter-spacing: 0.3em; text-transform: uppercase; color: #6e5a35; border-bottom: 1px solid rgba(40, 28, 12, 0.35); padding-bottom: 3px; margin-bottom: 4px; }
 
   /* toasts: dispatches */
