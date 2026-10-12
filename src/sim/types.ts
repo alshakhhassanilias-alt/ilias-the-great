@@ -124,6 +124,8 @@ export interface Military {
   lastCas?: number;
   /** number of own regions currently cut off from supplies */
   pocket?: number;
+  /** special operations under way (naval invasions, airborne assaults) */
+  ops?: { prov: number; kind: 'naval' | 'airborne'; until: number }[];
 }
 
 export interface Personality {
@@ -161,6 +163,17 @@ export interface Country {
   leader?: Leader;
   goal?: NatGoal;
   doctrine?: { eco: string; mil: string; dip: string; changed: number };
+  /** the army's commanders (created when the country first goes to war) */
+  generals?: General[];
+}
+
+export interface General {
+  id: number; name: string; trait: string; xp: number; wins: number;
+  status: 'active' | 'fallen' | 'retired'; since: number;
+  /** region of the offensive this general leads (-1: home defence) */
+  front: number;
+  /** the player pinned this general to a front */
+  pinned?: boolean;
 }
 
 export interface Leader { name: string; traits: [string, string]; since: number; /** personality deltas currently applied, so a successor can undo them */ applied: Partial<Record<'aggression' | 'expansion' | 'trade' | 'ideology' | 'caution', number>> }
@@ -194,6 +207,16 @@ export interface War {
   lost: Record<number, number>;
   /** at war start: total provinces held by each country, for war score */
   startProvs: Record<number, number>;
+  /** regions captured in battle by each country */
+  taken?: Record<number, number>;
+}
+
+/** A finished war between two countries (kept for the war history and the end-of-war summary). */
+export interface WarRecord {
+  id: number; name: string; a: CountryId; b: CountryId; start: number; end: number;
+  casA: number; casB: number; provsA: number; provsB: number;
+  /** who came out on top: 'a', 'b' or a draw */
+  winner: 'a' | 'b' | 'draw'; terms: string;
 }
 
 export type OfferKind = 'trade' | 'nap' | 'alliance' | 'coop' | 'peace';
@@ -267,6 +290,8 @@ export interface GameState {
   history: { tick: number; text: string }[];
   /** counters used by objectives */
   stats: Record<string, number>;
+  /** finished wars, newest last (optional for older saves) */
+  warHistory?: WarRecord[];
 }
 export interface Reaction { id: CountryId; delta: number; text: string }
 export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }

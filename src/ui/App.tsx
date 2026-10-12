@@ -5,7 +5,7 @@ import { TopBar } from './TopBar';
 import { TimeControls } from './TimeControls';
 import { SidePanel } from './SidePanel';
 import { Drawers } from './Drawers';
-import { BreakingBanner, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
+import { BreakingBanner, Splash, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
 import { BattleCard } from './BattleCard';
 
@@ -50,6 +50,7 @@ export function App() {
           <BattleCard />
           <BreakingBanner />
           <YearReview />
+          <Splash />
         </div>
         <SidePanel />
       </div>

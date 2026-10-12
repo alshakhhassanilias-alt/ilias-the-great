@@ -27,6 +27,12 @@ export function BattleCard() {
         <div className="vs">vs</div>
         <div><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>defending · {fmtNum(r.defTroops)} troops</small></div>
       </div>
+      {(r.genA || r.genD) && (
+        <div className="bc-gens">
+          <div>{r.genA ? <><span className="gstars">{'★'.repeat(r.genA.stars)}</span> Gen. {r.genA.name}<small>{r.genA.icon} {r.genA.trait}{r.genA.wins ? ` · ${r.genA.wins} victories` : ''}</small></> : <small>no general</small>}</div>
+          <div>{r.genD ? <><span className="gstars">{'★'.repeat(r.genD.stars)}</span> Gen. {r.genD.name}<small>{r.genD.icon} {r.genD.trait}{r.genD.wins ? ` · ${r.genD.wins} victories` : ''}</small></> : <small>no general</small>}</div>
+        </div>
+      )}
       <div className="bc-forces" title="Share of troops committed to this battle">
         <span style={{ width: `${(100 * r.atkTroops) / total}%`, background: nationalColor(A) }} />
         <span style={{ width: `${(100 * r.defTroops) / total}%`, background: nationalColor(D) }} />
@@ -48,13 +54,13 @@ export function BattleCard() {
       )}
       {r.role === 'attacker' && (
         <div className="btnrow">
-          <button className="btn primary" onClick={() => store.act((g) => actAirstrike(g, g.player, r.prov))}>Air strike<small>{fmtMoney(0.0015 * me.eco.gdp)} · pushes the attack on</small></button>
+          <button className="btn primary" onClick={() => { const x = store.act((g) => actAirstrike(g, g.player, r.prov)); if (x.ok) store.mapCallout(r.prov, '✈ AIR STRIKE', '#9fd4ff'); }}>Air strike<small>{fmtMoney(0.0015 * me.eco.gdp)} · pushes the attack on</small></button>
           <button className="btn" onClick={() => store.act((g) => { if (!g.countries[g.player].mil.focus.includes(r.prov)) return toggleFocus(g, g.player, r.prov); return { ok: true, message: 'Already a priority target' }; })}>Make it a priority<small>generals send more troops here</small></button>
         </div>
       )}
       {r.role === 'defender' && (
         <div className="btnrow">
-          <button className="btn primary" disabled={levelOf(s, r.prov, 'fort') >= 3} onClick={() => store.act((g) => actBuild(g, store.geo, g.player, r.prov, 'fort'))}>Dig in: fortress +1<small>+14% defence here</small></button>
+          <button className="btn primary" disabled={levelOf(s, r.prov, 'fort') >= 3} onClick={() => { const x = store.act((g) => actBuild(g, store.geo, g.player, r.prov, 'fort')); if (x.ok) store.mapCallout(r.prov, '🏰 DUG IN', '#ffd36a'); }}>Dig in: fortress +1<small>+14% defence here</small></button>
           <button className="btn" onClick={() => store.act((g) => actCallAllies(g, g.player))}>Call allies<small>they may answer</small></button>
         </div>
       )}

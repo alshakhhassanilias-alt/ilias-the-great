@@ -28,6 +28,18 @@ export function strength(c: Country): number {
   return landPower(m) * ready + (0.8 * airPower(m)) / 1e6 + (0.4 * navalPower(m)) / 1e6;
 }
 export const strengthIndex = (c: Country) => strength(c) / 1000;
+/** Equipment as concrete hardware (an illustration of the money values: typical unit prices of a modern force). */
+export function inventory(m: Country['mil']) {
+  const tech = 0.7 + 0.6 * (m.milTech / 100); // advanced kit costs more per piece
+  return {
+    tanks: Math.round((m.equipArmy * 0.28) / (6e6 * tech)),
+    artillery: Math.round((m.equipArmy * 0.16) / (2.5e6 * tech)),
+    jets: Math.round((m.equipAir * 0.7) / (60e6 * tech)),
+    helicopters: Math.round((m.equipAir * 0.15) / (20e6 * tech)),
+    warships: Math.round((m.equipNavy * 0.75) / (700e6 * tech)),
+    submarines: Math.round((m.equipNavy * 0.2) / (900e6 * tech)),
+  };
+}
 
 export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: number } {
   const m = c.mil, e = c.eco, b = c.budget;

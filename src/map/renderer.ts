@@ -18,6 +18,7 @@ import { computeBlocs } from '../sim/politics';
 import { BDEF, type BType } from '../sim/buildings';
 import { airSuperiority } from '../sim/war';
 import { supplyNet, supplyPath } from '../sim/supply';
+import { generalAt, homeCommander, stars } from '../sim/generals';
 import { Battlefield } from './battlefield';
 import { nationalColor } from './palette';
 import terrainUrl from '../data/generated/terrain.webp';
@@ -77,7 +78,7 @@ function grainTile(size = 192): HTMLCanvasElement {
 }
 const UI_FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
 
-interface Effect { prov: number; t0: number; color: string; kind: 'capture' | 'lost' | 'ping' }
+interface Effect { prov: number; t0: number; color: string; kind: 'capture' | 'lost' | 'ping'; ox?: number; oy?: number; mine?: boolean }
 
 function tile(size: number, draw: (c: CanvasRenderingContext2D) => void): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -172,7 +173,7 @@ export class MapRenderer {
   private baseMode = '';
   private lastTransform = '';
   /** true while a battle is visible on screen (only then does the overlay animate) */
-  private battleVisible = false;
+  battleVisible = false;
 
   private octx: CanvasRenderingContext2D;
   private battlefield: Battlefield;
@@ -344,6 +345,13 @@ export class MapRenderer {
 
   // ------------------------------------------------------------------ colours
   /** draw attention to a province (breaking news) */
+  /** floating words over a region ("CAPTURED", "ENCIRCLED" ...) */
+  private callouts: { prov: number; text: string; color: string; t0: number }[] = [];
+  callout(prov: number, text: string, color = '#ffd36a') {
+    this.callouts.push({ prov, text, color, t0: performance.now() });
+    if (this.callouts.length > 10) this.callouts.splice(0, this.callouts.length - 10);
+    this.dirty = true;
+  }
   ping(prov: number, color = '#ffd36a') { this.effects.push({ prov, t0: performance.now(), color, kind: 'ping' }); this.dirty = true; }
   private colorFor(state: GameState, c: number): string {
     const C = state.countries[c];
@@ -388,7 +396,13 @@ export class MapRenderer {
         const prev = this.ownerSnap[p];
         this.ownerSnap[p] = state.owner[p];
         changed = true;
-        if (this.geomVisible(p)) this.effects.push({ prov: p, t0: now, color: this.colorFor(state, state.owner[p]), kind: state.owner[p] === state.player ? 'capture' : prev === state.player ? 'lost' : 'capture' });
+        if (this.geomVisible(p)) {
+          // the new colour sweeps in from the side the attack came from
+          const geo = this.geom.geo;
+          const src = geo.adj[p].find((q) => state.owner[q] === state.owner[p]);
+          const o = geo.provinces[src ?? p].seed;
+          this.effects.push({ prov: p, t0: now, color: this.colorFor(state, state.owner[p]), kind: prev === state.player ? 'lost' : 'capture', ox: o[0], oy: o[1], mine: state.owner[p] === state.player || prev === state.player });
+        }
       }
       if (state.owner[p] !== state.core[p]) {
         const b = Math.floor(state.integ[p] * 6);
@@ -474,7 +488,7 @@ export class MapRenderer {
 
   /** Whether another frame is needed even if nothing was touched (animations running). */
   animating(state: GameState | null) {
-    return !!state && (this.battleVisible || this.labelsStale || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
+    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
   }
 
   // ------------------------------------------------------------------ base layer
@@ -748,7 +762,8 @@ export class MapRenderer {
     }
 
     // capture / loss effects and breaking-news rings
-    this.effects = this.effects.filter((e) => now - e.t0 < (e.kind === 'ping' ? 3600 : 1800));
+    this.effects = this.effects.filter((e) => now - e.t0 < (e.kind === 'ping' ? 3600 : 2800));
+    const flags: { x: number; y: number; color: string; a: number; rise: number; lost: boolean }[] = [];
     for (const e of this.effects) {
       const gp = geo.provinces[e.prov];
       if (e.kind === 'ping') {
@@ -763,15 +778,70 @@ export class MapRenderer {
         ctx.globalAlpha = 1;
         continue;
       }
-      const t = (now - e.t0) / 1800;
-      ctx.globalAlpha = (1 - t) * 0.6;
-      ctx.fillStyle = e.kind === 'lost' ? '#ff5a4a' : '#fff6d8';
-      ctx.fill(this.geom.provPaths[e.prov], 'evenodd');
-      ctx.globalAlpha = (1 - t) * 0.9;
-      ctx.strokeStyle = e.kind === 'lost' ? '#ff8a7a' : '#ffe9a8';
-      ctx.lineWidth = 2 / k;
-      ctx.beginPath(); ctx.arc(gp.seed[0], gp.seed[1], (3 + t * 22) / Math.max(1, k / 8), 0, 6.283); ctx.stroke();
+      const t = (now - e.t0) / 2800;
+      const path = this.geom.provPaths[e.prov];
+      const bb = gp.bbox;
+      const ox = e.ox ?? gp.seed[0], oy = e.oy ?? gp.seed[1];
+      const R = Math.max(Math.hypot(bb[2] - ox, bb[3] - oy), Math.hypot(bb[0] - ox, bb[1] - oy), Math.hypot(bb[2] - ox, bb[1] - oy), Math.hypot(bb[0] - ox, bb[3] - oy));
+      const sweep = Math.min(1, t / 0.32), ease = 1 - (1 - sweep) * (1 - sweep);
+      // 1. the conqueror's colour sweeps across the region from the attack side, with a bright leading edge
+      ctx.save();
+      ctx.clip(path, 'evenodd');
+      ctx.globalAlpha = t < 0.32 ? 0.78 : 0.78 * Math.max(0, 1 - (t - 0.32) / 0.5);
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.arc(ox, oy, R * ease + 0.01, 0, 6.283); ctx.fill();
+      if (sweep < 1) {
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = e.kind === 'lost' ? '#ff8a7a' : '#fff1c2'; ctx.lineWidth = 3 / k;
+        ctx.stroke();
+      }
+      ctx.restore();
+      // 2. the new border glows, then settles
+      const glow = Math.max(0, 1 - t);
+      ctx.globalAlpha = glow * 0.55;
+      ctx.strokeStyle = e.kind === 'lost' ? '#ff4a3a' : e.mine ? '#ffc94a' : '#fff6d8';
+      ctx.lineWidth = 6 / k; ctx.stroke(path);
+      ctx.globalAlpha = glow;
+      ctx.lineWidth = 1.6 / k; ctx.strokeStyle = e.kind === 'lost' ? '#ffb0a4' : '#fffbe8'; ctx.stroke(path);
       ctx.globalAlpha = 1;
+      if (e.mine) flags.push({ x: gp.seed[0] * k + this.view.x, y: gp.seed[1] * k + this.view.y, color: e.color, a: t > 0.8 ? (1 - t) / 0.2 : 1, rise: Math.min(1, t / 0.25), lost: e.kind === 'lost' });
+    }
+    // flags planted on regions you take (a torn one on regions you lose), and floating callouts
+    if (flags.length || this.callouts.length) {
+      ctx.save();
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      for (const fl of flags) {
+        const h = 22 * (1 - Math.pow(1 - fl.rise, 3));
+        ctx.globalAlpha = fl.a;
+        ctx.strokeStyle = 'rgba(20,12,6,0.95)'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(fl.x, fl.y); ctx.lineTo(fl.x, fl.y - h); ctx.stroke();
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(fl.x, fl.y, 5, 2, 0, 0, 6.283); ctx.fill();
+        if (h > 12) {
+          const wave = Math.sin(now / 160) * 1.5;
+          ctx.fillStyle = fl.color; ctx.strokeStyle = 'rgba(20,12,6,0.9)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(fl.x, fl.y - h); ctx.lineTo(fl.x + 13, fl.y - h + 1 + wave); ctx.lineTo(fl.x + (fl.lost ? 9 : 13), fl.y - h + 8 + wave); ctx.lineTo(fl.x, fl.y - h + 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      this.callouts = this.callouts.filter((c) => now - c.t0 < 3400);
+      const seenAt = new Map<number, number>();
+      for (const c of this.callouts) {
+        const gp = geo.provinces[c.prov];
+        const n = seenAt.get(c.prov) ?? 0; seenAt.set(c.prov, n + 1);
+        const tt = (now - c.t0) / 3400;
+        const pop = tt < 0.08 ? 0.6 + 0.4 * (tt / 0.08) + 0.12 * Math.sin((tt / 0.08) * Math.PI) : 1;
+        const sx = gp.seed[0] * k + this.view.x, sy = gp.seed[1] * k + this.view.y - 30 - 26 * tt - n * 24;
+        if (sx < -80 || sx > this.w + 80 || sy < -30 || sy > this.h + 30) continue;
+        ctx.globalAlpha = tt > 0.7 ? (1 - tt) / 0.3 : 1;
+        ctx.font = `900 ${Math.round(13 * pop)}px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const w = ctx.measureText(c.text).width + 18 * pop;
+        ctx.fillStyle = 'rgba(12,8,4,0.86)';
+        ctx.beginPath(); ctx.roundRect(sx - w / 2, sy - 11 * pop, w, 22 * pop, 5); ctx.fill();
+        ctx.strokeStyle = c.color; ctx.lineWidth = 1.6; ctx.stroke();
+        ctx.fillStyle = c.color; ctx.fillText(c.text, sx, sy + 0.5);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
     }
 
     // battles: cells falling to the attacker, the live frontline, artillery, aircraft, army counters
@@ -831,10 +901,10 @@ export class MapRenderer {
     ctx.clearRect(0, 0, bc.width, bc.height);
     ctx.setTransform(this.dpr * k, 0, 0, this.dpr * k, this.dpr * vx, this.dpr * vy);
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    const fronts: { segs: number[]; bx: number; by: number; size: number; heat: number }[] = [];
+    const fronts: { segs: number[]; bx: number; by: number; size: number; heat: number; path?: Path2D }[] = [];
     const planes: { x0: number; y0: number; x1: number; y1: number; color: string; seed: number }[] = [];
     const markers: { x: number; y: number; war: number; prov: number; by: number; mine: boolean; heat: number }[] = [];
-    const counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }[] = [];
+    const counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }[] = [];
     const supplies: { pts: number[]; sup: number; mine: boolean }[] = [];
     const pockets: { x: number; y: number; n: number; mine: boolean }[] = [];
     const myWar = (w: { attackers: number[]; defenders: number[] }) => w.attackers.includes(P) || w.defenders.includes(P);
@@ -899,9 +969,10 @@ export class MapRenderer {
         let src: number | null = null;
         for (const q of geo.adj[fr.prov]) if (state.owner[q] === fr.by) { src = q; break; }
         if (src === null) for (const q of geo.adj[fr.prov]) if (side.includes(state.owner[q])) { src = q; break; }
-        if (src === null && fr.amphibious) {
+        const airOp = src === null ? state.countries[fr.by].mil.ops?.find((o) => o.prov === fr.prov && o.kind === 'airborne' && o.until > state.tick) : undefined;
+        if (src === null && (fr.amphibious || airOp)) {
           let bd = 1e9;
-          for (const q of state.countries[fr.by].provinces) { const d = geo.dist(q, fr.prov); if (d < bd && geo.provinces[q].coast > 0.15) { bd = d; src = q; } }
+          for (const q of state.countries[fr.by].provinces) { const d = geo.dist(q, fr.prov); if (d < bd && (airOp || geo.provinces[q].coast > 0.15)) { bd = d; src = q; } }
         }
         const cells = this.battlefield.cells(fr.prov);
         const ord = this.battlefield.order(state, fr.prov, side, src, this.ownersVersion);
@@ -958,12 +1029,21 @@ export class MapRenderer {
         else { bx = tgt[0]; by = tgt[1]; }
 
         const intensity = Math.min(1, ((fr.atk ?? 0) + (fr.def ?? 0)) / 60000 + 0.25);
-        fronts.push({ segs: frontSegs, bx, by, size: cells.size, heat: intensity });
+        fronts.push({ segs: frontSegs, bx, by, size: cells.size, heat: intensity, path: fn ? seg : undefined });
 
         // the offensive's arrow, from the attacker's ground to the fighting
         if (src !== null) {
           const s0 = geo.provinces[src].seed;
-          this.drawArrow(ctx, s0[0], s0[1], bx, by, fr.amphibious, mine ? [255, 196, 64] : [235, 60, 44], k, t, prog);
+          this.drawArrow(ctx, s0[0], s0[1], bx, by, fr.amphibious || !!airOp, airOp ? [150, 205, 255] : mine ? [255, 196, 64] : [235, 60, 44], k, t, prog);
+          if (airOp) {
+            // parachutes drifting down over the drop zone
+            for (let i = 0; i < 3; i++) {
+              const px = tgt[0] + (i - 1) * 7 / k, py = tgt[1] - (8 + (i % 2) * 5) / k, r2 = 3.6 / k;
+              ctx.fillStyle = 'rgba(235,245,255,0.95)'; ctx.strokeStyle = 'rgba(20,30,40,0.9)'; ctx.lineWidth = 0.7 / k;
+              ctx.beginPath(); ctx.arc(px, py, r2, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(px - r2, py); ctx.lineTo(px, py + 5 / k); ctx.lineTo(px + r2, py); ctx.stroke();
+            }
+          }
         }
         // aircraft over the front when one side owns the sky
         const air = airSuperiority(state.countries[fr.by], state.countries[defender]);
@@ -978,8 +1058,10 @@ export class MapRenderer {
         const dx = tgt[0] - bx, dy = tgt[1] - by, dl = Math.hypot(dx, dy) || 1;
         const off = Math.max(cells.size * 0.9, 22 / k);
         const atk = state.countries[fr.by], def = state.countries[defender];
-        counters.push({ key: `a${w.id}:${fr.prov}:${fr.by}`, x: bx - (dx / dl) * off, y: by - (dy / dl) * off, color: atkCol, troops: fr.atk ?? 0, org: atk.mil.readiness * (1 - atk.mil.exhaustion), armor: atk.mil.equipArmy / Math.max(1, atk.mil.troops) > 140000, enemy: fr.by !== P && !side.includes(P), mine });
-        counters.push({ key: `d${w.id}:${fr.prov}`, x: bx + (dx / dl) * off, y: by + (dy / dl) * off, color: this.colorSnap[defender] || '#888', troops: fr.def ?? 0, org: def.mil.readiness * (1 - def.mil.exhaustion), armor: def.mil.equipArmy / Math.max(1, def.mil.troops) > 140000, enemy: defender !== P && side.includes(P), mine: defender === P });
+        const gA = generalAt(atk, fr.prov);
+        counters.push({ gen: gA ? stars(gA) : 0, key: `a${w.id}:${fr.prov}:${fr.by}`, x: bx - (dx / dl) * off, y: by - (dy / dl) * off, color: atkCol, troops: fr.atk ?? 0, org: atk.mil.readiness * (1 - atk.mil.exhaustion), armor: atk.mil.equipArmy / Math.max(1, atk.mil.troops) > 140000, enemy: fr.by !== P && !side.includes(P), mine });
+        const gD = homeCommander(def);
+        counters.push({ gen: gD ? stars(gD) : 0, key: `d${w.id}:${fr.prov}`, x: bx + (dx / dl) * off, y: by + (dy / dl) * off, color: this.colorSnap[defender] || '#888', troops: fr.def ?? 0, org: def.mil.readiness * (1 - def.mil.exhaustion), armor: def.mil.equipArmy / Math.max(1, def.mil.troops) > 140000, enemy: defender !== P && side.includes(P), mine: defender === P });
         markers.push({ x: bx, y: by, war: w.id, prov: fr.prov, by: fr.by, mine: mine || defender === P, heat: intensity });
       }
     }
@@ -1011,10 +1093,10 @@ export class MapRenderer {
   private battleView: View = { k: 0, x: 0, y: 0 };
   private battlePending = false;
   private battleData: {
-    fronts: { segs: number[]; bx: number; by: number; size: number; heat: number }[];
+    fronts: { segs: number[]; bx: number; by: number; size: number; heat: number; path?: Path2D }[];
     planes: { x0: number; y0: number; x1: number; y1: number; color: string; seed: number }[];
     markers: { x: number; y: number; war: number; prov: number; by: number; mine: boolean; heat: number }[];
-    counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }[];
+    counters: { key: string; x: number; y: number; color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }[];
     supplies: { pts: number[]; sup: number; mine: boolean }[];
     pockets: { x: number; y: number; n: number; mine: boolean }[];
   } = { fronts: [], planes: [], markers: [], counters: [], supplies: [], pockets: [] };
@@ -1069,6 +1151,13 @@ export class MapRenderer {
     for (const pl of planes) {
       const ph = ((t * 0.35 + pl.seed) % 1);
       this.drawPlane(ctx, pl.x0 + (pl.x1 - pl.x0) * ph * 1.3, pl.y0 + (pl.y1 - pl.y0) * ph * 1.3 - 4 / k, Math.atan2(pl.y1 - pl.y0, pl.x1 - pl.x0), pl.color, k, Math.sin(ph * Math.PI));
+    }
+    // the frontline crackles: sparks of light run along it while the battle goes on
+    if (this.quality === 2 && this.running) {
+      ctx.setLineDash([2.5 / k, 10 / k]); ctx.lineDashOffset = -(t * 22) / k;
+      ctx.strokeStyle = 'rgba(255,236,190,0.85)'; ctx.lineWidth = 1.3 / k; ctx.lineCap = 'round';
+      for (const fr of fronts) if (fr.path) ctx.stroke(fr.path);
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
     }
     // convoys rolling along the supply lines towards the front
     for (const sl of supplies) {
@@ -1217,12 +1306,12 @@ export class MapRenderer {
 
   private counterSprites = new Map<string, HTMLCanvasElement>();
   /** Counters are drawn once into small sprites (keyed by everything they show) and then just copied each frame. */
-  private blitCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }, k: number) {
+  private blitCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }, k: number) {
     const showLabel = k > this.fitK * 5 && c.troops > 0;
     const divs = Math.max(1, Math.round(c.troops / 10000));
-    const key = `${c.color}|${divs}|${c.armor ? 1 : 0}|${Math.round(Math.max(0, Math.min(1, c.org)) * 29)}|${c.mine ? 1 : 0}${c.enemy ? 1 : 0}|${showLabel ? fmtNum(c.troops, 0) : ''}|${this.dpr}`;
+    const key = `${c.gen ?? 0}|${c.color}|${divs}|${c.armor ? 1 : 0}|${Math.round(Math.max(0, Math.min(1, c.org)) * 29)}|${c.mine ? 1 : 0}${c.enemy ? 1 : 0}|${showLabel ? fmtNum(c.troops, 0) : ''}|${this.dpr}`;
     let sp = this.counterSprites.get(key);
-    const W = 48, H = 44, ox = 24, oy = 14; // sprite box around the counter's centre (room for the shadow and the troop label)
+    const W = 48, H = 52, ox = 24, oy = 22; // sprite box around the counter's centre (room for the shadow and the troop label)
     if (!sp) {
       if (this.counterSprites.size > 240) this.counterSprites.clear();
       sp = document.createElement('canvas');
@@ -1239,7 +1328,7 @@ export class MapRenderer {
    * NATO-style army counter in the country's colour: infantry (crossed box) or armour (oval), the number of
    * divisions (10,000 troops each), and a strength bar (readiness x morale). Screen coordinates.
    */
-  private drawCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean }, k: number) {
+  private drawCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }, k: number) {
     const w = 30, h = 16;
     const x0 = sx - w / 2, y0 = sy - h / 2;
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x0 + 2, y0 + 2, w, h + 5);
@@ -1263,6 +1352,14 @@ export class MapRenderer {
     ctx.fillStyle = org > 0.6 ? '#5fd17a' : org > 0.35 ? '#e8c14a' : '#e8553f'; ctx.fillRect(x0 + 0.5, y0 + h + 0.5, (w - 1) * org, 3);
     ctx.strokeStyle = c.mine ? '#ffd56a' : c.enemy ? 'rgba(255,90,70,0.95)' : 'rgba(12,8,4,0.95)'; ctx.lineWidth = c.mine || c.enemy ? 1.6 : 1.2;
     ctx.strokeRect(x0, y0, w, h + 4);
+    if (c.gen) {
+      // the commanding general's stars, on a small tab above the counter
+      const st = '★'.repeat(c.gen);
+      ctx.font = `700 8px ${UI_FONT}`;
+      const tw = ctx.measureText(st).width + 6;
+      ctx.fillStyle = 'rgba(12,8,4,0.9)'; ctx.fillRect(sx - tw / 2, y0 - 9, tw, 9);
+      ctx.fillStyle = '#ffcf5a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(st, sx, y0 - 4.2);
+    }
     if (k > this.fitK * 5 && c.troops) {
       const label = fmtNum(c.troops, 0);
       ctx.font = `700 9px ${UI_FONT}`;

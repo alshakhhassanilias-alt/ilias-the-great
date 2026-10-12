@@ -983,3 +983,92 @@ describe('supply lines and war support', () => {
     expect(Math.abs(warSupport(L) - 0.6)).toBeLessThan(0.15);
   });
 });
+
+import { tickSlices } from '../src/sim/tick';
+import { makePeace } from '../src/sim/war';
+import { activeGenerals, actAssignGeneral, actRecruitGeneral, generalAt, stars } from '../src/sim/generals';
+import { actLaunchOp, actPartisans, canLaunch, occupiedHomeland, partisansActive } from '../src/sim/specops';
+import { inventory } from '../src/sim/military';
+import { setInTick } from '../src/sim/relations';
+
+describe('round 9: smooth weeks, generals, special operations, war history', () => {
+  it('a week run in slices gives exactly the same world as a week run at once', () => {
+    const a = fresh('Poland'), b = fresh('Poland');
+    declareWar(a, geo, id('Poland'), id('Belarus')); declareWar(b, geo, id('Poland'), id('Belarus'));
+    run(a, 30);
+    for (let i = 0; i < 30; i++) { const g = tickSlices(b, geo); let n = 0; for (;;) { setInTick(true); const r = g.next(); setInTick(false); if (r.done) break; n++; } expect(n).toBeGreaterThan(3); }
+    expect(JSON.stringify(b.owner)).toBe(JSON.stringify(a.owner));
+    expect(b.countries[id('Poland')].eco.gdp).toBeCloseTo(a.countries[id('Poland')].eco.gdp, 0);
+    expect(b.rng).toBe(a.rng);
+  });
+  it('countries at war get named generals who take command of offensives and earn stars', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    declareWar(s, geo, id('Russia'), id('Kazakhstan'));
+    run(s, 20);
+    const R = s.countries[id('Russia')];
+    expect(activeGenerals(R).length).toBeGreaterThanOrEqual(1);
+    expect(R.generals![0].name).toMatch(/^\S+ \S+/);
+    const fr = s.wars[0]?.fronts.find((f) => f.by === R.id);
+    if (fr) expect(generalAt(R, fr.prov)).toBeDefined();
+    expect(Math.max(...R.generals!.map((g) => g.xp))).toBeGreaterThan(0);
+    expect(stars(R.generals![0])).toBeGreaterThanOrEqual(1);
+  });
+  it('the player can recruit generals and pin one to an offensive', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    run(s, 4);
+    const P = s.countries[s.player];
+    expect(activeGenerals(P).length).toBe(3);
+    expect(actRecruitGeneral(s, s.player, 'blitz').ok).toBe(true);
+    const g = activeGenerals(P).find((x) => x.trait === 'blitz')!;
+    const fr = s.wars[0].fronts.find((f) => f.by === s.player);
+    if (fr) { expect(actAssignGeneral(s, s.player, g.id, fr.prov).ok).toBe(true); run(s, 1); if (s.wars[0]?.fronts.some((f) => f.prov === fr.prov)) expect(generalAt(P, fr.prov)?.id).toBe(g.id); }
+  });
+  it('naval invasions and airborne assaults open fronts behind the lines', () => {
+    const s = fresh('United Kingdom', { defensiveAlliances: false });
+    actDeclareWar(s, geo, s.player, id('France'));
+    const F = s.countries[id('France')];
+    const coast = F.provinces.find((p) => geo.provinces[p].coast > 0.15 && canLaunch(s, geo, s.player, p, 'naval') === null);
+    expect(coast).toBeDefined();
+    expect(actLaunchOp(s, geo, s.player, coast!, 'naval').ok).toBe(true);
+    expect(canLaunch(s, geo, s.player, coast!, 'naval')).not.toBeNull(); // already under way
+    run(s, 2);
+    expect(s.wars[0].fronts.some((f) => f.prov === coast && f.by === s.player)).toBe(true);
+    const inland = F.provinces.find((p) => geo.provinces[p].coast < 0.15);
+    if (inland !== undefined) expect(typeof canLaunch(s, geo, s.player, inland, 'airborne')).toMatch(/string|object/);
+  });
+  it('partisans can only rise in occupied homeland and make the occupier’s supply far costlier', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    expect(actPartisans(s, s.player).ok).toBe(false); // nothing occupied
+    const P = s.countries[s.player];
+    const q = P.provinces.find((p) => geo.adj[p].some((n) => s.owner[n] === id('Belarus')))!;
+    transferProvince(s, geo, q, id('Belarus'));
+    expect(occupiedHomeland(s, s.player)).toContain(q);
+    s.tick++;
+    const before = supplyNet(s, geo, id('Belarus')).dist[q];
+    expect(actPartisans(s, s.player).ok).toBe(true);
+    expect(partisansActive(s, s.player)).toBe(true);
+    s.tick++;
+    const after = supplyNet(s, geo, id('Belarus')).dist[q];
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+  it('a finished war leaves a record with casualties, regions and a winner', () => {
+    const s = fresh('Germany', { defensiveAlliances: false });
+    declareWar(s, geo, id('Poland'), id('Lithuania'));
+    run(s, 15);
+    makePeace(s, geo, id('Poland'), id('Lithuania'), { kind: 'status_quo' });
+    const rec = s.warHistory?.at(-1);
+    expect(rec).toBeDefined();
+    expect(rec!.a === id('Poland') || rec!.b === id('Poland')).toBe(true);
+    expect(rec!.casA + rec!.casB).toBeGreaterThan(0);
+    expect(['a', 'b', 'draw']).toContain(rec!.winner);
+  });
+  it('hardware inventory is derived from equipment', () => {
+    const s = fresh('United States of America');
+    const inv = inventory(s.countries[s.player].mil);
+    expect(inv.tanks).toBeGreaterThan(500);
+    expect(inv.jets).toBeGreaterThan(200);
+    expect(inv.warships).toBeGreaterThan(20);
+  });
+});

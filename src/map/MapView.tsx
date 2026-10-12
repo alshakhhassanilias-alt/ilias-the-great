@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { store, useStore } from '../state/store';
 import { MapGeometry } from './geometry';
 import { MapRenderer } from './renderer';
-import { getRelation } from '../sim/relations';
+import { areAtWar, getRelation } from '../sim/relations';
 import { shortName } from '../sim/util';
 import { toggleFocus } from '../sim/actions';
+import { sfx } from '../audio';
 
 let geomSingleton: MapGeometry | null = null;
 const getGeom = () => (geomSingleton ??= new MapGeometry(store.geo));
@@ -65,6 +66,8 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
           samples = 0; slow = 0;
         }
       }
+      // distant artillery when you are zoomed in on a running battle
+      if (r.battleVisible && store.sound && store.speed > 0 && r.view.k > r.fitK * 2.2 && Math.random() < 0.012) sfx('boom');
       r.step(t);
       if (r.dirty) { r.dirty = false; lastDraw = t; r.draw(); }
       else if (r.animating(store.state) && t - lastDraw > (quality === 2 ? 30 : 55)) { lastDraw = t; r.draw(); } // ambient animation at ~30 / ~18 fps
@@ -89,6 +92,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   useEffect(() => {
     const rr = rendRef.current;
     if (rr && lastPing.current !== store.pingSeq) { lastPing.current = store.pingSeq; if (store.pingProv >= 0) rr.ping(store.pingProv, store.pingColor); }
+    if (rr && store.callouts.length) { for (const c of store.callouts) rr.callout(c.prov, c.text, c.color); store.callouts = []; }
   });
   useEffect(() => {
     const rr = rendRef.current;
@@ -161,8 +165,14 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       rr.hoverOwner = o;
       rr.dirty = true;
       const C = st.countries[o];
-      const sub = o === st.player ? 'Your country' : `Relations ${Math.round(getRelation(st, o, st.player))}`;
-      setTip({ x, y, text: shortName(C.name), sub });
+      const region = store.geo.provinces[pr].name;
+      const fr = st.wars.flatMap((w) => w.fronts).filter((f) => f.prov === pr).sort((a, b) => b.progress - a.progress)[0];
+      const war = areAtWar(st, o, st.player);
+      const parts = [region];
+      if (fr) parts.push(`⚔ ${Math.round(Math.min(1, fr.progress) * 100)}% taken by ${shortName(st.countries[fr.by].name)}`);
+      else if (st.core[pr] !== o) parts.push(`occupied ${shortName(st.countries[st.core[pr]].name)} land`);
+      parts.push(o === st.player ? 'your country' : war ? 'at war with you' : `relations ${Math.round(getRelation(st, o, st.player))}`);
+      setTip({ x, y, text: shortName(C.name), sub: parts.join(' · ') });
     };
     const click = (x: number, y: number) => {
       // battle markers take priority: open the battle report

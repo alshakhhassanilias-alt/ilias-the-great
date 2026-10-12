@@ -418,3 +418,64 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
   .bc-row, .battle-card .why-row { font-size: 12px; padding: 2px 0; }
   .battle-card .btn small { display: none; }
 }
+
+/* ---- big moments: war begins / war ends ---- */
+.splash { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 40; width: min(560px, calc(100% - 24px)); padding: 18px 20px 16px; border-radius: 14px; text-align: center; cursor: pointer;
+  background: radial-gradient(120% 140% at 50% 0%, rgba(120, 24, 16, 0.96), rgba(18, 8, 6, 0.97)); border: 1px solid rgba(255, 110, 80, 0.55); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0,0,0,0.4);
+  animation: splash-in 0.45s cubic-bezier(.2,1.4,.4,1) both; }
+.splash.win { background: radial-gradient(120% 140% at 50% 0%, rgba(120, 92, 18, 0.96), rgba(16, 12, 4, 0.97)); border-color: rgba(255, 210, 100, 0.6); }
+.splash.lose { background: radial-gradient(120% 140% at 50% 0%, rgba(60, 20, 30, 0.97), rgba(10, 6, 10, 0.97)); border-color: rgba(200, 90, 110, 0.5); }
+.splash.draw { background: radial-gradient(120% 140% at 50% 0%, rgba(30, 60, 90, 0.96), rgba(6, 10, 16, 0.97)); border-color: rgba(120, 180, 240, 0.5); }
+.splash-kicker { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255, 235, 210, 0.75); }
+.splash-title { font-family: 'Cinzel', serif; font-weight: 700; font-size: 64px; line-height: 1.05; letter-spacing: 0.14em; color: #ffe2b0; text-shadow: 0 0 24px rgba(255, 120, 60, 0.55), 0 3px 0 rgba(0,0,0,0.5); animation: splash-title 0.9s ease-out both; }
+.splash.win .splash-title { color: #ffe9a0; text-shadow: 0 0 28px rgba(255, 200, 60, 0.7), 0 3px 0 rgba(0,0,0,0.5); }
+.splash.lose .splash-title { color: #ffb4b4; text-shadow: 0 0 22px rgba(255, 60, 80, 0.5); }
+.splash.draw .splash-title { color: #cfe6ff; text-shadow: 0 0 22px rgba(90, 160, 255, 0.5); }
+.splash-sides { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin: 6px 0 10px; }
+.splash-sides .sd { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.splash-sides .sd i { width: 46px; height: 8px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,0.5); }
+.splash-sides .sd b { font-size: 16px; } .splash-sides .sd small { color: var(--muted); font-size: 11.5px; }
+.splash-sides .vs { font-size: 22px; }
+.splash-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 3px 14px; font-variant-numeric: tabular-nums; margin: 6px auto 8px; max-width: 380px; }
+.splash-grid span { font-weight: 700; font-size: 15px; } .splash-grid span:first-child, .splash-grid span:nth-child(3n+1) { text-align: right; } .splash-grid span:nth-child(3n) { text-align: left; }
+.splash-grid label { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); align-self: center; }
+.splash-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 4px auto 8px; max-width: 380px; box-shadow: 0 0 0 1px rgba(0,0,0,0.5); }
+.splash-bar i { display: block; height: 100%; }
+.splash-sub { font-size: 13px; color: rgba(255, 240, 225, 0.85); margin: 2px 0 10px; }
+.splash-legend { display: flex; justify-content: space-between; max-width: 380px; margin: -4px auto 8px; font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.1em; }
+.splash .btnrow { max-width: 380px; margin: 0 auto; }
+@keyframes splash-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.86); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes splash-title { 0% { letter-spacing: 0.6em; opacity: 0; filter: blur(6px); } 60% { opacity: 1; filter: blur(0); } 100% { letter-spacing: 0.14em; } }
+@media (max-width: 600px) { .splash-title { font-size: 44px; } .splash { top: 42%; padding: 14px 14px 12px; } }
+.pill.good { background: rgba(70,200,150,0.18); color: var(--teal); } .pill.bad { background: rgba(255,98,82,0.18); color: var(--red); }
+
+.bc-gens { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin: 2px 0 6px; }
+.bc-gens > div:last-child { text-align: right; }
+.bc-gens small { display: block; color: var(--muted); font-size: 11px; }
+.gstars { color: #ffcf5a; letter-spacing: 1px; text-shadow: 0 0 6px rgba(255,190,60,0.5); }
+
+.gen-card { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; padding: 8px 10px; }
+.gen-card select { margin-top: 5px; max-width: 100%; }
+.gen-badge { width: 38px; height: 38px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #1a1206;
+  background: radial-gradient(circle at 35% 30%, #ffe7a0, #c99a3a 70%, #8a6420); box-shadow: 0 0 0 2px rgba(12,8,4,0.8), 0 0 10px rgba(255,190,80,0.25); }
+
+.prov-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.prov-facts > div { background: rgba(255,255,255,0.03); border: 1px solid var(--line-soft); border-radius: 8px; padding: 5px 7px; }
+.prov-facts label { display: block; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.prov-facts b { font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (max-width: 420px) { .prov-facts { grid-template-columns: repeat(2, 1fr); } }
+
+.inv-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-top: 8px; }
+.inv { background: rgba(255,255,255,0.03); border: 1px solid var(--line-soft); border-radius: 8px; padding: 5px 4px; text-align: center; }
+.inv span { display: block; font-size: 15px; } .inv b { display: block; font-size: 13px; font-variant-numeric: tabular-nums; } .inv small { font-size: 9.5px; color: var(--faint); }
+@media (max-width: 520px) { .inv-row { grid-template-columns: repeat(3, 1fr); } }
+.diary { font-size: 12px; line-height: 1.4; display: grid; gap: 5px; }
+.diary-row { padding-left: 8px; border-left: 2px solid var(--line); }
+.diary-row.good { border-left-color: var(--teal); } .diary-row.bad { border-left-color: var(--red); }
+
+/* phones: the map needs room. Only the newest toast shows, compact; nothing piles up over the war */
+@media (max-width: 900px) {
+  .toast { font-size: 12px; padding: 6px 10px; }
+  .toasts .toast:not(:last-child) { display: none; }
+}
+.app:has(.splash) .toasts { display: none; }

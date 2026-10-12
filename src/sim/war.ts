@@ -27,7 +27,9 @@ import { fortBonus, transferBuildings } from './buildings';
 import { addGrudge } from './leaders';
 import { fmtCas, isBigNews, MILESTONES } from './drama';
 import { bumpSupply, landSupply, neighbours, supplyNet, supplyReach } from './supply';
+import { opsOf } from './specops';
 import { bumpSupport, morale, onEnterWar, stepWarSupport, warSupport } from './warsupport';
+import { assignGenerals, attackBonus, defenceBonus, ensureGenerals, generalAfterBattle, generalAt, homeCommander, supplyBonus } from './generals';
 export { logEvent };
 
 const CLAIM_SET = new Map<string, number>();
@@ -65,6 +67,8 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   B.provinces.push(p);
   s.owner[p] = to;
   s.integ[p] = s.core[p] === to ? 1 : 0;
+  s.stats[`flips:${p}`] = (s.stats[`flips:${p}`] ?? 0) + 1;
+  s.stats[`held:${p}`] = s.tick;
   bumpSupply();
   transferBuildings(s, p, from, to);
   for (const w of s.wars) w.fronts = w.fronts.filter((fr) => fr.prov !== p);
@@ -292,8 +296,20 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
       if (s.owner[p] !== core && s.countries[core].alive && (warSideOf(w, core) >= 0) && (s.owner[p] === a || s.owner[p] === b)) transferProvince(s, geo, p, core);
     }
   }
+  const scoreA = warScore(s, w, a);
   const tp = termProvinces(s, geo, a, b, t);
-  if (tp) for (const p of tp.provs) if (s.owner[p] === tp.from) transferProvince(s, geo, p, tp.to);
+  let moved = 0;
+  if (tp) for (const p of tp.provs) if (s.owner[p] === tp.from) { transferProvince(s, geo, p, tp.to); moved++; }
+  {
+    // the record of this war, for the history and the end-of-war summary
+    const provsA = (w.taken?.[a] ?? 0) + (tp && tp.to === a ? moved : 0) - (tp && tp.from === a ? moved : 0);
+    const provsB = (w.taken?.[b] ?? 0) + (tp && tp.to === b ? moved : 0) - (tp && tp.from === b ? moved : 0);
+    const edge = provsA - provsB + 3 * scoreA;
+    const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
+    const hist = s.warHistory ?? (s.warHistory = []);
+    hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind });
+    if (hist.length > 40) hist.splice(0, hist.length - 40);
+  }
   if (tp && tp.provs.length && tp.to === s.player) s.stats.warWins = (s.stats.warWins ?? 0) + 1;
   const lbl = ({ status_quo: 'ceasefire on current lines', restore: 'a return to pre-war borders', demand: 'territorial concessions', concede: 'concessions by the sender', surrender: 'total surrender' } as const)[t.kind];
   logEvent(s, `${A.name} and ${B.name} signed peace (${lbl}).`, 'peace', [a, b], a === s.player || b === s.player);
@@ -391,6 +407,13 @@ export function attackCandidates(s: GameState, geo: Geo, c: Country, w: War): Ca
       }
     }
   }
+  // special operations: an ordered landing or airdrop becomes a target even far from the lines
+  for (const op of opsOf(c)) {
+    if (op.until <= s.tick || !enemies.has(s.owner[op.prov])) continue;
+    const prev = out.get(op.prov);
+    const supply = op.kind === 'naval' ? Math.max(prev?.supply ?? 0, 0.62 * (0.72 + 0.28 * net.capacity)) : Math.max(prev?.supply ?? 0, 0.5);
+    out.set(op.prov, { prov: op.prov, amphibious: op.kind === 'naval' && !prev?.from || (prev?.amphibious ?? false), supply, from: prev?.from ?? -1, score: (prev?.score ?? 1) + 6 });
+  }
   return [...out.values()];
 }
 
@@ -455,14 +478,16 @@ export function stepWars(s: GameState, geo: Geo) {
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
       const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1));
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
         const C = st.c;
         const air = clamp(airSuperiority(C, E) + 0.03 * C.mil.bld.airbase - 0.015 * E.mil.bld.airbase, -1, 1.3);
         const intel = 1 + 0.2 * (C.mil.intel - E.mil.intel);
-        const pa = landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C);
+        const gen = generalAt(C, p);
+        st.supply = Math.min(1, st.supply * supplyBonus(gen));
+        const pa = attackBonus(gen, pocket) * landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C);
         contrib.push({ st, pa, air });
         Pa += pa;
       }
@@ -476,7 +501,8 @@ export function stepWars(s: GameState, geo: Geo) {
       const delta = (raw > 0 ? Math.min(raw, pocket ? 0.07 : 0.045) * nuclearBrake : raw) * (raw > 0 ? amph : 1);
       // casualties
       const defShare = defTroops;
-      const defLossFrac = 0.0065 * Math.pow(clamp(ratio, 0.3, 3), 0.5) * (1 + 0.2 * Math.max(0, contrib[0].air));
+      const gunner = contrib.some((x) => generalAt(x.st.c, p)?.trait === 'artillery');
+      const defLossFrac = 0.0065 * Math.pow(clamp(ratio, 0.3, 3), 0.5) * (1 + 0.2 * Math.max(0, contrib[0].air)) * (gunner ? 1.15 : 1);
       const defLoss = Math.min(E.mil.troops * 0.5, defShare * defLossFrac);
       applyLosses(s, E, defLoss, w, 0.7);
       const atkLossBy = new Map<CountryId, number>();
@@ -499,6 +525,13 @@ export function stepWars(s: GameState, geo: Geo) {
         front.progress = clamp(front.progress + inc, 0, 1.2);
       }
       const best = w.fronts.filter((f) => f.prov === p).sort((a, b) => b.progress - a.progress)[0];
+      {
+        // commanders gain experience (and risk their lives) in every week of fighting
+        const intensity = Math.min(1, (defTroops + contrib.reduce((t2, x) => t2 + x.st.share, 0)) / 60000 + 0.2);
+        const place = geo.provinces[p].name || E.name;
+        const taken = !!best && best.progress >= 1;
+        for (const { st } of contrib) generalAfterBattle(s, st.c, p, taken && best.by === st.c.id, intensity, place);
+      }
       if (best && best.progress >= 1 && E.provinces.length === 1 && !E.isPlayer && !s.countries[best.by].isPlayer && hash01('spare', e, s.tick) < 0.8) {
         // the conqueror stops short of swallowing the last region: a rump state survives, and the world sees a ceasefire
         const winner = best.by;
@@ -511,6 +544,7 @@ export function stepWars(s: GameState, geo: Geo) {
         const winner = best.by;
         const f = transferProvince(s, geo, p, winner);
         w.gained[winner] = (w.gained[winner] ?? 0) + f;
+        (w.taken ??= {})[winner] = (w.taken[winner] ?? 0) + 1;
         w.lost[e] = (w.lost[e] ?? 0) + f;
         const W = s.countries[winner];
         const name = geo.provinces[p].name || `a region of ${s.countries[s.core[p]].name}`;
@@ -520,7 +554,8 @@ export function stepWars(s: GameState, geo: Geo) {
         addGrudge(s, e, winner, 'seized its land', 6);
         const la = best.la ?? 0, ld = best.ld ?? 0;
         const big = p === E.capital || isBigNews(s, winner, e);
-        logEvent(s, `Battle of ${name}: ${W.name} captured it from ${E.name}${la + ld > 2000 ? ` after fighting that cost ${fmtCas(la)} attackers and ${fmtCas(ld)} defenders` : ''}.`, 'territory', [winner, e], winner === s.player || e === s.player || big, big && p !== E.capital ? { big: true, prov: p } : { prov: p });
+        const gw = generalAt(W, p);
+        logEvent(s, `Battle of ${name}: ${W.name}${gw ? ` (General ${gw.name})` : ''} captured it from ${E.name}${la + ld > 2000 ? ` after fighting that cost ${fmtCas(la)} attackers and ${fmtCas(ld)} defenders` : ''}.`, 'territory', [winner, e], winner === s.player || e === s.player || big, big && p !== E.capital ? { big: true, prov: p } : { prov: p });
       }
     }
     if (!s.wars.includes(w)) continue;
@@ -589,6 +624,8 @@ function stepPockets(s: GameState, geo: Geo) {
     seen.add(cid);
     const c = s.countries[cid];
     if (!c.alive) continue;
+    ensureGenerals(s, c);
+    assignGenerals(s, c);
     const net = supplyNet(s, geo, cid);
     const n = net.pocket.length;
     const before = c.mil.pocket ?? 0;

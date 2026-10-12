@@ -135,6 +135,22 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
           ))}
         </>
       )}
+      {tab === 'wars' && (s.warHistory?.length ?? 0) > 0 && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="why-title">Past wars</div>
+          {[...(s.warHistory ?? [])].reverse().slice(0, 15).map((r, i) => {
+            const A = s.countries[r.a], B = s.countries[r.b];
+            const mine = r.a === s.player || r.b === s.player;
+            const won = r.winner === 'draw' ? null : (r.winner === 'a') === (r.a === s.player);
+            return (
+              <div className="row" key={`${r.id}-${i}`} style={{ fontSize: 12.5 }}>
+                <div className="grow"><b>{A.name} vs {B.name}</b>{mine && <span className={`pill ${won === null ? '' : won ? 'good' : 'bad'}`} style={{ marginLeft: 6 }}>{won === null ? 'draw' : won ? 'won' : 'lost'}</span>}
+                  <div className="hint">{dateLabel(r.start)} – {dateLabel(r.end)} · {r.winner === 'draw' ? 'no clear winner' : `${(r.winner === 'a' ? A : B).name} prevailed`} · {fmtNum(r.casA + r.casB)} casualties · regions {r.provsA >= 0 ? '+' : ''}{r.provsA} / {r.provsB >= 0 ? '+' : ''}{r.provsB}</div></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {tab === 'wars' && (
         s.wars.length === 0 ? <p className="muted">The world is at peace.</p> :
           s.wars.map((w) => (

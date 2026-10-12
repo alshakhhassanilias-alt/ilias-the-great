@@ -52,6 +52,11 @@ const LAST: Record<string, string[]> = {
   SEA: ['Tran', 'Santos', 'Wijaya', 'Chaiyasit', 'Lim', 'Pham', 'Rahman', 'Dela Cruz', 'Phan', 'Sok'],
   OC: ['Smith', 'Walker', 'Parata', 'Taylor', 'Hohepa', 'Wilson', 'Tui', 'Murray', 'Ngata', 'Brown'],
 };
+/** a fictional person's name typical of the country's region (deterministic for the same salt) */
+export const personName = (c: Country, salt: string, n: number) => {
+  const f = FIRST[c.region] ?? FIRST.EU, l = LAST[c.region] ?? LAST.EU;
+  return `${f[Math.floor(hash01(`${salt}f`, c.id, n) * f.length)]} ${l[Math.floor(hash01(`${salt}l`, c.id, n) * l.length)]}`;
+};
 const leaderName = (c: Country, gen: number) => {
   const f = FIRST[c.region] ?? FIRST.EU, l = LAST[c.region] ?? LAST.EU;
   return `${f[Math.floor(hash01('lf', c.id, gen) * f.length)]} ${l[Math.floor(hash01('ll', c.id, gen) * l.length)]}`;

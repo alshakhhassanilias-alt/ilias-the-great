@@ -2,6 +2,7 @@ import { setInTick } from './relations';
 import type { Geo } from './geo';
 import { stepEconomiesGen } from './economy';
 import { stepWars, forcePeaceAll, logEvent } from './war';
+import { stepPartisans } from './specops';
 import { stepAIGen } from './ai';
 import { nextRand } from './rng';
 import { stepProjects } from './projects';
@@ -77,6 +78,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepEconomiesGen(s, geo);
   yield;
   stepWars(s, geo);
+  stepPartisans(s);
   yield;
   yield* stepAIGen(s, geo);
   checkInstability(s, geo);

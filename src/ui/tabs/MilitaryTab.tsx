@@ -3,13 +3,14 @@ import { store } from '../../state/store';
 import { Meter, Note, Section, Slider, Stat, MeterRow } from '../widgets';
 import { fmtMoney, fmtNum, fog, pct } from '../format';
 import { actAirstrike, actCallAllies, actTotalMobilization, actWarEconomy, BUDGET_LIMITS, buyEquipment, demobilize, recruit, setAutoAdvance, setBudget, setCommit } from '../../sim/actions';
-import { airPower, equipRatio, landPower, manpower, navalPower, strength, strengthIndex, techMult } from '../../sim/military';
+import { airPower, equipRatio, inventory, landPower, manpower, navalPower, strength, strengthIndex, techMult } from '../../sim/military';
 import { areAtWar, enemiesOf, isAtWar, warsOf } from '../../sim/relations';
 import { assessAttack } from '../../sim/ai';
 import { warScore } from '../../sim/war';
 import type { Budget } from '../../sim/types';
-import { HomeFront, SupplyLines, supTone } from './HomeFront';
+import { HighCommand, HomeFront, SupplyLines, supTone } from './HomeFront';
 import { warSupport } from '../../sim/warsupport';
+import { dateLabel } from '../../sim/tick';
 
 export function MilitaryTab({ id }: { id: number }) {
   const s = store.state!;
@@ -54,6 +55,11 @@ export function MilitaryTab({ id }: { id: number }) {
           <Stat label="Army" value={f(landIdx * 1000, 'land')} sub={`equipment ${equipRatio(m).toFixed(1)}× benchmark`} />
           <Stat label="Air · Navy" value={`${f(airIdx * 1000, 'air')} · ${f(navIdx * 1000, 'nav')}`} sub={`tech ×${techMult(m).toFixed(2)}`} />
         </div>
+        {(() => {
+          const inv = inventory(m);
+          const it = (icon: string, n: number, label: string) => <div className="inv"><span aria-hidden="true">{icon}</span><b>{f(n, `inv${label}`)}</b><small>{label}</small></div>;
+          return <div className="inv-row">{it('🛡', inv.tanks, 'tanks')}{it('💥', inv.artillery, 'guns')}{it('✈', inv.jets, 'jets')}{it('🚁', inv.helicopters, 'helicopters')}{it('⚓', inv.warships, 'warships')}{it('🌊', inv.submarines, 'submarines')}</div>;
+        })()}
         <div className="card" style={{ marginTop: 8 }}>
           <MeterRow label="Readiness" value={m.readiness} color={m.readiness < 0.5 ? 'var(--red)' : 'var(--teal)'} hint="Training and maintenance funding. Low readiness cuts combat power." />
           <MeterRow label="Logistics" value={m.supply} hint="Infrastructure & tech: how well supply lines carry ammunition, fuel and food to the front. Blockades cut it." />
@@ -97,6 +103,17 @@ export function MilitaryTab({ id }: { id: number }) {
 
       {mine && wars.length > 0 && <HomeFront id={id} />}
       {mine && wars.length > 0 && <SupplyLines id={id} />}
+      {mine && (wars.length > 0 || (c.generals?.length ?? 0) > 0) && <HighCommand id={id} />}
+      {mine && wars.length > 0 && (() => {
+        const diary = [...s.log].reverse().filter((l) => l.countries.includes(id) && (l.kind === 'territory' || l.kind === 'war')).slice(0, 8);
+        return diary.length > 0 && (
+          <Section title="War diary" hint="latest first">
+            <div className="card diary">
+              {diary.map((l) => <div key={l.seq} className={`diary-row ${/captured it from/.test(l.text) ? (l.countries[0] === id ? 'good' : 'bad') : ''}`}><span className="faint">{dateLabel(l.tick)}</span> {l.text}</div>)}
+            </div>
+          </Section>
+        );
+      })()}
 
       {mine && wars.length > 0 && (
         <Section title="Active offensives" hint="click a region on the map to inspect it">

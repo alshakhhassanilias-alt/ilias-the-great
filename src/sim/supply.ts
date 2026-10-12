@@ -110,7 +110,7 @@ class Heap {
 }
 
 export const stepCost = (s: GameState, geo: Geo, p: ProvId, q: ProvId) =>
-  geo.dist(p, q) * (1 + 0.6 * geo.provinces[q].terrain) * (s.integ[q] < 0.5 && s.core[q] !== s.owner[q] ? 1.8 : 1);
+  geo.dist(p, q) * (1 + 0.6 * geo.provinces[q].terrain) * (s.core[q] !== s.owner[q] ? ((s.stats[`partisans:${s.core[q]}`] ?? -1) > s.tick ? 2.6 : s.integ[q] < 0.5 ? 1.8 : 1) : 1);
 
 export function supplyNet(s: GameState, geo: Geo, cid: CountryId): SupplyNet {
   const key = `${s.tick}|${ownVer}|${s.wars.length}`;

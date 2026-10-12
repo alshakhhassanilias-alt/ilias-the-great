@@ -8,7 +8,7 @@ import { createGame } from '../sim/init';
 import { tick as simTick, tickSlices } from '../sim/tick';
 import { setInTick } from '../sim/relations';
 import { serialize, deserialize } from '../sim/save';
-import { DEFAULT_SETTINGS, type CountryId, type GameState, type LogEntry, type Settings } from '../sim/types';
+import { DEFAULT_SETTINGS, type CountryId, type GameState, type LogEntry, type Settings, type WarRecord } from '../sim/types';
 import { alliesOf, areAtWar } from '../sim/relations';
 import { neighborsOf } from '../sim/diplomacy';
 import { eventById } from '../sim/events';
@@ -66,6 +66,19 @@ class Store {
   openBattle(b: { war: number; prov: number; by: number } | null) { this.battle = b; this.notify(); }
   breaking: { seq: number; text: string; kind: LogEntry['kind']; prov?: number } | null = null;
   pingSeq = 0; pingProv = -1; pingColor = '#ffd36a';
+  /** a dramatic full-width card: a war involving you begins, or one ends (with its result) */
+  splash: { kind: 'war'; a: number; d: number } | { kind: 'peace'; rec: WarRecord } | null = null;
+  private splashTimer = 0;
+  showSplash(sp: NonNullable<Store['splash']>) {
+    this.splash = sp;
+    clearTimeout(this.splashTimer);
+    this.splashTimer = window.setTimeout(() => { this.splash = null; this.notify(); }, sp.kind === 'war' ? 8000 : 10000);
+    sfx(sp.kind === 'war' ? 'drums' : sp.rec.winner === 'draw' ? 'peace' : (sp.rec.winner === 'a') === (sp.rec.a === this.state?.player) ? 'fanfare' : 'lost');
+  }
+  closeSplash() { this.splash = null; clearTimeout(this.splashTimer); this.notify(); }
+  /** floating words over the map ("CAPTURED", "ENCIRCLED" ...), handed to the map renderer */
+  callouts: { prov: number; text: string; color: string }[] = [];
+  private lastHist = 0;
   get sound() { return audio.enabled; }
   setSound(on: boolean) { setSound(on); this.notify(); }
   inboxOpen: number | null = null;
@@ -135,6 +148,8 @@ class Store {
     this.unread = 0;
     this.lastSeq = s.logSeq - 1;
     this.lastInboxUid = s.nextInbox - 1;
+    this.lastHist = s.warHistory?.length ?? 0;
+    this.splash = null; this.callouts = [];
     this.focusRequest++;
     this.startLoop();
     this.notify();
@@ -210,6 +225,12 @@ class Store {
       const mine = e.countries.includes(s.player);
       if (e.important) this.unread++;
       if (e.big) this.announce(e);
+      if (!this.preview && mine && e.kind === 'war' && /declared war on/.test(e.text)) this.showSplash({ kind: 'war', a: e.countries[0], d: e.countries[1] });
+      if (!this.preview && e.prov !== undefined && (mine || e.big)) {
+        const tag = /captured it from/.test(e.text) ? (e.countries[0] === s.player ? 'CAPTURED' : e.countries[1] === s.player ? 'LOST' : '') : (/^\S*\s?([A-Z][A-Z ]{3,}[A-Z]):/.exec(e.text)?.[1] ?? (/at the gates/.test(e.text) ? 'AT THE GATES' : ''));
+        if (tag) this.callouts.push({ prov: e.prov, text: tag, color: tag === 'LOST' || (e.kind === 'danger' || e.kind === 'war') && !(mine && e.countries[0] === s.player) ? '#ff7a64' : '#ffd36a' });
+        if (this.callouts.length > 12) this.callouts.splice(0, this.callouts.length - 12);
+      }
       else if (mine && !this.preview) {
         if (e.kind === 'war' && /declared war/.test(e.text) && e.countries[0] !== s.player) sfx('war');
         else if (e.kind === 'territory' && /captured/.test(e.text)) sfx(e.countries[0] === s.player ? 'capture' : 'lost');
@@ -219,6 +240,12 @@ class Store {
         this.speed = 0;
         this.toast('Simulation paused: a war involving your country began.', 'danger');
       }
+    }
+    const hist = s.warHistory ?? [];
+    if (this.lastHist > hist.length) this.lastHist = hist.length;
+    while (this.lastHist < hist.length) {
+      const rec = hist[this.lastHist++];
+      if (!this.preview && (rec.a === s.player || rec.b === s.player)) this.showSplash({ kind: 'peace', rec });
     }
     if (s.victory && !this.victoryShown) { this.victoryShown = true; this.speed = 0; }
     for (const it of s.inbox) {
@@ -303,6 +330,8 @@ class Store {
     return r;
   }
   mutate(fn: (s: GameState) => void) { fn(this.state!); this.notify(); }
+  /** float a word over a region on the map (feedback for a player action) */
+  mapCallout(prov: number, text: string, color = '#ffd36a') { if (prov >= 0) { this.callouts.push({ prov, text, color }); this.notify(); } }
   atWarWithPlayer(c: CountryId) { return !!this.state && areAtWar(this.state, c, this.state.player); }
 
   // ---- saves ----

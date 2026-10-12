@@ -6,6 +6,7 @@ import { quality, techMult } from './military';
 import { fortBonus, levelOf } from './buildings';
 import { mods } from './doctrines';
 import { morale, warSupport } from './warsupport';
+import { attackBonus, defenceBonus, generalAt, gtrait, homeCommander, stars } from './generals';
 
 export interface BattleMod { label: string; pct: number; favours: 'attacker' | 'defender' }
 export interface BattleReport {
@@ -18,6 +19,9 @@ export interface BattleReport {
   role: 'attacker' | 'defender' | 'observer';
   /** attacker's supply on this front 0..1, whether the defenders are encircled, and both sides' war support */
   supply: number; pocket: boolean; wsA: number; wsD: number;
+  /** the commanders on each side */
+  genA?: { name: string; stars: number; trait: string; icon: string; wins: number };
+  genD?: { name: string; stars: number; trait: string; icon: string; wins: number };
 }
 
 export function battleReport(s: GameState, geo: Geo, warId: number, prov: number, by: number): BattleReport | null {
@@ -49,6 +53,10 @@ export function battleReport(s: GameState, geo: Geo, warId: number, prov: number
   if (fr.pocket) mods_.push({ label: 'Defenders encircled: no supplies', pct: 82, favours: 'attacker' });
   const mr = morale(A) / morale(D);
   if (Math.abs(mr - 1) > 0.02) mods_.push({ label: `War support ${Math.round(warSupport(A) * 100)}% vs ${Math.round(warSupport(D) * 100)}%`, pct: Math.round(Math.abs(mr > 1 ? mr - 1 : 1 / mr - 1) * 100), favours: mr > 1 ? 'attacker' : 'defender' });
+  const ga = generalAt(A, prov), gd = homeCommander(D);
+  if (ga) add(`General ${ga.name} (${gtrait(ga.trait).title})`, attackBonus(ga, !!fr.pocket), 'attacker');
+  if (gd) add(`General ${gd.name} (${gtrait(gd.trait).title})`, defenceBonus(gd), 'defender');
+  const gen = (g: typeof ga) => g && { name: g.name, stars: stars(g), trait: gtrait(g.trait).title, icon: gtrait(g.trait).icon, wins: g.wins };
   const rate = fr.rate ?? 0;
   const mySide = w.attackers.includes(s.player) ? w.attackers : w.defenders.includes(s.player) ? w.defenders : null;
   const progress = Math.max(0, Math.min(1, fr.progress));
@@ -60,7 +68,7 @@ export function battleReport(s: GameState, geo: Geo, warId: number, prov: number
     trend: rate > 0.0005 ? 'advancing' : rate < -0.0005 ? 'pushed back' : 'stalled',
     lossesAtk: fr.la ?? 0, lossesDef: fr.ld ?? 0,
     mods: mods_,
-    supply: sup, pocket: !!fr.pocket, wsA: warSupport(A), wsD: warSupport(D),
+    supply: sup, pocket: !!fr.pocket, wsA: warSupport(A), wsD: warSupport(D), genA: gen(ga), genD: gen(gd),
     role: mySide === null ? 'observer' : mySide.includes(by) ? 'attacker' : mySide.includes(defId) ? 'defender' : 'observer',
   };
 }

@@ -5,6 +5,10 @@ import { actResolveEvent } from '../sim/actions';
 import { eventById } from '../sim/events';
 import { useEffect, useState } from 'react';
 import { dateLabel } from '../sim/tick';
+import { nationalColor } from '../map/palette';
+import { strength } from '../sim/military';
+import { warSupport } from '../sim/warsupport';
+import { fmtNum } from './format';
 
 export function Toasts() {
   useStore();
@@ -183,6 +187,74 @@ export function YearReview() {
       <button className="x" aria-label="Dismiss" onClick={() => { store.reviewSeen = r.tick; store.notify(); }}>×</button>
       <h4>{r.title}</h4>
       {r.lines.map((l, i) => <div className="rr" key={i} style={{ display: 'block' }}>{l}</div>)}
+    </div>
+  );
+}
+
+/** The big moments: a war involving you begins (both sides at a glance), or ends (the result, the cost). */
+export function Splash() {
+  useStore();
+  const s = store.state;
+  const sp = store.splash;
+  if (!s || !sp) return null;
+  if (sp.kind === 'war') {
+    const A = s.countries[sp.a], D = s.countries[sp.d];
+    if (!A || !D) return null;
+    const w = s.wars.find((x) => x.attackers.includes(sp.a) && x.defenders.includes(sp.d));
+    const g = s;
+    const side = (ids: number[]) => ids.filter((x) => g.countries[x]?.alive);
+    const atk = side(w?.attackers ?? [sp.a]), def = side(w?.defenders ?? [sp.d]);
+    const sum = (ids: number[], f: (c: (typeof g.countries)[number]) => number) => ids.reduce((t, x) => t + f(g.countries[x]), 0);
+    const tA = sum(atk, (c) => c.mil.troops), tD = sum(def, (c) => c.mil.troops);
+    const pA = sum(atk, (c) => strength(c)), pD = sum(def, (c) => strength(c));
+    const mine = sp.a === s.player ? 'attack' : 'defend';
+    const odds = pA / Math.max(1, pA + pD);
+    return (
+      <div className="splash war" role="alert" onClick={() => store.closeSplash()}>
+        <div className="splash-kicker">{mine === 'attack' ? 'You have gone to war' : 'You are under attack'}</div>
+        <div className="splash-title">WAR</div>
+        <div className="splash-sides">
+          <div className="sd"><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>{atk.length > 1 ? `+${atk.length - 1} ${atk.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
+          <div className="vs">⚔</div>
+          <div className="sd"><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>{def.length > 1 ? `+${def.length - 1} ${def.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
+        </div>
+        <div className="splash-grid">
+          <span>{fmtNum(tA)}</span><label>troops</label><span>{fmtNum(tD)}</span>
+          <span>{fmtNum(pA)}</span><label>power</label><span>{fmtNum(pD)}</span>
+          <span>{Math.round(warSupport(A) * 100)}%</span><label>war support</label><span>{Math.round(warSupport(D) * 100)}%</span>
+        </div>
+        <div className="splash-bar"><i style={{ width: `${odds * 100}%`, background: nationalColor(A) }} /><i style={{ width: `${(1 - odds) * 100}%`, background: nationalColor(D) }} /></div>
+        <div className="splash-sub">{odds > 0.62 ? `${A.name} has the stronger hand.` : odds < 0.38 ? `${D.name} has the stronger hand.` : 'An even fight. Supply, terrain and morale will decide it.'}</div>
+        <div className="btnrow" onClick={(e) => e.stopPropagation()}>
+          <button className="btn primary" onClick={() => { store.closeSplash(); store.select(s.player, null, false); store.setTab('military'); }}>To the war room</button>
+          <button className="btn" onClick={() => store.closeSplash()}>Continue</button>
+        </div>
+      </div>
+    );
+  }
+  const r = sp.rec;
+  const meA = r.a === s.player;
+  const me = meA ? r.a : r.b, them = meA ? r.b : r.a;
+  const won = r.winner === 'draw' ? null : (r.winner === 'a') === meA;
+  const myCas = meA ? r.casA : r.casB, theirCas = meA ? r.casB : r.casA;
+  const myProvs = meA ? r.provsA : r.provsB;
+  const weeks = r.end - r.start;
+  const terms: Record<string, string> = { status_quo: 'Ceasefire on current lines', restore: 'Pre-war borders restored', demand: 'Territory ceded', concede: 'Concessions made', surrender: 'Total surrender' };
+  return (
+    <div className={`splash ${won === null ? 'draw' : won ? 'win' : 'lose'}`} role="alert" onClick={() => store.closeSplash()}>
+      <div className="splash-kicker">{r.name} · {terms[r.terms] ?? 'Peace'}</div>
+      <div className="splash-title">{won === null ? 'PEACE' : won ? 'VICTORY' : 'DEFEAT'}</div>
+      <div className="splash-sub">{won === null ? `Neither ${s.countries[me].name} nor ${s.countries[them].name} got what it wanted.` : won ? `${s.countries[them].name} has yielded.` : `${s.countries[them].name} got the better of you.`}</div>
+      <div className="splash-grid">
+        <span>{weeks >= 104 ? `${(weeks / 52).toFixed(1)} yrs` : `${weeks} wks`}</span><label>duration</label><span />
+        <span className="bad">{fmtNum(myCas)}</span><label>casualties</label><span>{fmtNum(theirCas)}</span>
+        <span className={myProvs > 0 ? 'good' : myProvs < 0 ? 'bad' : ''}>{myProvs > 0 ? '+' : ''}{myProvs}</span><label>regions</label><span>{(meA ? r.provsB : r.provsA) > 0 ? '+' : ''}{meA ? r.provsB : r.provsA}</span>
+      </div>
+      <div className="splash-legend"><span>you</span><span>{s.countries[them].name}</span></div>
+      <div className="btnrow" onClick={(e) => e.stopPropagation()}>
+        <button className="btn primary" onClick={() => { store.closeSplash(); store.openDrawer('world', 'wars'); }}>War history</button>
+        <button className="btn" onClick={() => store.closeSplash()}>Continue</button>
+      </div>
     </div>
   );
 }
