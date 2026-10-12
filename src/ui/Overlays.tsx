@@ -6,6 +6,7 @@ import { eventById } from '../sim/events';
 import { useEffect, useState } from 'react';
 import { dateLabel } from '../sim/tick';
 import { nationalColor } from '../map/palette';
+import { Emblem } from './art/Emblem';
 import { strength } from '../sim/military';
 import { warSupport } from '../sim/warsupport';
 import { fmtNum } from './format';
@@ -172,7 +173,7 @@ export function BreakingBanner() {
   return (
     <button className={`breaking ${danger ? 'hot' : ''}`} key={b.seq} onClick={() => { store.dismissBreaking(); if (b.prov !== undefined && store.state) { const o = store.state.owner[b.prov]; store.select(o, b.prov, true); } }} aria-live="assertive">
       <span className="breaking-tag">BREAKING</span>
-      <span className="breaking-text">{b.text}</span>
+      <span className="breaking-text"><span className="desk-only gazette">The World Order Gazette · {store.state ? dateLabel(store.state.tick) : ''}</span>{b.text}</span>
     </button>
   );
 }
@@ -214,9 +215,9 @@ export function Splash() {
         <div className="splash-kicker">{mine === 'attack' ? 'You have gone to war' : 'You are under attack'}</div>
         <div className="splash-title">WAR</div>
         <div className="splash-sides">
-          <div className="sd"><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>{atk.length > 1 ? `+${atk.length - 1} ${atk.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
+          <div className="sd"><span className="desk-only"><Emblem c={A} size={76} /></span><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>{atk.length > 1 ? `+${atk.length - 1} ${atk.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
           <div className="vs">⚔</div>
-          <div className="sd"><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>{def.length > 1 ? `+${def.length - 1} ${def.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
+          <div className="sd"><span className="desk-only"><Emblem c={D} size={76} /></span><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>{def.length > 1 ? `+${def.length - 1} ${def.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
         </div>
         <div className="splash-grid">
           <span>{fmtNum(tA)}</span><label>troops</label><span>{fmtNum(tD)}</span>
@@ -243,6 +244,7 @@ export function Splash() {
   return (
     <div className={`splash ${won === null ? 'draw' : won ? 'win' : 'lose'}`} role="alert" onClick={() => store.closeSplash()}>
       <div className="splash-kicker">{r.name} · {terms[r.terms] ?? 'Peace'}</div>
+      <div className="desk-only splash-emblems"><Emblem c={s.countries[me]} size={60} /><span>{won === null ? '🕊' : won ? '🏆' : '🏳'}</span><Emblem c={s.countries[them]} size={60} /></div>
       <div className="splash-title">{won === null ? 'PEACE' : won ? 'VICTORY' : 'DEFEAT'}</div>
       <div className="splash-sub">{won === null ? `Neither ${s.countries[me].name} nor ${s.countries[them].name} got what it wanted.` : won ? `${s.countries[them].name} has yielded.` : `${s.countries[them].name} got the better of you.`}</div>
       <div className="splash-grid">

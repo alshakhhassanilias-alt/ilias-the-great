@@ -4,6 +4,7 @@ import { actAirstrike, actBuild, actCallAllies, toggleFocus } from '../sim/actio
 import { fmtMoney, fmtNum } from './format';
 import { nationalColor } from '../map/palette';
 import { levelOf } from '../sim/buildings';
+import { Emblem } from './art/Emblem';
 
 /** The report for one battle: who fights, the odds, everything that tips the balance, and what you can do. */
 export function BattleCard() {
@@ -23,9 +24,9 @@ export function BattleCard() {
       <div className="bc-kicker">⚔ Battle report</div>
       <h3>{r.name}</h3>
       <div className="bc-sides">
-        <div><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>attacking · {fmtNum(r.atkTroops)} troops</small></div>
+        <div><span className="desk-only bc-em"><Emblem c={A} size={42} crest={false} /></span><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>attacking · {fmtNum(r.atkTroops)} troops</small></div>
         <div className="vs">vs</div>
-        <div><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>defending · {fmtNum(r.defTroops)} troops</small></div>
+        <div><span className="desk-only bc-em"><Emblem c={D} size={42} crest={false} /></span><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>defending · {fmtNum(r.defTroops)} troops</small></div>
       </div>
       {(r.genA || r.genD) && (
         <div className="bc-gens">

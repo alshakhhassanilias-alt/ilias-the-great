@@ -1,4 +1,5 @@
 import { nationalColor } from '../map/palette';
+import { Emblem } from './art/Emblem';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapView } from '../map/MapView';
 import { store, useStore } from '../state/store';
@@ -29,7 +30,7 @@ export function StartScreen() {
   return (
     <div className="start">
       <div className="map-area">
-        <div className="start-title"><h1>World Order</h1><p>A living geopolitical sandbox. Choose a nation — grow its economy, forge alliances, fight wars and redraw the map. Nothing waits in real time.</p></div>
+        <div className="start-title"><div className="desk-only start-orn">✦ A Grand Strategy of the Modern Age ✦</div><h1>World Order</h1><p>A living geopolitical sandbox. Choose a nation — grow its economy, forge alliances, fight wars and redraw the map. Nothing waits in real time.</p></div>
         <MapView onPick={onPick} focusOnMount={false} />
       </div>
       <div className="start-side">
@@ -47,6 +48,7 @@ export function StartScreen() {
           </div>
           {c && (
             <div className="card" style={{ marginBottom: 14 }}>
+              <div className="desk-only start-emblem"><Emblem c={c} size={86} /></div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><h3 style={{ margin: 0, fontSize: 19 }}>{c.name}</h3><span className="pill gold">{sizeClass(c)}</span></div>
               <div className="faint" style={{ fontSize: 12, margin: '2px 0 10px' }}>{GOV[c.gov]} · {REGION[c.region]} · baseline year 2024{c.estimated ? ' · rough estimates' : ''}</div>
               <div className="grid2">

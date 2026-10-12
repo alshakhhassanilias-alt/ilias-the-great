@@ -7,6 +7,9 @@ import { MilitaryTab } from './tabs/MilitaryTab';
 import { DiplomacyTab } from './tabs/DiplomacyTab';
 import { GOV, REGION, relLabel } from './format';
 import { getRelation, isAtWar } from '../sim/relations';
+import { Emblem } from './art/Emblem';
+import { TAB_ICONS } from './art/Icons';
+import { traitById } from '../sim/leaders';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' }, { id: 'goals', label: 'Goals' }, { id: 'economy', label: 'Economy' }, { id: 'military', label: 'Military' }, { id: 'diplomacy', label: 'Diplomacy' },
@@ -29,9 +32,11 @@ export function SidePanel() {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycle(); } }}><i /></button>
       {c ? (
         <>
-          <div className="side-head">
+          <div className="side-head" style={{ ['--nat' as string]: nationalColor(c) }}>
             <span className="chip" style={{ background: nationalColor(c) }} />
+            <span className="desk-only head-emblem"><Emblem c={c} size={64} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="desk-only head-kicker">{c.id === s.player ? 'Your nation' : 'Intelligence dossier'}</div>
               <h2>{c.name}</h2>
               <div className="sub">
                 {c.id === s.player ? <span className="pill gold">Your country</span> : <span className={`pill ${relLabel(getRelation(s, c.id, s.player)).cls}`}>{relLabel(getRelation(s, c.id, s.player)).text}</span>}
@@ -39,12 +44,13 @@ export function SidePanel() {
                 {isAtWar(s, c.id) && <span className="pill red">⚔ at war</span>}
                 {c.mil.nuclear && <span className="pill">☢</span>}
               </div>
+              {c.leader && c.id !== s.player && <div className="desk-only head-leader">Led by <b>{c.leader.name}</b> · {c.leader.traits.map((x) => traitById(x).title).join(', ')}</div>}
             </div>
             {c.id !== s.player && <button className="iconbtn" title="Back to your country" aria-label="Back to your country" onClick={() => store.select(s.player, null, true)}>⌂</button>}
           </div>
           <nav className="tabs" role="tablist">
             {TABS.filter((t) => t.id !== 'goals' || c.id === s.player).map((t) => (
-              <button key={t.id} role="tab" aria-selected={store.tab === t.id} className={store.tab === t.id ? 'on' : ''} onClick={() => { store.setTab(t.id); if (store.sheet === 'peek') store.setSheet('half'); }}>{t.label}</button>
+              <button key={t.id} role="tab" aria-selected={store.tab === t.id} className={store.tab === t.id ? 'on' : ''} onClick={() => { store.setTab(t.id); if (store.sheet === 'peek') store.setSheet('half'); }}>{(() => { const Ic = TAB_ICONS[t.id]; return <span className="desk-only tab-ic"><Ic /></span>; })()}{t.label}</button>
             ))}
           </nav>
           <div className="side-body" key={`${c.id}-${store.tab}`}>
