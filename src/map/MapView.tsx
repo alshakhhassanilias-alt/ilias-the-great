@@ -23,6 +23,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const labelRef = useRef<HTMLCanvasElement>(null);
+  const battleRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const rendRef = useRef<MapRenderer | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number; text: string; sub: string } | null>(null);
@@ -32,13 +33,18 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   useEffect(() => {
     const canvas = canvasRef.current!;
     const wrap = wrapRef.current!;
-    const r = new MapRenderer(canvas, overlayRef.current!, getGeom(), () => store.state, labelRef.current);
+    const r = new MapRenderer(canvas, overlayRef.current!, getGeom(), () => store.state, labelRef.current, battleRef.current);
     rendRef.current = r;
     (window as unknown as { __renderer?: MapRenderer }).__renderer = r;
+    const coarse = !!window.matchMedia?.('(pointer: coarse)').matches;
+    const pickQuality = (): 0 | 1 | 2 => store.graphics === 'high' ? 2 : store.graphics === 'medium' ? 1 : store.graphics === 'low' ? 0 : (coarse ? 1 : 2);
+    let quality = pickQuality();
+    let graphics = store.graphics;
     const resize = () => {
       const rect = wrap.getBoundingClientRect();
-      // phones: cap the backing resolution at 1.5x (sharp enough, far cheaper to paint)
-      const cap = window.matchMedia?.('(pointer: coarse)').matches ? 1.5 : 2;
+      // backing resolution: up to 2x on desktops, 1.5x on phones, 1x in low quality (far cheaper to paint)
+      const cap = quality === 0 ? 1 : coarse || quality === 1 ? 1.5 : 2;
+      r.quality = quality; store.quality = quality;
       r.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, cap));
     };
     resize();
@@ -46,11 +52,22 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     ro.observe(wrap);
     let raf = 0;
     let lastDraw = 0;
+    // automatic graphics: if frames keep coming in slow while the clock runs, step the effects down (never back up on its own)
+    let lastT = 0, samples = 0, slow = 0;
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
+      if (graphics !== store.graphics) { graphics = store.graphics; quality = pickQuality(); resize(); }
+      const dt = t - lastT; lastT = t;
+      if (store.graphics === 'auto' && store.speed > 0 && !store.preview && dt < 1000) {
+        samples++; if (dt > 42) slow++;
+        if (samples >= 150) {
+          if (slow / samples > 0.4 && quality > 0) { quality = (quality - 1) as 0 | 1; resize(); store.toast(quality === 1 ? 'Graphics lowered a notch for smoother play (Settings → Graphics).' : 'Graphics set to Fast to keep the game smooth (Settings → Graphics).', 'info'); }
+          samples = 0; slow = 0;
+        }
+      }
       r.step(t);
       if (r.dirty) { r.dirty = false; lastDraw = t; r.draw(); }
-      else if (r.animating(store.state) && t - lastDraw > 30) { lastDraw = t; r.draw(); } // ambient animation at ~30 fps
+      else if (r.animating(store.state) && t - lastDraw > (quality === 2 ? 30 : 55)) { lastDraw = t; r.draw(); } // ambient animation at ~30 / ~18 fps
     };
     raf = requestAnimationFrame(loop);
     (window as unknown as { __map?: MapRenderer }).__map = r;
@@ -191,6 +208,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     <div className="map-wrap" ref={wrapRef}>
       <canvas ref={canvasRef} className="map-canvas" aria-label="World map" />
       <canvas ref={labelRef} className="map-canvas map-labels" aria-hidden="true" />
+      <canvas ref={battleRef} className="map-canvas map-labels" aria-hidden="true" />
       <canvas ref={overlayRef} className="map-overlay" aria-hidden="true" />
       {tip && (
         <div className="map-tip" style={{ left: tip.x + 14, top: tip.y + 14 }}>

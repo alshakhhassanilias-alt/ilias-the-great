@@ -5,7 +5,8 @@
 import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { loadGeo } from '../sim/load';
 import { createGame } from '../sim/init';
-import { tick as simTick } from '../sim/tick';
+import { tick as simTick, tickSlices } from '../sim/tick';
+import { setInTick } from '../sim/relations';
 import { serialize, deserialize } from '../sim/save';
 import { DEFAULT_SETTINGS, type CountryId, type GameState, type LogEntry, type Settings } from '../sim/types';
 import { alliesOf, areAtWar } from '../sim/relations';
@@ -49,6 +50,15 @@ class Store {
   focusRequest = 0; // bumps when the map should pan to the selected country
   pauseOnWar = true;
   pauseOnDecision = false;
+  /** graphics: auto adapts to the device (drops effects if frames get slow) */
+  graphics: 'auto' | 'high' | 'medium' | 'low' = (() => { try { return (localStorage.getItem('wo-graphics') as 'auto' | 'high' | 'medium' | 'low') || 'auto'; } catch { return 'auto'; } })();
+  /** quality currently in use (0 low, 1 medium, 2 high), set by the map view */
+  quality: 0 | 1 | 2 = 2;
+  setGraphics(g: 'auto' | 'high' | 'medium' | 'low') {
+    this.graphics = g;
+    try { localStorage.setItem('wo-graphics', g); } catch { /* storage unavailable */ }
+    this.notify();
+  }
   autoSlow = true;
   reviewSeen = 0;
   /** the battle whose report card is open */
@@ -91,6 +101,7 @@ class Store {
 
   // ---- lifecycle ----
   newGame(settings: Settings, player: CountryId) {
+    this.pending = null;
     this.state = createGame(this.geo, settings, player);
     this.preview = false;
     this.afterLoad(player);
@@ -98,6 +109,7 @@ class Store {
   }
   /** World shown behind the start screen (never simulated). */
   startPreview() {
+    this.pending = null;
     this.state = createGame(this.geo, { ...DEFAULT_SETTINGS }, 0);
     this.preview = true;
     this.speed = 0;
@@ -138,7 +150,7 @@ class Store {
   }
   lastSpeed = DEFAULT_SPEED;
   togglePause() { if (this.speed === 0) this.setSpeed(this.lastSpeed || DEFAULT_SPEED); else { this.lastSpeed = this.speed; this.setSpeed(0); } }
-  stepOnce() { if (this.state) { this.runTicks(1, false); this.notify(); } }
+  stepOnce() { if (this.state) { this.flushTick(); this.runTicks(1, false); this.notify(); } }
   private startLoop() {
     if (this.raf) return;
     this.last = performance.now();
@@ -146,13 +158,39 @@ class Store {
       this.raf = requestAnimationFrame(loop);
       const dt = Math.min(0.25, (t - this.last) / 1000);
       this.last = t;
-      if (!this.state || this.speed === 0 || this.state.victory?.achieved === false) return;
-      this.acc += dt * SPEEDS[this.speed].tps;
-      let n = 0;
-      while (this.acc >= 1 && n < 12) { this.acc -= 1; n++; }
-      if (n > 0) { this.runTicks(n, true); this.notify(false); }
+      if (!this.state || this.state.victory?.achieved === false) return;
+      if (this.speed === 0) { if (this.pending) { this.flushTick(); this.notify(false); } return; }
+      this.acc = Math.min(3, this.acc + dt * SPEEDS[this.speed].tps);
+      // run the simulation in slices within a small time budget per frame: drawing always gets its share
+      const s = this.state, t0 = performance.now();
+      let weeks = 0;
+      while (performance.now() - t0 < this.sliceBudget) {
+        if (!this.pending) { if (this.acc < 1) break; this.acc -= 1; this.pending = tickSlices(s, this.geo); }
+        setInTick(true);
+        let r: IteratorResult<void>;
+        try { r = this.pending.next(); } finally { setInTick(false); }
+        if (r.done) {
+          this.pending = null; weeks++;
+          this.processLog();
+          if (s.tick % 52 === 0) this.autosave();
+          if (this.speed === 0) break; // an event (e.g. war against us) paused the clock
+        }
+      }
+      if (weeks > 0) this.notify(false);
     };
     this.raf = requestAnimationFrame(loop);
+  }
+  /** the week being simulated right now (in slices), if any */
+  private pending: Generator<void> | null = null;
+  /** milliseconds of simulation per frame */
+  sliceBudget = 7;
+  /** finish the week in progress at once (before saving, stepping or changing games) */
+  flushTick() {
+    if (!this.pending) return;
+    setInTick(true);
+    try { while (!this.pending.next().done) { /* finish */ } } finally { setInTick(false); }
+    this.pending = null;
+    this.processLog();
   }
   private stopLoop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; }
   private runTicks(n: number, respectPause: boolean) {
@@ -272,6 +310,7 @@ class Store {
   hasAutosave() { try { return !!localStorage.getItem(AUTO_KEY); } catch { return false; } }
   save(): boolean {
     if (!this.state) return false;
+    this.flushTick();
     try { localStorage.setItem(SAVE_KEY, serialize(this.state)); this.toast('Game saved.', 'info'); return true; }
     catch { this.toast('Could not save in this browser (storage full or blocked). Use Export instead.', 'danger'); return false; }
   }
@@ -280,6 +319,7 @@ class Store {
     try {
       const txt = localStorage.getItem(auto ? AUTO_KEY : SAVE_KEY);
       if (!txt) return false;
+      this.pending = null;
       this.state = deserialize(txt, this.geo.provinces.length);
       this.victoryShown = !!this.state.victory;
       this.preview = false;
@@ -290,6 +330,7 @@ class Store {
   }
   exportFile() {
     if (!this.state) return;
+    this.flushTick();
     const blob = new Blob([serialize(this.state)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -299,6 +340,7 @@ class Store {
   }
   importText(text: string) {
     try {
+      this.pending = null;
       this.state = deserialize(text, this.geo.provinces.length);
       this.victoryShown = !!this.state.victory;
       this.preview = false;

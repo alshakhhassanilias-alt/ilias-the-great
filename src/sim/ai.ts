@@ -262,12 +262,17 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
 }
 
 export function stepAI(s: GameState, geo: Geo) {
+  for (const _ of stepAIGen(s, geo)) { /* run to completion */ }
+}
+export function* stepAIGen(s: GameState, geo: Geo): Generator<void> {
   // expire stale offers
   s.offers = s.offers.filter((o) => s.tick - o.tick < 12 && s.countries[o.from].alive);
+  let n = 0;
   for (const c of s.countries) {
     if (!c.alive || c.isPlayer) continue;
     const phase = (s.tick + c.id) % 4;
     if (phase !== 0) continue;
+    if (++n % 12 === 0) yield;
     if ((s.tick + c.id) % 8 === 0) manageEconomy(s, geo, c);
     if ((s.tick + c.id * 3) % 8 === 4) manageDiplomacy(s, geo, c);
     if ((s.tick + c.id) % 12 === 0) considerWar(s, geo, c);

@@ -185,8 +185,9 @@ export class MapRenderer {
   private labelsStale = false;
   private lastLabels = 0;
   private labelTransform = '';
-  constructor(base: HTMLCanvasElement, private overlay: HTMLCanvasElement, public geom: MapGeometry, private getState: () => GameState | null, labels: HTMLCanvasElement | null = null) {
+  constructor(base: HTMLCanvasElement, private overlay: HTMLCanvasElement, public geom: MapGeometry, private getState: () => GameState | null, labels: HTMLCanvasElement | null = null, battle: HTMLCanvasElement | null = null) {
     this.base = base;
+    if (battle) { this.battleCanvas = battle; this.battleDom = true; }
     this.labels = labels;
     this.lctx = labels?.getContext('2d') ?? null;
     this.bctx = base.getContext('2d', { alpha: false })!;
@@ -539,7 +540,7 @@ export class MapRenderer {
         const s = lvl.width / TEX_W;
         const ax0 = clamp(cx0, 0, TEX_W), ay0 = clamp(cy0, 0, TEX_H), ax1 = clamp(cx1, 0, TEX_W), ay1 = clamp(cy1, 0, TEX_H);
         if (ax1 > ax0 && ay1 > ay0) t2.drawImage(lvl, ax0 * s, ay0 * s, (ax1 - ax0) * s, (ay1 - ay0) * s, ax0, ay0, ax1 - ax0, ay1 - ay0);
-        if (this.grain && zoomIn > 2.2) {
+        if (this.grain && zoomIn > 2.2 && this.quality === 2) {
           this.grain.setTransform(new DOMMatrix().scale(0.9 / 192));
           t2.globalCompositeOperation = 'soft-light';
           t2.globalAlpha = clamp((zoomIn - 2.2) / 8, 0, 0.32);
@@ -785,7 +786,6 @@ export class MapRenderer {
     return best;
   }
   private particles: { x: number; y: number; t0: number; kind: 'flash' | 'smoke'; s: number }[] = [];
-  private unitPos = new Map<string, [number, number]>();
   private garrisonCache = new Map<number, { key: string; list: { prov: number; troops: number }[] }>();
   /** Where a country keeps the troops not committed to offensives: its capital and the borders facing hostile neighbours. */
   private garrisonsOf(state: GameState, cid: number) {
@@ -825,7 +825,7 @@ export class MapRenderer {
     const P = state.player;
     const t = 0;
     const bc = this.battleCanvas;
-    if (bc.width !== this.overlay.width || bc.height !== this.overlay.height) { bc.width = this.overlay.width; bc.height = this.overlay.height; }
+    if (bc.width !== this.overlay.width || bc.height !== this.overlay.height) { bc.width = this.overlay.width; bc.height = this.overlay.height; bc.style.width = `${this.w}px`; bc.style.height = `${this.h}px`; }
     const ctx = bc.getContext('2d')!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, bc.width, bc.height);
@@ -1001,7 +1001,11 @@ export class MapRenderer {
     this.battleData = { fronts, planes, markers, counters, supplies, pockets };
   }
 
-  private battleCanvas = document.createElement('canvas');
+  private battleCanvas: HTMLCanvasElement = document.createElement('canvas');
+  private battleDom = false;
+  private battleTransform = '';
+  /** 2 = full effects, 1 = lighter (fewer particles, slower ambient animation), 0 = still battles (slow devices) */
+  quality: 0 | 1 | 2 = 2;
   private battleKey = '';
   private lastBattle = 0;
   private battleView: View = { k: 0, x: 0, y: 0 };
@@ -1021,31 +1025,43 @@ export class MapRenderer {
     const { k } = this.view;
     const t = now / 1000;
     // the battle layer is rebuilt when a week passes; while the view moves it is just shifted and scaled (rebuilt once you stop)
-    const key = `${state.tick}|${this.ownersVersion}|${this.overlay.width}|${this.overlay.height}|${state.wars.length}|${this.mode}`;
-    const bv = this.battleView;
-    const viewChanged = bv.k !== k || bv.x !== this.view.x || bv.y !== this.view.y;
+    const key = `${state.tick}|${this.ownersVersion}|${this.overlay.width}|${this.overlay.height}|${state.wars.length}|${this.mode}|${this.quality}`;
+    const bv0 = this.battleView;
+    const viewChanged = bv0.k !== k || bv0.x !== this.view.x || bv0.y !== this.view.y;
     const moving = now - this.lastViewChange < 130;
     this.battlePending = viewChanged && moving && this.battleData.fronts.length > 0; // keep drawing until the crisp rebuild
-    // at high speed weeks fly by several times a second: rebuild at most ~3 times a second (the view settling always rebuilds)
-    const due = key !== this.battleKey && (now - this.lastBattle > 330 || key.split('|')[1] !== this.battleKey.split('|')[1]);
-    if (due || (viewChanged && !moving)) { this.battleKey = key; this.battleView = { ...this.view }; this.lastBattle = now; this.renderBattleLayer(state); }
-    else if (key !== this.battleKey) this.dirty = true;
-    const { fronts, planes, markers, counters, supplies, pockets } = this.battleData;
-    this.battleVisible = fronts.length > 0 && this.running;
-    this.battleHits = [];
-    if (fronts.length || pockets.length) {
-      const f = k / this.battleView.k;
+    // at high speed weeks fly by several times a second: rebuild at most ~2-3 times a second (the view settling always rebuilds)
+    const gap = this.quality === 2 ? 330 : this.quality === 1 ? 500 : 900;
+    const due = key !== this.battleKey && (now - this.lastBattle > gap || key.split('|')[1] !== this.battleKey.split('|')[1]);
+    if (due || (viewChanged && !moving)) {
+      this.battleKey = key; this.battleView = { ...this.view }; this.lastBattle = now;
+      this.renderBattleLayer(state);
+      this.paintBattleScreen();
+    } else if (key !== this.battleKey) this.dirty = true;
+    const { fronts, planes, markers, supplies, pockets } = this.battleData;
+    this.battleVisible = fronts.length > 0 && this.running && this.quality > 0;
+    // the battle layer is its own canvas, moved with a CSS transform: nothing to copy per frame
+    const bv = this.battleView, f = k / bv.k;
+    if (this.battleDom) {
+      const show = fronts.length > 0 || pockets.length > 0;
+      const tf = show ? `translate3d(${(this.view.x - bv.x * f).toFixed(2)}px, ${(this.view.y - bv.y * f).toFixed(2)}px, 0) scale(${f.toFixed(5)})` : 'none';
+      if (tf !== this.battleTransform) { this.battleTransform = tf; this.battleCanvas.style.transform = tf; this.battleCanvas.style.visibility = show ? 'visible' : 'hidden'; }
+    } else if (fronts.length || pockets.length) {
       ctx.save();
-      ctx.setTransform(f, 0, 0, f, (this.view.x - this.battleView.x * f) * this.dpr, (this.view.y - this.battleView.y * f) * this.dpr);
+      ctx.setTransform(f, 0, 0, f, (this.view.x - bv.x * f) * this.dpr, (this.view.y - bv.y * f) * this.dpr);
       ctx.drawImage(this.battleCanvas, 0, 0);
       ctx.restore();
     }
+    const V = this.view;
+    this.battleHits = markers.map((m) => ({ x: m.x * V.k + V.x, y: m.y * V.k + V.y, war: m.war, prov: m.prov, by: m.by }));
+    if (this.quality === 0) return; // low quality: a still picture of the war, no ambient animation
     // artillery: flashes and smoke along the lines (only while time runs)
-    if (this.running) for (const f of fronts) {
-      if (Math.random() >= 0.12 * f.heat || this.particles.length >= 70) continue;
-      let px = f.bx, py = f.by;
-      if (f.segs.length) { const i = Math.floor(Math.random() * (f.segs.length / 4)) * 4; const u = Math.random(); px = f.segs[i] + (f.segs[i + 2] - f.segs[i]) * u; py = f.segs[i + 1] + (f.segs[i + 3] - f.segs[i + 1]) * u; }
-      const jit = f.size * 0.6;
+    const rate = this.quality === 2 ? 0.12 : 0.06;
+    if (this.running) for (const fr of fronts) {
+      if (Math.random() >= rate * fr.heat || this.particles.length >= (this.quality === 2 ? 70 : 30)) continue;
+      let px = fr.bx, py = fr.by;
+      if (fr.segs.length) { const i = Math.floor(Math.random() * (fr.segs.length / 4)) * 4; const u = Math.random(); px = fr.segs[i] + (fr.segs[i + 2] - fr.segs[i]) * u; py = fr.segs[i + 1] + (fr.segs[i + 3] - fr.segs[i + 1]) * u; }
+      const jit = fr.size * 0.6;
       px += (Math.random() - 0.5) * jit; py += (Math.random() - 0.5) * jit;
       this.particles.push({ x: px, y: py, t0: now, kind: 'flash', s: 0.7 + Math.random() * 0.8 });
       this.particles.push({ x: px, y: py, t0: now + 80, kind: 'smoke', s: 0.8 + Math.random() });
@@ -1055,18 +1071,16 @@ export class MapRenderer {
       this.drawPlane(ctx, pl.x0 + (pl.x1 - pl.x0) * ph * 1.3, pl.y0 + (pl.y1 - pl.y0) * ph * 1.3 - 4 / k, Math.atan2(pl.y1 - pl.y0, pl.x1 - pl.x0), pl.color, k, Math.sin(ph * Math.PI));
     }
     // convoys rolling along the supply lines towards the front
-    if (supplies.length) {
-      for (const sl of supplies) {
-        if (!sl.mine) continue;
-        const n = sl.pts.length / 2 - 1;
-        if (n < 1) continue;
-        for (let d = 0; d < 2; d++) {
-          const u = (((this.running ? t : 0) * 0.18 + d * 0.5 + sl.pts[0] * 0.01) % 1) * n;
-          const i = Math.min(n - 1, Math.floor(u)), f2 = u - i;
-          const x = sl.pts[2 * i] + (sl.pts[2 * i + 2] - sl.pts[2 * i]) * f2, y = sl.pts[2 * i + 1] + (sl.pts[2 * i + 3] - sl.pts[2 * i + 1]) * f2;
-          ctx.fillStyle = 'rgba(12,8,4,0.85)'; ctx.beginPath(); ctx.arc(x, y, 2.6 / k, 0, 6.283); ctx.fill();
-          ctx.fillStyle = sl.sup < 0.55 ? '#ff8a70' : sl.sup < 0.75 ? '#ffd27a' : '#c8ffd8'; ctx.beginPath(); ctx.arc(x, y, 1.6 / k, 0, 6.283); ctx.fill();
-        }
+    for (const sl of supplies) {
+      if (!sl.mine) continue;
+      const n = sl.pts.length / 2 - 1;
+      if (n < 1) continue;
+      for (let d = 0; d < 2; d++) {
+        const u = (((this.running ? t : 0) * 0.18 + d * 0.5 + sl.pts[0] * 0.01) % 1) * n;
+        const i = Math.min(n - 1, Math.floor(u)), f2 = u - i;
+        const x = sl.pts[2 * i] + (sl.pts[2 * i + 2] - sl.pts[2 * i]) * f2, y = sl.pts[2 * i + 1] + (sl.pts[2 * i + 3] - sl.pts[2 * i + 1]) * f2;
+        ctx.fillStyle = 'rgba(12,8,4,0.85)'; ctx.beginPath(); ctx.arc(x, y, 2.6 / k, 0, 6.283); ctx.fill();
+        ctx.fillStyle = sl.sup < 0.55 ? '#ff8a70' : sl.sup < 0.75 ? '#ffd27a' : '#c8ffd8'; ctx.beginPath(); ctx.arc(x, y, 1.6 / k, 0, 6.283); ctx.fill();
       }
     }
     // particles (world units, constant screen size)
@@ -1082,22 +1096,33 @@ export class MapRenderer {
         ctx.beginPath(); ctx.arc(p.x, p.y - (a * 6) / k, ((2 + a * 6) * p.s) / k, 0, 6.283); ctx.fill();
       }
     }
-
-    // screen-space: counters (sliding smoothly to their new spots) and clickable battle markers
+    // a pulsing ring around each battle marker (the marker itself is part of the battle layer)
     ctx.save();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const V = this.view;
+    for (const m of this.battleHits) {
+      const src = markers.find((x) => x.prov === m.prov && x.by === m.by);
+      const pulse = 0.5 + 0.5 * Math.sin(t * 5 + m.x * 0.05);
+      ctx.strokeStyle = `rgba(255,${src?.mine ? 200 : 90},${src?.mine ? 80 : 50},${0.25 + 0.45 * pulse * (src?.heat ?? 0.5)})`;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(m.x, m.y, 11.5 + 4 * pulse, 0, 6.283); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Screen-space parts of the battle layer (army counters, pocket labels, battle markers), drawn once per rebuild. */
+  private paintBattleScreen() {
+    const { counters, markers, pockets } = this.battleData;
+    const ctx = this.battleCanvas.getContext('2d')!;
+    const V = this.battleView, k = V.k;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const showCounters = k > this.fitK * 1.5;
-    const seen = new Set<string>();
     // keep counters readable: the biggest armies first, never more than ~28, nudged so they do not overlap
-    const taken: [number, number, number, number][] = markers.map((m) => { const sx = m.x * V.k + V.x, sy = m.y * V.k + V.y; return [sx - 11, sy - 11, sx + 11, sy + 11]; });
+    const taken: [number, number, number, number][] = markers.map((m) => { const sx = m.x * V.k + V.x, sy = m.y * V.k + V.y; return [sx - 12, sy - 12, sx + 12, sy + 12]; });
     const overlaps = (r: [number, number, number, number]) => taken.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]);
-    if (showCounters) for (const c of [...counters].sort((a, b) => Number(b.mine) - Number(a.mine) || b.troops - a.troops).slice(0, this.w < 600 ? 12 : 28)) {
-      seen.add(c.key);
-      let pos = this.unitPos.get(c.key);
-      if (!pos) { pos = [c.x, c.y]; this.unitPos.set(c.key, pos); }
-      pos[0] += (c.x - pos[0]) * 0.12; pos[1] += (c.y - pos[1]) * 0.12;
-      let sx = pos[0] * V.k + V.x, sy = pos[1] * V.k + V.y;
+    const cap = this.quality === 0 ? 8 : this.w < 600 ? 12 : 28;
+    if (showCounters) for (const c of [...counters].sort((a, b) => Number(b.mine) - Number(a.mine) || b.troops - a.troops).slice(0, cap)) {
+      let sx = c.x * V.k + V.x, sy = c.y * V.k + V.y;
       for (let tries = 0; tries < 6; tries++) {
         const r: [number, number, number, number] = [sx - 16, sy - 9, sx + 16, sy + 13];
         if (!overlaps(r)) break;
@@ -1106,7 +1131,6 @@ export class MapRenderer {
       taken.push([sx - 16, sy - 9, sx + 16, sy + 13]);
       this.blitCounter(ctx, sx, sy, c, k);
     }
-    for (const key of [...this.unitPos.keys()]) if (!seen.has(key)) this.unitPos.delete(key);
     for (const pk of pockets) {
       const sx = pk.x * V.k + V.x, sy = pk.y * V.k + V.y;
       if (sx < -40 || sy < -20 || sx > this.w + 40 || sy > this.h + 20) continue;
@@ -1117,19 +1141,15 @@ export class MapRenderer {
       ctx.strokeStyle = pk.mine ? '#ff6a4a' : '#ffa032'; ctx.lineWidth = 1.2; ctx.strokeRect(sx - tw / 2, sy - 8, tw, 16);
       ctx.fillStyle = '#ffc070'; ctx.fillText(label, sx, sy + 0.5);
     }
-    for (const m of markers) {
-      const sx = m.x * V.k + V.x, sy = m.y * V.k + V.y;
-      this.battleHits.push({ x: sx, y: sy, war: m.war, prov: m.prov, by: m.by });
-      this.drawBattleMarker(ctx, sx, sy, m.mine, m.heat, t);
-    }
+    for (const m of markers) this.drawBattleMarker(ctx, m.x * V.k + V.x, m.y * V.k + V.y, m.mine, m.heat, 0);
     ctx.restore();
   }
 
   /** Crossed swords in a ring: "a battle is being fought here" (click for the report). */
   private drawBattleMarker(ctx: CanvasRenderingContext2D, x: number, y: number, mine: boolean, heat: number, t: number) {
-    const pulse = 0.5 + 0.5 * Math.sin(t * 5 + x * 0.05);
-    ctx.fillStyle = `rgba(255,90,40,${0.18 + 0.2 * pulse * heat})`;
-    ctx.beginPath(); ctx.arc(x, y, 12 + 3 * pulse, 0, 6.283); ctx.fill();
+    ctx.fillStyle = `rgba(255,90,40,${0.22 + 0.15 * heat})`;
+    ctx.beginPath(); ctx.arc(x, y, 12.5, 0, 6.283); ctx.fill();
+    void t;
     ctx.fillStyle = 'rgba(16,10,6,0.92)';
     ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.283); ctx.fill();
     ctx.lineWidth = 1.6; ctx.strokeStyle = mine ? '#ffcf5a' : '#ff6a4a';

@@ -1,8 +1,8 @@
 import { setInTick } from './relations';
 import type { Geo } from './geo';
-import { stepEconomies } from './economy';
+import { stepEconomiesGen } from './economy';
 import { stepWars, forcePeaceAll, logEvent } from './war';
-import { stepAI } from './ai';
+import { stepAIGen } from './ai';
 import { nextRand } from './rng';
 import { stepProjects } from './projects';
 import { stepCrisis } from './crises';
@@ -65,24 +65,34 @@ function checkVictory(s: GameState, geo: Geo) {
 /** Advance the world by one week. Deterministic given (state, rng). */
 export function tick(s: GameState, geo: Geo) {
   setInTick(true);
-  try { tickInner(s, geo); } finally { setInTick(false); }
+  try { for (const _ of tickSlices(s, geo)) { /* run the whole week at once */ } } finally { setInTick(false); }
 }
-function tickInner(s: GameState, geo: Geo) {
+/**
+ * One week, in slices. The game loop runs as many slices as fit in a few milliseconds per frame, so even a slow
+ * phone keeps drawing smoothly (the world just advances a little slower). The order of work, and therefore the
+ * result, is exactly the same as running the week in one go.
+ */
+export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   s.tick++;
-  stepEconomies(s, geo);
+  yield* stepEconomiesGen(s, geo);
+  yield;
   stepWars(s, geo);
-  stepAI(s, geo);
+  yield;
+  yield* stepAIGen(s, geo);
   checkInstability(s, geo);
   stepWorldEvents(s, geo);
+  yield;
   stepPolitics(s, geo);
   stepProjects(s, geo);
   stepCrisis(s, geo);
   stepRival(s, geo);
   stepDoctrines(s);
+  yield;
   stepLeaders(s, geo);
   stepTrophies(s, geo);
   stepReview(s, geo);
   stepUnrest(s, geo);
+  yield;
   stepAssembly(s, geo);
   stepCalendar(s);
   rollPlayerEvent(s, geo);

@@ -328,11 +328,17 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
 }
 
 export function stepEconomies(s: GameState, geo: Geo) {
+  for (const _ of stepEconomiesGen(s, geo)) { /* run to completion */ }
+}
+/** The same, in slices (yields every few countries) so a slow device never freezes on one week. */
+export function* stepEconomiesGen(s: GameState, geo: Geo): Generator<void> {
   const w = aggregateWorld(s);
+  let n = 0;
   for (const c of s.countries) {
     if (!c.alive) continue;
     stepCountryEconomy(c, s, geo, w);
     tradeFlows(c, s);
+    if (++n % 40 === 0) yield;
   }
   if (s.tick % HIST_EVERY === 0) {
     for (const c of s.countries) if (c.alive) recordHistory(c);
