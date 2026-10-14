@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parallel Live</title>
+<style>
+  :root { --bg:#000; --card:#121212; --text:#fff; --muted:#a8a8a8; --blue:#0095f6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #000; color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .screen { display: none; height: 100%; width: 100%; }
+  .screen.active { display: flex; }
+  .phone { position: relative; width: 100%; max-width: 440px; height: 100%; margin: 0 auto; overflow: hidden; background: #000; }
+  @media (min-width: 600px) { body { background: #1a1a1a; } .phone { max-height: 900px; margin: auto; border-radius: 28px; box-shadow: 0 0 0 1px #333; } .screen.active { align-items: center; } }
+
+  .vb { width: 14px; height: 14px; flex: none; display: inline-block; vertical-align: -2px; }
+
+  /* ---------- Start ---------- */
+  #start .phone, #summary .phone { display: flex; flex-direction: column; justify-content: center; padding: 28px; background: #000; }
+  .logo { font-size: 30px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+  .logo span { background: linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); text-align: center; font-size: 14px; margin-bottom: 26px; }
+  .field { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #363636; background: #121212; color: #fff; font-size: 16px; margin-bottom: 12px; }
+  .btn { width: 100%; padding: 14px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn:active { opacity: .8; }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin: 2px 0 16px; }
+  .err { color: #ff6b6b; font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }
+
+  /* ---------- Live ---------- */
+  #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #1c1c1c; }
+  .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,.5), transparent 20%, transparent 50%, rgba(0,0,0,.7)); }
+  .top { position: absolute; z-index: 5; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; padding: 14px 12px; padding-top: max(14px, env(safe-area-inset-top)); }
+  .ring { width: 40px; height: 40px; border-radius: 50%; padding: 2px; background: linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5); flex: none; }
+  .ring .in { width: 100%; height: 100%; border-radius: 50%; border: 2px solid #000; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: #3a3a3a; }
+  .who { display: flex; flex-direction: column; min-width: 0; }
+  .who .n { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 4px; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  .who .n b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+  .who .s { font-size: 12px; color: #e8e8e8; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  .spacer { flex: 1; }
+  .livebadge { background: linear-gradient(90deg,#d62976,#fa7e1e); font-size: 11px; font-weight: 800; letter-spacing: .6px; padding: 3px 8px; border-radius: 5px; }
+  .eye { background: rgba(0,0,0,.5); backdrop-filter: blur(6px); border-radius: 5px; padding: 3px 8px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .x { background: none; border: 0; color: #fff; font-size: 26px; line-height: 1; padding: 0 4px; cursor: pointer; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+
+  .bottom { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding: 0 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  #feed { height: 40vh; max-height: 330px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; margin-bottom: 10px; padding-right: 64px;
+          -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%); mask-image: linear-gradient(to bottom, transparent, #000 30%); }
+  .c { display: flex; align-items: flex-start; gap: 9px; animation: up .22s ease-out; }
+  .c .av { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
+  .c .tx { font-size: 14px; line-height: 1.28; text-shadow: 0 1px 3px rgba(0,0,0,.75); word-break: break-word; }
+  .c .tx .u { font-weight: 700; margin-right: 6px; display: block; font-size: 13px; color: #f2f2f2; }
+  .c .tx .u .vb { margin-left: 3px; }
+  .c.me .u { color: #7fd0ff; }
+  .c.join { opacity: .85; }
+  .c.join .tx { color: #d6d6d6; font-size: 13px; }
+  @keyframes up { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .micstat { font-size: 11px; color: #e5e5e5; text-shadow: 0 1px 3px #000; margin: 0 0 6px 2px; min-height: 14px; }
+  .bar { display: flex; align-items: center; gap: 8px; }
+  .bar input { flex: 1; min-width: 0; padding: 11px 16px; border-radius: 24px; border: 1px solid rgba(255,255,255,.55); background: rgba(0,0,0,.25); color: #fff; font-size: 15px; outline: none; }
+  .bar input::placeholder { color: #e4e4e4; }
+  .ib { background: none; border: 0; color: #fff; padding: 4px; cursor: pointer; display: grid; place-items: center; }
+  .ib svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); }
+
+  .fl { position: absolute; z-index: 4; pointer-events: none; animation: rise 2.8s ease-out forwards; font-size: 26px; right: 18px; bottom: 70px; }
+  @keyframes rise { 0% { transform: translate(0,0) scale(.5); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(var(--dx), -52vh) scale(1.25); opacity: 0; } }
+
+  .gift { position: absolute; z-index: 6; left: 12px; bottom: 54%; display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 40px; background: linear-gradient(90deg, rgba(214,41,118,.92), rgba(250,126,30,.88)); animation: slide 3.4s ease-out forwards; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+  .gift .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; }
+  .gift b { display: block; }
+  .gift .e { font-size: 32px; margin-left: 4px; }
+  @keyframes slide { 0% { transform: translateX(-120%); } 12% { transform: translateX(0); } 85% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(0); opacity: 0; } }
+  .burst { position: absolute; z-index: 7; left: 50%; top: 36%; text-align: center; pointer-events: none; text-shadow: 0 4px 16px rgba(0,0,0,.6); animation: burst 3s ease-out forwards; }
+  .burst .big { font-size: 110px; line-height: 1; }
+  .burst .t { font-size: 16px; font-weight: 800; margin-top: 6px; }
+  @keyframes burst { 0% { transform: translate(-50%,-50%) scale(.2); opacity: 0; } 14% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 75% { opacity: 1; } 100% { transform: translate(-50%,-80%) scale(1); opacity: 0; } }
+
+  /* ---------- Summary ---------- */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+  .stat { background: #121212; border: 1px solid #262626; border-radius: 12px; padding: 14px; }
+  .stat b { display: block; font-size: 24px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="vbadge" viewBox="0 0 24 24">
+    <path fill="#0095f6" d="M12 1.2l2.7 1.9 3.3-.2 1 3.1 2.7 1.9-1 3.1 1 3.1-2.7 1.9-1 3.1-3.3-.2L12 22.8l-2.7-1.9-3.3.2-1-3.1-2.7-1.9 1-3.1-1-3.1L5 6.1l1-3.1 3.3.2z"/>
+    <path fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7.7 12.2l3 3 5.6-6.2"/>
+  </symbol>
+</defs></svg>
+
+<!-- START -->
+<section id="start" class="screen active"><div class="phone">
+  <div class="logo"><span>Parallel Live</span></div>
+  <div class="sub">Go live. Your audience is AI.</div>
+  <input id="nameIn" class="field" placeholder="Your username" maxlength="24" autocapitalize="none" autocomplete="off">
+  <input id="topicIn" class="field" placeholder="What are you streaming? (cooking, gaming, chilling…)" maxlength="50">
+  <label class="check"><input type="checkbox" id="vIn" checked> Verified account <svg class="vb"><use href="#vbadge"/></svg></label>
+  <label class="check"><span>Audience size</span>
+    <select id="sizeIn" class="field" style="margin:0;padding:8px;width:auto">
+      <option value="small">Small (hundreds)</option>
+      <option value="medium" selected>Medium (thousands)</option>
+      <option value="big">Huge (tens of thousands)</option>
+    </select>
+  </label>
+  <button class="btn" id="goBtn">Go Live</button>
+  <div class="err" id="err"></div>
+</div></section>
+
+<!-- LIVE -->
+<section id="live" class="screen"><div class="phone" id="phone">
+  <video id="cam" autoplay playsinline muted></video>
+  <div class="shade"></div>
+  <div class="top">
+    <div class="ring"><div class="in" id="meAv">Y</div></div>
+    <div class="who">
+      <div class="n"><b id="meName">you</b><svg class="vb" id="meV"><use href="#vbadge"/></svg></div>
+      <div class="s" id="meSub">Live</div>
+    </div>
+    <span class="spacer"></span>
+    <span class="livebadge">LIVE</span>
+    <span class="eye"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7.5 11-7.5S23 12 23 12s-4 7.5-11 7.5S1 12 1 12z"/><circle cx="12" cy="12" r="3.2"/></svg><span id="viewers">0</span></span>
+    <button class="x" id="endBtn" aria-label="End live">×</button>
+  </div>
+  <div class="bottom">
+    <div class="micstat" id="micStatus"></div>
+    <div id="feed"></div>
+    <div class="bar">
+      <input id="chatIn" placeholder="Comment…" maxlength="140" autocomplete="off">
+      <button class="ib" id="heartBtn" aria-label="Like"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.6 4.8 6.1 4.8c2.1 0 3.6 1.2 4.4 2.4h3c.8-1.2 2.3-2.4 4.4-2.4 3.500 0 5.200 3.600 3.700 7-2.100 4.600-9.600 9.200-9.600 9.200z" transform="translate(0 -.5)"/></svg></button>
+      <button class="ib" id="shareBtn" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M22 3L9.2 10.5M22 3l-6.700 19-3.600-8.100L3.600 10.300 22 3z"/></svg></button>
+    </div>
+  </div>
+</div></section>
+
+<!-- SUMMARY -->
+<section id="summary" class="screen"><div class="phone">
+  <div class="logo">Live video ended</div>
+  <div class="sub" id="sumLine"></div>
+  <div class="stats">
+    <div class="stat"><b id="sViewers">0</b><span>Peak viewers</span></div>
+    <div class="stat"><b id="sTotal">0</b><span>Total watched</span></div>
+    <div class="stat"><b id="sLikes">0</b><span>Likes</span></div>
+    <div class="stat"><b id="sGifts">0</b><span>Gifts · <span id="sCoins">0</span> coins</span></div>
+  </div>
+  <button class="btn" id="againBtn">Go Live Again</button>
+</div></section>
+
+<script>
+/* =====================================================
+   Parallel Live v2 – Instagram-style live with an AI-ish
+   audience. All simulated in the browser (no server).
+   ===================================================== */
+const $ = id => document.getElementById(id);
+const rand = a => a[Math.floor(Math.random() * a.length)];
+const chance = p => Math.random() < p;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+/* ---------- The crowd: persistent people, each with their own texting style ---------- */
+const FIRST = ['luna','mia','sofia','noah','leo','zayn','aya','nora','omar','lina','kai','eva','jade','ali','sara','mo','dani','tariq','yara','hana','liam','ella','ryan','nico','amira','jay','chloe','max','zoe','adam','maya','sam','lara','karim','nadia','sky','finn','ruby','hamza','alex','ivy','theo','dina','zara','ben','mina','rayan','lea','jon','sana'];
+const WORDS = ['vibes','xo','official','daily','here','real','world','plays','x','lol','fit','moon','sky','edits','gram','tv','s','04','07','99','2k','cc','mood','luv','era','archive','diary','clips','bby','ofc'];
+const PALETTE = ['#7c5cff','#2e9bff','#ff5fa2','#2ecc71','#e0a040','#ff6b3d','#c77dff','#00a8b0','#d98ca0','#6b6b7a','#4dd0a1','#e0457b'];
+const CROWD = [];
+function makeUser(taken) {
+  let name;
+  do {
+    const f = rand(FIRST), w = rand(WORDS), r = Math.random();
+    name = r < .25 ? f + '_' + w : r < .45 ? f + '.' + w : r < .65 ? f + Math.floor(Math.random() * 99) : r < .8 ? w + '.' + f : r < .9 ? f + f[f.length - 1] + 'x' : f + '_' + f[0] + Math.floor(Math.random() * 9);
+    name = name.replace(/\.\./g, '.').replace(/__/g, '_');
+  } while (taken.has(name));
+  taken.add(name);
+  return { name, color: rand(PALETTE), verified: chance(.03), initial: name[0].toUpperCase() };
+}
+function createCrowd() {
+  CROWD.length = 0; const taken = new Set();
+  for (let i = 0; i < 90; i++) {
+    CROWD.push({
+      u: makeUser(taken),
+      chat: 0.25 + Math.random() * 1.75,           // how chatty this person is
+      fan: chance(.12),                             // follows you, says fan things
+      seen: false, last: 0,
+      style: { lower: chance(.8), elong: chance(.45), typo: chance(.12), emoji: rand([0, 0, .2, .4, .7]), noApos: chance(.5) },
+    });
+  }
+}
+const EMOJIS = ['😭','😂','🔥','😍','🥹','💀','❤️','✨','🙌','🤍','😮'];
+function styled(text, p) {
+  const s = p.style; let t = text;
+  if (s.lower) t = t.toLowerCase();
+  if (s.noApos) t = t.replace(/'/g, '');
+  if (s.elong && chance(.5)) t = t.replace(/\b(hi|hey|omg|yes|no|please|pls|so|love|stop|ahh)\b/, m => m + m[m.length - 1].repeat(1 + Math.floor(Math.random() * 3)));
+  if (s.typo && chance(.5) && t.length > 7 && !t.includes('@')) { const i = 2 + Math.floor(Math.random() * (t.length - 4)); t = t.slice(0, i) + t.slice(i + 1); }
+  if (s.emoji && !/\p{Extended_Pictographic}/u.test(t) && chance(s.emoji)) t += ' ' + rand(EMOJIS);
+  return t;
+}
+const shuffle = a => a.slice().sort(() => Math.random() - .5);
+
+/* ---------- What people actually type in a live chat ---------- */
+const PLACES = [['Brazil','🇧🇷'],['Egypt','🇪🇬'],['the UK','🇬🇧'],['Morocco','🇲🇦'],['Turkey','🇹🇷'],['Mexico','🇲🇽'],['Germany','🇩🇪'],['Saudi','🇸🇦'],['France','🇫🇷'],['Canada','🇨🇦'],['India','🇮🇳'],['Spain','🇪🇸'],['Italy','🇮🇹'],['UAE','🇦🇪'],['Japan','🇯🇵'],['Jordan','🇯🇴'],['Algeria','🇩🇿']];
+const hour = new Date().getHours();
+const T = {
+  early: n => ['hii','hey','hello','omg hi','first','is this live?','wait is this live rn','just got here','got a notification','u went live!!','hi everyone','hey whats going on','what are we doing today','what did i miss','hi '+n,'hey '+n,'hii '+n+'!','yooo','heyy', hour < 12 ? 'good morning ☀️' : hour >= 22 || hour < 4 ? 'cant sleep so im here' : 'hey hey'],
+  react: ['lmao','lol','omg','no way','wait what','haha','stoppp','im dead','fr','real','true','same','facts','mood','the way u said that 😭','ok thats actually funny','i cant 😭','nah thats crazy','honestly yes','i love this','this is so random lol','why is this so entertaining','im not even doing anything and im still watching','ok im staying','this live is underrated','how is this live so calm','wait this is good','lowkey obsessed','ok i see u','not me laughing alone rn','😂😂😂','😭😭','this is so real','ahhh'],
+  ask: n => ['what are we doing today','how long are u staying live?','can u say hi to me?','say my name pls','can u read my comment','can u do a shoutout?','how many ppl are here','whats the plan','where are u rn','can u hear us?','do u have anything planned later?','r u gonna post this','how was ur day','what did u eat today','what are u listening to','can u show the room','ur camera is so clear','the audio is so good','notice me '+n,'pls pin me 🥺','can u turn the camera a bit'],
+  comp: ['ur so funny','love ur energy','u seem so nice','honestly ur vibe is so good','ur smile 🥹','ur room looks nice','the lighting is so good','ur so underrated','ur such a good person fr','u look so happy today','ur voice is so calming','best live ive seen today','u deserve more followers'],
+  life: ['im supposed to be sleeping lol','i have school tmrw but im staying','taking a break from studying for this','my mom keeps asking why im laughing','been here for 20 mins already','came for 5 mins and its been an hour','watching from my bed rn','procrastinating w this live','at work and watching this in secret','eating dinner and watching u','this is better than tv ngl','my friend sent me this live','my phone is at 3% but im staying'],
+  fan: ['been waiting for u to go live!!','you never go live omg','this made my day','followed!!','just followed u','came from ur last post','been following since day 1','finally!!','my fav person on here','ur the only reason i opened insta','i set a notification for ur lives'],
+  emoji: ['❤️','🔥','😍','👏','😂','💯','🙌','🥹','🤍','✨'],
+  place: () => { const [p, f] = rand(PLACES); return rand([`hi from ${p} ${f}`,`${p} here ${f}`,`anyone from ${p}? ${f}`,`watching from ${p} ${f}`,`${f}${f}${f}`]); },
+  afterGift: ['omg!!','W gifter','so deserved','wooow','they love u 🥹','yesss','😍😍','the gifts!!','ok whoever sent that thank u lol'],
+};
+function topicLines(t) {
+  const g = [`${t} 😍`,`love the ${t} content`,`more ${t} pls`,`${t} live is my fav`,`ok the ${t} is so good`,`how did u get into ${t}?`,`im obsessed with ${t} lately`];
+  const L = t.toLowerCase();
+  if (/cook|food|eat|recipe|bak|kitchen/.test(L)) return g.concat(['that looks so good','im hungry now 😭','recipe pls','what are u making','can u show it closer','save me a plate']);
+  if (/gam|play|rank|fps|valorant|fortnite|minecraft|fifa|stream/.test(L)) return g.concat(['lets goo','clutch','what rank are u','gg','run it back','ok thats actually insane','how are u so good at this']);
+  if (/music|sing|song|guitar|piano|beat/.test(L)) return g.concat(['ur voice 😍','sing more','song name?','play the whole thing pls','this is so good','what song is this']);
+  if (/gym|workout|fit|train|run/.test(L)) return g.concat(['beast mode','form check lol','what split are u on','im skipping leg day bc of u','how many reps']);
+  if (/make ?up|hair|outfit|fashion|style|nails/.test(L)) return g.concat(['that color is perfect','where is that from','outfit check 😍','tutorial pls','what shade is that']);
+  if (/chill|talk|chat|q&?a|hang|nothing|vibe/.test(L)) return g.concat(['tell us a story','ask us stuff','do a q&a','just vibing with u','this is so cozy']);
+  return g;
+}
+const C = {
+  quiet: () => ['hello??','u there?','can u talk','is the sound working?','say something 😭','we cant hear u','talk to us pls'],
+  loud: () => ['😭 my ears','LOUD 😂','omg volume','calm down 😂','yooo 🔥'],
+  motion: () => ['the energy!!','wait what was that','dont drop it lol','hahaha 😂','woah','camera moving 😭','omg 😂'],
+  still: () => ['u frozen?','hello?? 👀','lag?','is it just me or is it frozen','did it freeze'],
+};
+
+/* ---------- Gifts ---------- */
+const GIFTS = [
+  { name: 'Rose',    emoji: '🌹', coins: 1 },
+  { name: 'Heart',   emoji: '💖', coins: 5 },
+  { name: 'Coffee',  emoji: '☕', coins: 10 },
+  { name: 'Rocket',  emoji: '🚀', coins: 50 },
+  { name: 'Crown',   emoji: '👑', coins: 100 },
+  { name: 'Diamond', emoji: '💎', coins: 250 },
+  { name: 'Lion',    emoji: '🦁', coins: 500 },
+];
+
+/* ---------- State ---------- */
+const S = {
+  name: 'you', topic: '', verified: true, size: 'medium',
+  stream: null, audioCtx: null, analyser: null, recog: null,
+  count: 0, target: 3, peak: 0, total: 0, trend: 1,
+  likes: 0, gifts: 0, coins: 0, started: 0,
+  level: 0, motion: 0, lastSpoke: 0, lastMoved: 0,
+  timers: [], recent: [], running: false,
+};
+const SIZES = { small: { cap: 600, spike: 120 }, medium: { cap: 8000, spike: 900 }, big: { cap: 60000, spike: 6000 } };
+
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+function fmt(n) { n = Math.round(n); return n >= 10000 ? (n/1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/,'') + 'K' : n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'') + 'K' : String(n); }
+
+/* ---------- Feed ---------- */
+function verifiedSvg() { return '<svg class="vb"><use href="#vbadge"/></svg>'; }
+function addComment(u, text, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'c ' + kind;
+  el.innerHTML = `<div class="av" style="background:${u.color}"></div><div class="tx"><span class="u"></span><span class="t"></span></div>`;
+  el.querySelector('.av').textContent = u.initial;
+  const un = el.querySelector('.u'); un.textContent = u.name; if (u.verified) un.insertAdjacentHTML('beforeend', verifiedSvg());
+  el.querySelector('.t').textContent = text;
+  const feed = $('feed'); feed.appendChild(el);
+  while (feed.children.length > 12) feed.removeChild(feed.firstChild);
+}
+function addJoin(u) {
+  const el = document.createElement('div');
+  el.className = 'c join';
+  el.innerHTML = `<div class="av" style="background:${u.color}"></div><div class="tx"><span class="t"></span></div>`;
+  el.querySelector('.av').textContent = u.initial;
+  el.querySelector('.t').textContent = u.name + ' joined';
+  const feed = $('feed'); feed.appendChild(el);
+  while (feed.children.length > 12) feed.removeChild(feed.firstChild);
+}
+
+function floatHeart(emoji) {
+  const el = document.createElement('div');
+  el.className = 'fl';
+  el.textContent = emoji || rand(['❤️','❤️','❤️','🧡','💜','💖','🔥','😍']);
+  el.style.setProperty('--dx', (Math.random() * 80 - 60) + 'px');
+  el.style.right = (14 + Math.random() * 14) + 'px';
+  $('phone').appendChild(el);
+  setTimeout(() => el.remove(), 2900);
+}
+function heartBurst(n) { for (let i = 0; i < n; i++) setTimeout(floatHeart, i * 110); }
+
+function sendGift(u) {
+  const roll = Math.random();
+  const g = roll < .42 ? GIFTS[0] : roll < .68 ? GIFTS[1] : roll < .84 ? GIFTS[2] : roll < .93 ? GIFTS[3] : roll < .97 ? GIFTS[4] : roll < .995 ? GIFTS[5] : GIFTS[6];
+  const qty = g.coins < 10 ? 1 + Math.floor(Math.random() * 4) : 1;
+  S.gifts += qty; S.coins += g.coins * qty;
+  const el = document.createElement('div');
+  el.className = 'gift';
+  el.innerHTML = `<div class="av" style="background:${u.color}"></div><div><b></b><span>sent ${g.name}${qty > 1 ? ' ×' + qty : ''}</span></div><div class="e">${g.emoji}</div>`;
+  el.querySelector('.av').textContent = u.initial;
+  el.querySelector('b').textContent = u.name;
+  el.style.bottom = (50 + Math.random() * 6) + '%';
+  $('phone').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+  if (g.coins >= 50) {
+    const b = document.createElement('div');
+    b.className = 'burst';
+    b.innerHTML = `<div class="big">${g.emoji}</div><div class="t"></div>`;
+    b.querySelector('.t').textContent = `${u.name} sent a ${g.name}!`;
+    $('phone').appendChild(b);
+    setTimeout(() => b.remove(), 3100);
+    S.target += SIZES[S.size].spike * 0.15 * (g.coins / 100 + .5); // big gifts pull in viewers
+    heartBurst(8);
+  } else heartBurst(3);
+  if (chance(.5)) setTimeout(() => { if (!S.running) return; const p = pickPerson(); post(p, styled(rand(T.afterGift), p)); }, 1800 + Math.random() * 1500);
+}
+
+/* ---------- Audience size (fluctuates like the real thing) ---------- */
+function viewerTick() {
+  if (!S.running) return;
+  const cfg = SIZES[S.size], t = (Date.now() - S.started) / 1000;
+  // target drifts: grows early (ramp up), then wanders, with occasional waves
+  if (t < 240) S.target += (cfg.cap * 0.0012 + 0.6) * (0.3 + Math.random());
+  S.target *= 1 + (Math.random() - 0.5) * 0.07;                      // random walk, slight upward bias
+  if (chance(.04)) S.target *= 1 + Math.random() * .6;                // someone shares the live -> wave of viewers
+  if (chance(.04)) S.target *= 1 - Math.random() * .3;                // wave leaves
+  S.target = clamp(S.target, 2, cfg.cap);
+  // actual count follows with lag + jitter, so it ticks up and down
+  const delta = (S.target - S.count) * 0.12 + (Math.random() - 0.5) * Math.max(3, S.count * 0.07);
+  const prev = S.count;
+  S.count = Math.max(1, Math.round(S.count + delta));
+  if (S.count > prev) S.total += S.count - prev;
+  S.peak = Math.max(S.peak, S.count);
+  $('viewers').textContent = fmt(S.count);
+  // joins appear in chat proportional to growth (only a sample, like real lives)
+}
+
+/* ---------- Posting comments (never faster than a real chat could scroll) ---------- */
+let nextFree = 0, lastJoin = 0;
+function post(p, text, kind) {
+  const now = Date.now(), at = Math.max(now, nextFree);
+  nextFree = at + 900 + Math.random() * 700;
+  setTimeout(() => {
+    if (!S.running) return;
+    addComment(p.u, text, kind || '');
+    S.recent.push(text); if (S.recent.length > 30) S.recent.shift();
+    p.last = Date.now();
+    if (chance(.3)) { S.likes++; floatHeart(); }
+  }, at - now);
+}
+function commentFrom(p, text) { post(p, styled(text, p)); }
+function maybeJoin(p) { const now = Date.now(); if (now - lastJoin > 5000 && chance(.6)) { lastJoin = now; addJoin(p.u); } }
+
+/* Pick someone to talk: more people are active as the audience grows; recent talkers go quiet for a bit */
+function pickPerson(exclude) {
+  const now = Date.now(), n = clamp(6 + Math.floor(S.count * .6), 6, CROWD.length);
+  const ws = []; let total = 0;
+  for (let i = 0; i < n; i++) { const c = CROWD[i]; const w = c === exclude ? 0 : c.chat * (now - c.last < 14000 ? .12 : 1); ws.push(w); total += w; }
+  let r = Math.random() * total;
+  for (let i = 0; i < n; i++) { r -= ws[i]; if (r <= 0) return CROWD[i]; }
+  return CROWD[0];
+}
+function randomUser() { return pickPerson(); }
+
+function pickText(p) {
+  const t = (Date.now() - S.started) / 1000, n = S.name, r = Math.random();
+  if (!p.seen) { p.seen = true; if (r < .7) return rand(T.early(n)); }
+  if (t < 40 && r < .5) return rand(T.early(n));
+  if (p.fan && r < .3) return rand(T.fan);
+  if (S.topic && r < .14) return rand(topicLines(S.topic));
+  const k = Math.random();
+  if (k < .30) return rand(T.react);
+  if (k < .48) return rand(T.ask(n));
+  if (k < .60) return rand(T.comp);
+  if (k < .70) return rand(T.life);
+  if (k < .78) return T.place();
+  if (k < .84) return rand(T.fan);
+  if (k < .88) return rand(T.emoji).repeat(1 + Math.floor(Math.random() * 2));
+  return rand(T.react);
+}
+
+/* Viewers answer / reply to each other, like real chats */
+function maybeReply(p, text) {
+  const isQ = text.includes('?');
+  if (!chance(isQ ? .32 : .14)) return;
+  const q = pickPerson(p), handle = '@' + p.u.name + ' ';
+  const pool = isQ ? ['idk lol','not sure','i was wondering too','i think they just started','same question','probably later','no clue','yes i think so']
+                   : ['lol same','fr','😂😂','true','facts','omg yes','same here','literally','me too','stoppp','haha yes','agreed','wait really?','i was thinking the same thing','lmaoo'];
+  setTimeout(() => { if (S.running) post(q, styled(handle + rand(pool), q)); }, 1800 + Math.random() * 3000);
+}
+
+function chatTick() {
+  const p = pickPerson();
+  if (!p.seen) maybeJoin(p);
+  let text, tries = 0;
+  do { text = styled(pickText(p), p); } while (S.recent.includes(text) && ++tries < 6);
+  post(p, text);
+  maybeReply(p, text);
+  if (chance(.14)) setTimeout(() => { if (!S.running) return; const q = pickPerson(p); post(q, styled(rand(T.react), q)); }, 1300 + Math.random() * 1500); // pile-on
+}
+// uneven rhythm: bursts, normal flow, and the odd quiet lull. Faster as the audience grows, but never crazy.
+function chatGap() {
+  const mean = clamp(8500 - Math.log10(S.count + 1) * 1500, 3200, 8500);
+  let g = mean * .4 - Math.log(1 - Math.random()) * mean * .6;
+  if (chance(.08)) g += 4000 + Math.random() * 5000;
+  return clamp(g, 900, 15000);
+}
+
+/* ---------- Reacting to what the streamer says/types ---------- */
+const STOP = new Set(['about','there','their','would','could','think','really','going','where','which','these','those','right','thing','people']);
+const INTENTS = [
+  { re: /\b(hi|hello|hey+|welcome|good (morning|evening|night|afternoon)|what'?s up|sup)\b/, pool: ['hii!!','heyy','hi hi','hello!!','hiii','omg hi','hi!! 👋','welcome back lol','hey hey','hiii how are u'], gift: .12, k: 3 },
+  { re: /\b(love (you|u|y'?all)|ily|thank(s| you)|appreciate)/, pool: ['ily too','aww','we love u','stoppp 🥹','omg ❤️','❤️❤️','no thank YOU','ur welcome!!','ur the best','this is so wholesome'], gift: .45, hearts: 6, k: 3 },
+  { re: /\b(bye|goodbye|gotta go|going to end|ending (the|this) live|see (you|u))\b/, pool: ['noo','already??','byeee','bye!! thanks for the live','come back soon','wait dont go','see u next time','that was fun','nooo 10 more mins pls'], gift: .2, k: 3 },
+  { re: /\b(how are (you|u|y'?all)|how'?s everyone|how is everyone)\b/, pool: ['good!! u?','im good how about u','tired lol','doing great ty','pretty good','im ok hbu','great now that ur live','sleepy but good','amazing'], k: 3 },
+  { re: /\b(ha(ha)+|lol|lmao|funny|joke)\b/, pool: ['😂😂','lmaooo','i cant','im dead','ur laugh 😭','haha','that was so funny','stop 😭','i laughed so hard'], k: 2 },
+  { re: /\b(tired|sleepy|sad|bored|exhausted|stressed|rough day)\b/, pool: ['aww hope ur ok','get some rest','same tbh','ur not alone','take care of urself','its ok u got this','sending hugs','nap time lol'], k: 2 },
+  { re: /\b(food|eat|eating|hungry|pizza|cook|cooking|dinner|lunch|breakfast|coffee|tea)\b/, pool: ['im hungry now','what are u eating','recipe pls','omg that sounds good','save some for me','now i want that','yum','what kind?','i need that rn'], k: 2 },
+  { re: /\b(song|music|sing|singing|playlist)\b/, pool: ['turn it up','this song 😍','what song is it','vibes','add it to the playlist','omg i love this one','sing for us','play it again pls'], k: 2 },
+  { re: /\b(game|gaming|match|rank|win|won)\b/, pool: ['lets goo','gg','ez','clutch','what rank r u','nice one','so close','run it back'], k: 2 },
+  { re: /\b(follow|share|invite|tell your friends)\b/, pool: ['just followed!!','shared it to my story','sending this to my friends rn','done ✅','followed 🫡'], gift: .3, boost: 1.12, k: 3 },
+  { re: /\?|\b(do you|did you|have you|should i|what do you think|who here)\b/, pool: ['yes!!','yes','nah','no lol','definitely','idk tbh','hmm maybe','100%','not really','depends','i think so','yeah for sure','no way','omg yes'], k: 3 },
+  { re: /\b(today|tonight|going to|gonna|im going|we are going|later)\b/, pool: ['ooh','cant wait','what time?','tell us more','lets gooo','sounds fun','ok im listening','sounds good'], k: 2 },
+];
+let lastReact = 0;
+function reactToText(text) {
+  const low = text.toLowerCase(), now = Date.now();
+  S.lastSpoke = now;
+  // someone's name said out loud -> that person freaks out
+  let named = 0;
+  for (const c of CROWD) {
+    if (named >= 2) break;
+    const tok = c.u.name.split(/[._\d]+/)[0];
+    if (tok.length >= 3 && new RegExp('\\b' + tok + '\\b').test(low)) {
+      named++;
+      setTimeout(() => { if (!S.running) return; if (!c.seen) { c.seen = true; maybeJoin(c); } post(c, styled(rand(['omg u said my name 😭😭','AHHH hi 🥹','im crying 😭','hiii!! ily','OMG HI','ahhh hi 🥹','wait that was me!!']), c)); heartBurst(4); }, 1500 + Math.random() * 1500);
+    }
+  }
+  if (now - lastReact < 3000 && chance(.6)) return;   // don't over-react to rapid speech
+  lastReact = now;
+  const it = INTENTS.find(i => i.re.test(low));
+  let pool, k = 1 + Math.floor(Math.random() * 2), gift = 0;
+  if (it) { pool = it.pool; k = it.k || k; gift = it.gift || 0; if (it.hearts) heartBurst(it.hearts); if (it.boost) S.target *= it.boost; }
+  else {
+    const words = low.split(/[^a-z']+/).filter(w => w.length > 4 && !STOP.has(w));
+    pool = words.length && chance(.55) ? [`wait ${rand(words)}?`, `${rand(words)} 😭`, `omg ${rand(words)}`, `ok but ${rand(words)} tho`].concat(T.react.slice(0, 6)) : T.react;
+  }
+  shuffle(pool).slice(0, k).forEach((txt, i) => setTimeout(() => {
+    if (!S.running) return;
+    const p = pickPerson(); if (!p.seen) { p.seen = true; maybeJoin(p); }
+    post(p, styled(txt, p));
+  }, 1300 + i * (900 + Math.random() * 1400) + Math.random() * 700));
+  if (chance(gift)) setTimeout(() => sendGift(pickPerson().u), 2800);
+}
+
+/* ---------- Sensors: mic + motion ---------- */
+function setupAudio(stream) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    S.audioCtx = new AC();
+    const src = S.audioCtx.createMediaStreamSource(stream);
+    S.analyser = S.audioCtx.createAnalyser(); S.analyser.fftSize = 512; src.connect(S.analyser);
+  } catch (e) { S.analyser = null; }
+}
+const mc = document.createElement('canvas'); mc.width = 32; mc.height = 24;
+const mctx = mc.getContext('2d', { willReadFrequently: true });
+let prevFrame = null;
+function sense() {
+  if (!S.running) return;
+  if (S.analyser) {
+    const buf = new Uint8Array(S.analyser.fftSize); S.analyser.getByteTimeDomainData(buf);
+    let sum = 0; for (const b of buf) { const d = (b - 128) / 128; sum += d * d; }
+    S.level = Math.sqrt(sum / buf.length);
+    if (S.level > 0.04) S.lastSpoke = Date.now();
+  }
+  try {
+    const cam = $('cam');
+    if (cam.videoWidth) {
+      mctx.drawImage(cam, 0, 0, 32, 24);
+      const f = mctx.getImageData(0, 0, 32, 24).data;
+      if (prevFrame) {
+        let diff = 0; for (let i = 0; i < f.length; i += 4) diff += Math.abs(f[i] - prevFrame[i]);
+        S.motion = diff / (f.length / 4) / 255;
+        if (S.motion > 0.04) S.lastMoved = Date.now();
+      }
+      prevFrame = f;
+    }
+  } catch (e) {}
+  setTimeout(sense, 130);
+}
+let lastLoud = 0, lastMot = 0;
+function sensorTick() {
+  const now = Date.now();
+  if (S.level > 0.18 && now - lastLoud > 8000) { lastLoud = now; commentFrom(randomUser(), rand(C.loud())); }
+  else if (S.motion > 0.12 && now - lastMot > 9000) { lastMot = now; commentFrom(randomUser(), rand(C.motion())); }
+  else if (now - S.lastSpoke > 25000 && chance(.5)) { S.lastSpoke = now - 12000; commentFrom(randomUser(), rand(C.quiet())); S.target *= .97; }
+  else if (now - S.lastMoved > 30000 && chance(.4)) { S.lastMoved = now - 15000; commentFrom(randomUser(), rand(C.still())); }
+}
+
+/* ---------- Loops ---------- */
+function loop(fn, nextDelay) {
+  const run = () => { if (!S.running) return; fn(); S.timers.push(setTimeout(run, nextDelay())); };
+  S.timers.push(setTimeout(run, nextDelay()));
+}
+function startTimers() {
+  loop(viewerTick, () => 900 + Math.random() * 700);
+  loop(chatTick, chatGap);
+  loop(() => { S.likes += 1 + Math.floor(S.count / 60 * Math.random()); heartBurst(1 + (S.count > 300 ? 1 : 0)); }, () => 1400 + Math.random() * 2400);
+  loop(() => sendGift(pickPerson().u), () => 25000 + Math.random() * 35000);
+  loop(sensorTick, () => 1200 + Math.random() * 600);
+}
+
+/* ---------- Speech ---------- */
+function startSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $('micStatus').textContent = 'Use Chrome so viewers can hear what you say. Typing works everywhere.'; return; }
+  const r = new SR(); r.continuous = true; r.interimResults = false; r.lang = 'en-US';
+  r.onresult = e => { const t = e.results[e.results.length - 1][0].transcript.trim(); if (t) { $('micStatus').textContent = '🎙 ' + t; reactToText(t); } };
+  r.onend = () => { if (S.running) { try { r.start(); } catch (e) {} } };
+  r.onerror = () => {};
+  try { r.start(); S.recog = r; $('micStatus').textContent = '🎙 Viewers can hear you'; } catch (e) {}
+}
+
+/* ---------- Start / end ---------- */
+async function goLive() {
+  $('err').textContent = '';
+  S.name = ($('nameIn').value.trim().replace(/^@/, '') || 'you').toLowerCase().replace(/\s+/g, '_');
+  S.topic = $('topicIn').value.trim();
+  S.verified = $('vIn').checked; S.size = $('sizeIn').value;
+  try { S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true }); }
+  catch (e) {
+    try { S.stream = await navigator.mediaDevices.getUserMedia({ video: true }); }
+    catch (e2) { $('err').textContent = 'Could not access your camera. Allow permission and try again.'; return; }
+  }
+  $('cam').srcObject = S.stream; setupAudio(S.stream);
+  Object.assign(S, { count: 1 + Math.floor(Math.random() * 4), target: 6, peak: 1, total: 1, likes: 0, gifts: 0, coins: 0, started: Date.now(), lastSpoke: Date.now(), lastMoved: Date.now(), timers: [], recent: [], running: true });
+  $('meName').textContent = S.name; $('meAv').textContent = S.name[0].toUpperCase();
+  $('meV').style.display = S.verified ? '' : 'none';
+  $('feed').innerHTML = ''; $('viewers').textContent = fmt(S.count); $('micStatus').textContent = '';
+  createCrowd(); nextFree = 0; lastJoin = 0; lastReact = 0;
+  show('live');
+  setTimeout(() => { const p = pickPerson(); maybeJoin(p); post(p, styled(rand(T.early(S.name)), p)); p.seen = true; }, 2200);
+  startTimers(); sense(); startSpeech();
+}
+function endLive() {
+  S.running = false; S.timers.forEach(clearTimeout);
+  if (S.recog) { try { S.recog.stop(); } catch (e) {} }
+  if (S.stream) S.stream.getTracks().forEach(t => t.stop());
+  if (S.audioCtx) { try { S.audioCtx.close(); } catch (e) {} }
+  $('sumLine').textContent = S.topic ? `Great ${S.topic} live, @${S.name}!` : `Nice live, @${S.name}!`;
+  $('sViewers').textContent = fmt(S.peak); $('sTotal').textContent = fmt(S.total); $('sLikes').textContent = fmt(S.likes);
+  $('sGifts').textContent = S.gifts; $('sCoins').textContent = S.coins;
+  show('summary');
+}
+function sendChat() {
+  const t = $('chatIn').value.trim(); if (!t) return;
+  $('chatIn').value = '';
+  addComment({ name: S.name, color: '#555', initial: S.name[0].toUpperCase(), verified: S.verified }, t, 'me');
+  reactToText(t);
+}
+$('goBtn').onclick = goLive; $('endBtn').onclick = endLive; $('againBtn').onclick = () => show('start');
+$('chatIn').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+$('heartBtn').onclick = () => { S.likes++; heartBurst(5); };
+$('shareBtn').onclick = () => { S.target *= 1.2; commentFrom(pickPerson(), rand(['shared this live!','sending this to my friends','omg sharing rn'])); };
+</script>
+</body>
+</html>
