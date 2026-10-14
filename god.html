@@ -251,9 +251,11 @@
   </div>
   <div class="pill era"><div class="y num" id="hYear">10,000 BC</div><div class="n" id="hEra">Stone Age</div><div class="bar"><i id="eBar"></i></div></div>
   <div class="pill doom" id="doom" title="How close the Defiant are to reaching your throne"><div class="t" id="doomT">The Defiant · Whispers of doubt</div><div class="segs" id="doomSegs"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+  <div class="pill hide-sm" id="rivalPill" title="The Hollow One, a rival god. It grows stronger whenever faith weakens, then curses your cities, corrupts prophets and sends monsters.">🌑 Hollow One<div class="bar" style="width:64px"><i id="rvBar" style="background:linear-gradient(90deg,#6b3fd0,#c08bff)"></i></div></div>
   <div class="pill bal hide-sm" title="Believers vs the Defiant">🙏 <span class="num" id="hBel">0%</span><div class="bar"><i id="mBel" style="background:var(--gold)"></i><i id="mDef" style="background:var(--ember)"></i></div><span class="num" id="hDef">0%</span> ✊</div>
   <div class="pill hide-sm" title="World population">👥 <span class="num" id="hPop">0</span></div>
   <div class="grow"></div>
+  <button class="hb" id="bDir" title="Cinematic camera: follows the action for you">🎥</button>
   <button class="hb" id="bPanel" title="Prophecies, chronicle, nations and legends">📜<span class="dot" id="pDot" hidden></span></button>
   <button class="hb" id="bSound" title="Sound on or off">🔊</button>
   <button class="hb" id="bMenu" title="Menu">☰</button>
@@ -439,14 +441,19 @@ const POWERS = [
   { id: 'bolt',    e: '⚡',  n: 'Smite',      c: 15,  cd: 1.5, rank: 0, cls: 'wrath',  r: 12,  d: 'A bolt of lightning. Kills a few and terrifies the rest. Believers fear you more; the Defiant hate you more.' },
   { id: 'bless',   e: '🌧️', n: 'Bless',      c: 30,  cd: 6,   rank: 0, cls: 'bless',  r: 60,  d: 'Rain and plenty. Heals the sick, grows families and strengthens faith. Answers prayers for rain.' },
   { id: 'whisper', e: '💭',  n: 'Whisper',    c: 20,  cd: 5,   rank: 0, cls: 'divine', r: 10,  d: 'Appear in one mortal\'s dream. They will believe. Works on heroes too, even heretic leaders.' },
+  { id: 'raise',   e: '⛰️', n: 'Raise',      c: 3,   cd: 0,   rank: 0, cls: 'bless',  r: 26,  d: 'Hold and drag to raise the land: hills, mountains, or new land out of the sea.' },
+  { id: 'lower',   e: '🌊',  n: 'Sink',       c: 3,   cd: 0,   rank: 0, cls: 'wrath',  r: 26,  d: 'Hold and drag to sink the land: carve lakes and bays, or drown a town.' },
+  { id: 'forest',  e: '🌲',  n: 'Forest',     c: 5,   cd: 0,   rank: 0, cls: 'bless',  r: 26,  d: 'Hold and drag to grow forests. Beautiful, and fuel for wildfires.' },
   { id: 'miracle', e: '✨',  n: 'Miracle',    c: 70,  cd: 15,  rank: 1, cls: 'bless',  r: 85,  d: 'Pure light. Converts unbelievers over a wide area and answers prayers for a sign.' },
   { id: 'life',    e: '🌱',  n: 'Create',     c: 40,  cd: 20,  rank: 1, cls: 'bless',  r: 16,  d: 'Shape new mortals from the soil. Far from any nation, a whole new people is born.' },
   { id: 'speak',   e: '🗣️', n: 'Speak',      c: 60,  cd: 30,  rank: 1, cls: 'divine', r: 0,   d: 'Say anything. The whole world hears it. Believers rejoice and some unbelievers convert.' },
+  { id: 'avatar',  e: '🗿',  n: 'Avatar',     c: 150, cd: 30,  rank: 2, cls: 'divine', r: 20,  d: 'Descend as a golden giant. Then click to walk, click a monster to fight it, or click a godless town to stomp it. Costs 1.4 faith every second it walks the world.' },
   { id: 'anoint',  e: '👑',  n: 'Anoint',     c: 90,  cd: 45,  rank: 2, cls: 'divine', r: 30,  d: 'Choose a saint. The most devout mortal nearby becomes a prophet who travels and spreads your word.' },
   { id: 'plague',  e: '🦠',  n: 'Plague',     c: 90,  cd: 30,  rank: 2, cls: 'wrath',  r: 45,  d: 'A sickness that spreads from person to person. Medicine makes it weaker.' },
   { id: 'tornado', e: '🌪️', n: 'Tornado',    c: 110, cd: 30,  rank: 2, cls: 'wrath',  r: 14,  d: 'A storm that wanders for a while and tears apart whatever is in its path.' },
   { id: 'golden',  e: '☀️', n: 'Golden Age', c: 140, cd: 90,  rank: 3, cls: 'bless',  r: 110, d: 'Bless a nation for a generation: double births, faster progress and deeper faith.' },
   { id: 'quake',   e: '💥',  n: 'Quake',      c: 130, cd: 35,  rank: 3, cls: 'wrath',  r: 95,  d: 'The earth splits and buildings fall. Can crack the Heaven Gate.' },
+  { id: 'banish',  e: '🕯️', n: 'Banish',     c: 160, cd: 90,  rank: 3, cls: 'divine', r: 0,   d: 'Drive back the Hollow One, the rival god. Its power drops by 40 and it stays quiet for a while.' },
   { id: 'eclipse', e: '🌑',  n: 'Eclipse',    c: 220, cd: 120, rank: 4, cls: 'divine', r: 0,   d: 'Blot out the sun over the whole world. Mass conversions and terror. Sets the Defiant back.' },
   { id: 'volcano', e: '🌋',  n: 'Volcano',    c: 200, cd: 60,  rank: 4, cls: 'wrath',  r: 40,  d: 'Raise a mountain of fire out of the ground. The land is changed forever.' },
   { id: 'meteor',  e: '☄️', n: 'Meteor',     c: 180, cd: 45,  rank: 4, cls: 'wrath',  r: 50,  d: 'A rock from the heavens. Leaves a crater. The strongest blow against the Heaven Gate and its fleet.' },
@@ -525,6 +532,8 @@ const SFX = {
   laser() { tone({ f: 1500, type: 'sawtooth', dur: .22, peak: .025, glideTo: 260 }); },
   plague() { tone({ f: 98, type: 'sawtooth', dur: 2.2, peak: .05, glideTo: 82 }); tone({ f: 103, type: 'sawtooth', dur: 2.2, peak: .04, glideTo: 87 }); },
   build() { tone({ f: 523, dur: .25, peak: .03 }); tone({ f: 784, dur: .3, peak: .025, delay: .08 }); },
+  roar() { tone({ f: 90, type: 'sawtooth', dur: 1.6, peak: .12, attack: .1, glideTo: 55 }); noiseHit({ dur: 1.4, freq: 700, type: 'bandpass', q: 1.5, peak: .35, attack: .1, sweepTo: 200 }); },
+  kraken() { noiseHit({ dur: 2, freq: 300, peak: .5, attack: .2, sweepTo: 90 }); tone({ f: 46, dur: 2, peak: .3, glideTo: 30 }); },
   dark() { tone({ f: 55, type: 'sawtooth', dur: 4, peak: .08, attack: 1 }); tone({ f: 82.4, dur: 4, peak: .06, attack: 1.2 }); noiseHit({ dur: 4, freq: 200, peak: .2, attack: 1 }); },
 };
 function sfx(n) {
@@ -728,6 +737,7 @@ function baseState(god, wtype, seed) {
     stats: { miracles: 0, smites: 0, peak: 0, born: 0, died: 0, nukes: 0, converted: 0, wonders: 0, prophecies: 0, failed: 0, petitions: 0 }, nextId: 1, colorI: 0,
     div: 100, divMax: 100, divRate: 0, diff: 1, relics: [], cool: {}, prophecies: [], answered: 0, killedDef: 0, doomStage: 0, doomPart: 0,
     petition: null, nextPetition: 70, relicQueue: 0, godMax: 100, minDiv: 100,
+    monsters: [], avatar: null, storms: [], rival: { power: 8, next: 150 },
   };
 }
 function initSky() { STARS = []; CLOUDS = []; }
@@ -831,6 +841,7 @@ function note(icon, html, cls = '', x = null, y = null) {
   f.insertBefore(n, f.firstChild);
   while (f.children.length > 4) f.removeChild(f.lastChild);
   setTimeout(() => { n.classList.add('out'); setTimeout(() => n.remove(), 450); }, 8000);
+  if (director && x != null && !cam.fly) { flyTo(x, y, 2.6); dirT = 14; }
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let bannerT = 0, toastT = 0, eraCardT = 0;
@@ -952,6 +963,7 @@ function step(dt) {
   if (W.siege) siegeStep(dt);
   if (W.tornados.length) tornadoStep(dt);
   if (W.volcanos.length) volcanoStep(dt);
+  monsterStep(dt); avatarStep(dt); fireStep(dt); stormStep(dt);
   moveLife(dt);
   W.acc1 += dt; if (W.acc1 >= 1) { W.acc1 -= 1; worldTick(); }
   W.acc2 += dt; if (W.acc2 >= 2.5) { W.acc2 = 0; computeTerritory(); }
@@ -1046,7 +1058,7 @@ function worldTick() {
   if (!W.siege) W.godHP = Math.min(100, W.godHP + .25);
   W.stats.peak = Math.max(W.stats.peak, total * POPSCALE[W.era]);
   if (total && Math.random() < .8) { const a = pick(W.agents); say(a, lineFor(a)); }
-  heroTick(); events(bel, total); warTick(); projectTick(); lifeTick(); doomTick(); prophecyTick(false); petitionTick();
+  heroTick(); events(bel, total); warTick(); projectTick(); lifeTick(); doomTick(); prophecyTick(false); petitionTick(); extraTick();
   if (++W.acc5 >= 5) { W.acc5 = 0; W.history.push({ y: yearNow(), b: total ? bel / total : 0, p: total * POPSCALE[W.era], e: W.era, d: Math.max(0, W.div) }); if (W.history.length > 800) W.history = W.history.filter((_, i) => i % 2 === 0); }
   endings(bel, total);
 }
@@ -1269,7 +1281,7 @@ function warStep(dt) {
     if (Math.random() < dt * .25) {
       const f = pick(fa.concat(fb)), foe = f.tribe === A ? B : A;
       const b = W.buildings.find(o => o.tribe === foe && !o.ruin && o.type !== 'gate' && o.type !== 'wonder' && d2(o.x, o.y, f.x, f.y) < 18 * 18);
-      if (b) { b.dead = true; addFx('fire', b.x, b.y, 5, 9); }
+      if (b) { b.dead = true; addFx('fire', b.x, b.y, 5, 9); igniteAt(b.x, b.y, 0); }
     }
   }
 }
@@ -1298,7 +1310,7 @@ function nuke(att, def) {
     addFx('mushroom', x, y, 7, 50); addFx('ring', x, y, 2, 170, '255,230,200'); addFx('boom', x, y, 1.6, 80);
     let k = 0; for (const a of W.agents) { const dd = d2(a.x, a.y, x, y); if (dd < 45 * 45 || (dd < 85 * 85 && Math.random() < .5)) { die(a, 'disaster'); k++; } else if (dd < 110 * 110 && Math.random() < .35) infect(a); }
     W.buildings.forEach(b => { if (b.type !== 'gate' && d2(b.x, b.y, x, y) < 70 * 70 && Math.random() < .95) b.dead = true; });
-    cleanup(); crater(x, y, 24, .12);
+    cleanup(); crater(x, y, 24, .12); igniteAt(x, y, 70);
     W.agents.forEach(a => { a.faith = clamp(a.faith + (a.faith >= .5 ? .06 : -.03), 0, 1); });
     log(`☢ The ${att.name} unleashed nuclear fire upon the ${def.name}. ${k} perished in an instant.`, 'red big');
     banner('NUCLEAR WAR', `${att.name} struck the ${def.name}`, 'red');
@@ -1773,6 +1785,7 @@ function tornadoStep(dt) {
     for (const a of W.agents) if (!a.dead && d2(a.x, a.y, t.x, t.y) < 110 && Math.random() < dt * 2.2) { if (a.faith < .5) W.killedDef++; die(a, 'disaster'); addFx('kill', a.x, a.y, 1); }
     if (Math.random() < dt * 3) { const b = W.buildings.find(o => !o.dead && o.type !== 'gate' && o.type !== 'wonder' && d2(o.x, o.y, t.x, t.y) < 15 * 15); if (b) { b.dead = true; addFx('debris', b.x, b.y, 1.5, 9); } }
     if (W.project.gate && d2(W.project.gate.x, W.project.gate.y, t.x, t.y) < 20 * 20 && Math.random() < dt * .8) damageGate(3, 'The tornado tears at the Gate.');
+    for (const m of W.monsters) if (d2(m.x, m.y, t.x, t.y) < 32 * 32) damageMonster(m, dt * 5);
   }
   W.tornados = W.tornados.filter(t => t.until > W.t);
   cleanup();
@@ -1827,6 +1840,10 @@ function usePower(id, x, y, ship) {
   if (coolLeft(id) > 0) { toast(`${p.n} is recharging (${Math.ceil(coolLeft(id))}s).`); return; }
   if (W.mana < c) { toast(`Not enough faith. ${p.n} needs ${c}. Your believers must pray more.`); return; }
   if (id === 'speak') { openSpeak(); return; }
+  if (id === 'avatar' && W.avatar) { commandAvatar(x, y, null); return; }
+  if (['raise', 'lower', 'forest'].includes(id)) { W.mana -= c; terraform(id, x, y); return; }
+  if (id === 'banish') { W.mana -= c; W.cool[id] = W.rt + p.cd * (hasRelic('hourglass') ? .6 : 1); W.rival.power = Math.max(0, W.rival.power - 40); W.rival.next = W.t + 160; banner('THE HOLLOW ONE IS BANISHED', 'For now.', 'violet'); sfx('choir'); log('You drove the Hollow One back into the dark between the stars.', 'violet big'); refreshTools(); return; }
+  if (id === 'avatar') { if (!walk(x, y)) { toast('Your avatar needs land to stand on.'); return; } W.mana -= c; W.cool[id] = W.rt + p.cd * (hasRelic('hourglass') ? .6 : 1); summonAvatar(x, y); refreshTools(); return; }
   // in the sky: powers aimed at the fleet
   if (ship && W.siege && ['bolt', 'wrath', 'meteor', 'miracle'].includes(id)) {
     W.mana -= c; W.cool[id] = W.rt + p.cd * (hasRelic('hourglass') ? .6 : 1);
@@ -1847,7 +1864,7 @@ function usePower(id, x, y, ship) {
     case 'bolt': {
       addFx('bolt', x, y, .45); addFx('glow', x, y, .5, 30, '200,220,255'); shake = Math.max(shake, 4); sfx('thunder');
       const r = hasRelic('crown') ? 15 : 9;
-      const k = killIn(x, y, r, .85); wreckIn(x, y, r, .5);
+      const k = killIn(x, y, r, .85); wreckIn(x, y, r, .5); hitMonsters(x, y, 18, hasRelic('crown') ? 14 : 10); if (Math.random() < .5) igniteAt(x, y, 0);
       if (nearGate(x, y, 18)) damageGate(3, 'Lightning strikes the Gate!');
       witness(x, y, 90, .07, -.05);
       W.stats.smites++;
@@ -1861,7 +1878,7 @@ function usePower(id, x, y, ship) {
       for (const a of W.agents) if (d2(a.x, a.y, x, y) < 60 * 60) { a.faith = clamp(a.faith + (a.faith >= .5 ? .2 : .12), 0, 1); if (a.sick > 0) { a.sick = 0; healed++; } }
       const t = tribeAt(x, y, 120);
       if (t) for (let i = 0; i < 4; i++) { const p2 = findSpot(x, y, 0, 40, true); if (p2) makeAgent(p2.x, p2.y, t, R(.6, .95)); }
-      answerPrayer('rain', x, y); if (healed) answerPrayer('heal', x, y);
+      answerPrayer('rain', x, y); if (healed) answerPrayer('heal', x, y); extinguish(x, y, 75);
       break;
     }
     case 'whisper': {
@@ -1923,7 +1940,7 @@ function usePower(id, x, y, ship) {
     case 'quake': {
       shake = 16; addFx('ring', x, y, 1.6, 115, '200,140,80'); addFx('ring', x, y, 2.2, 85, '160,100,60'); sfx('rumble');
       const b = wreckIn(x, y, 95, .55), k = killIn(x, y, 95, .15, 'disaster');
-      if (nearGate(x, y, 100)) damageGate(18, 'The earth splits beneath the Gate!');
+      if (nearGate(x, y, 100)) damageGate(18, 'The earth splits beneath the Gate!'); hitMonsters(x, y, 100, 20, true);
       witness(x, y, 200, .12, -.08);
       log(`The earth shakes. ${b} buildings collapse and ${k.n} die.`, 'red');
       break;
@@ -1942,7 +1959,7 @@ function usePower(id, x, y, ship) {
     case 'volcano': {
       sfx('boom'); setTimeout(() => sfx('rumble'), 300); shake = 18; flash(.25);
       raise(x, y, 42, .5);
-      W.volcanos.push({ x, y, until: W.t + 16 });
+      W.volcanos.push({ x, y, until: W.t + 16 }); igniteAt(x, y, 50); hitMonsters(x, y, 40, 30, true);
       const b = wreckIn(x, y, 30, .9), k = killIn(x, y, 26, .95, 'disaster');
       addFx('boom', x, y, 1.4, 50); addFx('ring', x, y, 1.6, 120, '255,120,40');
       witness(x, y, 220, .12, -.06);
@@ -1955,7 +1972,7 @@ function usePower(id, x, y, ship) {
         shake = 22; flash(.35); sfx('boom');
         addFx('boom', x, y, 1.6, 70); addFx('ring', x, y, 1.8, 160, '255,150,60'); addFx('debris', x, y, 2, 30);
         const k1 = killIn(x, y, 32, 1, 'disaster'), k2 = killIn(x, y, 52, .5, 'disaster'), b = wreckIn(x, y, 46, .9);
-        crater(x, y, 40);
+        crater(x, y, 40); hitMonsters(x, y, 60, 45); igniteAt(x, y, 36);
         if (nearGate(x, y, 55)) damageGate(32, 'A meteor slams into the Heaven Gate!');
         W.recentDisaster = W.t;
         for (const a of W.agents) if (d2(a.x, a.y, x, y) < 230 * 230) a.faith = a.faith >= .5 ? clamp(a.faith + .15, 0, 1) : (Math.random() < .4 ? R(.55, .75) : clamp(a.faith - .1, 0, 1));
@@ -2023,6 +2040,11 @@ function crisisCtx(t) {
 const T_ = id => W.tribes.find(x => x.id === id && x.alive) || null;
 const A_ = id => W.agents.find(x => x.id === id && !x.dead) || null;
 const CRISES = [
+  { id: 'monster', seed: 'a monster is ravaging their lands', when: c => W.monsters.length > 0,
+    build: (c, t) => { const m = W.monsters[0]; return { title: `${MONS[m.kind].icon} ${m.name}`, text: `“${m.name} has come to our lands. Our homes burn and our children hide in the cellars. ${W.short}, if you are truly our god, destroy this beast!”`, choices: [
+      { label: 'I will destroy it', hint: 'A devastating strike from the heavens.', cost: 70, fx: [{ k: 'mana', v: -70 }, { k: 'monster', v: 'hurt' }, { k: 'faith', t: 't', v: .1 }] },
+      { label: 'Offer it a sacrifice', hint: 'It will leave. Some will not come home.', fx: [{ k: 'kill', t: 't', v: .05 }, { k: 'monster', v: 'leave' }] },
+      { label: 'Your heroes must face it', hint: 'Courage, and many funerals.', fx: [{ k: 'monster', v: 'heroes' }, { k: 'faith', t: 't', v: -.05 }] } ] }; } },
   { id: 'drought', seed: 'a drought is starving their people', when: c => true,
     build: (c, t) => ({ title: 'The Rain Has Not Come', text: `“Great ${W.short}, our fields are dust and our children are hungry. We have burned our last grain on your altar. Send us rain, or tell us what we did wrong.”`, choices: [
       { label: 'Send the rain', hint: 'They will love you for it.', fx: [{ k: 'mana', v: -40 }, { k: 'faith', t: 't', v: .15 }, { k: 'births', t: 't', v: 6 }] },
@@ -2162,6 +2184,7 @@ function applyFx(list, ctx) {
       case 'temples': { const t = tribeOf(f.t); if (t) for (let i = 0; i < clamp(v, 0, 4); i++) { const s = findSpot(t.mx, t.my, 10, 60); if (s) makeBuilding(s.x, s.y, t, 'temple'); } break; }
       case 'prophet': { const t = tribeOf(f.t); const c = W.agents.filter(a => !a.hero && (!t || a.tribe === t)).sort((p, q) => q.faith - p.faith)[0]; if (c) { makeHero(c, 'prophet'); log(`${heroName(c)} has risen as your prophet among the ${c.tribe.name}.`, 'gold'); } break; }
       case 'hero': { const h = A_(ctx.h); if (!h || !h.hero) break; if (f.v === 'kill') { addFx('bolt', h.x, h.y, .45); sfx('thunder'); if (h.faith < .5) W.killedDef++; die(h, 'smite'); } else if (Math.random() < .6) redeemHero(h, 'saw your face in a dream and renounced doubt'); else log(`${heroName(h)} dreamed of you and woke up laughing.`, 'red'); break; }
+      case 'monster': { const m = W.monsters[0]; if (!m) break; if (f.v === 'hurt') { addFx('bolt', m.x, m.y, .45); addFx('boom', m.x, m.y, 1, 40); damageMonster(m, m.max * .6); } else if (f.v === 'leave') { m.leaving = true; if (m.kind !== 'dragon') m.gone = true; log(`${m.name} took the offering and left.`, 'dark'); } else { const t = T_(ctx.t); const g = t && W.agents.find(a => a.tribe === t && !a.hero); if (g) makeHero(g, 'general'); damageMonster(m, m.max * .35, 'mortal'); killIn(m.x, m.y, 40, .2, 'war'); } break; }
       case 'doom': { const k = clamp(v, -.08, .08); W.tribes.forEach(t => { if (t.alive && t.stance === 'defiant') t.tech *= 1 + k; }); if (W.project.active && !W.siege) W.project.progress = clamp(W.project.progress + k * 120, 0, 99); break; }
     }
   }
@@ -2313,6 +2336,8 @@ function updateCard() {
   const c = $('card'), body = $('cardBody');
   if (!sel || sel.dead || (sel.nation && !sel.nation.alive)) { c.classList.remove('on'); sel = null; return; }
   c.classList.add('on');
+  if (sel.monster) { const m = sel.monster, M = MONS[m.kind]; if (m.hp <= 0 || m.gone) { sel = null; c.classList.remove('on'); return; } body.innerHTML = `<h4>${M.icon} ${esc(m.name)}</h4><div class="muted">${M.n}</div><div class="bar"><i style="width:${Math.max(0, m.hp / m.max * 100)}%;background:var(--ember)"></i></div><div>${Math.ceil(m.hp)} of ${Math.round(m.max)} life</div><div class="muted">Lightning, quakes, meteors, tornadoes and your avatar can hurt it.</div><div class="acts"><button id="mGo">Show me</button><button id="mSmite" class="main">⚡ Smite it</button>${W.avatar ? '<button id="mAv">🗿 Send your avatar</button>' : ''}</div>`; $('mGo').onclick = () => flyTo(m.x, m.y, 2.6); $('mSmite').onclick = () => usePower('bolt', m.x, m.y); if ($('mAv')) $('mAv').onclick = () => commandAvatar(0, 0, m); return; }
+  if (sel.avatar) { if (!W.avatar) { sel = null; c.classList.remove('on'); return; } body.innerHTML = `<h4>🗿 Avatar of ${esc(W.short)}</h4><div class="muted">Your golden body walks the world. Pick the Avatar power and click to command it. It costs 1.4 faith every second.</div><div class="acts"><button id="avF">Show me</button><button id="avD">Return to the heavens</button></div>`; $('avF').onclick = () => flyTo(W.avatar.x, W.avatar.y, 3); $('avD').onclick = () => { dismissAvatar(); sel = null; updateCard(); }; return; }
   const fbar = f => `<div class="bar"><i style="width:${Math.round(f * 100)}%;background:${f >= .5 ? 'var(--gold)' : 'var(--ember)'}"></i></div>`;
   if (sel.nation) {
     const t = sel.nation, war = W.wars.find(w => w.a === t || w.b === t);
@@ -2356,7 +2381,7 @@ function buildTools() {
     if (p.siege && !(W && W.siege)) continue;
     const b = document.createElement('button'); b.className = 'pw ' + p.cls + (p.siege ? ' siege' : ''); b.dataset.id = p.id;
     b.innerHTML = `<span class="e">${p.e}</span><span class="n">${p.n}</span><span class="k"></span><span class="cd" style="height:0"></span>`;
-    b.onclick = () => { auInit(); if (['speak', 'eclipse', 'aegis'].includes(p.id)) usePower(p.id, 0, 0); else selectTool(p.id); };
+    b.onclick = () => { auInit(); if (['speak', 'eclipse', 'aegis', 'banish'].includes(p.id)) usePower(p.id, 0, 0); else selectTool(p.id); };
     b.onpointerenter = e => { if (e.pointerType === 'mouse') showTip(p, b); };
     b.onpointerleave = hideTip;
     let lp; b.addEventListener('touchstart', () => { lp = setTimeout(() => showTip(p, b), 420); }, { passive: true });
@@ -2377,8 +2402,9 @@ function refreshTools() {
   document.querySelectorAll('.pw[data-id]').forEach(b => {
     const id = b.dataset.id, p = PW[id], locked = !canUse(id), cl = coolLeft(id);
     b.classList.toggle('locked', locked);
-    b.classList.toggle('poor', !locked && id !== 'inspect' && (W.mana < costOf(id) || cl > 0));
-    b.querySelector('.k').textContent = locked ? '🔒 ' + ROMAN[p.rank] : cl > 0 ? Math.ceil(cl) + 's' : p.c ? String(costOf(id)) : '';
+    const cmd = id === 'avatar' && W.avatar;
+    b.classList.toggle('poor', !locked && !cmd && id !== 'inspect' && (W.mana < costOf(id) || cl > 0));
+    b.querySelector('.k').textContent = locked ? '🔒 ' + ROMAN[p.rank] : cmd ? 'command' : cl > 0 ? Math.ceil(cl) + 's' : p.c ? String(costOf(id)) : '';
     b.querySelector('.cd').style.height = (p.cd && cl > 0 ? cl / (p.cd * (hasRelic('hourglass') ? .6 : 1)) * 100 : 0) + '%';
   });
 }
@@ -2405,6 +2431,7 @@ function showPanel(tab) {
 }
 $('tabP').onclick = () => showPanel('P'); $('tabC').onclick = () => showPanel('C'); $('tabN').onclick = () => showPanel('N'); $('tabL').onclick = () => showPanel('L');
 $('bPanel').onclick = () => { const p = $('panel'); p.hidden = !p.hidden; $('bPanel').classList.toggle('on', !p.hidden); if (!p.hidden && panelTab === 'P' && W) W.pDot = false; renderPanel(); };
+$('bDir').onclick = () => { director = !director; $('bDir').classList.toggle('on', director); dirT = 0; toast(director ? 'Cinematic camera on. It will follow the action.' : 'Cinematic camera off.'); };
 $('bSound').onclick = () => { auInit(); AU.on = !AU.on; if (AU.master) AU.master.gain.value = AU.on ? .6 : 0; $('bSound').textContent = AU.on ? '🔊' : '🔇'; };
 let menuPrev = 1;
 $('bMenu').onclick = () => { $('menuOv').classList.add('on'); menuPrev = speedIdx || menuPrev; speed(0); };
@@ -2428,7 +2455,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'q' || e.key === 'Q') cam.yaw -= .25;
   else if (e.key === 'e' || e.key === 'E') cam.yaw += .25;
   else if (e.key === 'Escape') { selectTool('inspect'); sel = null; cam.follow = null; updateCard(); }
-  else { const n = parseInt(e.key, 10); const vis = POWERS.filter(p => !p.siege || W.siege); if (n >= 1 && n <= 9 && vis[n - 1]) { const p = vis[n - 1]; if (['speak', 'eclipse', 'aegis'].includes(p.id)) usePower(p.id, 0, 0); else selectTool(p.id); } }
+  else { const n = parseInt(e.key, 10); const vis = POWERS.filter(p => !p.siege || W.siege); if (n >= 1 && n <= 9 && vis[n - 1]) { const p = vis[n - 1]; if (['speak', 'eclipse', 'aegis', 'banish'].includes(p.id)) usePower(p.id, 0, 0); else selectTool(p.id); } }
 });
 function showStart() {
   $('hud').hidden = true; $('tools').hidden = true; $('panel').hidden = true; $('mini').hidden = true; $('petition').hidden = true; $('card').classList.remove('on');
@@ -2463,6 +2490,7 @@ function updateHUD() {
   $('hBel').textContent = bp + '%'; $('hDef').textContent = (total ? 100 - bp : 0) + '%';
   $('mBel').style.width = bp + '%'; $('mDef').style.width = (total ? 100 - bp : 0) + '%';
   $('hPop').textContent = fmtPop(total * POPSCALE[W.era]);
+  $('rvBar').style.width = (W.rival ? W.rival.power : 0) + '%';
   // the Defiant's climb
   const segs = $('doomSegs').children;
   for (let i = 0; i < 6; i++) { const on = i < W.doomStage, part = i === W.doomStage; segs[i].className = on ? 'on' : part ? 'part' : ''; if (part) segs[i].style.setProperty('--p', Math.round(W.doomPart * 100) + '%'); }
@@ -2582,7 +2610,7 @@ function b64(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i
 function unb64(str) { const s = atob(str), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
 function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
-const CORE_KEYS = ['god', 'short', 'wtype', 'seed', 't', 'mana', 'worship', 'rank', 'godHP', 'godMax', 'era', 'leadTech', 'wavesRepelled', 'stats', 'nextId', 'colorI', 'firstInv', 'wondersBuilt', 'history', 'legends', 'rivers', 'ended', 'nextRequest', 'div', 'divMax', 'diff', 'relics', 'prophecies', 'answered', 'killedDef', 'doomStage', 'nextPetition', 'minDiv'];
+const CORE_KEYS = ['god', 'short', 'wtype', 'seed', 't', 'mana', 'worship', 'rank', 'godHP', 'godMax', 'era', 'leadTech', 'wavesRepelled', 'stats', 'nextId', 'colorI', 'firstInv', 'wondersBuilt', 'history', 'legends', 'rivers', 'ended', 'nextRequest', 'div', 'divMax', 'diff', 'relics', 'prophecies', 'answered', 'killedDef', 'doomStage', 'nextPetition', 'minDiv', 'rival'];
 function saveGame() {
   if (!W || W.intro > 0 || W.ended) return false;
   try {
@@ -2674,6 +2702,7 @@ function initGL() {
   buildSky(); buildThrone(); buildInstancers(); buildParticles(); buildClouds();
   const rg = new THREE.RingGeometry(.96, 1, 64); rg.rotateX(-Math.PI / 2);
   cursorRing = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: .8, depthWrite: false, toneMapped: false })); cursorRing.visible = false; cursorRing.renderOrder = 5; scene.add(cursorRing);
+  initLiving();
   setQuality(hiQ);
   resize();
 }
@@ -2739,7 +2768,7 @@ function buildTerrain() {
   updateTerrain(0, 0, WW, WH);
   ovlCv = document.createElement('canvas'); ovlCv.width = 1320; ovlCv.height = 900; ovlCtx = ovlCv.getContext('2d');
   ovlTex = new THREE.CanvasTexture(ovlCv); ovlTex.anisotropy = 4; ovlTex.encoding = THREE.sRGBEncoding;
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: ovlTex, roughness: .93, metalness: 0 });
+  const mat = terrainMaterial();
   terrMesh = new THREE.Mesh(terrGeo, mat); terrMesh.receiveShadow = true; terrMesh.castShadow = true;
   scene.add(terrMesh);
   buildWater(); buildTrees();
@@ -2799,21 +2828,6 @@ function buildWater() {
   scene.add(waterMesh);
 }
 let overlayDirty = true;
-function drawOverlay() {
-  const g = ovlCtx, k = ovlCv.width / WW;
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillRect(0, 0, ovlCv.width, ovlCv.height);
-  g.imageSmoothingEnabled = true;
-  g.globalAlpha = .2; g.drawImage(terCv, 0, 0, ovlCv.width, ovlCv.height);
-  g.globalAlpha = .9; g.drawImage(borCv, 0, 0, ovlCv.width, ovlCv.height);
-  g.globalAlpha = 1; g.setTransform(k, 0, 0, k, 0, 0); g.lineCap = 'round';
-  for (const r of W.roads) {
-    const e = Math.min(r.a.tribe.era, r.b.tribe.era);
-    g.strokeStyle = e < 2 ? 'rgba(150,115,80,.8)' : e < 5 ? 'rgba(140,130,118,.9)' : e < 9 ? 'rgba(60,62,70,.95)' : 'rgba(170,200,220,.9)';
-    g.lineWidth = e < 2 ? 1.6 : e < 5 ? 2.2 : 3;
-    g.beginPath(); g.moveTo(r.a.x, r.a.y); g.lineTo(r.b.x, r.b.y); g.stroke();
-  }
-  ovlTex.needsUpdate = true; overlayDirty = false; roadsDirty = false;
-}
 /* trees */
 let treeA, treeB, trees = [];
 function buildTrees() {
@@ -2824,14 +2838,14 @@ function buildTrees() {
     if (h < .455 || h > .7) continue;
     const dense = h > .5 && h < .67 ? .62 : .1;
     if ((hs % 1000) / 1000 > dense) continue;
-    trees.push({ x: jx, y: jy, s: .8 + (hs % 100) / 160, k: h > .6 ? 0 : (hs % 3 === 0 ? 1 : 0), hidden: false });
+    trees.push({ x: jx, y: jy, s: .8 + (hs % 100) / 160, k: h > .6 ? 0 : (hs % 3 === 0 ? 1 : 0), burnt: false });
   }
   const cone = new THREE.ConeGeometry(2.2, 6.5, 6); cone.translate(0, 4.6, 0);
   const ball = new THREE.SphereGeometry(2.6, 7, 5); ball.translate(0, 4.4, 0);
-  const tmat = new THREE.MeshStandardMaterial({ roughness: .9 });
-  treeA = new THREE.InstancedMesh(cone, tmat, trees.length); treeB = new THREE.InstancedMesh(ball, tmat, trees.length);
+  treeMatA = new THREE.MeshStandardMaterial({ roughness: .9 }); treeMatB = new THREE.MeshStandardMaterial({ roughness: .9 });
+  treeA = new THREE.InstancedMesh(cone, treeMatA, trees.length + 3000); treeB = new THREE.InstancedMesh(ball, treeMatB, trees.length + 3000);
   for (const m of [treeA, treeB]) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); }
-  placeTrees();
+  placeTrees(); fuelFromWorld();
 }
 function placeTrees() {
   const grid = new Map(); for (const b of W.buildings) { if (b.dead) continue; const k = ((b.x / 20) | 0) + ',' + ((b.y / 20) | 0); (grid.get(k) || grid.set(k, []).get(k)).push(b); }
@@ -2839,8 +2853,9 @@ function placeTrees() {
   for (const t of trees) {
     let near = false; const cx = (t.x / 20) | 0, cy = (t.y / 20) | 0;
     for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1 && !near; dx++) { const l = grid.get((cx + dx) + ',' + (cy + dy)); if (l) for (const b of l) { const r = b.type === 'wonder' ? 20 : b.type === 'gate' ? 18 : 8; if (d2(b.x, b.y, t.x, t.y) < r * r) { near = true; break; } } }
-    if (near || hAt(t.x, t.y) < SEA + .004) continue;
+    if (near || t.burnt || hAt(t.x, t.y) < SEA + .004) continue;
     const m = t.k ? treeB : treeA, i = t.k ? nb++ : na++;
+    if (i >= m.instanceMatrix.count) continue;
     const ga = groundAlt(t.x, t.y);
     M4.compose(V3.set(X3(t.x), ga - .5, Z3(t.y)), Q.setFromEuler(E.set(0, t.s * 9, 0)), S3.set(t.s, t.s * (t.k ? .9 : 1.15), t.s));
     m.setMatrixAt(i, M4);
@@ -2877,7 +2892,7 @@ function buildInstancers() {
 }
 const hexI = h => parseInt(h.slice(1), 16);
 const C = { stone: 0xcfc6b4, white: 0xefe9df, gold: 0xf2c75c, goldD: 0xb8862a, wood: 0x8a6440, roof: 0xb5573a, brick: 0x9c5a3c, conc: 0xb8b4ac, glass: 0x6f8ca6, steel: 0x9fb6c8, dark: 0x2c3440, rock: 0x6f6a66 };
-function kit(b) {
+function baseKit(b) {
   const P = [], e = b.tribe.era, tc = hexI(b.tribe.color), v = b.v;
   const add = (g, mk, x, y, z, w, h, d, c, rx = 0, ry = 0, rz = 0) => P.push([g, mk, x, y, z, w, h, d, c, rx, ry, rz]);
   const win = (w, h, d, y0, rows, step = 4) => { for (let r = 0; r < rows; r++) { const y = y0 + 1.5 + r * step; if (y > y0 + h - 1.5) break; add('box', 'w', 0, y, d / 2 + .06, w * .8, 1, .12, 0); add('box', 'w', w / 2 + .06, y, 0, .12, 1, d * .8, 0); } };
@@ -2958,7 +2973,7 @@ function rebuildBuildings() {
     if (b.dead) continue;
     const yaw = b.type === 'house' ? (hash(b.id, 3) % 4) * Math.PI / 2 + ((hash(b.id, 5) % 100) / 100 - .5) * .3 : ((hash(b.id, 7) % 100) / 100) * TAU;
     const ga = groundAlt(b.x, b.y), cy = Math.cos(yaw), sy = Math.sin(yaw);
-    for (const [g, mk, x, y, z, w, h, d, c, rx, ry, rz] of kit(b)) {
+    for (const [g, mk, x, y, z, w, h, d, c, rx, ry, rz] of kitPlus(b, yaw)) {
       const I = INST[mk + g]; if (!I || I.n >= CAP[mk][g]) continue;
       M4.compose(V3.set(X3(b.x) + x * cy + z * sy, ga + y - .3, Z3(b.y) - x * sy + z * cy), Q.setFromEuler(E.set(rx, yaw + ry, rz, 'YXZ')), S3.set(w, h, d));
       I.mesh.setMatrixAt(I.n, M4);
@@ -3089,12 +3104,12 @@ function boltGroup(a, b, jag, color) {
 function fxObj(f) {
   const ga = groundAlt(f.x, f.y), P = new THREE.Vector3(X3(f.x), ga, Z3(f.y));
   switch (f.type) {
-    case 'bolt': { sfxLight(P, 0xd8e6ff); return boltGroup(new THREE.Vector3(P.x + 60, 420, P.z - 40), P, true, 0xdde8ff); }
-    case 'beam3': { const a = new THREE.Vector3(X3(f.sx), f.salt, Z3(f.sy)), b = new THREE.Vector3(X3(f.x), f.alt, Z3(f.y)); return boltGroup(a, b, !!f.bolt, f.bolt ? 0xdde8ff : 0xffd66a); }
+    case 'bolt': { lightFlashAt(f.x, f.y, ga + 60, 0xdde6ff, 7); return boltGroup(new THREE.Vector3(P.x + 60, 420, P.z - 40), P, true, 0xdde8ff); }
+    case 'beam3': { const a = new THREE.Vector3(X3(f.sx), f.salt, Z3(f.sy)), b = new THREE.Vector3(X3(f.x), f.alt, Z3(f.y)); return boltGroup(a, b, !!f.bolt, f.col === 'violet' ? 0xb46cff : f.col === 'red' ? 0xff3020 : f.bolt ? 0xdde8ff : 0xffd66a); }
     case 'glow': case 'boom': case 'boom3': {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: f.type === 'glow' ? new THREE.Color(`rgb(${f.col})`) : f.col === 'gold' ? new THREE.Color(0xffd56a) : new THREE.Color(0xffa040), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false }));
       if (f.type === 'boom3') s.position.set(X3(f.x), f.alt, Z3(f.y)); else s.position.copy(P).add(new THREE.Vector3(0, f.type === 'glow' ? 6 : 10, 0));
-      if (f.type !== 'glow') { for (let i = 0; i < 40; i++) emit(s.position.x, s.position.y, s.position.z, R(-1, 1) * f.r, R(-.3, 1.2) * f.r, R(-1, 1) * f.r, R(.4, 1.2), R(4, 10), 1.6, .8, .3, 30); for (let i = 0; i < 14; i++) emit(s.position.x, s.position.y, s.position.z, R(-.5, .5) * f.r, R(.2, .8) * f.r, R(-.5, .5) * f.r, R(1.5, 3), R(10, 22), .25, .22, .2, 0, true); }
+      if (f.type !== 'glow') { lightFlashAt(f.x, f.y, s.position.y + 10, 0xffa050, 4); for (let i = 0; i < 40; i++) emit(s.position.x, s.position.y, s.position.z, R(-1, 1) * f.r, R(-.3, 1.2) * f.r, R(-1, 1) * f.r, R(.4, 1.2), R(4, 10), 1.6, .8, .3, 30); for (let i = 0; i < 14; i++) emit(s.position.x, s.position.y, s.position.z, R(-.5, .5) * f.r, R(.2, .8) * f.r, R(-.5, .5) * f.r, R(1.5, 3), R(10, 22), .25, .22, .2, 0, true); }
       return s;
     }
     case 'ring': { const m = new THREE.Mesh(new THREE.RingGeometry(.9, 1, 64).rotateX(-Math.PI / 2), neonBasic(new THREE.Color(`rgb(${f.col})`))); m.position.copy(P).add(new THREE.Vector3(0, 1.5, 0)); return m; }
@@ -3122,6 +3137,7 @@ function updateFx(rdt) {
       case 'meteor': { const t = Math.min(1, k), P = f.obj.userData.P; f.obj.position.set(P.x - 380 * (1 - t), P.y + 620 * (1 - t), P.z - 260 * (1 - t)); for (let i = 0; i < 4; i++) emit(f.obj.position.x + R(-3, 3), f.obj.position.y + R(-3, 3), f.obj.position.z + R(-3, 3), R(-4, 4), R(-4, 4), R(-4, 4), R(.4, .9), R(8, 16), 1.8, .9, .4); break; }
       case 'missile': { const t = Math.min(1, k), P = f.obj.userData.P, S = f.obj.userData.S; f.obj.position.lerpVectors(S, P, t); f.obj.position.y += Math.sin(t * Math.PI) * 220; emit(f.obj.position.x, f.obj.position.y, f.obj.position.z, R(-2, 2), R(-2, 2), R(-2, 2), 1.2, 6, .4, .4, .4, 0, true); break; }
       case 'mushroom': { const u = f.obj.userData, rise = Math.min(1, k * 2.2), h = 120 * rise, a = 1 - Math.max(0, k - .6) / .4; u.stem.scale.set(10 + rise * 6, h, 10 + rise * 6); u.cap1.position.y = h - 10; u.cap1.scale.set(60 * rise, 34 * rise, 60 * rise); u.core.position.y = h - 4; u.core.scale.set(30 * rise, 16 * rise, 30 * rise); u.core.material.opacity = a * .9; u.mat.opacity = a * .9; break; }
+      case 'breath': { const a = new THREE.Vector3(X3(f.x), ga + f.alt + 6, Z3(f.y)), b = new THREE.Vector3(X3(f.tx), groundAlt(f.tx, f.ty), Z3(f.ty)); for (let i = 0; i < 10; i++) { const t = Math.random(), p2 = a.clone().lerp(b, t); emit(p2.x + R(-3, 3), p2.y + R(-3, 3), p2.z + R(-3, 3), R(-6, 6), R(-2, 6), R(-6, 6), R(.3, .7), 6 + t * 10, 2, .7 + Math.random() * .4, .15); } if (k < .1) lightFlashAt(f.tx, f.ty, 30, 0xff8030, 3); break; }
       case 'rain': if (Math.random() < .9) for (let i = 0; i < 6; i++) { const a = R(0, TAU), r = Math.sqrt(Math.random()) * f.r; emit(X + Math.cos(a) * r, ga + 90, Z + Math.sin(a) * r, 0, -160, 0, .55, 2.2, .5, .7, 1); } if (Math.random() < .2) emit(X + R(-f.r, f.r) * .6, ga + 110, Z + R(-f.r, f.r) * .6, R(-3, 3), 0, R(-3, 3), 3, 70, .55, .58, .65, 0, true); break;
       case 'plague': if (Math.random() < .7) emit(X + R(-f.r, f.r), ga + 4, Z + R(-f.r, f.r), R(-2, 2), R(1, 4), R(-2, 2), 2.5, 22, .35, 1, .3); break;
       case 'kill': if (f.t < rdt * 1.5) for (let i = 0; i < 5; i++) emit(X, ga + 2, Z, R(-6, 6), R(4, 12), R(-6, 6), .6, 3, 1.6, .2, .1, 20); break;
@@ -3295,7 +3311,7 @@ const ptrs = new Map(); let drag = null, pinch = null, mouse = null, hover = nul
 glc.addEventListener('contextmenu', e => e.preventDefault());
 glc.addEventListener('pointerdown', e => {
   auInit(); glc.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (ptrs.size === 1) drag = { x: e.clientX, y: e.clientY, tx: cam.tx, ty: cam.ty, yaw: cam.yaw, moved: false, rot: e.button === 2 };
+  if (ptrs.size === 1) { drag = { x: e.clientX, y: e.clientY, tx: cam.tx, ty: cam.ty, yaw: cam.yaw, moved: false, rot: e.button === 2 }; if (e.button !== 2 && W && !W.intro && ['raise', 'lower', 'forest'].includes(tool)) { drag.paint = true; drag.pt = performance.now(); paintAt(e.clientX, e.clientY); } }
   else if (ptrs.size === 2) { drag = null; const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), td: cam.td, ang: Math.atan2(b.y - a.y, b.x - a.x), yaw: cam.yaw, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, tx: cam.tx, ty: cam.ty }; }
 });
 glc.addEventListener('pointermove', e => {
@@ -3310,7 +3326,7 @@ glc.addEventListener('pointermove', e => {
     const dx = (a.x + b.x) / 2 - pinch.mx, dy = (a.y + b.y) / 2 - pinch.my;
     cam.tx = pinch.tx - (dx * Math.cos(cam.yaw) + dy * Math.sin(cam.yaw)) * wpp; cam.ty = pinch.ty - (-dx * Math.sin(cam.yaw) + dy * Math.cos(cam.yaw)) * wpp * 1.3;
     cam.fly = null; cam.follow = null;
-  } else if (drag) {
+  } else if (drag && drag.paint) { if (performance.now() - drag.pt > 140) { drag.pt = performance.now(); paintAt(e.clientX, e.clientY); } } else if (drag) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 7) { drag.moved = true; cam.fly = null; cam.follow = null; }
     if (drag.moved) {
@@ -3320,11 +3336,7 @@ glc.addEventListener('pointermove', e => {
   }
 });
 glc.addEventListener('pointerup', e => {
-  if (drag && !drag.moved && !drag.rot && ptrs.size === 1 && W && !W.intro) {
-    const ship = pickShip(e.clientX, e.clientY);
-    if (ship && tool !== 'inspect') usePower(tool, ship.x, ship.y, ship);
-    else { const p = pickGround(e.clientX, e.clientY); if (p) usePower(tool, p.x, p.y, null); }
-  }
+  if (drag && !drag.moved && !drag.rot && !drag.paint && ptrs.size === 1 && W && !W.intro) worldClick(e.clientX, e.clientY);
   ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) drag = null;
 });
 glc.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = null; drag = null; });
@@ -3395,6 +3407,17 @@ function drawUI() {
     uctx.beginPath(); uctx.moveTo(p.x - 4, y + 10); uctx.lineTo(p.x, y + 16); uctx.lineTo(p.x + 4, y + 10); uctx.fill();
     uctx.fillStyle = '#1b1420'; uctx.fillText(b.text, p.x, y + .5); uctx.globalAlpha = 1;
   }
+  for (const m of W.monsters) {
+    const o = monObjs.get(m); if (!o) continue;
+    const p = toScreen3(m.x, m.y, o.position.y + MONS[m.kind].size * 1.7); if (!p.vis) continue;
+    uctx.font = '700 12px Cinzel, serif'; const label = `${MONS[m.kind].icon} ${m.name}`, w = Math.max(80, uctx.measureText(label).width + 16);
+    uctx.fillStyle = 'rgba(20,6,6,.8)'; uctx.fillRect(p.x - w / 2, p.y - 24, w, 30);
+    uctx.fillStyle = '#ffb4a0'; uctx.fillText(label, p.x, p.y - 15);
+    uctx.fillStyle = 'rgba(255,255,255,.15)'; uctx.fillRect(p.x - w / 2 + 6, p.y - 4, w - 12, 4); uctx.fillStyle = '#ff5a4a'; uctx.fillRect(p.x - w / 2 + 6, p.y - 4, (w - 12) * Math.max(0, m.hp / m.max), 4);
+  }
+  if (W.avatar && avatarObj) { const p = toScreen3(W.avatar.x, W.avatar.y, avatarObj.position.y + 58); if (p.vis) { uctx.font = '700 12px Cinzel, serif'; uctx.fillStyle = '#ffe7a3'; uctx.shadowColor = '#000'; uctx.shadowBlur = 6; uctx.fillText(`Avatar of ${W.short}`, p.x, p.y); uctx.shadowBlur = 0; } }
+  const rp = toScreen3(RIVAL.x, RIVAL.y, RIVAL.alt - 60);
+  if (rp.vis && W.rival) { uctx.font = '700 13px Cinzel, serif'; uctx.fillStyle = '#c8a8ff'; uctx.shadowColor = '#000'; uctx.shadowBlur = 6; uctx.fillText(`The Hollow One · ${Math.round(W.rival.power)}%`, rp.x, rp.y); uctx.shadowBlur = 0; }
   if (sel && !sel.dead && (sel.faith != null || sel.type)) { const p = toScreen3(sel.x, sel.y, groundAlt(sel.x, sel.y)); if (p.vis) { uctx.strokeStyle = '#fff'; uctx.lineWidth = 1.5; uctx.beginPath(); uctx.ellipse(p.x, p.y, 14, 6, 0, 0, TAU); uctx.stroke(); } }
 }
 
@@ -3402,18 +3425,20 @@ function drawUI() {
 function worldVisible(v) { for (const o of [terrMesh, waterMesh, treeA, treeB]) if (o) o.visible = v; for (const k in INST) INST[k].mesh.visible = v; for (const m of [peopleBody, peopleHead, peopleMark, heroRing, beasts, boatHull, boatSail, planeMesh, satMesh, pillars]) if (m) m.visible = v; clouds.forEach(c => { c.visible = v; }); }
 function worldChanged() {
   for (const [s, o] of shipObjs) scene.remove(o); shipObjs.clear();
+  for (const [m, o] of monObjs) scene.remove(o); monObjs.clear(); for (const [m, o] of stormObjs) scene.remove(o); stormObjs.clear(); if (avatarObj) { scene.remove(avatarObj); avatarObj = null; }
+  FUEL.fill(0); BURN.fill(0); SCORCH.fill(0); burning.clear(); SEASON.idx = seasonAt(W.t).i;
   parts.length = 0; smokes.length = 0;
   buildTerrain(); rebuildBuildings(); worldVisible(true);
 }
 
 /* ---------- main loop ---------- */
-let last = performance.now(), acc = 0, hudT = 0, miniT = 0, panelT = 0, terrT = 0;
+let last = performance.now(), acc = 0, hudT = 0, miniT = 0, panelT = 0, terrT = 0, overlayT = 0;
 function frame(now) {
   const rdt = Math.min(.1, (now - last) / 1000); last = now;
   if (!W) {
     worldVisible(false);
     cam3.position.set(Math.sin(now / 9000) * 600, 900, Math.cos(now / 9000) * 600 + 300); cam3.lookAt(X3(THRONE.x), THRONE.alt, Z3(THRONE.y));
-    updateThrone(rdt); lightWorld(rdt);
+    updateThrone(rdt); updateRival3D(rdt); lightWorld(rdt);
     if (composer) composer.render(); else renderer.render(scene, cam3);
     uctx.setTransform(1, 0, 0, 1, 0, 0); uctx.clearRect(0, 0, uic.width, uic.height);
     requestAnimationFrame(frame); return;
@@ -3434,9 +3459,14 @@ function frame(now) {
   if (terrainDirty) { updateTerrain(terrainDirty.x0, terrainDirty.y0, terrainDirty.x1, terrainDirty.y1); terrainDirty = null; placeTrees(); }
   if ((bldTimer -= rdt) <= 0) { bldTimer = .5; rebuildBuildings(); }
   if ((terrT -= rdt) <= 0 || roadsDirty) { if (terrT <= 0) { terrT = 3; placeTrees(); } drawOverlay(); }
+  if ((W.fuelT = (W.fuelT || 0) - rdt) <= 0) { W.fuelT = 10; fuelFromWorld(); }
   camUpdate(rdt);
   const night = lightWorld(rdt);
-  updateThrone(rdt); updateActors(night); updateFx(rdt); updateShips(); stepParticles(rdt);
+  seasonBlend(rdt); seasonTrees(); directorTick(rdt);
+  if (treesDirty) { treesDirty = false; placeTrees(); }
+  if (overlayDirty && (overlayT -= rdt) <= 0) { overlayT = .5; drawOverlay(); }
+  if (flashL) flashL.intensity *= Math.exp(-rdt * 9);
+  updateThrone(rdt); updateRival3D(rdt); updateMonsters3D(rdt); updateWeather3D(rdt); updateActors(night); updateFx(rdt); updateShips(); stepParticles(rdt);
   for (const f of W.fx) f.t += rdt;
   W.fx = W.fx.filter(f => f.t < f.dur);
   for (const c of clouds) { c.position.x += c.userData.sp * rdt * (SPEEDS[speedIdx] || .3); if (c.position.x > WW) c.position.x = -WW; c.material.opacity = clamp((cam.d - 400) / 1400, 0, .32) * (1 - night * .7); }
@@ -3451,6 +3481,572 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
+
+/* =========================================================================
+   LIVING WORLD: seasons, storms, wildfire, monsters, your avatar, the rival god
+   ========================================================================= */
+const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'], SEASON_LEN = 300;
+const SEASON = { winter: { value: 0 }, autumn: { value: 0 }, idx: 0 };
+function seasonAt(t) { const f = (t / SEASON_LEN) % 4; return { i: Math.floor(f), f: f - Math.floor(f) }; }
+function seasonTick() {
+  const s = seasonAt(W.t);
+  if (s.i !== SEASON.idx) { SEASON.idx = s.i; if (W.t > 5) note(['🌸', '☀️', '🍂', '❄️'][s.i], `<b>${SEASONS[s.i]}</b> comes to the world`, s.i === 3 ? 'violet' : 'leaf'); overlayDirty = true; }
+}
+function seasonBlend(rdt) {
+  const s = seasonAt(W.t), e = x => x * x * (3 - 2 * x);
+  const winter = s.i === 3 ? e(Math.min(1, s.f * 3)) : s.i === 0 ? 1 - e(Math.min(1, s.f * 3)) : 0;
+  const autumn = s.i === 2 ? e(Math.min(1, s.f * 2.5)) : s.i === 3 ? 1 - e(Math.min(1, s.f * 4)) : 0;
+  SEASON.winter.value = lerp(SEASON.winter.value, winter, Math.min(1, rdt * 2));
+  SEASON.autumn.value = lerp(SEASON.autumn.value, autumn, Math.min(1, rdt * 2));
+}
+
+/* ---------- storms ---------- */
+function stormStep(dt) {
+  if (!W.storms) W.storms = [];
+  const s = seasonAt(W.t).i;
+  if (W.storms.length < 3 && Math.random() < dt * (s === 0 || s === 2 ? .02 : s === 3 ? .012 : .008)) {
+    const l = Math.random() < .5;
+    W.storms.push({ x: l ? -80 : WW + 80, y: R(80, WH - 80), vx: (l ? 1 : -1) * R(10, 18), vy: R(-4, 4), r: R(60, 110), until: W.t + R(40, 80), snow: s === 3 });
+  }
+  for (const st of W.storms) {
+    st.x += st.vx * dt; st.y += st.vy * dt;
+    extinguish(st.x, st.y, st.r);
+    if (!st.snow && Math.random() < dt * .25) { const a = R(0, TAU), r = R(0, st.r), x = st.x + Math.cos(a) * r, y = st.y + Math.sin(a) * r; if (x > 0 && y > 0 && x < WW && y < WH) { addFx('bolt', x, y, .35); sfx('thunder'); if (Math.random() < .08) igniteAt(x, y, 0); } }
+  }
+  W.storms = W.storms.filter(st => st.until > W.t && st.x > -200 && st.x < WW + 200);
+}
+
+/* ---------- wildfire ---------- */
+const FC = 10, FW = Math.ceil(WW / FC), FH = Math.ceil(WH / FC);
+let FUEL = new Float32Array(FW * FH), BURN = new Float32Array(FW * FH), SCORCH = new Float32Array(FW * FH);
+const burning = new Set();
+function fuelFromWorld() {
+  FUEL.fill(0);
+  for (const t of trees) if (!t.burnt) { const i = ((t.y / FC) | 0) * FW + ((t.x / FC) | 0); FUEL[i] += 1; }
+  for (const b of W.buildings) if (!b.dead && !b.ruin && b.type !== 'gate') { const i = ((b.y / FC) | 0) * FW + ((b.x / FC) | 0); if (i >= 0 && i < FUEL.length) FUEL[i] += 1.5; }
+}
+function igniteAt(x, y, r) {
+  const cx0 = Math.max(0, ((x - r) / FC) | 0), cx1 = Math.min(FW - 1, ((x + r) / FC) | 0), cy0 = Math.max(0, ((y - r) / FC) | 0), cy1 = Math.min(FH - 1, ((y + r) / FC) | 0);
+  let n = 0;
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) { const i = cy * FW + cx; if (FUEL[i] > 0 && BURN[i] <= 0 && SCORCH[i] <= 0 && d2(cx * FC + 5, cy * FC + 5, x, y) <= (r + 8) * (r + 8)) { BURN[i] = R(8, 14); burning.add(i); n++; } }
+  return n;
+}
+function extinguish(x, y, r) {
+  for (const i of [...burning]) { const cx = i % FW, cy = (i / FW) | 0; if (d2(cx * FC + 5, cy * FC + 5, x, y) < r * r) { BURN[i] = 0; burning.delete(i); SCORCH[i] = 60; } }
+}
+function fireStep(dt) {
+  if (!burning.size && Math.random() > .02) { for (let k = 0; k < 40; k++) { const i = RI(0, SCORCH.length - 1); if (SCORCH[i] > 0) { SCORCH[i] -= dt * 40; if (SCORCH[i] <= 0) { regrow(i); overlayDirty = true; } } } return; }
+  const s = seasonAt(W.t).i, dry = s === 1 ? 1.6 : s === 2 ? 1.1 : s === 3 ? .35 : .7;
+  for (const i of [...burning]) {
+    BURN[i] -= dt;
+    const cx = i % FW, cy = (i / FW) | 0, x = cx * FC + 5, y = cy * FC + 5;
+    if (Math.random() < dt * .55 * dry) {
+      const nx = cx + RI(-1, 1), ny = cy + RI(-1, 1);
+      if (nx >= 0 && ny >= 0 && nx < FW && ny < FH) { const j = ny * FW + nx; if (FUEL[j] > 0 && BURN[j] <= 0 && SCORCH[j] <= 0 && Math.random() < FUEL[j] / (FUEL[j] + 1.5)) { BURN[j] = R(8, 14); burning.add(j); } }
+    }
+    if (Math.random() < dt * .6) { for (const a of W.agents) if (!a.dead && Math.abs(a.x - x) < 6 && Math.abs(a.y - y) < 6 && Math.random() < .5) { die(a, 'disaster'); addFx('kill', a.x, a.y, 1); } }
+    if (Math.random() < dt * .25) { const b = W.buildings.find(o => !o.dead && !o.ruin && o.type !== 'gate' && o.type !== 'wonder' && Math.abs(o.x - x) < 6 && Math.abs(o.y - y) < 6); if (b) { b.ruin = true; b.ruinT = W.t; } }
+    if (BURN[i] <= 0) {
+      burning.delete(i); SCORCH[i] = R(150, 260); FUEL[i] = 0; overlayDirty = true;
+      for (const t of trees) if (!t.burnt && ((t.x / FC) | 0) === cx && ((t.y / FC) | 0) === cy) t.burnt = true;
+      treesDirty = true;
+    }
+  }
+  W.recentDisaster = burning.size ? W.t : W.recentDisaster;
+  if (burning.size > 25 && !W.bigFire) { W.bigFire = W.t; const i = [...burning][0]; log('A great wildfire is sweeping across the land.', 'red'); note('🔥', '<b>Wildfire</b> is spreading. Bless or rain can stop it.', 'red', (i % FW) * FC, ((i / FW) | 0) * FC); }
+  if (!burning.size) W.bigFire = 0;
+  cleanup();
+}
+function regrow(i) {
+  const cx = i % FW, cy = (i / FW) | 0;
+  for (const t of trees) if (t.burnt && ((t.x / FC) | 0) === cx && ((t.y / FC) | 0) === cy) { t.burnt = false; FUEL[i] += 1; }
+  treesDirty = true;
+}
+
+/* ---------- monsters ---------- */
+const MONS = {
+  dragon:   { n: 'Dragon',     hp: 45, sp: 38, alt: 70, eras: [1, 6], icon: '🐉', size: 22, names: ['Vorthak the Burning', 'Ysskar Ashwing', 'Morrow the Red', 'Kalgrith Skyfire'] },
+  kraken:   { n: 'Kraken',     hp: 35, sp: 14, alt: 0,  eras: [1, 9], icon: '🐙', size: 26, sea: true, names: ['the Deep Mother', 'Ulthoa of the Trench', 'the Drowner'] },
+  behemoth: { n: 'Behemoth',   hp: 70, sp: 8,  alt: 0,  eras: [0, 4], icon: '🦣', size: 30, names: ['Grumvald the Mountain', 'Old Stonehide', 'Thaurak'] },
+  titan:    { n: 'Iron Titan', hp: 90, sp: 11, alt: 0,  eras: [7, 9], icon: '🤖', size: 34, names: ['Unit Zero', 'the Godbreaker Mk II', 'IRONSIDE'] },
+};
+function spawnMonster(kind, why) {
+  const M = MONS[kind]; let x, y;
+  for (let k = 0; k < 200; k++) {
+    if (M.sea) { const b = pick(W.buildings.filter(o => !o.ruin && o.coast)); const p = b ? waterNear(b.x, b.y, 60) : null; if (p && hAt(p.x, p.y) < SEA - .02) { x = p.x; y = p.y; break; } }
+    else if (kind === 'dragon') { const l = Math.random() < .5; x = l ? -40 : WW + 40; y = R(80, WH - 80); break; }
+    else { x = R(40, WW - 40); y = R(40, WH - 40); if (walk(x, y) && !W.buildings.some(b => d2(b.x, b.y, x, y) < 120 * 120)) break; }
+  }
+  if (x == null) return null;
+  const m = { kind, name: pick(M.names), x, y, alt: M.alt, hp: M.hp * (1 + W.era * .08), max: M.hp * (1 + W.era * .08), tx: x, ty: y, cd: 3, t: 0, life: kind === 'dragon' ? 160 : 400, target: null, id: W.nextId++, hurtT: 0 };
+  W.monsters.push(m);
+  const where = tribeAt(x, y, 400);
+  banner(`${M.icon} ${m.name.toUpperCase()}`, why || `A ${M.n.toLowerCase()} has come${where ? ' near the ' + where.name : ''}. Strike it down.`, 'red');
+  log(`${why || 'A monster stirs.'} ${m.name}, a ${M.n.toLowerCase()}, ${M.sea ? 'rises from the sea' : kind === 'dragon' ? 'is flying toward the cities' : 'is marching on the towns'}.`, 'red big');
+  note(M.icon, `<b>${esc(m.name)}</b> the ${M.n} is attacking`, 'red', x, y);
+  sfx('roar'); if (director) flyTo(x, y, 2.4);
+  return m;
+}
+function monsterSpawnTick() {
+  if (W.siege || W.t < 120 || W.monsters.length >= 2) return;
+  const chance = .0035 * (1 + (W.rival ? W.rival.power / 60 : 0)) * DIFF[W.diff].blas;
+  if (Math.random() > chance) return;
+  const kinds = Object.keys(MONS).filter(k => W.era >= MONS[k].eras[0] && W.era <= MONS[k].eras[1] && k !== 'titan');
+  if (kinds.length) spawnMonster(pick(kinds));
+}
+function monsterTarget(m) {
+  if (m.kind === 'titan') { const t = W.buildings.filter(b => !b.ruin && (b.type === 'temple' || (b.type === 'wonder' && WONDERS.faithful.some(w => w[0] === b.kind)))); return t.length ? t.sort((a, b) => d2(a.x, a.y, m.x, m.y) - d2(b.x, b.y, m.x, m.y))[Math.min(t.length - 1, RI(0, 2))] : null; }
+  const bs = W.buildings.filter(b => !b.ruin && b.type !== 'gate' && (!MONS[m.kind].sea || b.coast));
+  if (!bs.length) return null;
+  bs.sort((a, b) => d2(a.x, a.y, m.x, m.y) - d2(b.x, b.y, m.x, m.y));
+  return bs[Math.min(bs.length - 1, RI(0, 6))];
+}
+function monsterStep(dt) {
+  for (const m of W.monsters) {
+    const M = MONS[m.kind]; m.t += dt; m.hurtT = Math.max(0, m.hurtT - dt);
+    if (!m.target || m.target.dead || m.target.ruin) m.target = monsterTarget(m);
+    if (m.t > m.life && m.kind === 'dragon') { m.leaving = true; }
+    let tx = m.target ? m.target.x : m.x, ty = m.target ? m.target.y : m.y;
+    if (m.leaving) { tx = m.x < WW / 2 ? -200 : WW + 200; ty = m.y; }
+    if (M.sea) { const p = waterNear(tx, ty, 40); if (p) { tx = p.x; ty = p.y; } }
+    const dx = tx - m.x, dy = ty - m.y, d = Math.hypot(dx, dy);
+    m.moving = d > (M.sea ? 6 : 14);
+    if (m.moving) {
+      const nx = m.x + dx / d * M.sp * dt, ny = m.y + dy / d * M.sp * dt;
+      if (M.sea ? isWater(nx, ny) : (m.kind === 'dragon' || walk(nx, ny) || hAt(nx, ny) >= SNOW)) { m.x = nx; m.y = ny; } else { m.target = monsterTarget(m); m.x += R(-2, 2); m.y += R(-2, 2); }
+      m.ang = Math.atan2(dy, dx);
+    }
+    if (m.leaving && (m.x < -150 || m.x > WW + 150)) { m.gone = true; log(`${m.name} flew away over the sea. It will be back.`, 'dark'); continue; }
+    // people run
+    if (Math.random() < dt * 2) for (const a of W.agents) if (!a.dead && a.state !== 'fight' && d2(a.x, a.y, m.x, m.y) < 60 * 60) { const ang = Math.atan2(a.y - m.y, a.x - m.x); setTarget(a, a.x + Math.cos(ang) * 30, a.y + Math.sin(ang) * 30); a.timer = 2; if (Math.random() < .04) say(a, pick([`${M.n}!`, 'Run!', `${W.short}, save us!`, 'It is coming!'])); }
+    // attack
+    m.cd -= dt;
+    const near = m.target && d2(m.target.x, m.target.y, m.x, m.y) < (M.sea ? 45 : 30) ** 2;
+    if (near && m.cd <= 0 && !m.leaving) {
+      m.cd = m.kind === 'dragon' ? 3.5 : m.kind === 'kraken' ? 4 : 2.6;
+      const t = m.target;
+      if (m.kind === 'dragon') { addFx('breath', m.x, m.y, 1.4, 0, '', { tx: t.x, ty: t.y, alt: m.alt }); igniteAt(t.x, t.y, 14); killIn(t.x, t.y, 12, .4, 'disaster'); sfx('roar'); }
+      else if (m.kind === 'kraken') { addFx('ring', m.x, m.y, 1, 30, '160,220,255'); wreckIn(t.x, t.y, 14, .7); killIn(t.x, t.y, 14, .5, 'disaster'); W.boats = W.boats.filter(b => d2(b.x, b.y, m.x, m.y) > 60 * 60); sfx('kraken'); }
+      else if (m.kind === 'behemoth') { addFx('ring', m.x, m.y, 1, 40, '170,140,100'); wreckIn(m.x, m.y, 18, .6); killIn(m.x, m.y, 18, .5, 'disaster'); shake = Math.max(shake, 6); sfx('rumble'); }
+      else { addFx('beam3', t.x, t.y, .4, 0, '', { alt: groundAlt(t.x, t.y) + 4, sx: m.x, sy: m.y, salt: groundAlt(m.x, m.y) + 55, col: 'red' }); wreckIn(t.x, t.y, 12, .9); killIn(t.x, t.y, 12, .5, 'disaster'); igniteAt(t.x, t.y, 8); sfx('laser'); }
+      W.recentDisaster = W.t;
+      if (t.type === 'temple' && t.dead) hurt(3);
+    }
+    // brave mortals fight back
+    if (Math.random() < dt) { const g = W.agents.filter(a => a.hero && (a.hero.kind === 'general' || a.hero.kind === 'ruler') && d2(a.x, a.y, m.x, m.y) < 50 * 50); if (g.length) damageMonster(m, .6 * g.length, null); }
+  }
+  W.monsters = W.monsters.filter(m => !m.gone && m.hp > 0);
+}
+function damageMonster(m, dmg, by) {
+  if (m.hp <= 0) return;
+  m.hp -= dmg; m.hurtT = .3;
+  if (m.hp <= 0) {
+    const M = MONS[m.kind];
+    addFx('boom', m.x, m.y, 1.4, 50); addFx('debris', m.x, m.y, 2, 24); sfx('boom'); shake = 14;
+    for (const a of W.agents) if (d2(a.x, a.y, m.x, m.y) < 180 * 180) a.faith = clamp(a.faith + (a.faith >= .5 ? .15 : .1), 0, 1);
+    W.mana = Math.min(RANKS[W.rank].max, W.mana + 80); W.worship += 120; W.div = Math.min(W.divMax, W.div + 10);
+    W.stats.slain = (W.stats.slain || 0) + 1;
+    if (W.rival) W.rival.power = Math.max(0, W.rival.power - 8);
+    banner(`${M.icon} ${m.name.toUpperCase()} IS SLAIN`, by === 'avatar' ? 'Your avatar stands over the corpse. The world cheers your name.' : 'Your wrath saved the mortals. +80 faith, +10 divinity.');
+    log(`${m.name} the ${M.n} was slain ${by === 'avatar' ? 'by your avatar' : by === 'mortal' ? 'by mortal heroes' : 'by your hand'}. Songs will be sung about this day.`, 'gold big');
+    note('⚔️', `<b>${esc(m.name)}</b> is slain`, '', m.x, m.y);
+    sfx('fanfare');
+  }
+}
+function hitMonsters(x, y, r, dmg, groundOnly) { for (const m of W.monsters) if ((!groundOnly || m.kind !== 'dragon') && d2(m.x, m.y, x, y) < (r + MONS[m.kind].size * .5) ** 2) damageMonster(m, dmg); }
+
+/* ---------- your avatar ---------- */
+function avatarStep(dt) {
+  const A = W.avatar; if (!A) return;
+  A.t += dt;
+  W.mana -= dt * 1.4;
+  if (W.mana <= 0) { W.mana = 0; dismissAvatar('Your faith ran dry, and your avatar faded into light.'); return; }
+  if (A.target && (A.target.hp <= 0 || A.target.gone)) A.target = null;
+  const tx = A.target ? A.target.x : A.tx, ty = A.target ? A.target.y : A.ty;
+  const dx = tx - A.x, dy = ty - A.y, d = Math.hypot(dx, dy);
+  A.moving = d > 10;
+  if (A.moving) { A.x += dx / d * 24 * dt; A.y += dy / d * 24 * dt; A.ang = Math.atan2(dy, dx); }
+  // aura of awe
+  if (Math.random() < dt * 2) for (const a of W.agents) if (!a.dead && d2(a.x, a.y, A.x, A.y) < 70 * 70) {
+    a.sick = 0;
+    if (a.faith >= .5) { a.faith = clamp(a.faith + .03, 0, 1); if (a.state !== 'fight' && Math.random() < .3) { a.state = 'pray'; a.timer = 3; } }
+    else if (Math.random() < .05) { a.faith = R(.55, .8); W.stats.converted++; say(a, pick(['It is real…', 'Forgive me!', 'A god walks among us!'])); }
+  }
+  // fight monsters in reach
+  for (const m of W.monsters) if (d2(m.x, m.y, A.x, A.y) < 50 * 50) { damageMonster(m, dt * 9, 'avatar'); if (Math.random() < dt * 4) addFx('spark', m.x, m.y, 1); A.fighting = true; }
+  // stomp the godless
+  A.cd = (A.cd || 0) - dt;
+  if (A.stomp && A.cd <= 0 && !A.moving) {
+    A.cd = 1.6;
+    const b = W.buildings.find(o => !o.dead && !o.ruin && o.type !== 'gate' && o.tribe.stance === 'defiant' && d2(o.x, o.y, A.x, A.y) < 30 * 30);
+    if (b) { b.dead = true; addFx('ring', b.x, b.y, .8, 26, '255,220,140'); addFx('debris', b.x, b.y, 1.4, 10); shake = Math.max(shake, 5); sfx('rumble'); cleanup(); }
+    else A.stomp = false;
+  }
+  if (W.project.gate && d2(W.project.gate.x, W.project.gate.y, A.x, A.y) < 30 * 30 && Math.random() < dt * .6 && !W.siege) damageGate(4, 'Your avatar tears at the Heaven Gate!');
+}
+function summonAvatar(x, y) {
+  W.avatar = { x, y, tx: x, ty: y, t: 0, ang: 0, stomp: false };
+  addFx('beam', x, y, 3); addFx('glow', x, y, 2, 80, '255,213,74'); flash(.4); sfx('choir'); shake = 10;
+  banner('YOUR AVATAR DESCENDS', 'Click the world to command it. It costs 1.4 faith every second.', 'violet');
+  log(`${W.god} took a body of gold and walked among the mortals.`, 'gold big');
+  W.agents.forEach(a => { if (d2(a.x, a.y, x, y) < 150 * 150) a.faith = clamp(a.faith + .1, 0, 1); });
+}
+function dismissAvatar(msg) { if (!W.avatar) return; addFx('beam', W.avatar.x, W.avatar.y, 2); log(msg || 'Your avatar returned to the heavens.', 'gold'); W.avatar = null; refreshTools(); }
+function commandAvatar(x, y, mon) {
+  const A = W.avatar;
+  if (mon) { A.target = mon; toast(`Your avatar charges at ${mon.name}.`); return; }
+  A.target = null; A.tx = x; A.ty = y;
+  const b = W.buildings.find(o => !o.ruin && o.tribe.stance === 'defiant' && d2(o.x, o.y, x, y) < 30 * 30);
+  A.stomp = !!b;
+  addFx('ring', x, y, .8, 20, '255,230,140');
+  if (b) toast('Your avatar marches on the godless town.');
+}
+
+/* ---------- the rival god ---------- */
+const RIVAL_QUOTES = ['They will forget you. They always do.', 'Your light is dimming, little god.', 'I was here before you. I will be here after.', 'Every doubt is a prayer to me.', 'Look how they suffer under your watch.'];
+function rivalTick() {
+  if (!W.rival) W.rival = { power: 8, next: 150 };
+  const R2 = W.rival, total = W.agents.length || 1, bel = W.agents.filter(a => a.faith >= .5).length / total;
+  R2.power = clamp(R2.power + (.62 - bel) * .12 + W.doomStage * .012 + (W.monsters.length ? .02 : 0), 0, 100);
+  if (W.t < R2.next || W.siege) return;
+  R2.next = W.t + R(70, 120) * (1.3 - R2.power / 130) * DIFF[W.diff].every;
+  const p = R2.power, roll = Math.random() * (40 + p);
+  const faithful = W.tribes.filter(t => t.alive && t.stance === 'faithful'), alive = W.tribes.filter(t => t.alive);
+  const q = pick(RIVAL_QUOTES);
+  if (roll < 25 && alive.length) {
+    const t = pick(alive); W.agents.forEach(a => { if (a.tribe === t) a.faith = clamp(a.faith - .08, 0, 1); });
+    rivalBeam(t.mx, t.my); log(`The Hollow One whispered doubt into the dreams of the ${t.name}. "${q}"`, 'violet'); note('🌑', `The Hollow One poisons the dreams of the <b>${esc(t.name)}</b>`, 'violet', t.mx, t.my);
+  } else if (roll < 45 && faithful.length) {
+    const t = pick(faithful), vs = W.agents.filter(a => a.tribe === t); for (let i = 0; i < 6 && vs.length; i++) infect(pick(vs));
+    rivalBeam(t.mx, t.my); addFx('plague', t.mx, t.my, 4, 45); log(`The Hollow One cursed the ${t.name} with a black fever.`, 'violet'); note('🌑', `A curse falls on the <b>${esc(t.name)}</b>`, 'violet', t.mx, t.my);
+  } else if (roll < 62) {
+    const tm = pick(W.buildings.filter(b => b.type === 'temple' && !b.ruin));
+    if (tm) { rivalBeam(tm.x, tm.y); tm.dead = true; igniteAt(tm.x, tm.y, 10); addFx('boom', tm.x, tm.y, 1, 30); hurt(4); cleanup(); log(`A shadow bolt from the Hollow One shattered a temple of the ${tm.tribe.name}. "${q}"`, 'violet big'); note('🌑', 'The Hollow One destroyed one of your temples', 'violet', tm.x, tm.y); sfx('thunder'); }
+  } else if (roll < 75) {
+    const pr = heroesOf(['prophet', 'saint'])[0];
+    if (pr) { rivalBeam(pr.x, pr.y); const old = heroName(pr); pr.hero.kind = 'heretic'; pr.hero.leg.kind = 'heretic'; pr.hero.leg.ep = 'the Fallen'; pr.faith = .05; pr.hero.leg.deeds.push('was corrupted by the Hollow One'); log(`The Hollow One corrupted ${old}. They now preach that you are a lie.`, 'violet big'); note('🌑', `<b>${esc(old)}</b> has fallen to the Hollow One`, 'violet', pr.x, pr.y); }
+  } else {
+    const kinds = Object.keys(MONS).filter(k => W.era >= MONS[k].eras[0] && W.era <= MONS[k].eras[1] && k !== 'titan');
+    if (kinds.length && W.monsters.length < 2) spawnMonster(pick(kinds), 'The Hollow One opened a door in the world.');
+  }
+  if (Math.random() < .5) banner('THE HOLLOW ONE STIRS', `“${q}”`, 'violet');
+  sfx('dark');
+}
+function rivalBeam(x, y) { addFx('beam3', x, y, .7, 0, '', { alt: groundAlt(x, y), sx: RIVAL.x, sy: RIVAL.y, salt: RIVAL.alt, col: 'violet', bolt: 1 }); }
+const RIVAL = { x: WW / 2, y: WH * 1.02, alt: 300 };
+
+/* ---------- terraforming ---------- */
+function terraform(kind, x, y) {
+  if (kind === 'forest') {
+    let n = 0;
+    for (let i = 0; i < 18; i++) { const a = R(0, TAU), r = Math.sqrt(Math.random()) * 26, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r, h = hAt(px, py); if (h < SEA + .01 || h > .72 || W.buildings.some(b => d2(b.x, b.y, px, py) < 64)) continue; trees.push({ x: px, y: py, s: R(.8, 1.3), k: Math.random() < .5 ? 1 : 0, burnt: false }); n++; const ci = ((py / FC) | 0) * FW + ((px / FC) | 0); FUEL[ci] += 1; }
+    if (n) { treesDirty = true; addFx('glow', x, y, .8, 30, '120,230,120'); }
+    return;
+  }
+  const r = 26, amt = kind === 'raise' ? .028 : -.028;
+  const tx0 = Math.floor((x - r) / TS), tx1 = Math.ceil((x + r) / TS), ty0 = Math.floor((y - r) / TS), ty1 = Math.ceil((y + r) / TS);
+  for (let ty = Math.max(0, ty0); ty <= Math.min(TH - 1, ty1); ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(TW - 1, tx1); tx++) {
+    const dd = Math.hypot(tx * TS + 3 - x, ty * TS + 3 - y) / r;
+    if (dd < 1) H[ty * TW + tx] = clamp(H[ty * TW + tx] + amt * Math.cos(dd * Math.PI / 2) ** 2, .05, .9);
+  }
+  renderTerrain(x - r - 12, y - r - 12, x + r + 12, y + r + 12); markTerrain(x - r - 12, y - r - 12, x + r + 12, y + r + 12);
+  for (const b of W.buildings) if (!b.dead && d2(b.x, b.y, x, y) < (r + 4) ** 2 && hAt(b.x, b.y) < SEA) { b.dead = true; addFx('ring', b.x, b.y, .8, 12, '160,220,255'); }
+  for (const t of trees) if (!t.burnt && d2(t.x, t.y, x, y) < (r + 4) ** 2 && (hAt(t.x, t.y) < SEA + .004 || hAt(t.x, t.y) > .76)) t.burnt = true;
+  cleanup(); treesDirty = true;
+  if (Math.random() < .25) addFx('dust', x + R(-10, 10), y + R(-10, 10), 1.4);
+}
+
+/* ---------- once a second ---------- */
+function extraTick() {
+  seasonTick(); rivalTick(); monsterSpawnTick();
+  for (const b of W.buildings) if (!b.dead && b.type !== 'gate' && hAt(b.x, b.y) < SEA) b.dead = true;
+  if (W.era >= 7 && !W.siege && !W.monsters.some(m => m.kind === 'titan') && Math.random() < .004 * DIFF[W.diff].blas && W.tribes.some(t => t.alive && t.stance === 'defiant')) {
+    const t = pick(W.tribes.filter(t => t.alive && t.stance === 'defiant'));
+    const m = spawnMonster('titan', `The ${t.name} built a war machine to destroy your temples.`); if (m) { m.x = t.mx; m.y = t.my; }
+  }
+}
+let director = false;
+
+/* =========================================================================
+   LIVING WORLD: rendering
+   ========================================================================= */
+let flashL, treeMatA, treeMatB, treesDirty = false, rivalGroup, rivalIris, avatarObj = null;
+const monObjs = new Map(), stormObjs = new Map();
+function initLiving() {
+  flashL = new THREE.PointLight(0xdde6ff, 0, 700, 2); scene.add(flashL);
+  buildRival();
+}
+function lightFlashAt(x, y, alt, color, power) { if (!flashL) return; flashL.position.set(X3(x), alt, Z3(y)); flashL.color.set(color); flashL.intensity = Math.max(flashL.intensity, power); }
+
+/* terrain: overlay mixed in properly, seasons painted in the shader */
+function terrainMaterial() {
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: ovlTex, roughness: .93, metalness: 0 });
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uWinter = SEASON.winter; sh.uniforms.uAutumn = SEASON.autumn;
+    sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'uniform float uWinter;\nuniform float uAutumn;\nvarying vec3 vWP;\n' + sh.fragmentShader
+      .replace('#include <map_fragment>', '')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+  {
+    vec3 c = diffuseColor.rgb;
+    float green = clamp((c.g - max(c.r, c.b)) * 7.0, 0.0, 1.0);
+    c = mix(c, vec3(c.g * 1.3, c.g * .62, c.g * .16), green * uAutumn * .85);
+    float n = fract(sin(dot(floor(vWP.xz * .45), vec2(12.9898, 78.233))) * 43758.5453);
+    float snow = uWinter * smoothstep(2.7, 6.0, vWP.y) * (.62 + .38 * n);
+    c = mix(c, vec3(.84, .87, .92), clamp(snow, 0.0, .92));
+    vec4 ov = mapTexelToLinear(texture2D(map, vUv));
+    c = mix(c, ov.rgb, ov.a);
+    diffuseColor.rgb = c;
+  }`);
+  };
+  return mat;
+}
+const FIELD_COL = [['#78a64a', '#94bb55', '#6a8e3c'], ['#d6bb55', '#c6a23e', '#e1cc70'], ['#b7884a', '#a5723a', '#c49752'], ['#dfe3e8', '#d5dae0', '#c9cfd6']];
+function drawOverlay() {
+  const g = ovlCtx, k = ovlCv.width / WW;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, ovlCv.width, ovlCv.height);
+  g.imageSmoothingEnabled = true;
+  g.globalAlpha = .18; g.drawImage(terCv, 0, 0, ovlCv.width, ovlCv.height);
+  g.globalAlpha = .85; g.drawImage(borCv, 0, 0, ovlCv.width, ovlCv.height);
+  g.globalAlpha = 1; g.setTransform(k, 0, 0, k, 0, 0); g.lineCap = 'round';
+  // farm fields around the villages
+  const FCOL = FIELD_COL[SEASON.idx];
+  for (const b of W.buildings) {
+    if (b.dead || b.ruin || b.type !== 'house' || b.capital || b.tribe.era > 6) continue;
+    const hs = hash(b.id, 11); if (hs % 10 > 6) continue;
+    for (let f = 0; f < 1 + (hs % 2); f++) {
+      const ang = ((hs >> (f * 4)) % 628) / 100, dist = 10 + (hs >> 6) % 7, fx = b.x + Math.cos(ang) * dist, fy = b.y + Math.sin(ang) * dist;
+      const h = hAt(fx, fy); if (h < SEA + .004 || h > .6) continue;
+      const w = 7 + (hs >> 9) % 5, hh = 5 + (hs >> 12) % 4;
+      g.save(); g.translate(fx, fy); g.rotate((hs % 4) * Math.PI / 2 + ((hs >> 3) % 20 - 10) / 60);
+      g.globalAlpha = .88; g.fillStyle = FCOL[(hs + f) % 3]; g.fillRect(-w / 2, -hh / 2, w, hh);
+      g.globalAlpha = .4; g.strokeStyle = SEASON.idx === 3 ? '#b9c0c8' : '#5a4422'; g.lineWidth = .3;
+      for (let i = -w / 2 + .8; i < w / 2; i += 1) { g.beginPath(); g.moveTo(i, -hh / 2); g.lineTo(i, hh / 2); g.stroke(); }
+      g.restore();
+    }
+  }
+  // roads
+  g.globalAlpha = 1;
+  for (const r of W.roads) {
+    const e = Math.min(r.a.tribe.era, r.b.tribe.era);
+    g.strokeStyle = e < 2 ? 'rgba(124,96,64,.85)' : e < 5 ? 'rgba(128,120,108,.92)' : e < 9 ? 'rgba(44,46,52,.96)' : 'rgba(170,205,225,.92)';
+    g.lineWidth = e < 2 ? 1.4 : e < 5 ? 2 : 2.8;
+    g.beginPath(); g.moveTo(r.a.x, r.a.y); g.lineTo(r.b.x, r.b.y); g.stroke();
+    if (e >= 5 && e < 9) { g.strokeStyle = 'rgba(230,200,90,.7)'; g.lineWidth = .25; g.setLineDash([1.6, 1.6]); g.stroke(); g.setLineDash([]); }
+  }
+  // scorched earth and live fire
+  for (let i = 0; i < SCORCH.length; i++) {
+    if (SCORCH[i] > 0) { g.fillStyle = `rgba(30,24,20,${Math.min(.8, SCORCH[i] / 140)})`; g.beginPath(); g.arc((i % FW) * FC + 5, ((i / FW) | 0) * FC + 5, 7.5, 0, TAU); g.fill(); }
+  }
+  for (const i of burning) { g.fillStyle = 'rgba(255,110,30,.8)'; g.beginPath(); g.arc((i % FW) * FC + 5, ((i / FW) | 0) * FC + 5, 6, 0, TAU); g.fill(); }
+  ovlTex.needsUpdate = true; overlayDirty = false; roadsDirty = false;
+}
+
+/* extra architecture */
+function kitPlus(b, yaw) {
+  const P = baseKit(b), e = b.tribe.era, hs = hash(b.id, 21);
+  const add = (g, mk, x, y, z, w, h, d, c, rx = 0, ry = 0, rz = 0) => P.push([g, mk, x, y, z, w, h, d, c, rx, ry, rz]);
+  if (b.ruin || b.type === 'gate') return P;
+  if (b.capital) {
+    if (e >= 3 && e <= 4) {
+      const R = 26;
+      for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, a2 = (i + .5) / 12 * TAU; add('box', 'm', Math.cos(a2) * R, 0, Math.sin(a2) * R, 13.5, 5, 1.8, 0xb8b09e, 0, -a2 + Math.PI / 2); if (i % 2 === 0) { add('cyl', 'm', Math.cos(a) * R, 0, Math.sin(a) * R, 4, 8, 4, 0xc9c1ae); add('cone', 'm', Math.cos(a) * R, 8, Math.sin(a) * R, 4.6, 4, 4.6, hexI(b.tribe.color)); } }
+    }
+    if (e >= 2 && b.tribe.stance === 'faithful') { add('box', 'm', 13, 0, -12, 4, 2.5, 4, 0xcfc6b4); add('cyl', 'm', 13, 2.5, -12, 1.6, 6, 1.6, C.gold); add('sph', 'm', 13, 8.5, -12, 1.8, 1.8, 1.8, C.gold); add('box', 'm', 11.6, 6.5, -12, .5, 4, .5, C.gold, 0, 0, .7); add('box', 'm', 14.4, 6.5, -12, .5, 4, .5, C.gold, 0, 0, -.7); }
+    if (e >= 1 && e <= 6) for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + .4; add('box', 'm', Math.cos(a) * 16, 0, Math.sin(a) * 16, 3, 2.2, 2, [0x9c6a3a, 0x7a5a8a, 0x3a7a5a, 0xa04a3a][i]); add('pyr', 'm', Math.cos(a) * 16, 2.2, Math.sin(a) * 16, 3.6, 1.6, 2.6, 0xe8dcc0); }
+  }
+  if (b.type === 'house') {
+    if (e >= 1 && e <= 3 && hs % 4 === 0) { for (const [x, z, w, d] of [[0, 6, 12, .3], [0, -6, 12, .3], [6, 0, .3, 12], [-6, 0, .3, 12]]) add('box', 'm', x, 0, z, w, 1.2, d, 0x7a5a3a); }
+    if (e >= 5 && hs % 3 === 0) { add('cyl', 'm', 5.5, 0, 5.5, .3, 6, .3, 0x333333); add('box', 'w', 5.5, 6, 5.5, .9, .5, .9, 0); }
+    if (e >= 2 && hs % 2 === 0 && b.coast) {
+      for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; if (isWater(b.x + Math.cos(a) * 14, b.y + Math.sin(a) * 14)) { const dx = Math.cos(a), dz = Math.sin(a), cy = Math.cos(yaw), sy = Math.sin(yaw); const lx = dx * cy - dz * sy, lz = dx * sy + dz * cy; for (let s = 6; s <= 16; s += 3.5) add('box', 'm', lx * s, -.4, lz * s, 3.2, .7, 3.2, 0x8a6a48, 0, Math.atan2(lx, lz)); if (e >= 5) add('cyl', 'm', lx * 16, 0, lz * 16, 1.2, 6, 1.2, 0xc24a3a); break; } }
+    }
+    if (e <= 4 && hs % 5 === 0) add('cyl', 'm', -5, 0, 4, 1.6, 1.4, 1.6, 0x8a6440);
+  }
+  return P;
+}
+
+/* trees with seasons, burnt trees hidden */
+function seasonTrees() {
+  const a = SEASON.autumn.value, w = SEASON.winter.value;
+  treeMatB.color.setRGB(1 + a * 1.4 - w * .1, 1 - a * .1 - w * .35, 1 - a * .55 - w * .3);
+  treeMatA.color.setRGB(1 + w * .5, 1 + w * .45, 1 + w * .7);
+}
+
+/* the rival god's eye */
+function buildRival() {
+  rivalGroup = new THREE.Group();
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0x7a3cff, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, transparent: true, opacity: .7, fog: false })); halo.scale.set(360, 360, 1); rivalGroup.add(halo);
+  const mat = new THREE.MeshBasicMaterial({ color: 0x9b6bff, toneMapped: false, fog: false });
+  const r1 = new THREE.Mesh(new THREE.TorusGeometry(70, 1.2, 6, 90), mat); r1.rotation.x = 1.4; rivalGroup.add(r1); rivalGroup.userData.r1 = r1;
+  const r2 = new THREE.Mesh(new THREE.TorusGeometry(54, .8, 6, 70), mat); r2.rotation.x = .7; rivalGroup.add(r2); rivalGroup.userData.r2 = r2;
+  const eye = new THREE.Group();
+  const sclera = new THREE.Mesh(new THREE.CircleGeometry(26, 40), new THREE.MeshBasicMaterial({ color: 0x14081f, fog: false })); sclera.scale.set(1.7, .85, 1); eye.add(sclera);
+  rivalIris = new THREE.Mesh(new THREE.CircleGeometry(11, 30), new THREE.MeshBasicMaterial({ color: 0xb46cff, toneMapped: false, fog: false })); rivalIris.position.z = .5; eye.add(rivalIris);
+  const slit = new THREE.Mesh(new THREE.CircleGeometry(5, 20), new THREE.MeshBasicMaterial({ color: 0x000000, fog: false })); slit.scale.set(.25, 1.6, 1); slit.position.z = 1; rivalIris.add(slit);
+  rivalGroup.add(eye); rivalGroup.userData.eye = eye;
+  scene.add(rivalGroup);
+}
+function updateRival3D(rdt) {
+  const p = W && W.rival ? W.rival.power / 100 : .1;
+  rivalGroup.position.set(X3(RIVAL.x), RIVAL.alt, Z3(RIVAL.y));
+  rivalGroup.scale.setScalar(.55 + p * .9);
+  rivalGroup.userData.r1.rotation.z -= rdt * .25; rivalGroup.userData.r2.rotation.z += rdt * .35;
+  rivalGroup.userData.eye.quaternion.copy(cam3.quaternion);
+  const t = W ? W.rt : 0; rivalIris.position.x = Math.sin(t * .3) * 14; rivalIris.position.y = Math.cos(t * .23) * 4;
+  rivalGroup.visible = !!W;
+}
+
+/* monster and avatar models, built from simple shapes */
+const mstd = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .65, metalness: .1 }, o));
+const neonM = c => new THREE.MeshBasicMaterial({ color: c, toneMapped: false });
+function mesh(geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.rotation.set(rx, ry, rz); m.castShadow = true; return m; }
+const SPH = new THREE.SphereGeometry(1, 16, 12), CYL = new THREE.CylinderGeometry(1, 1, 1, 10), CON = new THREE.ConeGeometry(1, 1, 10), BOX = new THREE.BoxGeometry(1, 1, 1);
+function wingGeo() { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 22, 2, 6, 26, 0, -6, 0, 0, 0, 26, 0, -6, 14, -1, -14, 0, 0, 0, 14, -1, -14, 0, 0, -10]), 3)); g.computeVertexNormals(); return g; }
+function makeMonster(kind) {
+  const g = new THREE.Group(), u = g.userData = { parts: {} };
+  if (kind === 'dragon') {
+    const skin = mstd(0x7a1d14, { metalness: .25, roughness: .5 }), belly = mstd(0xc8813a), memb = mstd(0x5a1410, { side: THREE.DoubleSide, roughness: .8 });
+    g.add(mesh(SPH, skin, 0, 0, 0, 5, 4, 11)); g.add(mesh(SPH, belly, 0, -1.6, 1, 4, 3, 9));
+    g.add(mesh(CYL, skin, 0, 4, 11, 2.2, 10, 2.2, -1)); g.add(mesh(CON, skin, 0, 7.6, 17.5, 2.8, 8, 2.8, Math.PI / 2));
+    g.add(mesh(CON, mstd(0xe8dcc0), -1.6, 10, 15, .6, 4, .6, -.6)); g.add(mesh(CON, mstd(0xe8dcc0), 1.6, 10, 15, .6, 4, .6, -.6));
+    g.add(mesh(SPH, neonM(0xffd040), -1.3, 8.6, 18.4, .5, .5, .5)); g.add(mesh(SPH, neonM(0xffd040), 1.3, 8.6, 18.4, .5, .5, .5));
+    const wl = new THREE.Mesh(wingGeo(), memb), wr = new THREE.Mesh(wingGeo(), memb); wl.position.set(2, 3, 3); wr.position.set(-2, 3, 3); wr.scale.x = -1; g.add(wl, wr); u.parts.wl = wl; u.parts.wr = wr;
+    u.parts.tail = []; let prev = g; for (let i = 0; i < 7; i++) { const s = new THREE.Group(); s.position.set(0, 0, i ? -4.2 : -10); const c = mesh(CON, skin, 0, 0, -2, 2.4 - i * .3, 5, 2.4 - i * .3, -Math.PI / 2); s.add(c); prev.add(s); prev = s; u.parts.tail.push(s); }
+    for (let i = 0; i < 4; i++) g.add(mesh(CON, mstd(0x3a0c08), 0, 4, 6 - i * 4, .9, 3, .9));
+  } else if (kind === 'kraken') {
+    const skin = mstd(0x4a2a6a, { roughness: .4, metalness: .2 });
+    g.add(mesh(SPH, skin, 0, 2, 0, 12, 10, 12)); g.add(mesh(SPH, neonM(0xffe060), -5, 6, 9, 1.4, 1.4, 1.4)); g.add(mesh(SPH, neonM(0xffe060), 5, 6, 9, 1.4, 1.4, 1.4));
+    u.parts.arms = [];
+    for (let a = 0; a < 8; a++) { const root = new THREE.Group(); const ang = a / 8 * TAU; root.position.set(Math.cos(ang) * 14, 0, Math.sin(ang) * 14); root.rotation.y = -ang; g.add(root); const segs = []; let prev = root; for (let i = 0; i < 7; i++) { const s = new THREE.Group(); s.position.y = i ? 4.2 : 0; s.add(mesh(CYL, skin, 0, 2.1, 0, 2.2 - i * .26, 4.4, 2.2 - i * .26)); prev.add(s); prev = s; segs.push(s); } u.parts.arms.push(segs); }
+  } else if (kind === 'behemoth') {
+    const hide = mstd(0x6b6a5e, { roughness: .95 }), moss = mstd(0x4a6a3a, { roughness: 1 });
+    g.add(mesh(SPH, hide, 0, 18, 0, 13, 11, 20)); g.add(mesh(SPH, hide, 0, 20, 21, 7, 7, 8));
+    g.add(mesh(CON, mstd(0xf0e6d0), -5, 15, 28, 1.6, 12, 1.6, 1.9)); g.add(mesh(CON, mstd(0xf0e6d0), 5, 15, 28, 1.6, 12, 1.6, 1.9));
+    g.add(mesh(SPH, neonM(0xff6a20), -3.5, 23, 27, .7, .7, .7)); g.add(mesh(SPH, neonM(0xff6a20), 3.5, 23, 27, .7, .7, .7));
+    for (let i = 0; i < 9; i++) g.add(mesh(SPH, moss, R(-8, 8), 27 + R(-1, 2), R(-14, 14), R(2, 4), 1.4, R(2, 4)));
+    u.parts.legs = [];
+    for (const [x, z] of [[-8, 11], [8, 11], [-8, -11], [8, -11]]) { const l = new THREE.Group(); l.position.set(x, 14, z); l.add(mesh(CYL, hide, 0, -7, 0, 4.4, 14, 4.4)); g.add(l); u.parts.legs.push(l); }
+  } else {
+    const steel = mstd(0x3a3f48, { metalness: .7, roughness: .35 }), trim = mstd(0x8a929c, { metalness: .8, roughness: .3 });
+    g.add(mesh(BOX, steel, 0, 34, 0, 16, 18, 10)); g.add(mesh(BOX, trim, 0, 26, 0, 12, 4, 8));
+    g.add(mesh(SPH, steel, 0, 47, 1, 6, 5, 6)); g.add(mesh(BOX, neonM(0xff2010), 0, 47, 6.4, 7, 1.4, .6));
+    g.add(mesh(SPH, neonM(0xff4020), -9, 41, 0, 1.3, 1.3, 1.3)); g.add(mesh(SPH, neonM(0xff4020), 9, 41, 0, 1.3, 1.3, 1.3));
+    u.parts.legs = []; u.parts.arms = [];
+    for (const x of [-5, 5]) { const l = new THREE.Group(); l.position.set(x, 25, 0); l.add(mesh(BOX, steel, 0, -12.5, 0, 4.4, 25, 5)); g.add(l); u.parts.legs.push(l); }
+    for (const x of [-11, 11]) { const a = new THREE.Group(); a.position.set(x, 42, 0); a.add(mesh(BOX, trim, 0, -9, 0, 3.4, 18, 3.4)); g.add(a); u.parts.arms.push(a); }
+  }
+  return g;
+}
+function makeAvatar() {
+  const g = new THREE.Group(), u = g.userData = { parts: {} };
+  const gold = mstd(0xf2c75c, { metalness: .6, roughness: .28, emissive: 0x4a2c00 }), white = mstd(0xfff6e0, { roughness: .5, emissive: 0x2a2010 });
+  g.add(mesh(CYL, white, 0, 30, 0, 9, 18, 6)); g.add(mesh(CON, white, 0, 15, 0, 13, 18, 9, Math.PI));
+  g.add(mesh(SPH, gold, 0, 44, 0, 4.6, 5.4, 4.6)); g.add(mesh(BOX, gold, 0, 38.5, 0, 12, 2, 6));
+  const halo = mesh(new THREE.TorusGeometry(1, .08, 8, 40), neonM(0xfff0b0), 0, 47, -2.5, 7, 7, 7); halo.castShadow = false; g.add(halo);
+  g.add(mesh(SPH, neonM(0xfff4c0), -1.6, 45, 4, .5, .5, .5)); g.add(mesh(SPH, neonM(0xfff4c0), 1.6, 45, 4, .5, .5, .5));
+  u.parts.legs = []; u.parts.arms = [];
+  for (const x of [-3.2, 3.2]) { const l = new THREE.Group(); l.position.set(x, 22, 0); l.add(mesh(CYL, gold, 0, -11, 0, 2.6, 22, 2.6)); g.add(l); u.parts.legs.push(l); }
+  for (const x of [-7, 7]) { const a = new THREE.Group(); a.position.set(x, 37, 0); a.add(mesh(CYL, gold, 0, -8, 0, 1.8, 16, 1.8)); g.add(a); u.parts.arms.push(a); }
+  const glowS = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, transparent: true, opacity: .55 })); glowS.scale.set(110, 110, 1); glowS.position.y = 28; g.add(glowS);
+  return g;
+}
+function updateMonsters3D(rdt) {
+  const live = new Set();
+  for (const m of W.monsters) {
+    live.add(m); let o = monObjs.get(m);
+    if (!o) { o = makeMonster(m.kind); scene.add(o); monObjs.set(m, o); }
+    const t = W.rt, ga = groundAlt(clamp(m.x, 0, WW - 1), clamp(m.y, 0, WH - 1));
+    const sc = MONS[m.kind].size / 24 * 1.2;
+    o.scale.setScalar(sc);
+    o.position.set(X3(m.x), m.kind === 'dragon' ? Math.max(ga, 0) + m.alt + Math.sin(t * 1.4) * 4 : m.kind === 'kraken' ? -4 + Math.sin(t) * 1.5 : ga, Z3(m.y));
+    if (m.ang != null) o.rotation.y = lerpAngle(o.rotation.y, Math.atan2(Math.cos(m.ang), Math.sin(m.ang)), Math.min(1, rdt * 3));
+    const P = o.userData.parts;
+    if (m.kind === 'dragon') { const f = Math.sin(t * 5); P.wl.rotation.z = f * .7; P.wr.rotation.z = -f * .7; P.tail.forEach((s, i) => { s.rotation.y = Math.sin(t * 2.4 - i * .6) * .22; }); }
+    if (m.kind === 'kraken') P.arms.forEach((segs, a) => segs.forEach((s, i) => { s.rotation.x = Math.sin(t * 1.6 + a + i * .5) * .3 + .12; s.rotation.z = Math.cos(t * 1.2 + a * 2 + i * .4) * .15; }));
+    if (m.kind === 'behemoth' || m.kind === 'titan') { const w = m.moving ? Math.sin(t * (m.kind === 'titan' ? 3 : 2.2)) * .5 : 0; P.legs.forEach((l, i) => { l.rotation.x = i % 2 === (i < 2 ? 0 : 1) ? w : -w; }); if (P.arms) P.arms.forEach((a, i) => { a.rotation.x = i ? w : -w; }); }
+    if (m.hurtT > 0) o.traverse(c => { if (c.material && c.material.emissive) c.material.emissive.setRGB(.5, .1, .05); }); else o.traverse(c => { if (c.material && c.material.emissive && c.material.color.getHex() !== 0xf2c75c) c.material.emissive.setRGB(0, 0, 0); });
+    if (m.kind === 'kraken' && Math.random() < .3) emit(X3(m.x) + R(-14, 14), 1, Z3(m.y) + R(-14, 14), R(-3, 3), R(4, 10), R(-3, 3), 1, 6, .7, .85, 1);
+    if (m.kind === 'behemoth' && m.moving && Math.random() < .2) emit(X3(m.x) + R(-10, 10), ga + 2, Z3(m.y) + R(-10, 10), R(-4, 4), R(2, 5), R(-4, 4), 2, 18, .5, .45, .38, 0, true);
+  }
+  for (const [m, o] of monObjs) if (!live.has(m)) { scene.remove(o); monObjs.delete(m); }
+  const A = W.avatar;
+  if (A) {
+    if (!avatarObj) { avatarObj = makeAvatar(); scene.add(avatarObj); }
+    const ga = groundAlt(clamp(A.x, 0, WW - 1), clamp(A.y, 0, WH - 1)), t = W.rt;
+    avatarObj.position.set(X3(A.x), Math.max(ga, 0) - 1 + (A.t < 1.5 ? (1.5 - A.t) * 120 : 0), Z3(A.y));
+    avatarObj.rotation.y = lerpAngle(avatarObj.rotation.y, Math.atan2(Math.cos(A.ang || 0), Math.sin(A.ang || 0)), Math.min(1, rdt * 3));
+    const w = A.moving ? Math.sin(t * 3.2) * .55 : 0, P = avatarObj.userData.parts;
+    P.legs[0].rotation.x = w; P.legs[1].rotation.x = -w; P.arms[0].rotation.x = -w * .8; P.arms[1].rotation.x = A.fighting ? -1.6 + Math.sin(t * 9) * .5 : w * .8; A.fighting = false;
+    if (Math.random() < .5) emit(X3(A.x) + R(-10, 10), ga + R(5, 50), Z3(A.y) + R(-10, 10), 0, R(4, 10), 0, 1.4, 3, 1.8, 1.4, .5);
+  } else if (avatarObj) { scene.remove(avatarObj); avatarObj = null; }
+}
+function lerpAngle(a, b, k) { let d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI; return a + d * k; }
+
+/* storms, snow and wildfire visuals */
+function updateWeather3D(rdt) {
+  const live = new Set();
+  for (const st of W.storms || []) {
+    live.add(st); let o = stormObjs.get(st);
+    if (!o) {
+      o = new THREE.Group();
+      for (let i = 0; i < 7; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: pick(CLOUD_TEX), color: st.snow ? 0xdfe6ee : 0x3a3f4a, transparent: true, opacity: .8, depthWrite: false })); const k = R(140, 230); s.scale.set(k, k * .5, 1); s.position.set(R(-1, 1) * st.r * .8, R(-10, 15), R(-1, 1) * st.r * .8); o.add(s); }
+      scene.add(o); stormObjs.set(st, o);
+    }
+    o.position.set(X3(st.x), 170, Z3(st.y));
+    const fade = clamp(Math.min((st.until - W.t) / 6, (W.t - (st.until - 80)) / 4, 1), 0, 1);
+    const zf = clamp((cam.d - 260) / 900, .08, 1); o.children.forEach(s => { s.material.opacity = .8 * fade * zf; });
+    for (let i = 0; i < (st.snow ? 6 : 10); i++) { const a = R(0, TAU), r = Math.sqrt(Math.random()) * st.r; emit(X3(st.x) + Math.cos(a) * r, 160, Z3(st.y) + Math.sin(a) * r, st.vx * .5, st.snow ? -22 : -210, R(-2, 2), st.snow ? 6 : .75, st.snow ? 3 : 2.2, st.snow ? 1.4 : .45, st.snow ? 1.45 : .6, st.snow ? 1.5 : .85); }
+  }
+  for (const [st, o] of stormObjs) if (!live.has(st)) { scene.remove(o); o.children.forEach(s => s.material.dispose()); stormObjs.delete(st); }
+  // gentle snowfall around the view in winter
+  if (SEASON.winter.value > .3) { const n = Math.round(SEASON.winter.value * 8), rr = Math.min(600, cam.d * .8); for (let i = 0; i < n; i++) emit(X3(cam.tx) + R(-rr, rr), cam.d * .35 + 60, Z3(cam.ty) + R(-rr, rr), R(-4, 4), -18, R(-4, 4), 7, 2.6, 1.3, 1.35, 1.45); }
+  // wildfire
+  let k = 0;
+  for (const i of burning) {
+    if (k++ > 90) break;
+    if (Math.random() > .6) continue;
+    const x = (i % FW) * FC + R(1, 9), y = ((i / FW) | 0) * FC + R(1, 9), ga = groundAlt(x, y);
+    emit(X3(x), ga + R(1, 6), Z3(y), R(-2, 2), R(10, 22), R(-2, 2), R(.4, .9), R(6, 11), 2, .8, .2);
+    if (Math.random() < .35) emit(X3(x), ga + 10, Z3(y), R(-3, 3) + 4, R(8, 14), R(-3, 3), R(3, 6), R(14, 24), .16, .15, .14, 0, true);
+  }
+}
+function pickMonster(sx, sy) {
+  ray.setFromCamera({ x: sx / CW * 2 - 1, y: -(sy / CH) * 2 + 1 }, cam3);
+  let best = null, bd = 1e9;
+  for (const m of W.monsters) { const o = monObjs.get(m); if (!o) continue; V3.copy(o.position); V3.y += MONS[m.kind].size * .6; const dd = ray.ray.distanceSqToPoint(V3), r = MONS[m.kind].size * 1.1 + 6; if (dd < r * r && dd < bd) { bd = dd; best = m; } }
+  return best;
+}
+function pickAvatar(sx, sy) {
+  if (!W.avatar || !avatarObj) return false;
+  ray.setFromCamera({ x: sx / CW * 2 - 1, y: -(sy / CH) * 2 + 1 }, cam3);
+  V3.copy(avatarObj.position); V3.y += 25;
+  return ray.ray.distanceSqToPoint(V3) < 30 * 30;
+}
+let dirT = 0;
+function directorTick(rdt) {
+  if (!director || !W || W.intro > 0) return;
+  cam.yaw += rdt * .05;
+  if ((dirT -= rdt) > 0 || cam.fly || cam.follow) return;
+  dirT = 18;
+  const m = W.monsters[0], w = W.wars[0];
+  if (m) flyTo(m.x, m.y, 2.6);
+  else if (W.avatar) flyTo(W.avatar.x, W.avatar.y, 2.6);
+  else if (w) flyTo(w.fx, w.fy, 3);
+  else if (burning.size) { const i = [...burning][0]; flyTo((i % FW) * FC, ((i / FW) | 0) * FC, 2.6); }
+  else { const h = pick(W.agents.filter(a => a.hero)); if (h && Math.random() < .5) { cam.follow = h; cam.td = 140; } else { const t = pick(W.tribes.filter(x => x.alive)); if (t) flyTo(t.mx, t.my, 2.2); } }
+}
+
+function worldClick(sx, sy) {
+  const ship = pickShip(sx, sy);
+  if (ship && tool !== 'inspect') { usePower(tool, ship.x, ship.y, ship); return; }
+  const mon = pickMonster(sx, sy);
+  if (tool === 'avatar' && W.avatar) { if (mon) commandAvatar(0, 0, mon); else { const p = pickGround(sx, sy); if (p) commandAvatar(p.x, p.y, null); } return; }
+  if (tool === 'inspect') { if (pickAvatar(sx, sy)) { sel = { avatar: true }; updateCard(); return; } if (mon) { sel = { monster: mon }; updateCard(); return; } }
+  if (mon && !['raise', 'lower', 'forest', 'inspect'].includes(tool)) { usePower(tool, mon.x, mon.y, null); return; }
+  const p = pickGround(sx, sy); if (p) usePower(tool, p.x, p.y, null);
+}
+function paintAt(sx, sy) { const p = pickGround(sx, sy); if (p) usePower(tool, p.x, p.y, null); }
 function boot() {
   try { initGL(); buildActors(); }
   catch (e) { $('loading').textContent = 'This device could not start 3D graphics.'; console.error(e); return; }
