@@ -84,7 +84,7 @@ import { neighborsOf } from '../sim/diplomacy';
 
 export const STAB_LABEL: Record<string, string> = {
   base: 'Underlying stability (government type & wealth)', growth: 'Economic growth', jobs: 'Unemployment', prices: 'Inflation',
-  services: 'Public services', taxes: 'Tax burden', war: 'War weariness & damage', shortages: 'Food & energy shortages', occupation: 'Unrest in conquered land', debt: 'Debt crisis', doctrine: 'Your doctrines',
+  services: 'Public services', taxes: 'Tax burden', war: 'War weariness & damage', shortages: 'Food & energy shortages', occupation: 'Unrest in conquered land', debt: 'Debt crisis', doctrine: 'Doctrines, laws & ministers', factions: 'Factions at home (unions, business, army…)',
 };
 export function stabilityParts(c: Country): { key: string; label: string; v: number }[] {
   const p = c.eco.stabParts ?? {};

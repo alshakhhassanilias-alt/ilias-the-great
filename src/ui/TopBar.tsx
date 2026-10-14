@@ -20,6 +20,7 @@ export function TopBar() {
       </div>
       <LegacyChip />
       <div className="kpis" role="list">
+        {c.politics && (!s.legacy || s.legacy.status === 'office') && <button className="kpi kpi-btn hide-m pc-kpi" role="listitem" title="Political capital: spend it on laws, reforms and crisis responses. Click for politics." onClick={() => { store.select(s.player, null, false); store.setTab('politics'); }}><label>Political capital</label><b className={c.politics.pc < 15 ? 'warn' : 'good'}>{Math.floor(c.politics.pc)}</b><small>{c.politics.arc ? '⚠ crisis' : c.politics.unrest && s.tick < c.politics.unrest.until ? '🔥 unrest' : `${c.politics.laws.length} laws`}</small></button>}
         <div className="kpi" role="listitem"><label>Treasury</label><b className={e.cash <= 0 ? 'warn' : ''}>{fmtMoney(e.cash)}</b><small className={bal < 0 ? 'bad' : 'good'}>{bal >= 0 ? '+' : ''}{fmtMoney(fn.balance)}/yr</small></div>
         <div className={`kpi ${isAtWar(s, c.id) ? "hide-s" : ""}`} role="listitem"><label>GDP</label><b>{fmtMoney(e.gdp)}</b><small className={e.growth < 0 ? 'bad' : ''}>{signedPct(e.growth)} real</small></div>
         <div className="kpi hide-m" role="listitem"><label>GDP / capita</label><b>{fmtMoney(e.gdp / e.pop, 1)}</b><small>{c.name.length > 14 ? c.iso3 : c.name}</small></div>
@@ -29,7 +30,7 @@ export function TopBar() {
           const ws = warSupport(c);
           const trend = Object.entries(c.mil.wsParts ?? {}).filter(([k]) => !k.startsWith('+')).reduce((t, [, v]) => t + v, 0);
           return (
-            <button className="kpi kpi-btn" role="listitem" title="War support: public backing for the war. Click for the home front." onClick={() => { store.select(s.player, null, false); store.setTab('military'); }}>
+            <button className="kpi kpi-btn ws-kpi" role="listitem" title="War support: public backing for the war. Click for the home front." onClick={() => { store.select(s.player, null, false); store.setTab('military'); }}>
               <label>War support</label><b className={ws < 0.3 ? 'bad' : ws < 0.45 ? 'warn' : 'good'}>{Math.round(ws * 100)}%</b><small className={trend < -0.0005 ? 'bad' : trend > 0.0005 ? 'good' : ''}>{trend > 0.0005 ? '▲ rising' : trend < -0.0005 ? '▼ falling' : 'steady'}</small>
             </button>
           );

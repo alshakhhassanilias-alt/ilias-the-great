@@ -192,6 +192,28 @@ export interface Country {
   generals?: General[];
   /** the player's cabinet: four named ministers */
   cabinet?: Minister[];
+  /** the player's domestic politics: factions, political capital, laws, crises */
+  politics?: Politics;
+}
+
+export type FactionId = 'labour' | 'business' | 'military' | 'nationalists' | 'liberals' | 'regions';
+export interface Faction { id: FactionId; support: number; mood: number; mem: number; leader: string }
+export interface ArcState { id: string; stage: number; started: number; next?: { ev: string; at: number; data: Record<string, number> } }
+export interface Politics {
+  /** political capital: earned weekly, spent on laws, decrees and crisis responses */
+  pc: number;
+  laws: { id: string; since: number }[];
+  factions: Faction[];
+  /** the budget and position when politics began: factions judge changes against it */
+  base: { social: number; infra: number; military: number; taxVat: number; taxIncome: number; taxCorporate: number; education: number; provinces: number };
+  nextDemand: number;
+  /** a faction in open revolt and until when */
+  unrest?: { f: FactionId; until: number };
+  arc?: ArcState;
+  lastArc: number;
+  /** last week's change in each faction's mood, and the stability/approval it adds */
+  stab: number;
+  appr: number;
 }
 
 export type MinRole = 'finance' | 'foreign' | 'defence' | 'interior';

@@ -20,6 +20,9 @@ export const IconMilitary = () => (
 export const IconDiplomacy = () => (
   <I><path d="M3 12l4-4 4 2 3-2 3 1 4 3" /><path d="M7 8 3 12l5 5c.8.8 2 .8 2.8 0l.7-.7M11 10l-2.5 2.5c-.6.6-.6 1.6 0 2.2s1.6.6 2.2 0L14 11.5l4.5 4.5c.7-.7.7-1.8 0-2.5" /></I>
 );
+export const IconPolitics = () => (
+  <I><path d="M3 9h18L12 4z" fill="currentColor" fillOpacity="0.2" /><path d="M5 9v8M9.5 9v8M14.5 9v8M19 9v8" /><path d="M3 20h18M4 17h16" /></I>
+);
 export const TAB_ICONS: Record<string, () => ReactElement> = {
-  overview: IconOverview, goals: IconGoals, economy: IconEconomy, military: IconMilitary, diplomacy: IconDiplomacy,
+  overview: IconOverview, politics: IconPolitics, goals: IconGoals, economy: IconEconomy, military: IconMilitary, diplomacy: IconDiplomacy,
 };

@@ -16,6 +16,10 @@ export interface EventDef {
   urgent?: boolean;
   /** what happens if the player lets it lapse (default: nothing, the chance is gone) */
   lapse?: (s: GameState, c: Country, d: D, geo: Geo) => string;
+  /** who brings it to you (shown with their portrait); default: the minister in charge */
+  speaker?: (s: GameState, c: Country, d: D) => { name: string; role: string; cid: number; kind: 'leader' | 'minister' | 'general' } | null;
+  /** part of a multi-stage crisis: shown as "stage n of m" */
+  arc?: { title: string; stage: number; of: number };
 }
 
 export const name = (s: GameState, id: number) => s.countries[id].name;

@@ -22,6 +22,7 @@ import { hasGuarantee } from '../src/sim/relations';
 import { actAppoint, actCourt, candidates, ministerEffects, ministerOf } from '../src/sim/cabinet';
 import { actReplyCable } from '../src/sim/cables';
 import { nationalName } from '../src/sim/names';
+import { actPassLaw, actRepealLaw, factionTarget, forecast, lawById } from '../src/sim/domestic';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
 const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
@@ -1089,7 +1090,7 @@ describe('round 11: modes, control levels, Legacy, army groups', () => {
     expect(s.countries.some((c) => c.mil.nuclear)).toBe(false);
     expect(s.crisis?.id).toBe('coldwar');
     run(s, 60);
-    expect(s.inbox.filter((x) => !['ally_attacked', 'assembly'].includes(x.id)).length).toBe(0);
+    expect(s.inbox.filter((x) => !['ally_attacked', 'assembly', 'fac_demand', 'fac_unrest'].includes(x.id)).length).toBe(0); // faction demands come from your politics, not chance
   });
   it('an endless sandbox can be given an end year', () => {
     const s = fresh('Germany', { endYear: 2025 });
@@ -1256,6 +1257,125 @@ describe('round 12: the cabinet, national names, diplomatic cables', () => {
     run(a, 60); run(b, 60);
     expect(JSON.stringify(a.countries[a.player].cabinet)).toBe(JSON.stringify(b.countries[b.player].cabinet));
     expect(JSON.stringify(a.cables ?? [])).toBe(JSON.stringify(b.cables ?? []));
+    expect(a.rng).toBe(b.rng);
+  });
+});
+
+describe('round 13: domestic politics, political capital, laws, crisis arcs', () => {
+  it('the player starts with six factions, political capital and no laws; AI countries have none', () => {
+    const s = fresh('Poland');
+    const P = s.countries[s.player].politics!;
+    expect(P.factions.length).toBe(6);
+    expect(P.factions.reduce((t, f) => t + f.support, 0)).toBeCloseTo(100);
+    expect(P.pc).toBe(40);
+    expect(P.laws.length).toBe(0);
+    expect(s.countries[id('Germany')].politics).toBeUndefined();
+    for (const f of P.factions) expect(f.leader).toMatch(/\S+ \S+/);
+  });
+  it('laws go to a vote, cost political capital, change the budget and the factions, and can be repealed', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const P = c.politics!;
+    const social = c.budget.social;
+    const fc = forecast(c, lawById('healthcare')!, 0);
+    expect(fc.mode).toBe('vote');
+    expect(fc.yes).toBeGreaterThan(0.5);
+    const lab = P.factions.find((f) => f.id === 'labour')!.mood;
+    expect(actPassLaw(s, 'healthcare', 6).ok).toBe(true);
+    expect(P.pc).toBeCloseTo(40 - fc.cost - 6);
+    expect(c.budget.social).toBeCloseTo(social + 0.01);
+    expect(P.factions.find((f) => f.id === 'labour')!.mood).toBeGreaterThan(lab);
+    expect(mods(c).stab).toBeGreaterThanOrEqual(3 - 10); // the law's +3 is in the modifiers (ministers add their own)
+    expect(actPassLaw(s, 'healthcare').ok).toBe(false); // already law
+    P.pc = 3;
+    expect(actPassLaw(s, 'tech_fund').ok).toBe(false); // not enough capital
+    P.pc = 60;
+    expect(actPassLaw(s, 'flat_tax', 20).ok).toBe(true);
+    expect(actPassLaw(s, 'wealth_tax', 20).ok).toBe(false); // mutually exclusive
+    expect(actRepealLaw(s, 'healthcare').ok).toBe(true);
+    expect(c.budget.social).toBeCloseTo(social);
+  });
+  it('an autocracy rules by decree: no vote, a higher price, and the liberals resent it', () => {
+    const s = fresh('Russia');
+    const c = s.countries[s.player];
+    const fc = forecast(c, lawById('police')!, 0);
+    expect(fc.mode).toBe('decree');
+    expect(fc.cost).toBeGreaterThan(lawById('police')!.pc);
+    expect(actPassLaw(s, 'police').ok).toBe(true);
+  });
+  it('factions follow what you do: the unions like public spending, the army hates cuts, and both move stability', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const P = c.politics!;
+    c.budget.social += 0.03; c.budget.military = Math.max(0.002, c.budget.military - 0.012);
+    run(s, 40);
+    const lab = P.factions.find((f) => f.id === 'labour')!, mil = P.factions.find((f) => f.id === 'military')!;
+    expect(factionTarget(s, c, lab).parts.some((p) => /Public services/.test(p.label) && p.v > 5)).toBe(true);
+    expect(factionTarget(s, c, mil).parts.some((p) => /Defence budget/.test(p.label) && p.v < -5)).toBe(true);
+    expect(mil.mood).toBeLessThan(45);
+    expect(c.eco.stabParts.factions).toBeDefined();
+    expect(P.pc).toBeGreaterThan(40); // political capital trickles in
+  });
+  it('faction demands and uprisings name the faction leader, and every answer works', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    c.eco.cash = 1e12;
+    for (const id0 of ['fac_demand', 'fac_unrest']) for (let f = 0; f < 6; f++) {
+      const def = eventById(id0);
+      expect(def.text(s, c, { f, k: f % 2 })).toContain(c.politics!.factions[f].leader);
+      for (let i = 0; i < def.options.length; i++) {
+        const s2 = JSON.parse(JSON.stringify(s)) as GameState;
+        s2.inbox = [{ uid: 1, id: id0, tick: 1, expires: 99, urgent: true, data: { f, k: f % 2 } }];
+        expect(resolveEvent(s2, geo, i).ok).toBe(true);
+      }
+    }
+  });
+  it('every crisis arc runs from its first stage to an end, whatever you choose', () => {
+    for (const arcId of ['bank', 'standoff', 'coup', 'separatists']) for (let choice = 0; choice < 3; choice++) {
+      const s = fresh('Poland', { defensiveAlliances: false });
+      const c = s.countries[s.player];
+      c.eco.cash = 1e12; c.politics!.pc = 100;
+      const data: Record<string, number> = arcId === 'standoff' ? { n: id('Belarus'), p: c.provinces.find((p) => geo.adj[p].some((q) => s.owner[q] === id('Belarus')))! } : arcId === 'coup' ? { corps: 3 } : { p: c.provinces[2], size: 3 };
+      c.politics!.arc = { id: arcId, stage: 1, started: s.tick };
+      s.inbox = [{ uid: s.nextInbox++, id: `arc_${arcId}_1`, tick: s.tick, expires: s.tick + 14, urgent: true, data }];
+      let steps = 0;
+      for (let w = 0; w < 120 && c.politics!.arc; w++) {
+        for (const it of [...s.inbox]) {
+          if (!it.id.startsWith('arc_')) { s.inbox = s.inbox.filter((x) => x !== it); continue; }
+          const def = eventById(it.id);
+          const en = def.options.map((o) => !o.enabled || o.enabled(s, c));
+          const k = en[choice % def.options.length] ? choice % def.options.length : en.indexOf(true);
+          expect(def.text(s, c, it.data).length).toBeGreaterThan(40);
+          expect(resolveEvent(s, geo, k, it.uid).ok).toBe(true);
+          steps++;
+        }
+        if (c.politics!.arc) run(s, 1);
+      }
+      expect(c.politics!.arc, `${arcId}/${choice}`).toBeUndefined();
+      expect(steps).toBeGreaterThanOrEqual(1);
+    }
+  });
+  it('a successful coup in Legacy throws you out of office', () => {
+    const s = fresh('Poland', { mode: 'legacy' });
+    actChooseAgenda(s, []);
+    const c = s.countries[s.player];
+    c.politics!.arc = { id: 'coup', stage: 2, started: s.tick };
+    c.politics!.factions.find((f) => f.id === 'military')!.mood = 0;
+    c.eco.stability = 0;
+    let out = false;
+    for (let i = 0; i < 40 && !out; i++) {
+      const s2 = JSON.parse(JSON.stringify(s)) as GameState;
+      s2.rng = (s2.rng + i * 7919) >>> 0;
+      s2.inbox = [{ uid: 1, id: 'arc_coup_2', tick: s2.tick, expires: s2.tick + 6, urgent: true, data: { corps: 4 } }];
+      resolveEvent(s2, geo, 1);
+      if (s2.legacy!.status === 'opposition') { out = true; expect(s2.legacy!.terms.at(-1)!.result).toBe('removed'); }
+    }
+    expect(out).toBe(true);
+  });
+  it('politics keep the world deterministic', () => {
+    const a = fresh('Brazil'), b = fresh('Brazil');
+    run(a, 80); run(b, 80);
+    expect(JSON.stringify(a.countries[a.player].politics)).toBe(JSON.stringify(b.countries[b.player].politics));
     expect(a.rng).toBe(b.rng);
   });
 });

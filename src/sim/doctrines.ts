@@ -3,6 +3,7 @@
  * identity. Every option has an upside and a downside, shown in plain numbers. Changing one is a reform:
  * it costs money and cannot be repeated for a year.
  */
+import { politicsEff, politicsKey } from './domestic';
 import { clamp } from './util';
 import type { Country, GameState } from './types';
 import { fund } from './actions';
@@ -46,6 +47,7 @@ export const slotOptions = (slot: Doctrine['slot']) => DOCTRINES.filter((d) => d
 export const SLOT_LABEL: Record<Doctrine['slot'], string> = { eco: 'Economy', mil: 'Military', dip: 'Foreign policy' };
 export const REFORM_COOLDOWN = 52;
 export const REFORM_COST = 0.005;
+export const REFORM_PC = 10;
 
 /** Countries that never chose have no doctrine: their numbers are the calibrated baseline. */
 export function doctrineOf(c: Country): { eco: string; mil: string; dip: string; changed: number } {
@@ -57,7 +59,7 @@ const ONE: Required<Eff> = { tfp: 0, stab: 0, cost: 1, manpower: 1, off: 1, def:
 /** Combined effect of a country's three doctrines. */
 export function mods(c: Country): Required<Eff> {
   const d = doctorOf(c);
-  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}`;
+  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}|${politicsKey(c)}`;
   const hit = cache.get(c);
   if (hit && hit.key === key) return hit.eff;
   const out = { ...ONE };
@@ -66,6 +68,10 @@ export function mods(c: Country): Required<Eff> {
     const e = doctrineById(id).eff;
     out.tfp += e.tfp ?? 0; out.stab += e.stab ?? 0; out.accept += e.accept ?? 0; out.ops += e.ops ?? 0; out.rep += e.rep ?? 0; out.infra += e.infra ?? 0; out.milTech += e.milTech ?? 0;
     out.cost *= e.cost ?? 1; out.manpower *= e.manpower ?? 1; out.off *= e.off ?? 1; out.def *= e.def ?? 1; out.deter *= e.deter ?? 1;
+  }
+  for (const e of c.politics ? [politicsEff(c)] : []) {
+    out.tfp += e.tfp ?? 0; out.stab += e.stab ?? 0; out.accept += e.accept ?? 0; out.ops += e.ops ?? 0; out.rep += e.rep ?? 0; out.milTech += e.milTech ?? 0; out.infra += e.infra ?? 0;
+    out.cost *= e.cost ?? 1; out.off *= e.off ?? 1; out.def *= e.def ?? 1; out.deter *= e.deter ?? 1; out.manpower *= e.manpower ?? 1;
   }
   if (c.cabinet?.length) {
     const e = cabinetEff(c);
@@ -84,8 +90,10 @@ export function setDoctrine(s: GameState, cid: number, slot: Doctrine['slot'], i
   const cur = doctrineOf(c);
   if (cur[slot] === id) return { ok: false, message: 'Already your doctrine' };
   if (s.tick - cur.changed < REFORM_COOLDOWN && cur.changed > -9000) return { ok: false, message: `Reform fatigue: wait ${REFORM_COOLDOWN - (s.tick - cur.changed)} more weeks before changing doctrine again` };
+  if (c.politics && c.politics.pc < REFORM_PC) return { ok: false, message: `A reform needs ${REFORM_PC} political capital (you have ${Math.floor(c.politics.pc)})` };
   const f = fund(s, cid, REFORM_COST * c.eco.gdp);
   if (!f.ok) return f;
+  if (c.politics) c.politics.pc -= REFORM_PC;
   c.doctrine = { ...cur, [slot]: id, changed: s.tick };
   c.eco.stability = clamp(c.eco.stability - 1, 0, 100); // reforms are disruptive
   if (d && cid === s.player) logEvent(s, `${d.icon} New ${SLOT_LABEL[slot].toLowerCase()} doctrine: ${d.title}.`, 'econ', [cid]);

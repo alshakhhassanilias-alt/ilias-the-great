@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 104 deterministic simulation tests (Vitest) |
+| `npm test` | 112 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -36,6 +36,13 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **📜 Legacy** — a political career of up to 40 years. Terms of four years; at each inauguration you pick up to three promises from five **agenda cards** (about 20 kinds: economic miracle, balanced books, full employment, energy independence, rearmament, a great alliance, reclaiming lost land, lasting peace ...), each with a live progress bar and a once-per-term signature action. Eight weeks before the vote a **campaign** starts; the result depends on approval, promises kept or broken, fatigue and your campaign choices. Every term ends with a **newspaper review**. Lose and you lead the **opposition** (or go into exile in an autocracy): rallies, exposés, coalitions and foreign backing raise your support, a weak government can be forced into a snap vote, and a comeback returns you to power — two failed comebacks end the career. Retiring, losing your country or reaching the end of the era opens the **history book**: a legacy score in six parts (prosperity, power, standing, the people, promises, terms, wars), a grade from S to F, an epithet and a verdict, after which you can keep playing the world as a sandbox.
 * **Control levels** — Economy, Military and Diplomacy can each be **Auto** (ministers and generals run it; pick an economic focus), **Guided** (they propose a plan, you approve) or **Hands-on**, with presets Leader / Strategist / Commander. Change it any time in Settings.
 * **Army groups** — with the military on Guided or Hands-on your field forces form 3–6 armies, drawn as banners on the map with their commander. Drag a banner onto an enemy region to set its objective, or onto your own land to hold it; give orders Advance, Encircle (pincers, +25% against cut-off regions), Raid (half the losses, economic damage, slower gains), Hold (the region and its neighbours defend much harder) or Defend capital; change each army's share of the troops and its commander.
+
+## Politics at home: the core loop
+* **Political capital** is the scarce currency of power: about 25–45 a year, more when you are popular and your cabinet is loyal. Laws cost 14–34, doctrine reforms 10, crisis responses 6–15. Every few months you must choose what to spend it on.
+* **Six factions** (Unions & Workers, Business & Finance, the Military, Nationalists, Liberals & Civil Society, Regions & Farmers), each with a named leader, a share of the population (seats in parliament), a clout that depends on the regime (the army matters most in a junta) and a mood that follows the budget, the economy, wars, the laws you pass and how you answered their demands. Favours are forgotten fast, grudges slowly, and expectations rise the longer you govern. Their mood feeds stability, approval and elections; happy factions give perks (investment, productivity, defence, reputation), furious ones go on general strike, move capital abroad, riot, protest, blockade or plot.
+* **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
+* **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
+* **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
 ## People, not just numbers
 * **Faces for everyone:** every head of state, minister and general has a procedurally drawn portrait (skin tone and hair typical of the region, age, glasses, beards, suits, uniforms with ribbons and peaked caps) and a name that fits the country (Polish ministers are Tomasz Zieliński and Małgorzata Wiśniewska, Russian ones Volkov and Volkova). All names are fictional combinations.
@@ -95,6 +102,7 @@ src/
     armies.ts    the player's army groups: orders, objectives, hold bonus
     cabinet.ts   the player's ministers: traits, skill, loyalty, scandals, reshuffles   events4.ts  cabinet events
     cables.ts    messages from foreign leaders     names.ts  national name banks
+    domestic.ts  factions, political capital, laws, parliament    arcs.ts + events5.ts  crisis arcs, demands, uprisings
     save.ts      JSON save/load                   rng.ts    seeded PRNG stored in the save
   map/            geometry.ts (Path2D, runtime border unions, picking)  renderer.ts (canvas)  MapView.tsx
   state/store.ts  clock/speeds, selection, toasts, autosave — the only bridge between sim and React
@@ -231,7 +239,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 104 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 112 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

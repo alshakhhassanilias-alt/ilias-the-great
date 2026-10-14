@@ -102,7 +102,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   // war support + supply lines: the top bar pill opens the home front
   const atWarNow = await pg.evaluate(() => window.__store.state.wars.some((w) => w.attackers.includes(window.__store.state.player) || w.defenders.includes(window.__store.state.player)));
   if (atWarNow) {
-    await pg.click('.kpi-btn');
+    await pg.click('.ws-kpi');
     await sleep(200);
     const body = (await pg.locator('.side-body').innerText()).toLowerCase();
     check('war support shows in the top bar and opens the home front with supply lines', body.includes('home front') && body.includes('supply lines') && (await pg.locator('.ws-big').count()) === 1);
@@ -123,6 +123,13 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('a diplomatic cable shows the foreign leader and can be answered', (await pg.locator('.cable .portrait').count()) === 1);
   await pg.click('.cable button:has-text("Reply warmly")');
   check('answering a cable closes it', (await pg.locator('.cable').count()) === 0);
+  await pg.click('.tabs button:has-text("Politics")');
+  check('the Politics tab shows six factions, a parliament and political capital', (await pg.locator('.faction').count()) === 6 && (await pg.locator('.hemicycle circle').count()) >= 95 && (await pg.locator('.pc-big b').count()) === 1);
+  const lawsBefore = await pg.evaluate(() => { const s = window.__store.state; const c = s.countries[s.player]; c.politics.pc = 100; window.__store.notify(); return c.politics.laws.length; });
+  await pg.click('.law-head:has-text("Universal Healthcare")');
+  await pg.locator('.law.open input[type=range]').fill('30');
+  await pg.click('.law.open .btn.primary');
+  check('a law can be put to a vote from the Politics tab', (await pg.evaluate(() => { const s = window.__store.state; return s.countries[s.player].politics.laws.length; })) === lawsBefore + 1);
   await pg.click('button[aria-label="Pause"]');
   // save / load
   await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Save game")');

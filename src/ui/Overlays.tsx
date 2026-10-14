@@ -16,6 +16,7 @@ import { actReplyCable } from '../sim/cables';
 import { traitsText } from '../sim/leaders';
 import { adviceOf, presenterOf, roleTitle } from '../sim/cabinet';
 import { isMajor } from '../sim/drama';
+import { placeLabel } from '../sim/places';
 import type { GameState, InboxItem } from '../sim/types';
 
 const DOMESTIC = new Set(['strike', 'disaster', 'quake', 'flood', 'refugees', 'separatists', 'pandemic', 'housing', 'harvest', 'famine', 'oil_province', 'deposit', 'mutiny', 'cyber_blackout', 'olympics', 'world_cup', 'bank_run', 'brain_drain', 'investment', 'tech_giant', 'free_zone', 'coup_plot', 'coup', 'scandal', 'pension', 'green_transition']);
@@ -23,13 +24,13 @@ const DOMESTIC = new Set(['strike', 'disaster', 'quake', 'flood', 'refugees', 's
 function placeOf(s: GameState, it: InboxItem): string | null {
   const geo = store.geo;
   const p = it.data?.p;
-  if (typeof p === 'number' && p >= 0 && geo.provinces[p]) return geo.provinces[p].name;
+  if (typeof p === 'number' && p >= 0 && geo.provinces[p]) return placeLabel(p);
   if (!DOMESTIC.has(it.id)) return null;
   const mine = s.countries[s.player].provinces;
   if (!mine.length) return null;
   // big cities are where strikes, crashes and riots happen; disasters can strike anywhere
   const pool = /quake|flood|harvest|famine|disaster|deposit|oil_province/.test(it.id) ? mine : [...mine].sort((a, b) => geo.provinces[b].w - geo.provinces[a].w).slice(0, 4);
-  return geo.provinces[pool[(it.uid * 7) % pool.length]].name;
+  return placeLabel(pool[(it.uid * 7) % pool.length]);
 }
 
 export function Toasts() {
@@ -173,15 +174,18 @@ export function InboxTray() {
             </button>
             {open && (() => {
               const who = presenterOf(s, it.id, it.data);
+              const sp = def.speaker?.(s, c, it.data) ?? null;
               const en = def.options.map((o) => !o.enabled || o.enabled(s, c));
               const adv = who && !it.id.startsWith('min_') ? adviceOf(who, def.options, en) : null;
               const place = placeOf(s, it);
+              const spC = sp ? s.countries[sp.cid] : c;
               return (
               <div className="inbox-body">
-                {who && (
+                {def.arc && <div className="arc-chip">⚠ {def.arc.title} · stage {def.arc.stage} of {def.arc.of}<span className="arc-steps">{Array.from({ length: def.arc.of }, (_, i) => <i key={i} className={i < def.arc!.stage ? 'on' : ''} />)}</span></div>}
+                {(sp || who) && (
                   <div className="presenter">
-                    <Portrait f={faceFor(c, who.name, 'minister')} size={46} title={who.name} />
-                    <div><small>{it.id === 'min_scandal' || it.id === 'min_revolt' ? 'About' : 'On your desk from'}</small><b>{who.name}</b><span className="faint">{roleTitle(who.role)}</span></div>
+                    <Portrait f={faceFor(spC, sp ? sp.name : who!.name, sp ? sp.kind : 'minister')} size={46} title={sp ? sp.name : who!.name} />
+                    <div><small>{sp && sp.cid !== s.player ? 'A message from' : it.id === 'min_scandal' || it.id === 'min_revolt' ? 'About' : sp ? 'From' : 'On your desk from'}</small><b>{sp ? sp.name : who!.name}</b><span className="faint">{sp ? sp.role : roleTitle(who!.role)}</span></div>
                     {place && <span className="place-chip" title="Where it is happening">📍 {place}</span>}
                   </div>
                 )}

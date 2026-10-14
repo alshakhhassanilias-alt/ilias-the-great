@@ -1,3 +1,6 @@
+import { arcById } from '../../sim/arcs';
+import { REVOLT, factionMeta } from '../../sim/domestic';
+import { dateLabel } from '../../sim/tick';
 import { store } from '../../state/store';
 import { Section } from '../widgets';
 import { fmtMoney, fmtNum } from '../format';
@@ -37,10 +40,25 @@ export function SituationSection() {
   for (const r of runsOf(s, s.player)) upcoming.push({ wk: r.weeks - r.done, text: `${projectById(r.id).icon} ${projectById(r.id).title} completes` });
   for (const it of s.inbox) upcoming.push({ wk: it.expires - s.tick, text: `⏳ Decision lapses: ${it.id.replace(/_/g, ' ')}` });
   upcoming.sort((a, b) => a.wk - b.wk);
-  if (!rv && !cr && !hot.length && !mineWars.length && !upcoming.length) return null;
+  if (!rv && !cr && !hot.length && !mineWars.length && !upcoming.length && !me.politics?.arc) return null;
   const focus = (cid: number, prov?: number) => store.select(cid, prov ?? null, true);
+  const P = me.politics;
+  const arc = P?.arc ? arcById(P.arc.id) : undefined;
+  const furious = P?.factions.filter((f) => f.mood < 30) ?? [];
   return (
     <Section title="Right now" hint="live">
+      {arc && P?.arc && (
+        <button className="card crisis-card" style={{ textAlign: 'left', width: '100%' }} onClick={() => store.setTab('politics')}>
+          <b>{arc.icon} {arc.title}</b> <span className="faint">· stage {P.arc.stage} of {arc.stages}</span>
+          <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{P.arc.next ? `More to come around ${dateLabel(P.arc.next.at)}.` : 'A decision is waiting in your inbox.'}</div>
+        </button>
+      )}
+      {furious.length > 0 && (
+        <button className="card hot" style={{ textAlign: 'left', width: '100%' }} onClick={() => store.setTab('politics')}>
+          <b>🔥 {furious.map((f) => factionMeta(f.id).name).join(', ')} {furious.length > 1 ? 'are' : 'is'} furious</b>
+          <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>Risk of {furious.map((f) => REVOLT[f.id]).join(', ')}. Open Politics to see why.</div>
+        </button>
+      )}
       {cr && (
         <div className={`card crisis-card ${cr.id === 'boom' ? 'good' : ''}`}>
           <b>{cr.icon} {cr.title}</b> <span className="faint">· {crisisLeft(s)} weeks left</span>

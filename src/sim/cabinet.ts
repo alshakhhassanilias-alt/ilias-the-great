@@ -219,12 +219,13 @@ export function stepCabinet(s: GameState) {
       replaceMinister(s, m.id, `resigns in fury, accusing you of ${pick(s, ['wrecking the country', 'lying to the cabinet', 'surrounding yourself with flatterers', 'betraying the voters'])}`);
       continue;
     }
-    if (nextRand(s) < t.scandal * (m.skill <= 2 ? 1.5 : 1) * (s.tick < 20 ? 0 : 1)) queue(s, 'min_scandal', { m: m.id, k: Math.floor(nextRand(s) * 6), amt: nextRand(s) }, 20, true);
+    if (s.settings.randomEvents === false) continue;
+    if (nextRand(s) < t.scandal * (m.skill <= 2 ? 1.5 : 1) * (s.tick < 20 ? 0 : 1) * (c.politics?.laws.some((l) => l.id === 'anti_graft') ? 0.4 : 1)) queue(s, 'min_scandal', { m: m.id, k: Math.floor(nextRand(s) * 6), amt: nextRand(s) }, 20, true);
     else if (t.id === 'ambitious' && m.loyalty < 32 && nextRand(s) < 0.015) queue(s, 'min_revolt', { m: m.id }, 14, true);
   }
   // the classic fight over money: the Treasury against Defence
   const fin = ministerOf(c, 'finance'), def = ministerOf(c, 'defence');
-  if (fin && def && s.tick > 30 && s.tick - (s.stats.minClash ?? -999) > 90 && (s.tick + c.id) % 13 === 4 && nextRand(s) < 0.12) {
+  if (fin && def && s.settings.randomEvents !== false && s.tick > 30 && s.tick - (s.stats.minClash ?? -999) > 90 && (s.tick + c.id) % 13 === 4 && nextRand(s) < 0.12) {
     const deficit = (c.eco.spending - c.eco.revenue) / Math.max(1, c.eco.gdp);
     if (deficit > 0.015 || c.budget.military > 0.03) { const n = s.inbox.length; queue(s, 'min_clash', { f: fin.id, d: def.id }, 18); if (s.inbox.length > n) s.stats.minClash = s.tick; }
   }
@@ -237,6 +238,8 @@ const PRESENTER: Record<string, MinRole> = {};
 for (const id of ['oil_spike', 'investment', 'rates', 'tax_demand', 'deposit', 'boom', 'energy_deal', 'pipeline', 'pipeline_cutoff', 'pipeline_bonus', 'trade_war', 'bank_run', 'pension', 'housing', 'green_transition', 'tech_giant', 'free_zone', 'oil_province', 'treasury_plan', 'crisis_response', 'boom_response', 'harvest', 'famine', 'tech', 'brain_drain', 'skilled_migration', 'tech_licence', 'min_clash']) PRESENTER[id] = 'finance';
 for (const id of ['trade_offer', 'ally_aid', 'summit', 'ally_attacked', 'ultimatum', 'peace_conference', 'sanction_pressure', 'summit_invite', 'coup_in_ally', 'proxy_support', 'humanitarian', 'assembly', 'rival_courts_ally', 'rival_summit', 'neighbor_collapse', 'neighbor_hunger', 'hostage_crisis', 'rival_prestige']) PRESENTER[id] = 'foreign';
 for (const id of ['border_incident', 'arms_deal', 'arms_race', 'nuclear_scare', 'rival_buildup', 'airspace_incident', 'naval_standoff', 'generals_hawks', 'mutiny', 'mercenaries', 'allied_exercise', 'cyberattack', 'cyber_blackout', 'rival_sabotage', 'defector', 'incident']) PRESENTER[id] = 'defence';
+for (const id of ['arc_bank_1', 'arc_bank_2a', 'arc_bank_2b']) PRESENTER[id] = 'finance';
+for (const id of ['arc_standoff_1', 'arc_standoff_2', 'arc_standoff_3']) PRESENTER[id] = 'defence';
 export function presenterOf(s: GameState, eventId: string, data?: Record<string, number>): Minister | undefined {
   const c = s.countries[s.player];
   if (!c?.cabinet) return undefined;

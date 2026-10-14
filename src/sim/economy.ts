@@ -302,6 +302,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     occupation: -30 * e.occupation,
     debt: debtRatio > 2 ? -15 : 0,
     doctrine: mods(c).stab,
+    factions: c.politics?.stab ?? 0,
   };
   e.stabParts = parts;
   const target = Object.values(parts).reduce((t, v) => t + v, 0);

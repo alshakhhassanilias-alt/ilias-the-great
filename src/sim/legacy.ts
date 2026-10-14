@@ -173,6 +173,15 @@ function holdVote(s: GameState) {
   }
 }
 
+/** Removed from office by force (a coup, a revolt): the term ends and you go into opposition or exile. */
+export function overthrow(s: GameState, why: string) {
+  const L = s.legacy;
+  if (!L || L.status !== 'office') return false;
+  closeTerm(s, 'removed', why);
+  goIntoOpposition(s, 25);
+  return true;
+}
+
 function goIntoOpposition(s: GameState, share: number) {
   const L = s.legacy!, c = s.countries[s.player];
   L.status = 'opposition';

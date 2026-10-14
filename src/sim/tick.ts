@@ -1,3 +1,6 @@
+import { stepPolitics as stepDomestic } from './domestic';
+import { stepArcs } from './arcs';
+import { approval } from './approval';
 import { stepCables } from './cables';
 import { setInTick } from './relations';
 import type { Geo } from './geo';
@@ -94,6 +97,8 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepAIGen(s, geo);
   stepAutopilot(s, geo);
   stepCabinet(s);
+  stepDomestic(s, approval(s, s.countries[s.player]));
+  stepArcs(s, geo);
   stepCables(s);
   checkInstability(s, geo);
   stepWorldEvents(s, geo);

@@ -15,7 +15,7 @@ import { eventById } from '../sim/events';
 import { sfx, setSound, audio } from '../audio';
 import type { ActionResult } from '../sim/actions';
 
-export type Tab = 'overview' | 'goals' | 'economy' | 'military' | 'diplomacy';
+export type Tab = 'overview' | 'politics' | 'goals' | 'economy' | 'military' | 'diplomacy';
 export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
 /** Ticks (weeks) per real second. Deliberately gentle: a year takes ~1m45s at Slow, 52s at Normal. */
 export const SPEEDS = [
