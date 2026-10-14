@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 112 deterministic simulation tests (Vitest) |
+| `npm test` | 120 deterministic simulation tests (Vitest) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -36,6 +36,13 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **📜 Legacy** — a political career of up to 40 years. Terms of four years; at each inauguration you pick up to three promises from five **agenda cards** (about 20 kinds: economic miracle, balanced books, full employment, energy independence, rearmament, a great alliance, reclaiming lost land, lasting peace ...), each with a live progress bar and a once-per-term signature action. Eight weeks before the vote a **campaign** starts; the result depends on approval, promises kept or broken, fatigue and your campaign choices. Every term ends with a **newspaper review**. Lose and you lead the **opposition** (or go into exile in an autocracy): rallies, exposés, coalitions and foreign backing raise your support, a weak government can be forced into a snap vote, and a comeback returns you to power — two failed comebacks end the career. Retiring, losing your country or reaching the end of the era opens the **history book**: a legacy score in six parts (prosperity, power, standing, the people, promises, terms, wars), a grade from S to F, an epithet and a verdict, after which you can keep playing the world as a sandbox.
 * **Control levels** — Economy, Military and Diplomacy can each be **Auto** (ministers and generals run it; pick an economic focus), **Guided** (they propose a plan, you approve) or **Hands-on**, with presets Leader / Strategist / Commander. Change it any time in Settings.
 * **Army groups** — with the military on Guided or Hands-on your field forces form 3–6 armies, drawn as banners on the map with their commander. Drag a banner onto an enemy region to set its objective, or onto your own land to hold it; give orders Advance, Encircle (pincers, +25% against cut-off regions), Raid (half the losses, economic damage, slower gains), Hold (the region and its neighbours defend much harder) or Defend capital; change each army's share of the troops and its commander.
+
+## Every country has its own road
+* **National paths**: twenty major countries have hand-written trees of national projects that follow their real dilemmas: the United States (chips, the grid, tariffs or free trade, the Pacific, a missile shield), China (common prosperity, chips, Belt and Road, a blue-water navy, the Taiwan question), Russia, India, Japan, Germany, the UK, France, Brazil, Turkey, Iran (the bomb or a deal), Saudi Arabia, Israel, Poland, Ukraine, South Korea, Indonesia, Mexico, Nigeria and Egypt. Every other country gets a path that fits its situation (oil state, emerging economy, small state, developed country). You run one project at a time; it costs political capital and money, takes weeks, and changes the country for good, and branches close each other off. AI countries walk their own paths, so the world changes around you. Major countries also start with their own political landscape (a polarised America, Russia's powerful army, France's militant unions…).
+* **War with a purpose**: declare a war aim (limited, total, or defend and restore) and be judged on it when the war ends. Wartime brings its own decisions (sieges of real cities, volunteers, atrocity reports, generals asking for reserves, mediators, arms offers with strings, anti-war marches, heroes, prisoner exchanges, saboteurs, a strained war economy). Eight **weapons programmes** permanently change how you fight; missile brigades unlock strikes on the enemy's economy.
+* **A world that pushes back**: wars of aggression and conquered regions raise an aggression score, and when it is high the neighbours form a **coalition** that sanctions the aggressor and joins any war on its members (this applies to you too). Great powers arm the side they favour in other wars. Threatened countries look for allies, and long stalemates and lost causes end in peace.
+* **Balanced by automated playtests**: `scripts/playtest.ts` plays full games with four bot styles across ten countries; see [docs/balance-report.md](docs/balance-report.md).
+* **Smoother everywhere (desktop)**: map modes cross-fade, zoom and pan glide, numbers count up and down, bars slide, panels rise into place.
 
 ## Politics at home: the core loop
 * **Political capital** is the scarce currency of power: about 25–45 a year, more when you are popular and your cabinet is loyal. Laws cost 14–34, doctrine reforms 10, crisis responses 6–15. Every few months you must choose what to spend it on.
@@ -50,6 +57,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Diplomatic cables:** foreign leaders answer what you do (treaties, refusals, sanctions, war, peace) in their own voice, coloured by their traits; rivals send the occasional threat, friends a kind word. Reply warmly or firmly. Offers show the leader, their pitch, what the treaty gives you and how the world would react.
 
 ## What keeps it busy
+* **Crisis arcs** now also include an outbreak, a heatwave blackout and a leaked-files scandal.
 * **Decision events** (about 5 a year, 16 kinds): strikes, energy shocks, border incidents, research breakthroughs, disasters, scandals, investment offers, refugees, central-bank calls, coup plots, trade delegations, arms deals, harvest failures, tax demands, allies asking for help, resource discoveries. The game pauses and each choice has real costs and effects.
 * **A living world:** AI countries have disasters, strikes, coups, booms and border clashes that show up in a live **news ticker**; they declare wars, sign peace, offer you treaties, sanction aggressors and call allies.
 * **Objectives:** ten optional goals (grow GDP, open markets, build infrastructure, climb the rankings, win your first conquest ...) that pay out immediately.
@@ -103,6 +111,8 @@ src/
     cabinet.ts   the player's ministers: traits, skill, loyalty, scandals, reshuffles   events4.ts  cabinet events
     cables.ts    messages from foreign leaders     names.ts  national name banks
     domestic.ts  factions, political capital, laws, parliament    arcs.ts + events5.ts  crisis arcs, demands, uprisings
+    nations.ts   national paths       wargoals.ts + events6.ts  war aims, weapons programmes, war stories
+    coalitions.ts  aggression, coalitions, great powers taking sides
     save.ts      JSON save/load                   rng.ts    seeded PRNG stored in the save
   map/            geometry.ts (Path2D, runtime border unions, picking)  renderer.ts (canvas)  MapView.tsx
   state/store.ts  clock/speeds, selection, toasts, autosave — the only bridge between sim and React
@@ -239,7 +249,7 @@ ultimatums, "honour your alliance?" decisions, buildings (fortresses, bases, por
 | 1 — vertical slice (map, stats, budget, clock, military, war, territory, responsive UI) | ✅ done and tested |
 | 2 — trade, diplomacy, AI, alliances, peace talks | ✅ done |
 | 3 — richer economy, logistics, population, technology | ✅ first version (resource markets, trade index, intel fog, tech/R&D; no tech tree) |
-| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 112 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
+| 4 — save/load, balancing, tests, performance, mobile polish | ✅ saves/autosave/export, 120 unit tests + e2e smoke test, ~13 ms/tick for the whole world; balance is a first pass |
 
 ## Known limitations / ideas for next iterations
 * Provinces are coarse (656); microstates are a single province, so one capture annexes them. Rebel/secession states,

@@ -194,6 +194,10 @@ export interface Country {
   cabinet?: Minister[];
   /** the player's domestic politics: factions, political capital, laws, crises */
   politics?: Politics;
+  /** national path: completed projects and the one under way */
+  nat?: { done: string[]; active?: { id: string; start: number; until: number } };
+  /** the player's weapons programmes */
+  progs?: { id: string; until: number; done: boolean }[];
 }
 
 export type FactionId = 'labour' | 'business' | 'military' | 'nationalists' | 'liberals' | 'regions';
@@ -360,6 +364,8 @@ export interface GameState {
   armies?: Army[];
   /** quotes from foreign leaders to the player, newest last */
   cables?: Cable[];
+  /** coalitions formed against aggressors */
+  coalitions?: { target: CountryId; members: CountryId[]; since: number }[];
 }
 export interface Reaction { id: CountryId; delta: number; text: string }
 export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }

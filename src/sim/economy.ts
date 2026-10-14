@@ -301,7 +301,8 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     shortages: -40 * e.foodUnmet - 30 * e.energyUnmet,
     occupation: -30 * e.occupation,
     debt: debtRatio > 2 ? -15 : 0,
-    doctrine: mods(c).stab,
+    // doctrines, laws, ministers and national projects: bonuses stack with diminishing returns (at most about +9)
+    doctrine: (() => { const v = mods(c).stab; return v > 0 ? 9 * (1 - Math.exp(-v / 9)) : v; })(),
     factions: c.politics?.stab ?? 0,
   };
   e.stabParts = parts;

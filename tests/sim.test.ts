@@ -23,6 +23,9 @@ import { actAppoint, actCourt, candidates, ministerEffects, ministerOf } from '.
 import { actReplyCable } from '../src/sim/cables';
 import { nationalName } from '../src/sim/names';
 import { actPassLaw, actRepealLaw, factionTarget, forecast, lawById } from '../src/sim/domestic';
+import { actStartProject as startNatProject, blocked, pathOf } from '../src/sim/nations';
+import { actMissileStrike, actStartProgramme, goalOf, settleGoal } from '../src/sim/wargoals';
+import { addAggression, coalitionAgainst } from '../src/sim/coalitions';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
 const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
@@ -344,7 +347,7 @@ describe('things to do: events, goals, covert ops, war actions', () => {
       maxInbox = Math.max(maxInbox, s.inbox.length);
       const it = s.inbox[0];
       if (it && s.tick % 5 === 0) {
-        seen++; ids.push(it.id);
+        seen++; ids.push(it.id.startsWith('fac_') ? `${it.id}:${it.data.f}` : it.id);
         const n = eventById(it.id).options.length;
         let r = resolveEvent(s, geo, n - 1, it.uid); // the last option is the cautious one
         for (let o = 0; !r.ok && o < n; o++) r = resolveEvent(s, geo, o, it.uid);
@@ -1377,5 +1380,117 @@ describe('round 13: domestic politics, political capital, laws, crisis arcs', ()
     run(a, 80); run(b, 80);
     expect(JSON.stringify(a.countries[a.player].politics)).toBe(JSON.stringify(b.countries[b.player].politics));
     expect(a.rng).toBe(b.rng);
+  });
+});
+
+describe('round 14: national paths, war goals, programmes, coalitions, new crises', () => {
+  it('every major country has its own national path; projects cost capital and money, take time, change the country and close off rivals', () => {
+    for (const n of ['United States of America', 'China', 'Russia', 'India', 'Japan', 'Germany', 'United Kingdom', 'France', 'Brazil', 'Turkey', 'Iran', 'Saudi Arabia', 'Israel', 'Poland', 'Ukraine', 'South Korea', 'Indonesia', 'Mexico', 'Nigeria', 'Egypt']) {
+      const s = fresh(n);
+      const p = pathOf(s.countries[s.player]);
+      expect(p.nodes.length, n).toBeGreaterThanOrEqual(6);
+      expect(p.title).not.toBe('Renewal');
+    }
+    const s = fresh('Germany');
+    const c = s.countries[s.player];
+    c.eco.cash = 1e13; c.politics!.pc = 100;
+    expect(startNatProject(s, 'de_brake').ok).toBe(true);
+    expect(startNatProject(s, 'de_energy').ok).toBe(false); // one at a time
+    const infra = c.eco.infra;
+    run(s, 21);
+    expect(c.nat!.done).toContain('de_brake');
+    expect(c.eco.infra).toBeGreaterThan(infra + 4);
+    expect(blocked(s, c, pathOf(c).nodes.find((x) => x.id === 'de_zero')!)).toMatch(/Closed off/);
+    expect(blocked(s, c, pathOf(c).nodes.find((x) => x.id === 'de_europe')!)).toMatch(/Needs/);
+    // small countries get a path that fits them
+    expect(pathOf(fresh('Estonia').countries[id('Estonia')]).key).toBe('small');
+  });
+  it('AI countries walk their own national paths', () => {
+    const s = fresh('Poland');
+    run(s, 160);
+    const done = s.countries.filter((c) => !c.isPlayer && (c.nat?.done.length ?? 0) > 0);
+    expect(done.length).toBeGreaterThanOrEqual(3);
+  });
+  it('a war starts with a choice of war aims, judged when it ends', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    const it = s.inbox.find((x) => x.id === 'war_goal')!;
+    expect(it).toBeDefined();
+    expect(resolveEvent(s, geo, 0, it.uid).ok).toBe(true); // limited war
+    const w = s.wars.find((x) => x.attackers.includes(s.player))!;
+    expect(goalOf(s, w)).toBe(1);
+    const pc0 = s.countries[s.player].politics!.pc;
+    settleGoal(s, { id: w.id, name: w.name, a: s.player, b: id('Belarus'), start: 0, end: 10, casA: 1, casB: 1, provsA: 2, provsB: 0, winner: 'a', terms: 'demand' });
+    expect(s.countries[s.player].politics!.pc).toBeGreaterThan(pc0);
+  });
+  it('wartime stories reach the desk and every answer works', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    const c = s.countries[s.player];
+    c.eco.cash = 1e12; c.politics!.pc = 100;
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    const w = s.wars[0];
+    const p = c.provinces[0];
+    for (const id0 of ['war_siege', 'war_volunteers', 'war_atrocity', 'war_general', 'war_mediator', 'war_arms', 'war_protest', 'war_hero', 'war_pows', 'war_sabotage', 'war_economy']) {
+      const def = eventById(id0);
+      for (let i = 0; i < def.options.length; i++) {
+        const s2 = JSON.parse(JSON.stringify(s)) as GameState;
+        const data = { w: w.id, e: id('Belarus'), x: id('Germany'), p };
+        expect(def.text(s2, s2.countries[s2.player], data).length).toBeGreaterThan(30);
+        s2.inbox = [{ uid: 1, id: id0, tick: 1, expires: 99, urgent: false, data }];
+        expect(resolveEvent(s2, geo, i).ok, `${id0}/${i}`).toBe(true);
+      }
+    }
+  });
+  it('weapons programmes change how forces fight; missile brigades unlock strikes', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    const c = s.countries[s.player];
+    c.eco.cash = 1e13;
+    const off = mods(c).off;
+    expect(actStartProgramme(s, 'drones').ok).toBe(true);
+    expect(actStartProgramme(s, 'missiles').ok).toBe(true);
+    expect(actStartProgramme(s, 'armour').ok).toBe(false); // two at a time
+    run(s, 27);
+    expect(mods(c).off).toBeGreaterThan(off * 1.08);
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    const cap = s.countries[id('Belarus')].eco.capital;
+    expect(actMissileStrike(s, id('Belarus')).ok).toBe(true);
+    expect(s.countries[id('Belarus')].eco.capital).toBeLessThan(cap);
+    expect(actMissileStrike(s, id('Belarus')).ok).toBe(false); // reloading
+  });
+  it('serial aggression unites the neighbours in a coalition that joins any war on its members', () => {
+    const s = fresh('Poland');
+    addAggression(s, id('Russia'), 80);
+    for (let i = 0; i < 16 && !coalitionAgainst(s, id('Russia')); i++) run(s, 1);
+    const k = coalitionAgainst(s, id('Russia'));
+    expect(k).toBeDefined();
+    expect(k!.members.length).toBeGreaterThanOrEqual(3);
+    const victim = k!.members.find((m) => !s.wars.some((w) => w.attackers.includes(m) || w.defenders.includes(m)) && m !== s.player)!;
+    declareWar(s, geo, id('Russia'), victim);
+    const w = s.wars.find((x) => x.attackers.includes(id('Russia')) && x.defenders.includes(victim))!;
+    expect(w.defenders.length).toBeGreaterThan(1);
+  });
+  it('the new crises (outbreak, blackout, leaked files) run from start to end', () => {
+    for (const arcId of ['epidemic', 'blackout', 'leaks']) for (let choice = 0; choice < 3; choice++) {
+      const s = fresh('Brazil');
+      const c = s.countries[s.player];
+      c.eco.cash = 1e12; c.politics!.pc = 100;
+      const data: Record<string, number> = arcId === 'leaks' ? { m: c.cabinet![1].id, n: 3 } : { p: c.provinces[0] };
+      c.politics!.arc = { id: arcId, stage: 1, started: s.tick };
+      s.inbox = [{ uid: s.nextInbox++, id: `arc_${arcId}_1`, tick: s.tick, expires: s.tick + 14, urgent: true, data }];
+      for (let w = 0; w < 80 && c.politics!.arc; w++) {
+        for (const it of [...s.inbox]) {
+          if (!it.id.startsWith('arc_')) { s.inbox = s.inbox.filter((x) => x !== it); continue; }
+          const def = eventById(it.id);
+          const en = def.options.map((o) => !o.enabled || o.enabled(s, c));
+          const k = en[choice] ? choice : en.indexOf(true);
+          expect(resolveEvent(s, geo, k, it.uid).ok).toBe(true);
+        }
+        if (c.politics!.arc) run(s, 1);
+      }
+      expect(c.politics!.arc, `${arcId}/${choice}`).toBeUndefined();
+    }
+  });
+  it('the default (first) answer to a decision never starts a war by itself', () => {
+    for (const e of EVENTS) expect(/declare war/i.test(e.options[0]?.label ?? ''), e.id).toBe(false);
   });
 });

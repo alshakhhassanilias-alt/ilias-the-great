@@ -130,6 +130,15 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.locator('.law.open input[type=range]').fill('30');
   await pg.click('.law.open .btn.primary');
   check('a law can be put to a vote from the Politics tab', (await pg.evaluate(() => { const s = window.__store.state; return s.countries[s.player].politics.laws.length; })) === lawsBefore + 1);
+  await pg.click('.tabs button:has-text("Goals")');
+  check('the Goals tab shows the national path for the country', (await pg.locator('.path-node').count()) >= 6 && /Bastion of the East/i.test(await pg.locator('.side-body').innerText()));
+  await pg.evaluate(() => { const s = window.__store.state; const c = s.countries[s.player]; c.politics.pc = 100; c.eco.cash = 1e13; window.__store.notify(); });
+  await pg.click('.path-node:has-text("Silicon Vistula")');
+  await pg.click('.path-detail .btn.primary');
+  check('a national project can be started', (await pg.evaluate(() => { const s = window.__store.state; return s.countries[s.player].nat?.active?.id; })) === 'pl_vistula');
+  await pg.click('.tabs button:has-text("Military")');
+  await pg.click('.prog:has-text("Drone Corps") .btn');
+  check('a weapons programme can be started from the Military tab', (await pg.evaluate(() => { const s = window.__store.state; return (s.countries[s.player].progs ?? []).length; })) === 1);
   await pg.click('button[aria-label="Pause"]');
   // save / load
   await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Save game")');

@@ -141,7 +141,9 @@ export function voteShare(s: GameState): number {
   const fatigue = Math.max(0, (L?.term ?? 1) - 2) * 2.5;
   const diff = s.settings.difficulty === 'easy' ? 4 : s.settings.difficulty === 'hard' ? -4 : 0;
   const cab = c.cabinet?.length ? clamp((avgLoyalty(c) - 50) * 0.08, -3, 2) : 0; // a divided cabinet leaks against you
-  return clamp(approval(s, c) * 0.8 + 9 + 3.5 * kept - 2 * failed - fatigue + diff + cab + (s.stats.campaign ?? 0), 2, 95);
+  // elections are fought against an opposition that grows stronger the longer you rule
+  const opposition = 1.5 * Math.max(0, (L?.term ?? 1) - 1);
+  return clamp(50 + (approval(s, c) - 50) * 0.6 + 3.5 * kept - 2 * failed - fatigue - opposition + diff + cab + (s.stats.campaign ?? 0), 2, 95);
 }
 
 function holdVote(s: GameState) {

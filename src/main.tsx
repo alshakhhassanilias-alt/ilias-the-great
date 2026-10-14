@@ -15,5 +15,6 @@ import './styles.css';
 import './desktop.css';
 import './legacy.css';
 import './people.css';
+import './motion.css';
 
 createRoot(document.getElementById('root')!).render(<App />);

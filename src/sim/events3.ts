@@ -276,9 +276,9 @@ export const EVENTS3: EventDef[] = [
     eligible: (s, c) => { const r = rival(s); const targets = s.countries.filter((o) => o.alive && o.id !== c.id && getRelation(s, c.id, o.id) < -20 && !isAtWar(s, o.id)); const o = r && getRelation(s, c.id, r.id) < 0 ? r : targets[0]; return o && c.mil.troops > 20000 ? { o: o.id } : null; },
     text: (s, _c, d) => `Your top generals tell the cabinet that ${name(s, d.o)} is weak and that a short, decisive campaign would settle the old score. The hawks in parliament agree.`,
     options: [
-      { label: 'Declare war', hint: `Take the initiative · reputation and relations suffer`, enabled: (s, c) => { const d = s.inbox.find((x) => x.id === 'generals_hawks'); return d ? canDeclareWar(s, c.id, d.data.o).ok : false; }, apply: (s, c, d, geo) => { const r = declareWar(s, geo, c.id, d.o); return r.ok ? `You declared war on ${name(s, d.o)}!` : `Could not declare war: ${r.reason}`; } },
       { label: 'Boost the defence budget', hint: 'Costs 0.5% of GDP · army equipment up · stability +2', enabled: canPay(0.005), apply: (s, c) => { pay(s, c, 0.005); c.mil.equipArmy += 0.004 * c.eco.gdp; stab(c, 2); return 'The generals got their new tanks.'; } },
       { label: 'Rein them in', hint: 'Readiness −5% · stability −2', apply: (_s, c) => { c.mil.readiness = clamp(c.mil.readiness - 0.05, 0, 1); stab(c, -2); return 'The army grumbled but obeyed.'; } },
+      { label: 'Declare war', hint: `Take the initiative · reputation and relations suffer`, enabled: (s, c) => { const d = s.inbox.find((x) => x.id === 'generals_hawks'); return d ? canDeclareWar(s, c.id, d.data.o).ok : false; }, apply: (s, c, d, geo) => { const r = declareWar(s, geo, c.id, d.o); return r.ok ? `You declared war on ${name(s, d.o)}!` : `Could not declare war: ${r.reason}`; } },
     ],
     lapse: (_s, c) => { c.mil.readiness = clamp(c.mil.readiness - 0.03, 0, 1); return 'The generals sulked.'; },
   },

@@ -1,4 +1,6 @@
 import { arcById } from '../../sim/arcs';
+import { pathOf } from '../../sim/nations';
+import { aggOf, coalitionAgainst } from '../../sim/coalitions';
 import { REVOLT, factionMeta } from '../../sim/domestic';
 import { dateLabel } from '../../sim/tick';
 import { store } from '../../state/store';
@@ -53,6 +55,35 @@ export function SituationSection() {
           <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{P.arc.next ? `More to come around ${dateLabel(P.arc.next.at)}.` : 'A decision is waiting in your inbox.'}</div>
         </button>
       )}
+      {(() => { const a = me.nat?.active; const n = a ? pathOf(me).nodes.find((x) => x.id === a.id) : undefined; return n && a ? (
+        <button className="card" style={{ textAlign: 'left', width: '100%' }} onClick={() => store.setTab('goals')}>
+          <b>{n.icon} {n.title}</b> <span className="faint">· national project, completes {dateLabel(a.until)}</span>
+          <div className="path-prog" style={{ marginTop: 6 }}><i style={{ width: `${Math.min(100, (100 * (s.tick - a.start)) / Math.max(1, a.until - a.start))}%` }} /></div>
+        </button>
+      ) : !me.nat?.active && (me.politics?.pc ?? 0) >= 12 ? (
+        <button className="card" style={{ textAlign: 'left', width: '100%' }} onClick={() => store.setTab('goals')}>
+          <b>🏛 No national project under way</b>
+          <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{pathOf(me).title}: pick the next step in the Goals tab.</div>
+        </button>
+      ) : null; })()}
+      {(() => {
+        const k = coalitionAgainst(s, me.id), agg = aggOf(s, me.id);
+        if (k) return (
+          <button className="card hot" style={{ textAlign: 'left', width: '100%' }} onClick={() => focus(k.members[0])}>
+            <b>⚠ A coalition of {k.members.length} countries stands against you</b>
+            <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{k.members.slice(0, 6).map((x) => s.countries[x].name).join(', ')}{k.members.length > 6 ? '…' : ''}. Attack any of them and the others join in. It breaks up as your aggression fades ({Math.round(agg)}).</div>
+          </button>
+        );
+        if (agg > 14) return (
+          <div className="card">
+            <b>👁 The world is watching your aggression</b>
+            <div className="bar" style={{ margin: '6px 0' }}><i style={{ width: `${Math.min(100, (agg / 35) * 100)}%`, background: agg > 28 ? 'var(--red)' : 'var(--amber)' }} /></div>
+            <div className="faint" style={{ fontSize: 12 }}>{Math.round(agg)} of 35: above that your neighbours form a coalition against you. Wars of aggression and conquered regions raise it; it fades over time.</div>
+          </div>
+        );
+        const theirs = (s.coalitions ?? []).filter((x) => x.members.includes(me.id) || isMajor(s, x.target)).slice(0, 2);
+        return theirs.map((x) => <div className="card" key={x.target}><b>🤝 Coalition against {s.countries[x.target].name}</b><div className="faint" style={{ fontSize: 12 }}>{x.members.length} members{x.members.includes(me.id) ? ', including you' : ''}.</div></div>);
+      })()}
       {furious.length > 0 && (
         <button className="card hot" style={{ textAlign: 'left', width: '100%' }} onClick={() => store.setTab('politics')}>
           <b>🔥 {furious.map((f) => factionMeta(f.id).name).join(', ')} {furious.length > 1 ? 'are' : 'is'} furious</b>

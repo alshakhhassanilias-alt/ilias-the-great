@@ -10,6 +10,8 @@
  *   progress per tick = 0.16 · clamp(ln(attack/defence) + 0.25, −1.2, 1.6) scaled by province size.
  * A province changes hands when progress reaches 100%. Casualties are Lanchester-like in the force ratio.
  */
+import { addAggression, coalitionAgainst } from './coalitions';
+import { settleGoal } from './wargoals';
 import { cable } from './cables';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
@@ -140,7 +142,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   const chk = canDeclareWar(s, a, d);
   if (!chk.ok) return chk;
   const A = s.countries[a], D = s.countries[d];
-  const justified = claimStrength(a, d) > 0.3 || getRelation(s, a, d) < -60;
+  const justified = claimStrength(a, d) > 0.3 || getRelation(s, a, d) < -60 || !!s.stats[`cb:${a}>${d}`];
   let severity = justified ? 2 : 7;
   const treaty = s.treaties[pairKey(a, d)];
   if (treaty?.nap) { addGrudge(s, d, a, 'broke a non-aggression pact with it', 15); severity += 6; A.reputation = Math.max(0, A.reputation - 10); logEvent(s, `${A.name} broke its non-aggression pact with ${D.name}.`, 'diplo', [a, d], true); }
@@ -158,6 +160,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   addGrudge(s, d, a, 'attacked it', 30);
   addRelation(s, a, d, -40);
   aggressionFallout(s, a, d, severity);
+  addAggression(s, a, justified ? 14 : 24);
   logEvent(s, `${A.name} declared war on ${D.name}!${why ? ` Reason: ${why}.` : justified ? ' It claims the land is rightfully its own.' : ''}`, 'war', [a, d], true, isBigNews(s, a, d) ? { big: true, prov: D.capital } : undefined);
 
   // alliance calls
@@ -192,7 +195,17 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
       }
     }
   }
+  // a coalition against the aggressor answers an attack on any of its members
+  const coal = coalitionAgainst(s, a);
+  if (coal?.members.includes(d)) {
+    for (const x of coal.members) {
+      if (x === d || war.defenders.includes(x) || !s.countries[x]?.alive || hasAlliance(s, x, a)) continue;
+      if (x === s.player) { s.scheduled.push({ tick: s.tick, id: 'ally_attacked', data: { ally: d, aggressor: a, war: war.id } }); continue; }
+      if (nextRand(s) < 0.7) { war.defenders.push(x); war.startProvs[x] = s.countries[x].provinces.length; onEnterWar(s, s.countries[x], 'ally'); logEvent(s, `${s.countries[x].name} honours the coalition and joins the war against ${A.name}.`, 'war', [x, a, d], true); }
+    }
+  }
   if (d === s.player) cable(s, a, 'war_on_you'); else if (a === s.player) cable(s, d, 'you_declared');
+  if ((a === s.player || d === s.player) && !s.inbox.some((x) => x.id === 'war_goal')) s.inbox.push({ uid: s.nextInbox++, id: 'war_goal', tick: s.tick, expires: s.tick + 6, urgent: true, data: { w: war.id, e: a === s.player ? d : a } });
   return { ok: true };
 }
 
@@ -304,6 +317,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
   const tp = termProvinces(s, geo, a, b, t);
   let moved = 0;
   if (tp) for (const p of tp.provs) if (s.owner[p] === tp.from) { transferProvince(s, geo, p, tp.to); moved++; }
+  if (tp && moved && w.attackers.includes(tp.to)) addAggression(s, tp.to, 2 * moved);
   {
     // the record of this war, for the history and the end-of-war summary
     const provsA = (w.taken?.[a] ?? 0) + (tp && tp.to === a ? moved : 0) - (tp && tp.from === a ? moved : 0);
@@ -312,6 +326,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
     const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
     const hist = s.warHistory ?? (s.warHistory = []);
     hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind });
+    settleGoal(s, hist[hist.length - 1]);
     if (hist.length > 40) hist.splice(0, hist.length - 40);
   }
   if (tp && tp.provs.length && tp.to === s.player) s.stats.warWins = (s.stats.warWins ?? 0) + 1;
@@ -575,6 +590,7 @@ export function stepWars(s: GameState, geo: Geo) {
         const la = best.la ?? 0, ld = best.ld ?? 0;
         const big = p === E.capital || isBigNews(s, winner, e);
         const gw = generalAt(W, p);
+        if (w.attackers.includes(winner)) addAggression(s, winner, 2.5);
         logEvent(s, `Battle of ${name}: ${W.name}${gw ? ` (General ${gw.name})` : ''} captured it from ${E.name}${la + ld > 2000 ? ` after fighting that cost ${fmtCas(la)} attackers and ${fmtCas(ld)} defenders` : ''}.`, 'territory', [winner, e], winner === s.player || e === s.player || big, big && p !== E.capital ? { big: true, prov: p } : { prov: p });
       }
     }

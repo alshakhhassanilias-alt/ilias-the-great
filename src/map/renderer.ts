@@ -308,7 +308,7 @@ export class MapRenderer {
     const k = clamp(Math.min(availW / (bw * 1.7), availH / (bh * 1.7)), this.fitK, 26);
     const to: View = { k, x: availW / 2 - ((x0 + x1) / 2) * k, y: availH / 2 - ((y0 + y1) / 2) * k };
     this.targetK = k; this.anchor = null; this.inertia = false;
-    if (animate) this.anim = { from: { ...this.view }, to, t0: performance.now(), ms: 650 };
+    if (animate) this.anim = { from: { ...this.view }, to, t0: performance.now(), ms: 820 };
     else { this.view = to; this.anim = null; }
     this.touchView();
   }
@@ -331,13 +331,13 @@ export class MapRenderer {
       const v = this.view;
       const [ax, ay] = this.anchor ?? [this.w / 2, this.h / 2];
       const wx = (ax - v.x) / v.k, wy = (ay - v.y) / v.k;
-      v.k += (this.targetK - v.k) * (1 - Math.exp(-dt * 13));
+      v.k += (this.targetK - v.k) * (1 - Math.exp(-dt * 10));
       v.x = ax - wx * v.k; v.y = ay - wy * v.k;
       this.constrain(); this.touchView();
     }
     if (this.inertia) {
       this.view.x += this.vel.x * dt * 1000; this.view.y += this.vel.y * dt * 1000;
-      const d = Math.exp(-dt * 4.5);
+      const d = Math.exp(-dt * 3.4);
       this.vel.x *= d; this.vel.y *= d;
       this.constrain(); this.touchView();
       if (Math.hypot(this.vel.x, this.vel.y) < 0.03) this.inertia = false;
@@ -460,6 +460,8 @@ export class MapRenderer {
     else if (idle && moved) render = true;
     else if (this.baseSoftDirty && t0 - this.lastBase > 450 && idle) render = true;
     // while the view moves, names are just carried along by the CSS transform and redrawn once it settles
+    // a change of map mode (or selection) cross-fades instead of snapping
+    if (render && this.baseValid && this.quality >= 1 && (this.baseMode !== this.mode || this.baseSel !== this.selected)) this.ghostBase(this.baseMode !== this.mode ? 380 : 220);
     if (render) this.renderBase(state, !ownersOnly && (!this.baseValid || this.lastLabels === 0 || this.baseSel !== this.selected));
     else if (this.labelsStale && this.lctx && idle && (t0 - this.lastLabels > 1800 || t0 - this.lastViewChange < 600)) {
       // names follow conquered land a moment later, in their own frame, so the war never stutters on text
@@ -486,6 +488,24 @@ export class MapRenderer {
     this.drawOverlays(o, state);
     this.stats.overlayMs = performance.now() - tc;
     this.stats.frameMs = performance.now() - t0;
+  }
+
+  /** Copy the current base layer into a short-lived canvas on top of it and fade it out. */
+  private ghostBase(ms: number) {
+    const b = this.base, parent = b.parentElement;
+    if (!parent || !b.width || !b.height) return;
+    const g = document.createElement('canvas');
+    g.width = b.width; g.height = b.height;
+    g.className = b.className;
+    g.style.cssText = b.style.cssText;
+    g.style.pointerEvents = 'none';
+    g.style.willChange = 'opacity';
+    const gc = g.getContext('2d');
+    if (!gc) return;
+    gc.drawImage(b, 0, 0);
+    parent.insertBefore(g, b.nextSibling);
+    requestAnimationFrame(() => { g.style.transition = `opacity ${ms}ms ease`; g.style.opacity = '0'; });
+    setTimeout(() => g.remove(), ms + 80);
   }
 
   /** Whether another frame is needed even if nothing was touched (animations running). */

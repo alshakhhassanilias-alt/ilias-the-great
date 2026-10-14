@@ -4,6 +4,7 @@ import { fiscalNow } from '../sim/economy';
 import { warSupport } from '../sim/warsupport';
 import { isAtWar } from '../sim/relations';
 import { LegacyChip } from './Legacy';
+import { Tween } from './Tween';
 
 export function TopBar() {
   useStoreThrottled(300);
@@ -20,12 +21,12 @@ export function TopBar() {
       </div>
       <LegacyChip />
       <div className="kpis" role="list">
-        {c.politics && (!s.legacy || s.legacy.status === 'office') && <button className="kpi kpi-btn hide-m pc-kpi" role="listitem" title="Political capital: spend it on laws, reforms and crisis responses. Click for politics." onClick={() => { store.select(s.player, null, false); store.setTab('politics'); }}><label>Political capital</label><b className={c.politics.pc < 15 ? 'warn' : 'good'}>{Math.floor(c.politics.pc)}</b><small>{c.politics.arc ? '⚠ crisis' : c.politics.unrest && s.tick < c.politics.unrest.until ? '🔥 unrest' : `${c.politics.laws.length} laws`}</small></button>}
-        <div className="kpi" role="listitem"><label>Treasury</label><b className={e.cash <= 0 ? 'warn' : ''}>{fmtMoney(e.cash)}</b><small className={bal < 0 ? 'bad' : 'good'}>{bal >= 0 ? '+' : ''}{fmtMoney(fn.balance)}/yr</small></div>
-        <div className={`kpi ${isAtWar(s, c.id) ? "hide-s" : ""}`} role="listitem"><label>GDP</label><b>{fmtMoney(e.gdp)}</b><small className={e.growth < 0 ? 'bad' : ''}>{signedPct(e.growth)} real</small></div>
-        <div className="kpi hide-m" role="listitem"><label>GDP / capita</label><b>{fmtMoney(e.gdp / e.pop, 1)}</b><small>{c.name.length > 14 ? c.iso3 : c.name}</small></div>
-        <div className="kpi hide-s" role="listitem"><label>Debt</label><b className={e.debt / e.gdp > 1.5 ? 'bad' : ''}>{pct(e.debt / e.gdp, 0)}</b><small>of GDP</small></div>
-        <div className="kpi hide-m" role="listitem"><label>Inflation</label><b className={e.inflation > 0.08 ? 'bad' : ''}>{pct(e.inflation)}</b><small>jobless {pct(e.unemployment)}</small></div>
+        {c.politics && (!s.legacy || s.legacy.status === 'office') && <button className="kpi kpi-btn hide-m pc-kpi" role="listitem" title="Political capital: spend it on laws, reforms and crisis responses. Click for politics." onClick={() => { store.select(s.player, null, false); store.setTab('politics'); }}><label>Political capital</label><b className={c.politics.pc < 15 ? 'warn' : 'good'}><Tween value={c.politics.pc} format={(v) => Math.floor(v).toString()} /></b><small>{c.politics.arc ? '⚠ crisis' : c.politics.unrest && s.tick < c.politics.unrest.until ? '🔥 unrest' : `${c.politics.laws.length} laws`}</small></button>}
+        <div className="kpi" role="listitem"><label>Treasury</label><b className={e.cash <= 0 ? 'warn' : ''}><Tween value={e.cash} format={(v) => fmtMoney(v)} /></b><small className={bal < 0 ? 'bad' : 'good'}>{bal >= 0 ? '+' : ''}{fmtMoney(fn.balance)}/yr</small></div>
+        <div className={`kpi ${isAtWar(s, c.id) ? "hide-s" : ""}`} role="listitem"><label>GDP</label><b><Tween value={e.gdp} format={(v) => fmtMoney(v)} /></b><small className={e.growth < 0 ? 'bad' : ''}>{signedPct(e.growth)} real</small></div>
+        <div className="kpi hide-m" role="listitem"><label>GDP / capita</label><b><Tween value={e.gdp / e.pop} format={(v) => fmtMoney(v, 1)} /></b><small>{c.name.length > 14 ? c.iso3 : c.name}</small></div>
+        <div className="kpi hide-s" role="listitem"><label>Debt</label><b className={e.debt / e.gdp > 1.5 ? 'bad' : ''}><Tween value={e.debt / e.gdp} format={(v) => pct(v, 0)} /></b><small>of GDP</small></div>
+        <div className="kpi hide-m" role="listitem"><label>Inflation</label><b className={e.inflation > 0.08 ? 'bad' : ''}><Tween value={e.inflation} format={(v) => pct(v)} /></b><small>jobless {pct(e.unemployment)}</small></div>
         {isAtWar(s, c.id) && (() => {
           const ws = warSupport(c);
           const trend = Object.entries(c.mil.wsParts ?? {}).filter(([k]) => !k.startsWith('+')).reduce((t, [, v]) => t + v, 0);
@@ -35,7 +36,7 @@ export function TopBar() {
             </button>
           );
         })()}
-        <div className="kpi hide-s" role="listitem"><label>Stability</label><b className={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'}>{e.stability.toFixed(0)}</b><small>{s.wars.some((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)) ? '⚔ at war' : 'at peace'}</small></div>
+        <div className="kpi hide-s" role="listitem"><label>Stability</label><b className={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'}><Tween value={e.stability} format={(v) => v.toFixed(0)} /></b><small>{s.wars.some((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)) ? '⚔ at war' : 'at peace'}</small></div>
       </div>
       <div className="topbtns">
         <button className="iconbtn" aria-label="World rankings, wars and news" onClick={() => store.openDrawer('world')}>🌍<span className="hide-m"> World</span>{store.unread > 0 && <span className="badge">{Math.min(store.unread, 99)}</span>}</button>

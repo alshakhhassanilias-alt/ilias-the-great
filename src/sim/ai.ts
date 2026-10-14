@@ -4,6 +4,8 @@
  * scripted against the player. Decisions: fiscal & military posture, treaty proposals, sanctions,
  * war declaration (power ratio incl. logistics/terrain/allies/deterrence + desire), and peace.
  */
+import { coalitionAgainst, inCoalitionAgainst } from './coalitions';
+import { warSupport } from './warsupport';
 import { grudgeScore } from './leaders';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
@@ -150,7 +152,10 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
     const o = Math.floor(rand(s) * s.countries.length);
     if (o !== c.id && s.countries[o].alive) pool.add(o);
   }
-  const picks = [...pool].sort(() => rand(s) - 0.5).slice(0, 4);
+  // a threatened country looks for protectors: strong friends beyond its borders
+  const threat = mainThreat(s, geo, c);
+  if (threat.th > 0.4) for (const o of s.countries) if (o.alive && o.id !== c.id && o.id !== threat.who && getRelation(s, c.id, o.id) > 15 && strength(o) > strength(c) && getRelation(s, o.id, threat.who) < 0) pool.add(o.id);
+  const picks = [...pool].sort(() => rand(s) - 0.5).slice(0, threat.th > 0.4 ? 6 : 4);
   for (const o of picks) {
     const O = s.countries[o];
     if (!O.alive || areAtWar(s, c.id, o)) continue;
@@ -164,6 +169,7 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
     };
     if (!hasTrade(s, c.id, o) && rel > 5 && sanctionLevel(s, c.id, o) === 0 && sanctionLevel(s, o, c.id) === 0) send('trade', 0.35 * c.ai.trade);
     if (!hasAlliance(s, c.id, o) && rel > 35 && hasTrade(s, c.id, o)) send('alliance', 0.1);
+    else if (!hasAlliance(s, c.id, o) && threat.th > 0.4 && o !== threat.who && rel > 15 && getRelation(s, o, threat.who) < 0) send('alliance', 0.3); // a common enemy makes allies
     if (hasAlliance(s, c.id, o) && rel > 40) send('coop', 0.1);
     if (!hasNap(s, c.id, o) && !hasAlliance(s, c.id, o) && near.includes(o) && rel > -30 && rel < 30) send('nap', 0.1 + 0.2 * c.ai.caution);
     // sanctions: against those we dislike, especially aggressors against our friends
@@ -217,7 +223,10 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     const claim = claimStrength(c.id, t);
     const revenge = Math.min(0.25, grudgeScore(s, c.id, t) / 220) * (0.6 + c.ai.aggression);
     const goalPull = c.goal && c.goal.target === t && (c.goal.kind === 'revanche' || c.goal.kind === 'claims') ? 0.15 : 0;
-    let desire = revenge + goalPull + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
+    const cause = s.stats[`cb:${c.id}>${t}`] ? 0.2 : 0; // a national project made the case for this war
+    // coalitions: an aggressor already facing one thinks twice; members pile on the common enemy
+    const coal = (coalitionAgainst(s, c.id) ? -0.25 : 0) + (inCoalitionAgainst(s, t, c.id) ? -0.15 : 0) + (inCoalitionAgainst(s, c.id, t) ? 0.12 : 0);
+    let desire = revenge + goalPull + cause + coal + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
     if (t === s.player) desire *= mods(T).deter * (s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1);
@@ -255,9 +264,12 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     // decide proposed terms
     let terms: PeaceTerms | null = null;
     const myWill = evaluatePeace(s, geo, e, c.id, { kind: 'status_quo' }).willingness; // how much *I* want peace
+    const support = warSupport(c);
     if (c.mil.exhaustion > 0.95 || c.provinces.length === 1 && !c.provinces.includes(c.capital)) terms = { kind: 'concede', share: 0.3 };
+    else if (score < -0.35 && years > 1 && support < 0.45) terms = { kind: 'concede', share: 0.15 }; // losing and the public knows it
     else if (score > 0.35 && years > 0.3) terms = { kind: 'demand', share: clamp(score * 0.5, 0.05, 0.6) };
-    else if (myWill > 0.45) terms = { kind: 'status_quo' };
+    else if (myWill > 0.45 || support < 0.25) terms = { kind: 'status_quo' };
+    else if (Math.abs(score) < 0.12 && years > 2.5 && rand(s) < 0.3) terms = { kind: 'status_quo' }; // a long stalemate
     if (!terms) continue;
     if (e === s.player) {
       if (!s.offers.some((o) => o.from === c.id && o.kind === 'peace') && s.tick % 12 === 0) s.offers.push({ id: s.nextOfferId++, from: c.id, kind: 'peace', terms, tick: s.tick });
@@ -268,6 +280,7 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     if (terms.kind === 'concede') {
       if (ev.accept || E.mil.exhaustion > 0.3 || rand(s) < 0.2) makePeace(s, geo, c.id, e, terms);
     } else if (ev.accept) makePeace(s, geo, c.id, e, terms);
+    else if (terms.kind === 'status_quo' && years > 3 && Math.abs(score) < 0.15 && warSupport(E) < 0.4 && rand(s) < 0.25) makePeace(s, geo, c.id, e, terms); // both sides are worn out
     else if (terms.kind === 'demand' && rand(s) < 0.2) {
       const alt = evaluatePeace(s, geo, c.id, e, { kind: 'status_quo' });
       if (alt.accept) makePeace(s, geo, c.id, e, { kind: 'status_quo' });

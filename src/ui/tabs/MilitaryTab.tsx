@@ -1,3 +1,4 @@
+import { GOALS_META, PROGRAMMES, actMissileStrike, actStartProgramme, goalOf, hasProg } from '../../sim/wargoals';
 import { nationalColor } from '../../map/palette';
 import { store } from '../../state/store';
 import { AutopilotBanner } from '../Autopilot';
@@ -109,6 +110,7 @@ export function MilitaryTab({ id }: { id: number }) {
       {mine && wars.length > 0 && <HomeFront id={id} />}
       {mine && wars.length > 0 && <SupplyLines id={id} />}
       {mine && <ArmyGroups />}
+      {mine && <Programmes />}
       {mine && (wars.length > 0 || (c.generals?.length ?? 0) > 0) && <HighCommand id={id} />}
       {mine && wars.length > 0 && (() => {
         const diary = [...s.log].reverse().filter((l) => l.countries.includes(id) && (l.kind === 'territory' || l.kind === 'war')).slice(0, 8);
@@ -170,10 +172,12 @@ export function MilitaryTab({ id }: { id: number }) {
                 <div className="row" style={{ border: 'none' }}>
                   <div className="grow"><b>{w.name}</b><div className="hint">Year {((s.tick - w.start) / 52).toFixed(1)} · {w.fronts.length} active fronts · war score {score >= 0 ? '+' : ''}{(score * 100).toFixed(0)}</div></div>
                 </div>
+                {(() => { const g = goalOf(s, w); return g ? <div className="war-goal">{GOALS_META[g].icon} <b>War aim: {GOALS_META[g].title}</b> <span className="faint">· success = {GOALS_META[g].success}</span></div> : null; })()}
                 {enemies.map((x) => (
                   <div className="row" key={x}>
                     <span className="dot" style={{ background: nationalColor(s.countries[x]) }} />
                     <button className="grow" style={{ background: 'none', border: 'none', textAlign: 'left', padding: 0 }} onClick={() => store.select(x, null, true)}>{s.countries[x].name}<div className="hint">exhaustion {(s.countries[x].mil.exhaustion * 100).toFixed(0)}% · war support {Math.round(warSupport(s.countries[x]) * 100)}% · {s.countries[x].provinces.length} provinces</div></button>
+                    {areAtWar(s, id, x) && hasProg(me, 'missiles') && <button className="btn" onClick={() => store.act((g) => actMissileStrike(g, x))}>🚀 Missile strike</button>}
                     {areAtWar(s, id, x) && <button className="btn" onClick={() => store.openPeace(x)}>Negotiate peace</button>}
                   </div>
                 ))}
@@ -206,5 +210,33 @@ export function MilitaryTab({ id }: { id: number }) {
       })()}
       {!mine && isAtWar(s, id) && <div className="faint" style={{ fontSize: 12 }}>This country is currently fighting {enemiesOf(s, id).map((x) => s.countries[x].name).join(', ')}.</div>}
     </>
+  );
+}
+
+/** Weapons programmes: long projects that change how your forces fight. */
+function Programmes() {
+  const s = store.state!;
+  const c = s.countries[s.player];
+  const running = (c.progs ?? []).filter((p) => !p.done).length;
+  return (
+    <Section title="Weapons programmes" hint={`${(c.progs ?? []).filter((p) => p.done).length} operational · 2 at a time`}>
+      <div className="progs">
+        {PROGRAMMES.map((p) => {
+          const st = c.progs?.find((x) => x.id === p.id);
+          return (
+            <div className={`prog ${st?.done ? 'done' : st ? 'running' : ''}`} key={p.id}>
+              <span className="prog-ic">{p.icon}</span>
+              <div className="grow">
+                <b>{p.title}</b> <span className="faint">{p.plain}</span>
+                <div className="faint" style={{ fontSize: 11.5 }}>{p.desc}</div>
+                {st && !st.done && <div className="path-prog"><i style={{ width: `${Math.min(100, 100 * (1 - (st.until - s.tick) / p.weeks))}%` }} /></div>}
+              </div>
+              {st?.done ? <span className="good" style={{ fontSize: 12 }}>✓ operational</span> : st ? <span className="faint" style={{ fontSize: 12 }}>{st.until - s.tick} wk</span>
+                : <button className="btn" disabled={running >= 2} onClick={() => store.act((g) => actStartProgramme(g, p.id))}>{fmtMoney(p.cost * c.eco.gdp)} · {p.weeks} wk</button>}
+            </div>
+          );
+        })}
+      </div>
+    </Section>
   );
 }

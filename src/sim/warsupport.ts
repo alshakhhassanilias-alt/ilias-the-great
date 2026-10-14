@@ -6,6 +6,7 @@
  * Effects: army morale (×0.85 at 0% … ×1.10 at 100%), war exhaustion, stability, and how readily the
  * government accepts peace. The player can run propaganda, sell war bonds or censor the press.
  */
+import { goalFatigue } from './wargoals';
 import type { Geo } from './geo';
 import type { Country, CountryId, GameState } from './types';
 import { warsOf, warSideOf } from './relations';
@@ -27,6 +28,7 @@ export const WS_LABEL: Record<string, string> = {
   economy: 'Prices, blockade & bombing',
   unrest: 'Domestic unrest',
   stateMedia: 'State media',
+  events: 'Wartime events',
   recovery: 'Back to normal',
   victories: 'Battles won / lost',
   propaganda: 'Propaganda',
@@ -83,7 +85,9 @@ export function stepWarSupport(s: GameState, geo: Geo) {
     // people forgive losses far more readily when they are defending their own country
     parts.casualties = -Math.min(0.012, 25 * (weekly / Math.max(1e5, c.eco.pop)) * (CAS_TOL[c.gov] ?? 1) * (aggressor ? 1 : 0.5));
     const years = Math.max(...wars.map((w) => (s.tick - w.start) / 52));
-    parts.fatigue = -(aggressor ? 0.0012 : 0.0005) * (years > 2 ? 1.5 : 1);
+    const gk = goalFatigue(s, c, wars);
+    parts.fatigue = -(aggressor ? 0.0012 : 0.0005) * (years > 2 ? 1.5 : 1) * gk;
+    parts.casualties *= gk === 1 ? 1 : Math.sqrt(gk);
     const occupied = occ.get(c.id) ?? 0;
     if (occupied) parts.homeland = 0.004 * Math.min(1, (occupied / Math.max(1, cores.get(c.id) ?? 1)) * 5);
     let score = 0;

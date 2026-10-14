@@ -20,6 +20,7 @@ import { logEvent } from './log';
 import type { Country, Faction, FactionId, GameState } from './types';
 
 const prov = (p: number) => placeName(p);
+const camp = (s: GameState, v: number) => { if (s.legacy) s.stats.campaign = (s.stats.campaign ?? 0) + v; };
 const fac = (c: Country, d: D): Faction | undefined => c.politics?.factions[d.f | 0];
 const hasPC = (n: number) => (_s: GameState, c: Country) => pcOf(c) >= n;
 const capName = (c: Country) => prov(c.capital);
@@ -202,14 +203,14 @@ export const EVENTS5: EventDef[] = [
     lapse: (s, _c, d) => { arcNext(s, 'arc_standoff_3', 5, d, 3); return 'Silence from the capital. They push on.'; },
     text: (s, c, d) => `Before dawn a patrol from ${s.countries[d.n].name} crossed into ${prov(d.p)}. In the firefight that followed, ${3 + (d.p % 9)} of our border guards were killed. ${s.countries[d.n].name}'s state television calls it "a provocation by ${youTitle(s, c)}".`,
     options: [
+      { label: 'Protest and impose sanctions', hint: 'Sanctions on them · nationalists −4 · the crisis goes on', apply: (s, c, d) => { imposeSanction(s, c.id, d.n, 1); sway(c, 'nationalists', -4); arcNext(s, 'arc_standoff_3', 8, d, 3); return 'Sanctions are imposed.'; } },
+      { label: 'De-escalate quietly', hint: 'Costs 10 political capital · nationalists −12 · military −6 · relations +12', enabled: hasPC(10), apply: (s, c, d) => { spendPC(c, 10); sway(c, 'nationalists', -12); sway(c, 'military', -6); addRelation(s, c.id, d.n, 12); arcEnd(s, 'both armies stood down. Some called it wisdom, others weakness.'); return 'The guns fall silent.'; } },
       { label: 'Strike back at their positions', hint: `Military +10 · nationalists +12 · liberals −8 · risk of war`, apply: (s, c, d, geo) => {
         sway(c, 'military', 10); sway(c, 'nationalists', 12); sway(c, 'liberals', -8);
         const p = 0.35 - 0.15 * (d.firm | 0) - 0.1 * (d.allies | 0);
         if (nextRand(s) < p && !isAtWar(s, d.n)) { declareWar(s, geo, d.n, c.id, 'border clash'); arcEnd(s, 'it ended in war.'); return 'They answered with an invasion.'; }
         rep(c, 2); addRelation(s, c.id, d.n, -10); arcEnd(s, `${s.countries[d.n].name} pulled its troops back. Our deterrent held.`); return 'They blinked.';
       } },
-      { label: 'Protest and impose sanctions', hint: 'Sanctions on them · nationalists −4 · the crisis goes on', apply: (s, c, d) => { imposeSanction(s, c.id, d.n, 1); sway(c, 'nationalists', -4); arcNext(s, 'arc_standoff_3', 8, d, 3); return 'Sanctions are imposed.'; } },
-      { label: 'De-escalate quietly', hint: 'Costs 10 political capital · nationalists −12 · military −6 · relations +12', enabled: hasPC(10), apply: (s, c, d) => { spendPC(c, 10); sway(c, 'nationalists', -12); sway(c, 'military', -6); addRelation(s, c.id, d.n, 12); arcEnd(s, 'both armies stood down. Some called it wisdom, others weakness.'); return 'The guns fall silent.'; } },
     ],
   },
   {
@@ -218,17 +219,17 @@ export const EVENTS5: EventDef[] = [
     lapse: (s, c, d, geo) => { if (nextRand(s) < 0.5 && !isAtWar(s, d.n)) { declareWar(s, geo, d.n, c.id, 'ultimatum ignored'); arcEnd(s, 'the deadline passed, and the tanks rolled.'); return 'War.'; } arcEnd(s, 'the deadline passed and nothing happened.'); return 'A bluff.'; },
     text: (s, _c, d) => `${s.countries[d.n].leader?.name ?? s.countries[d.n].name} has issued an ultimatum: ${prov(d.p)} must be demilitarised within 30 days, or ${s.countries[d.n].name} "will act to protect its security".`,
     options: [
-      { label: 'Refuse and dig in', hint: 'Military +6 · nationalists +8 · a real risk of war', apply: (s, c, d, geo) => {
-        sway(c, 'military', 6); sway(c, 'nationalists', 8);
-        if (nextRand(s) < 0.32 - 0.12 * (d.firm | 0) - 0.12 * (d.allies | 0) && !isAtWar(s, d.n)) { declareWar(s, geo, d.n, c.id, 'ultimatum refused'); arcEnd(s, 'it ended in war.'); return 'They attacked.'; }
-        rep(c, 3); arcEnd(s, `${s.countries[d.n].name} blinked first.`); return 'They backed down.';
-      } },
       { label: 'Accept demilitarisation', hint: 'Nationalists −20 · military −12 · stability −2 · relations +20', apply: (s, c, d) => { sway(c, 'nationalists', -20); sway(c, 'military', -12); stab(c, -2); addRelation(s, c.id, d.n, 20); arcEnd(s, `our troops left ${prov(d.p)}. Peace, at a price.`); return 'You give way.'; } },
       { label: 'Ask the World Assembly to mediate', hint: 'Costs 12 political capital · reputation +3 · works 70% of the time', enabled: hasPC(12), apply: (s, c, d, geo) => {
         spendPC(c, 12); rep(c, 3);
         if (nextRand(s) < 0.7) { addRelation(s, c.id, d.n, 10); arcEnd(s, 'the World Assembly brokered a deal.'); return 'Mediators step in.'; }
         if (!isAtWar(s, d.n)) declareWar(s, geo, d.n, c.id, 'mediation failed');
         arcEnd(s, 'mediation failed and war broke out.'); return 'Talks collapse.';
+      } },
+      { label: 'Refuse and dig in', hint: 'Military +6 · nationalists +8 · a real risk of war', apply: (s, c, d, geo) => {
+        sway(c, 'military', 6); sway(c, 'nationalists', 8);
+        if (nextRand(s) < 0.32 - 0.12 * (d.firm | 0) - 0.12 * (d.allies | 0) && !isAtWar(s, d.n)) { declareWar(s, geo, d.n, c.id, 'ultimatum refused'); arcEnd(s, 'it ended in war.'); return 'They attacked.'; }
+        rep(c, 3); arcEnd(s, `${s.countries[d.n].name} blinked first.`); return 'They backed down.';
       } },
     ],
   },
@@ -312,6 +313,118 @@ export const EVENTS5: EventDef[] = [
       { label: 'A grand compromise', hint: 'Costs 12 political capital · regions +12 · nationalists −8', enabled: hasPC(12), apply: (s, c, d) => { spendPC(c, 12); sway(c, 'regions', 12); sway(c, 'nationalists', -8); s.integ[d.p] = clamp((s.integ[d.p] ?? 1) + 0.3, 0, 1); arcEnd(s, `a deal in ${prov(d.p)} ended the strike.`); return 'A deal is struck.'; } },
       { label: 'Declare martial law', hint: 'Stability −5 · liberals −15 · military +6 · reputation −3', apply: (s, c, d) => { stab(c, -5); sway(c, 'liberals', -15); sway(c, 'military', 6); rep(c, -3); s.integ[d.p] = clamp((s.integ[d.p] ?? 1) + 0.2, 0, 1); arcEnd(s, `soldiers restored order in ${prov(d.p)}.`); return 'Martial law.'; } },
       { label: 'Wait for them to tire', hint: 'Regions −10 · months of unrest', apply: (s, c, d) => { sway(c, 'regions', -10); if (c.politics) c.politics.unrest = { f: 'regions', until: s.tick + 10 }; arcEnd(s, `${prov(d.p)} slowly went back to work.`); return 'You wait.'; } },
+    ],
+  },
+  // ---------------------------------------------------------------- outbreak
+  {
+    id: 'arc_epidemic_1', icon: '🦠', title: 'A new virus', weight: 0, cooldown: 0, urgent: true, ttl: 10, arc: { title: 'Outbreak', stage: 1, of: 3 },
+    eligible: () => null, speaker: minSpeaker('interior'),
+    lapse: (s, _c, d) => { arcNext(s, 'arc_epidemic_2', 4, { ...d, path: 2 }, 2); return 'You waited. The virus did not.'; },
+    text: (_s, _c, d) => `Hospitals in ${prov(d.p)} report ${180 + (d.p % 400)} cases of a new respiratory virus in a week, and ${4 + (d.p % 17)} deaths. Doctors fear it spreads before anyone shows symptoms.`,
+    options: [
+      { label: `Lock down the city`, hint: 'A small hit to growth · stability −2 · business −8 · slows the virus', apply: (s, c, d) => { c.eco.tfp *= 0.997; stab(c, -2); sway(c, 'business', -8); arcNext(s, 'arc_epidemic_2', 6, { ...d, path: 0 }, 2); return `${prov(d.p)} is sealed off.`; } },
+      { label: 'Mass testing and tracing', hint: 'Costs 0.3% of GDP and 6 political capital', enabled: (s, c) => canPay(0.003)(s, c) && pcOf(c) >= 6, apply: (s, c, d) => { pay(s, c, 0.003); spendPC(c, 6); arcNext(s, 'arc_epidemic_2', 6, { ...d, path: 1 }, 2); return 'Testing centres open in every district.'; } },
+      { label: 'Keep the country open', hint: 'Business +4 · a gamble', apply: (s, c, d) => { sway(c, 'business', 4); arcNext(s, 'arc_epidemic_2', 4, { ...d, path: 2 }, 2); return 'Life goes on, for now.'; } },
+    ],
+  },
+  {
+    id: 'arc_epidemic_2', icon: '🏥', title: 'The outbreak spreads', weight: 0, cooldown: 0, urgent: true, ttl: 10, arc: { title: 'Outbreak', stage: 2, of: 3 },
+    eligible: () => null, speaker: minSpeaker('interior'),
+    lapse: (s, c, d) => { stab(c, -4); c.eco.laborForce *= 0.997; arcNext(s, 'arc_epidemic_3', 8, d, 3); return 'The country muddled through. Many did not.'; },
+    text: (_s, _c, d) => (d.path | 0) === 0
+      ? `The lockdown slowed the virus, but ${prov(d.p)} is suffocating: half its restaurants have closed and the unions want wages paid.`
+      : (d.path | 0) === 1
+        ? `Testing caught most clusters, but the virus has reached three other cities. The health service is stretched but holding.`
+        : `The virus is everywhere. ${2 + (d.p % 9)},000 people are in hospital and the intensive-care units in ${prov(d.p)} are full. Doctors are choosing who gets a ventilator.`,
+    options: [
+      { label: 'Pay wages and rent while it lasts', hint: 'Costs 0.8% of GDP · unions +8 · stability +2', enabled: canPay(0.008), apply: (s, c, d) => { pay(s, c, 0.008); sway(c, 'labour', 8); stab(c, 2); arcNext(s, 'arc_epidemic_3', 10, d, 3); return 'The state pays the bills.'; } },
+      { label: 'A national lockdown', hint: 'A hit to growth · stability −3 · business −10 · the virus is contained', apply: (s, c, d) => { c.eco.tfp *= 0.995; stab(c, -3); sway(c, 'business', -10); arcNext(s, 'arc_epidemic_3', 10, d, 3); return 'The whole country stays home.'; } },
+      { label: 'Field hospitals and the army', hint: 'Costs 0.5% of GDP · military +4 · stability +1', enabled: canPay(0.005), apply: (s, c, d) => { pay(s, c, 0.005); sway(c, 'military', 4); stab(c, 1); arcNext(s, 'arc_epidemic_3', 10, d, 3); return 'Army tents rise outside the hospitals.'; } },
+    ],
+  },
+  {
+    id: 'arc_epidemic_3', icon: '💉', title: 'The vaccine race', weight: 0, cooldown: 0, ttl: 14, arc: { title: 'Outbreak', stage: 3, of: 3 },
+    eligible: () => null, speaker: minSpeaker('finance'),
+    lapse: (s) => { arcEnd(s, 'the virus faded on its own, slowly.'); return 'The virus fades.'; },
+    text: (_s, c) => `Vaccines are ready, but the world is scrambling for them. Rich countries are buying up supplies; ${c.name}'s scientists say they could make their own in a year.`,
+    options: [
+      { label: 'Buy enough for everyone', hint: 'Costs 0.6% of GDP · stability +4', enabled: canPay(0.006), apply: (s, c) => { pay(s, c, 0.006); stab(c, 4); arcEnd(s, 'everyone who wanted a vaccine got one.'); return 'Mass vaccination begins.'; } },
+      { label: 'Develop our own', hint: 'Costs 12 political capital · technology +2 · stability +2', enabled: (_s, c) => pcOf(c) >= 12, apply: (s, c) => { spendPC(c, 12); c.eco.tech += 2; stab(c, 2); arcEnd(s, `${c.name}'s own vaccine saved the day.`); return 'National pride, in a syringe.'; } },
+      { label: 'Share doses with poorer countries', hint: 'Costs 0.3% of GDP · reputation +5 · liberals +8', enabled: canPay(0.003), apply: (s, c) => { pay(s, c, 0.003); rep(c, 5); sway(c, 'liberals', 8); arcEnd(s, 'the world noticed our generosity.'); return 'Planes full of vaccines take off.'; } },
+    ],
+  },
+
+  // ---------------------------------------------------------------- blackout
+  {
+    id: 'arc_blackout_1', icon: '🌡', title: 'A record heatwave', weight: 0, cooldown: 0, urgent: true, ttl: 8, arc: { title: 'The Great Blackout', stage: 1, of: 3 },
+    eligible: () => null, speaker: minSpeaker('finance'),
+    lapse: (s, _c, d) => { arcNext(s, 'arc_blackout_2', 2, { ...d, path: 2 }, 2); return 'Nobody acted.'; },
+    text: (_s, _c, d) => `${prov(d.p)} has hit ${41 + (d.p % 6)}°C for nine days. Air conditioners are overloading the grid and the operator warns of rolling blackouts within days.`,
+    options: [
+      { label: 'Emergency power imports', hint: 'Costs 0.3% of GDP · keeps the lights on', enabled: canPay(0.003), apply: (s, c, d) => { pay(s, c, 0.003); arcNext(s, 'arc_blackout_2', 6, { ...d, path: 0 }, 2); return 'Power flows in from abroad.'; } },
+      { label: 'Ration power to industry', hint: 'Business −8 · a small hit to output', apply: (s, c, d) => { sway(c, 'business', -8); c.eco.tfp *= 0.998; arcNext(s, 'arc_blackout_2', 6, { ...d, path: 1 }, 2); return 'Factories go dark so homes stay cool.'; } },
+      { label: 'Trust the grid', hint: 'Nothing now', apply: (s, _c, d) => { arcNext(s, 'arc_blackout_2', 2, { ...d, path: 2 }, 2); return 'You hope for the best.'; } },
+    ],
+  },
+  {
+    id: 'arc_blackout_2', icon: '🔌', title: 'The lights go out', weight: 0, cooldown: 0, urgent: true, ttl: 10, arc: { title: 'The Great Blackout', stage: 2, of: 3 },
+    eligible: () => null, speaker: minSpeaker('interior'),
+    lapse: (s, c, d) => { stab(c, -3); arcNext(s, 'arc_blackout_3', 8, d, 3); return 'The anger lingers.'; },
+    text: (_s, c, d) => (d.path | 0) === 0
+      ? `The imports kept the lights on, but suppliers have tripled their prices and want a five-year contract. Our grid is clearly not ready for summers like this.`
+      : `The lights went out across ${prov(d.p)} for ${(d.path | 0) === 1 ? 14 : 36} hours. Hospitals ran on generators, traffic lights died, and ${(d.path | 0) === 1 ? 3 : 11 + (c.id % 20)} people died in the heat.`,
+    options: [
+      { label: 'Fire the grid operator\'s chief', hint: 'Stability +1 · regions +4', apply: (s, c, d) => { stab(c, 1); sway(c, 'regions', 4); if ((d.path | 0) > 0) stab(c, -2); arcNext(s, 'arc_blackout_3', 10, d, 3); return 'Heads roll.'; } },
+      { label: 'Nationalise the grid', hint: 'Unions +6 · business −8 · energy +2%', apply: (s, c, d) => { sway(c, 'labour', 6); sway(c, 'business', -8); c.eco.energyCap *= 1.02; arcNext(s, 'arc_blackout_3', 10, d, 3); return 'The grid belongs to the state now.'; } },
+      { label: 'Promise a new grid', hint: 'Costs 8 political capital · infrastructure +2', enabled: (_s, c) => pcOf(c) >= 8, apply: (s, c, d) => { spendPC(c, 8); c.eco.infra = Math.min(100, c.eco.infra + 2); arcNext(s, 'arc_blackout_3', 10, d, 3); return 'A grand plan is announced.'; } },
+    ],
+  },
+  {
+    id: 'arc_blackout_3', icon: '⚡', title: 'The energy future', weight: 0, cooldown: 0, ttl: 14, arc: { title: 'The Great Blackout', stage: 3, of: 3 },
+    eligible: () => null, speaker: minSpeaker('finance'),
+    lapse: (s) => { arcEnd(s, 'nothing changed. Until next summer.'); return 'The plans gather dust.'; },
+    text: () => 'The inquiry into the blackout is out: the grid is old, the reserves too thin and the country too dependent on a few plants. It needs a decision on the energy future.',
+    options: [
+      { label: 'Build new power plants', hint: 'Costs 1% of GDP · energy +8%', enabled: canPay(0.01), apply: (s, c) => { pay(s, c, 0.01); c.eco.energyCap *= 1.08; arcEnd(s, 'new plants are rising across the country.'); return 'Construction begins.'; } },
+      { label: 'An efficiency drive', hint: 'Costs 10 political capital · energy +4% · liberals +6', enabled: (_s, c) => pcOf(c) >= 10, apply: (s, c) => { spendPC(c, 10); c.eco.energyCap *= 1.04; sway(c, 'liberals', 6); arcEnd(s, 'insulation, heat pumps and smart meters for millions.'); return 'Efficiency first.'; } },
+      { label: 'Buy from the neighbours', hint: 'Energy +5% · nationalists −6', apply: (s, c) => { c.eco.energyCap *= 1.05; sway(c, 'nationalists', -6); arcEnd(s, 'new interconnectors link us to the neighbours.'); return 'Cables cross the border.'; } },
+    ],
+  },
+
+  // ---------------------------------------------------------------- the leaked files
+  {
+    id: 'arc_leaks_1', icon: '🗂', title: 'The leaked files', weight: 0, cooldown: 0, urgent: true, ttl: 10, arc: { title: 'The Leaked Files', stage: 1, of: 3 },
+    eligible: () => null, speaker: (_s, c, d) => ({ name: person(c, 'jour', d.n | 0), role: 'Investigative journalist', cid: c.id, kind: 'leader' }),
+    lapse: (s, _c, d) => { arcNext(s, 'arc_leaks_2', 4, { ...d, path: 2 }, 2); return 'Your silence became the story.'; },
+    text: (_s, c, d) => { const m = ministerOf(c, 'finance'); const mm = c.cabinet?.find((x) => x.id === d.m) ?? m; return `A consortium of journalists led by ${person(c, 'jour', d.n | 0)} has ${8 + (d.n | 0)} million leaked files from an offshore law firm. Among the names: ${mm ? `${roleTitle(mm.role)} ${mm.name}` : 'a senior minister'} and two of the governing party's biggest donors, with accounts worth ${fmtMoney(4e7 + (d.n | 0) * 2.3e7)}.`; },
+    options: [
+      { label: 'Promise full transparency', hint: 'Liberals +8 · stability −1 · the minister is suspended', apply: (s, c, d) => { sway(c, 'liberals', 8); stab(c, -1); const m = c.cabinet?.find((x) => x.id === d.m); if (m) m.loyalty = clamp(m.loyalty - 20, 0, 100); arcNext(s, 'arc_leaks_2', 6, { ...d, path: 0 }, 2); return 'You promise to hide nothing.'; } },
+      { label: 'Attack the press', hint: 'Liberals −12 · nationalists +4 · reputation −3', apply: (s, c, d) => { sway(c, 'liberals', -12); sway(c, 'nationalists', 4); rep(c, -3); arcNext(s, 'arc_leaks_2', 5, { ...d, path: 1 }, 2); return '"Foreign-funded fake news", you say.'; } },
+      { label: 'Say nothing', hint: 'Nothing now', apply: (s, _c, d) => { arcNext(s, 'arc_leaks_2', 5, { ...d, path: 2 }, 2); return 'No comment.'; } },
+    ],
+  },
+  {
+    id: 'arc_leaks_2', icon: '🔍', title: 'The second batch', weight: 0, cooldown: 0, urgent: true, ttl: 10, arc: { title: 'The Leaked Files', stage: 2, of: 3 },
+    eligible: () => null, speaker: (_s, c, d) => ({ name: person(c, 'jour', d.n | 0), role: 'Investigative journalist', cid: c.id, kind: 'leader' }),
+    lapse: (s, c, d) => { stab(c, -3); arcNext(s, 'arc_leaks_3', 6, d, 3); return 'The story grows.'; },
+    text: (s, c, d) => (d.path | 0) === 0
+      ? `Prosecutors want to question the minister named in the files. The opposition says the investigation is a test of whether anyone in ${c.name} is above the law.`
+      : `The second batch is worse: a trust fund opened in ${2008 + (d.n | 0)} in the name of ${s.legacy?.leader ? `${s.legacy.leader}'s` : 'the head of government\'s'} family, with ${fmtMoney(2e6 + (d.n | 0) * 1.1e6)} in it. Every front page has your photograph.`,
+    options: [
+      { label: 'Let justice do its work', hint: 'The minister goes · liberals +8 · political capital +4', apply: (s, c, d) => { const m = c.cabinet?.find((x) => x.id === d.m); if (m) replaceMinister(s, m.id, 'steps down to face prosecutors'); sway(c, 'liberals', 8); if (c.politics) c.politics.pc = Math.min(100, c.politics.pc + 4); arcNext(s, 'arc_leaks_3', 8, d, 3); return 'The minister resigns.'; } },
+      { label: 'Publish every tax return you ever filed', hint: 'Costs 10 political capital · stability +2', enabled: (_s, c) => pcOf(c) >= 10, apply: (s, c, d) => { spendPC(c, 10); stab(c, 2); arcNext(s, 'arc_leaks_3', 8, d, 3); return 'Radical transparency.'; } },
+      { label: 'Sue the journalists', hint: 'Liberals −14 · reputation −4', apply: (s, c, d) => { sway(c, 'liberals', -14); rep(c, -4); arcNext(s, 'arc_leaks_3', 6, d, 3); return 'Lawyers are sent.'; } },
+    ],
+  },
+  {
+    id: 'arc_leaks_3', icon: '⚖', title: 'The reckoning in parliament', weight: 0, cooldown: 0, urgent: true, ttl: 10, arc: { title: 'The Leaked Files', stage: 3, of: 3 },
+    eligible: () => null, speaker: minSpeaker('interior'),
+    lapse: (s, c) => { stab(c, -4); camp(s, -3); arcEnd(s, 'the stain never quite washed out.'); return 'The scandal lingers.'; },
+    text: (_s, c) => (c.gov === 'D' || c.gov === 'F') ? 'The opposition has tabled a motion of no confidence over the leaked files. Some of your own MPs are wavering.' : 'Crowds gather outside the presidential palace with photocopies of the leaked files, chanting "Where is our money?".',
+    options: [
+      { label: 'Fight it out', hint: 'Costs 12 political capital · you survive, damaged', enabled: (_s, c) => pcOf(c) >= 12, apply: (s, c) => { spendPC(c, 12); stab(c, -1); arcEnd(s, 'the government survived the vote.'); return 'You win the vote.'; } },
+      { label: 'Offer an anti-corruption package', hint: 'The Anti-Corruption Agency becomes law · liberals +8', apply: (s, c) => { grantLaw(s, c, 'anti_graft'); sway(c, 'liberals', 8); arcEnd(s, 'a new anti-corruption agency is born from the scandal.'); return 'Reform wins the day.'; } },
+      { label: 'Ride it out', hint: 'Stability −4 · political capital −10 · polls −3', apply: (s, c) => { stab(c, -4); if (c.politics) c.politics.pc = Math.max(0, c.politics.pc - 10); camp(s, -3); arcEnd(s, 'you survived, but the stain remains.'); return 'You ride it out.'; } },
     ],
   },
 ];

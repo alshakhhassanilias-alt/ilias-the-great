@@ -1,0 +1,55 @@
+/* Motion polish for the desktop: everything that changes should glide, not jump. Phones keep their own look,
+   and anyone who asks the system for reduced motion gets none of it. */
+@media (min-width: 901px) and (prefers-reduced-motion: no-preference) {
+  /* bars and meters glide to their new value */
+  .bar i, .fac-bar i, .min-loy i, .pc-bar i, .vote-bar i, .duel-bar i, .path-prog i, .ws-bar i, .stack i, .inbox-bar, .splash-bar i, .meter i {
+    transition: width .7s cubic-bezier(.2, .8, .2, 1);
+  }
+  /* switching tabs or countries: the content rises into place */
+  .side-body { animation: wo-rise .32s cubic-bezier(.2, .8, .2, 1) both; }
+  .side-body > section { animation: wo-rise .4s cubic-bezier(.2, .8, .2, 1) both; }
+  .side-body > section:nth-child(2) { animation-delay: .03s; }
+  .side-body > section:nth-child(3) { animation-delay: .06s; }
+  .side-body > section:nth-child(4) { animation-delay: .09s; }
+  .side-body > section:nth-child(5) { animation-delay: .12s; }
+  .side-body > section:nth-child(n+6) { animation-delay: .15s; }
+  @keyframes wo-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* cards, buttons and tabs respond to the hand */
+  .btn, .tabs button, .iconbtn, .kpi-btn, .event-opt, .law-head, .min-head, .path-node, .faction, .prog, .card, .agenda-card, .mode-card {
+    transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease, color .2s ease, opacity .2s ease, filter .2s ease;
+  }
+  .btn:not(:disabled):hover, .iconbtn:hover { transform: translateY(-1px); }
+  .btn:not(:disabled):active, .iconbtn:active, .event-opt:active, .path-node:active { transform: translateY(1px) scale(.985); }
+  .faction:hover, .prog:hover, .minister:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+  .tabs button.on { transition: color .25s ease, box-shadow .3s ease; }
+
+  /* things that open, open smoothly */
+  .inbox-body, .min-more, .law-body, .path-detail, .min-cands { animation: wo-open .28s cubic-bezier(.2, .8, .2, 1) both; transform-origin: top; }
+  @keyframes wo-open { from { opacity: 0; transform: translateY(-6px) scaleY(.97); } to { opacity: 1; transform: none; } }
+  .modal { animation: wo-modal .32s cubic-bezier(.2, .8, .2, 1) both; }
+  .scrim { animation: wo-fade .25s ease both; }
+  @keyframes wo-modal { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes wo-fade { from { opacity: 0; } to { opacity: 1; } }
+  .offer, .cable, .inbox-item, .toast, .ripple { animation: wo-slide .38s cubic-bezier(.2, .8, .2, 1) both; }
+  .offers .offer, .offers .cable { animation-name: wo-slide-r; }
+  @keyframes wo-slide { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  @keyframes wo-slide-r { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+  /* the news ticker cross-fades between headlines */
+  .ticker-text { animation: wo-ticker .5s ease both; }
+  @keyframes wo-ticker { from { opacity: 0; transform: translateY(6px); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+
+  /* the top bar numbers pulse softly when the situation is critical */
+  .kpi b.bad { animation: wo-warn 2.4s ease-in-out infinite; }
+  @keyframes wo-warn { 50% { text-shadow: 0 0 12px rgba(255, 110, 90, .55); } }
+
+  /* portraits come alive on hover */
+  .portrait { transition: transform .25s ease, filter .25s ease; }
+  .min-head:hover .portrait, .faction:hover .portrait, .presenter .portrait:hover, .cable-head .portrait:hover { transform: scale(1.06); filter: brightness(1.08); }
+
+  /* the hemicycle seats light up one after another */
+  .hemicycle circle { animation: wo-seat .5s ease both; }
+  .hemicycle circle:nth-child(3n) { animation-delay: .08s; } .hemicycle circle:nth-child(3n+1) { animation-delay: .16s; }
+  @keyframes wo-seat { from { opacity: 0; transform: scale(.4); transform-origin: center; transform-box: fill-box; } to { opacity: 1; transform: none; } }
+}

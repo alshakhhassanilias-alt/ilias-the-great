@@ -1,3 +1,7 @@
+import { stepCoalitions } from './coalitions';
+import { stepProgrammes } from './wargoals';
+import { stepWarEvents } from './events6';
+import { stepNations } from './nations';
 import { stepPolitics as stepDomestic } from './domestic';
 import { stepArcs } from './arcs';
 import { approval } from './approval';
@@ -99,6 +103,10 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCabinet(s);
   stepDomestic(s, approval(s, s.countries[s.player]));
   stepArcs(s, geo);
+  stepNations(s, geo);
+  stepCoalitions(s, geo);
+  stepProgrammes(s);
+  stepWarEvents(s);
   stepCables(s);
   checkInstability(s, geo);
   stepWorldEvents(s, geo);

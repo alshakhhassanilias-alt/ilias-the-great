@@ -115,6 +115,30 @@ export const REVOLT: Record<FactionId, string> = {
 };
 
 // ------------------------------------------------------------------ setup
+/** Each major country starts with its own political landscape. */
+const NATIONAL_POLITICS: Record<string, { sup?: Partial<Record<FactionId, number>>; mood?: Partial<Record<FactionId, number>> }> = {
+  'United States of America': { sup: { nationalists: 22, liberals: 26, labour: 14, military: 9 }, mood: { liberals: -8, nationalists: -8 } },
+  Russia: { sup: { military: 24, nationalists: 26, liberals: 5 }, mood: { liberals: -20, military: 6 } },
+  China: { sup: { labour: 24, military: 20, business: 22, liberals: 4 }, mood: { liberals: -15 } },
+  Israel: { sup: { nationalists: 28, military: 14, liberals: 22 }, mood: { liberals: -10, nationalists: 4 } },
+  Iran: { sup: { nationalists: 28, military: 22, liberals: 12 }, mood: { liberals: -22, labour: -6 } },
+  France: { sup: { labour: 26 }, mood: { labour: -12 } },
+  Brazil: { sup: { regions: 24, labour: 26 }, mood: { regions: -4 } },
+  Turkey: { sup: { nationalists: 26 }, mood: { liberals: -10, business: -8 } },
+  Poland: { sup: { nationalists: 20, regions: 18 }, mood: { military: 6 } },
+  Ukraine: { sup: { military: 16, nationalists: 20 }, mood: { military: 12, nationalists: 8 } },
+  Nigeria: { sup: { regions: 26 }, mood: { regions: -8, labour: -6 } },
+  Egypt: { sup: { military: 26 }, mood: { labour: -8, liberals: -12 } },
+  India: { sup: { regions: 24, nationalists: 22 }, mood: { nationalists: 6 } },
+  Japan: { sup: { business: 22, regions: 20 }, mood: { labour: -4 } },
+  Germany: { sup: { labour: 22, liberals: 26, business: 20 }, mood: { business: -8 } },
+  'United Kingdom': { sup: { liberals: 24, labour: 22 }, mood: { labour: -6, business: -4 } },
+  'Saudi Arabia': { sup: { business: 22, military: 20, liberals: 4 }, mood: { liberals: -10 } },
+  Mexico: { sup: { labour: 26, regions: 20 }, mood: { regions: -6 } },
+  'South Korea': { sup: { business: 24, labour: 20 }, mood: { labour: -6 } },
+  Indonesia: { sup: { regions: 24 }, mood: {} },
+};
+
 export function ensurePolitics(s: GameState) {
   const c = s.countries[s.player];
   if (!c || c.politics) return;
@@ -123,11 +147,12 @@ export function ensurePolitics(s: GameState) {
     F: { labour: 20, business: 17, military: 12, nationalists: 20, liberals: 13, regions: 18 },
     X: { labour: 19, business: 15, military: 21, nationalists: 21, liberals: 8, regions: 16 },
   };
-  const base = sup[c.gov === 'D' ? 'D' : c.gov === 'F' ? 'F' : 'X'];
+  const base = { ...sup[c.gov === 'D' ? 'D' : c.gov === 'F' ? 'F' : 'X'], ...(NATIONAL_POLITICS[c.name]?.sup ?? {}) };
+  const moodAdj = NATIONAL_POLITICS[c.name]?.mood ?? {};
   const b = c.budget;
   const factions: Faction[] = FACTIONS.map((f, i) => {
     const jitter = (hash01('fac', c.id, i) - 0.5) * 6;
-    return { id: f.id, support: Math.max(4, base[f.id] + jitter), mood: 52 + (hash01('fm', c.id, i) - 0.5) * 16, mem: 0, leader: nationalName(c, hash01('fl', c.id, i), hash01('ff', c.id, i), hash01('fn', c.id, i), f.id === 'military' ? 'general' : 'politician') };
+    return { id: f.id, support: Math.max(4, base[f.id] + jitter), mood: clamp(52 + (hash01('fm', c.id, i) - 0.5) * 16 + (moodAdj[f.id] ?? 0), 5, 95), mem: 0, leader: nationalName(c, hash01('fl', c.id, i), hash01('ff', c.id, i), hash01('fn', c.id, i), f.id === 'military' ? 'general' : 'politician') };
   });
   const tot = factions.reduce((t, f) => t + f.support, 0);
   for (const f of factions) f.support = (100 * f.support) / tot;
@@ -327,9 +352,10 @@ export function stepPolitics(s: GameState, appr: number) {
   } else if (U) P.unrest = undefined;
   // demands from the unhappiest faction
   if (s.tick >= P.nextDemand) {
-    const worst = [...P.factions].sort((a, b) => a.mood - b.mood)[0];
+    // the unhappiest faction speaks up (never the same one twice in a row)
+    const worst = [...P.factions].sort((a, b) => a.mood - b.mood).find((f) => P.factions.indexOf(f) !== s.stats.lastDemandF) ?? P.factions[0];
     P.nextDemand = s.tick + 16 + Math.floor(nextRand(s) * 14);
-    if (worst.mood < 50) queue(s, 'fac_demand', { f: P.factions.indexOf(worst), k: Math.floor(nextRand(s) * 2) }, 16, false);
+    if (worst.mood < 50 && queue(s, 'fac_demand', { f: P.factions.indexOf(worst), k: Math.floor(nextRand(s) * 2) }, 16, false)) s.stats.lastDemandF = P.factions.indexOf(worst);
   }
   // a furious faction rises up
   if (!P.unrest) {

@@ -20,7 +20,7 @@ const biggestProv = (c: Country, geo: Geo) => [...c.provinces].sort((a, b) => ge
 export const ARCS: ArcDef[] = [
   {
     id: 'bank', title: 'Banking Crisis', icon: '🏦', stages: 3,
-    weight: (_s, c) => 0.6 + Math.min(2, c.eco.debt / c.eco.gdp) + (c.eco.growth < 0 ? 1 : 0),
+    weight: (_s, c) => 0.3 + 0.6 * Math.min(2, c.eco.debt / c.eco.gdp) + (c.eco.growth < 0 ? 1 : 0),
     trigger: (_s, c, geo) => (c.provinces.length ? { p: biggestProv(c, geo), size: 2 + Math.floor(nextRand(_s) * 4) } : null),
   },
   {
@@ -55,6 +55,21 @@ export const ARCS: ArcDef[] = [
       const p = (s.integ ? far.find((x) => (s.integ[x] ?? 1) < 0.9) : undefined) ?? far[Math.floor(nextRand(s) * Math.min(4, far.length))];
       return p === undefined ? null : { p };
     },
+  },
+  {
+    id: 'epidemic', title: 'Outbreak', icon: '🦠', stages: 3,
+    weight: (s, c) => 0.8 + (c.eco.tech < 50 ? 0.4 : 0) + (s.crisis?.id === 'pandemic' ? 2 : 0),
+    trigger: (_s, c, geo) => (c.provinces.length ? { p: biggestProv(c, geo) } : null),
+  },
+  {
+    id: 'blackout', title: 'The Great Blackout', icon: '🔌', stages: 3,
+    weight: (_s, c) => 0.5 + (c.eco.energyUnmet > 0.02 ? 2 : 0) + (c.eco.infra < 50 ? 0.6 : 0),
+    trigger: (_s, c, geo) => (c.provinces.length ? { p: biggestProv(c, geo) } : null),
+  },
+  {
+    id: 'leaks', title: 'The Leaked Files', icon: '🗂', stages: 3,
+    weight: (_s, c) => 0.7 + (c.reputation < 45 ? 0.5 : 0),
+    trigger: (s, c) => (c.cabinet?.length ? { m: c.cabinet[Math.floor(nextRand(s) * c.cabinet.length)].id, n: 1 + Math.floor(nextRand(s) * 9) } : null),
   },
 ];
 export const arcById = (id: string) => ARCS.find((a) => a.id === id);
@@ -98,7 +113,8 @@ export function stepArcs(s: GameState, geo: Geo) {
   }
   if (s.tick < 26 || s.tick - P.lastArc < 30 || s.settings.randomEvents === false) return;
   if ((s.tick + c.id) % 3 !== 0 || nextRand(s) > 0.1) return;
-  const opts = ARCS.map((a) => ({ a, d: a.trigger(s, c, geo) })).filter((x) => x.d);
+  // the same story does not come back for three years, and never more than twice
+  const opts = ARCS.filter((a) => (s.stats[`arc:${a.id}`] ?? 0) < 2 && s.tick - (s.stats[`arcAt:${a.id}`] ?? -999) > 156).map((a) => ({ a, d: a.trigger(s, c, geo) })).filter((x) => x.d);
   if (!opts.length) return;
   // a story that has already been told is less likely to repeat
   const w = (x: (typeof opts)[number]) => x.a.weight(s, c) / (1 + 3 * (s.stats[`arc:${x.a.id}`] ?? 0));
@@ -106,6 +122,7 @@ export function stepArcs(s: GameState, geo: Geo) {
   let pick = opts[0];
   for (const x of opts) { r -= w(x); if (r <= 0) { pick = x; break; } }
   s.stats[`arc:${pick.a.id}`] = (s.stats[`arc:${pick.a.id}`] ?? 0) + 1;
+  s.stats[`arcAt:${pick.a.id}`] = s.tick;
   P.arc = { id: pick.a.id, stage: 1, started: s.tick };
   push(s, `arc_${pick.a.id}_1`, pick.d!, 14, true);
 }
