@@ -14,5 +14,6 @@ import '@fontsource/cinzel/latin-700.css';
 import './styles.css';
 import './desktop.css';
 import './legacy.css';
+import './people.css';
 
 createRoot(document.getElementById('root')!).render(<App />);

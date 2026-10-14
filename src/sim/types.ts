@@ -190,7 +190,22 @@ export interface Country {
   doctrine?: { eco: string; mil: string; dip: string; changed: number };
   /** the army's commanders (created when the country first goes to war) */
   generals?: General[];
+  /** the player's cabinet: four named ministers */
+  cabinet?: Minister[];
 }
+
+export type MinRole = 'finance' | 'foreign' | 'defence' | 'interior';
+export interface Minister {
+  id: number; role: MinRole; name: string; trait: string;
+  /** 1-5 */
+  skill: number;
+  /** 0-100: below 30 they brief against you, below 12 they quit */
+  loyalty: number;
+  since: number;
+  /** tick of their last scandal */
+  scandal?: number;
+}
+export interface Cable { tick: number; from: CountryId; text: string; mood: 'warm' | 'cold' | 'angry' | 'neutral'; seq: number }
 
 export interface General {
   id: number; name: string; trait: string; xp: number; wins: number;
@@ -321,6 +336,8 @@ export interface GameState {
   legacy?: LegacyState;
   /** the player's army groups (commanded in Guided / Hands-on military) */
   armies?: Army[];
+  /** quotes from foreign leaders to the player, newest last */
+  cables?: Cable[];
 }
 export interface Reaction { id: CountryId; delta: number; text: string }
 export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }

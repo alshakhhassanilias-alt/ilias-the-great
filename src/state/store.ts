@@ -85,6 +85,7 @@ class Store {
   selectArmy(id: number | null) { this.selectedArmy = id; this.armyAim = false; this.notify(); }
   /** Legacy: newest term newspaper already read, and whether the history book was closed */
   termSeen = 0;
+  cableSeen = 0;
   bookSeen = false;
   get sound() { return audio.enabled; }
   setSound(on: boolean) { setSound(on); this.notify(); }
@@ -157,6 +158,7 @@ class Store {
     this.lastInboxUid = s.nextInbox - 1;
     this.lastHist = s.warHistory?.length ?? 0;
     this.termSeen = s.stats.reviewTerm ?? 0;
+    this.cableSeen = s.stats.cableSeq ?? 0;
     this.bookSeen = false;
     this.splash = null; this.callouts = [];
     this.focusRequest++;
@@ -244,7 +246,7 @@ class Store {
         if (e.kind === 'war' && /declared war/.test(e.text) && e.countries[0] !== s.player) sfx('war');
         else if (e.kind === 'territory' && /captured/.test(e.text)) sfx(e.countries[0] === s.player ? 'capture' : 'lost');
       }
-      if (mine && e.kind !== 'info' || (e.important && this.relevant(e))) this.toast(e.text, e.kind);
+      if (!e.big && (mine && e.kind !== 'info' || (e.important && this.relevant(e)))) this.toast(e.text, e.kind);
       if (this.pauseOnWar && e.kind === 'war' && mine && e.countries[0] !== s.player && /declared war|joins|honours/.test(e.text) && this.speed !== 0) {
         this.speed = 0;
         this.toast('Simulation paused: a war involving your country began.', 'danger');

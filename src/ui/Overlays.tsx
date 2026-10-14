@@ -10,6 +10,27 @@ import { Emblem } from './art/Emblem';
 import { strength } from '../sim/military';
 import { warSupport } from '../sim/warsupport';
 import { fmtNum } from './format';
+import { Portrait, faceFor } from './art/Portrait';
+import { previewReactions } from '../sim/politics';
+import { actReplyCable } from '../sim/cables';
+import { traitsText } from '../sim/leaders';
+import { adviceOf, presenterOf, roleTitle } from '../sim/cabinet';
+import { isMajor } from '../sim/drama';
+import type { GameState, InboxItem } from '../sim/types';
+
+const DOMESTIC = new Set(['strike', 'disaster', 'quake', 'flood', 'refugees', 'separatists', 'pandemic', 'housing', 'harvest', 'famine', 'oil_province', 'deposit', 'mutiny', 'cyber_blackout', 'olympics', 'world_cup', 'bank_run', 'brain_drain', 'investment', 'tech_giant', 'free_zone', 'coup_plot', 'coup', 'scandal', 'pension', 'green_transition']);
+/** Where a domestic event is happening: the region it names, or one of yours picked for it. */
+function placeOf(s: GameState, it: InboxItem): string | null {
+  const geo = store.geo;
+  const p = it.data?.p;
+  if (typeof p === 'number' && p >= 0 && geo.provinces[p]) return geo.provinces[p].name;
+  if (!DOMESTIC.has(it.id)) return null;
+  const mine = s.countries[s.player].provinces;
+  if (!mine.length) return null;
+  // big cities are where strikes, crashes and riots happen; disasters can strike anywhere
+  const pool = /quake|flood|harvest|famine|disaster|deposit|oil_province/.test(it.id) ? mine : [...mine].sort((a, b) => geo.provinces[b].w - geo.provinces[a].w).slice(0, 4);
+  return geo.provinces[pool[(it.uid * 7) % pool.length]].name;
+}
 
 export function Toasts() {
   useStore();
@@ -22,21 +43,70 @@ export function Toasts() {
   );
 }
 
+const KIND_GIVES: Record<string, string[]> = {
+  trade: ['Both economies grow: more exports, cheaper imports', 'Relations +6 now, and they keep improving'],
+  nap: ['Neither of you may attack the other without a heavy reputation penalty', 'Relations +6'],
+  alliance: ['Mutual defence: if either of you is attacked, the other is called to war', 'Relations +12 · their rivals will dislike you'],
+  coop: ['Joint exercises and technology sharing', 'Relations +6 · a step toward an alliance'],
+};
 export function Offers() {
   useStore();
   const s = store.state!;
-  if (!s.offers.length) return null;
   return (
     <div className="offers">
-      {s.offers.slice(0, 3).map((o) => (
-        <div className="offer" key={o.id} role="alert">
-          <b>{s.countries[o.from].name}</b> {o.kind === 'peace' ? `offers peace (${o.terms?.kind.replace('_', ' ')})` : `proposes a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}.
-          <div className="btnrow">
-            <button className="btn good" onClick={() => store.act((g) => actAcceptOffer(g, store.geo, o.id))}>Accept</button>
-            <button className="btn" onClick={() => store.act((g) => actDeclineOffer(g, o.id), true)}>Decline</button>
+      <CableCard />
+      {s.offers.slice(0, 2).map((o) => {
+        const C = s.countries[o.from];
+        const quote = (s.cables ?? []).filter((x) => x.from === o.from).slice(-1)[0];
+        const react = o.kind !== 'peace' ? previewReactions(s, o.from, s.player, o.kind).filter((x) => x.id !== s.player).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3) : [];
+        return (
+          <div className="offer" key={o.id} role="alert">
+            <div className="offer-top">
+              {C.leader && <Portrait f={faceFor(C, C.leader.name, 'leader')} size={52} title={C.leader.name} />}
+              <div className="grow">
+                <small className="faint">{C.leader ? `${C.leader.name} · ${C.name}` : C.name}</small>
+                <div><b>{o.kind === 'peace' ? `Offers peace: ${({ status_quo: 'ceasefire on current lines', restore: 'pre-war borders', demand: 'they want territory', concede: 'they give concessions', surrender: 'their surrender' } as Record<string, string>)[o.terms?.kind ?? ''] ?? o.terms?.kind}` : `Proposes a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}</b></div>
+              </div>
+            </div>
+            {quote && s.tick - quote.tick < 30 && <div className="offer-quote">“{quote.text}”</div>}
+            {o.kind !== 'peace' && <ul className="offer-gives">{(KIND_GIVES[o.kind] ?? []).map((g, i) => <li key={i}>{g}</li>)}</ul>}
+            {react.length > 0 && <div className="offer-react">{react.map((r) => <span key={r.id} className={r.delta < 0 ? 'bad' : 'good'}>{s.countries[r.id]?.name} {r.delta > 0 ? '+' : ''}{r.delta.toFixed(0)}</span>)}</div>}
+            <div className="btnrow">
+              <button className="btn good" onClick={() => store.act((g) => actAcceptOffer(g, store.geo, o.id))}>Accept</button>
+              <button className="btn" onClick={() => store.act((g) => actDeclineOffer(g, o.id), true)}>Decline</button>
+            </div>
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A message from a foreign leader. Reply warmly or firmly, or ignore it. */
+export function CableCard() {
+  useStore();
+  const s = store.state;
+  if (!s?.cables?.length) return null;
+  const cb = [...s.cables].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10);
+  if (!cb) return null;
+  const C = s.countries[cb.from];
+  const close = () => { store.cableSeen = cb.seq; store.notify(); };
+  return (
+    <div className={`cable mood-${cb.mood}`} role="status" aria-live="polite">
+      <button className="x" aria-label="Dismiss" onClick={close}>×</button>
+      <div className="cable-head">
+        {C.leader ? <Portrait f={faceFor(C, C.leader.name, 'leader')} size={58} title={C.leader.name} /> : <Emblem c={C} size={50} />}
+        <div>
+          <small>📨 Diplomatic cable · {dateLabel(cb.tick)}</small>
+          <b>{C.leader?.name ?? C.name}</b>
+          <span className="faint">{C.gov === 'M' ? 'Monarch' : C.gov === 'D' || C.gov === 'F' ? 'Head of government' : 'Ruler'} of {C.name}{C.leader ? ` · ${traitsText(C.leader)}` : ''}</span>
         </div>
-      ))}
+      </div>
+      <p className="cable-text">“{cb.text}”</p>
+      <div className="btnrow">
+        <button className="btn" onClick={() => { store.act((g) => actReplyCable(g, cb.seq, 'warm')); close(); }}>Reply warmly <small>relations +4</small></button>
+        <button className="btn" onClick={() => { store.act((g) => actReplyCable(g, cb.seq, 'firm')); close(); }}>Reply firmly <small>stability +1 · relations −4</small></button>
+      </div>
     </div>
   );
 }
@@ -101,14 +171,27 @@ export function InboxTray() {
               <span className="inbox-go">{open ? '▾' : 'Decide'}</span>
               <i className="inbox-bar" style={{ width: `${(100 * left) / total}%` }} />
             </button>
-            {open && (
+            {open && (() => {
+              const who = presenterOf(s, it.id, it.data);
+              const en = def.options.map((o) => !o.enabled || o.enabled(s, c));
+              const adv = who && !it.id.startsWith('min_') ? adviceOf(who, def.options, en) : null;
+              const place = placeOf(s, it);
+              return (
               <div className="inbox-body">
+                {who && (
+                  <div className="presenter">
+                    <Portrait f={faceFor(c, who.name, 'minister')} size={46} title={who.name} />
+                    <div><small>{it.id === 'min_scandal' || it.id === 'min_revolt' ? 'About' : 'On your desk from'}</small><b>{who.name}</b><span className="faint">{roleTitle(who.role)}</span></div>
+                    {place && <span className="place-chip" title="Where it is happening">📍 {place}</span>}
+                  </div>
+                )}
                 <p className="event-text">{def.text(s, c, it.data)}</p>
+                {adv && <div className="advice-line">💬 <b>{who!.name.split(' ')[0]}</b> recommends <i>{def.options[adv.idx].label}</i>: {adv.why}.</div>}
                 <div className="event-options">
                   {def.options.map((o, i) => {
-                    const ok = !o.enabled || o.enabled(s, c);
+                    const ok = en[i];
                     return (
-                      <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''}`} disabled={!ok}
+                      <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''} ${adv?.idx === i ? 'advised' : ''}`} disabled={!ok}
                         onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i, it.uid)); store.inboxOpen = null; store.notify(); }}>
                         {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>
                       </button>
@@ -117,7 +200,8 @@ export function InboxTray() {
                 </div>
                 <button className="linkbtn" onClick={() => store.openInbox(null)}>Decide later (the game keeps running)</button>
               </div>
-            )}
+              );
+            })()}
           </div>
         );
       })}
@@ -131,7 +215,7 @@ export function Ticker() {
   const s = store.state!;
   const [i, setI] = useState(0);
   useEffect(() => { const t = setInterval(() => setI((x) => x + 1), 4200); return () => clearInterval(t); }, []);
-  const items = s.log.slice(-8).reverse();
+  const items = s.log.filter((e) => e.countries.includes(s.player) || e.big || e.important || ((e.kind === 'war' || e.kind === 'territory' || e.kind === 'peace') && e.countries.some((x) => isMajor(s, x)))).slice(-8).reverse();
   if (!items.length) return null;
   const e = items[i % items.length];
   return (
@@ -215,9 +299,9 @@ export function Splash() {
         <div className="splash-kicker">{mine === 'attack' ? 'You have gone to war' : 'You are under attack'}</div>
         <div className="splash-title">WAR</div>
         <div className="splash-sides">
-          <div className="sd"><span className="desk-only"><Emblem c={A} size={76} /></span><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>{atk.length > 1 ? `+${atk.length - 1} ${atk.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
+          <div className="sd"><span className="desk-only splash-faces"><Emblem c={A} size={76} />{(() => { const n = A.id === s.player ? s.legacy?.leader : A.leader?.name; return n ? <Portrait f={faceFor(A, n, 'leader')} size={64} title={n} /> : null; })()}</span><i style={{ background: nationalColor(A) }} /><b>{A.name}</b><small>{atk.length > 1 ? `+${atk.length - 1} ${atk.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
           <div className="vs">⚔</div>
-          <div className="sd"><span className="desk-only"><Emblem c={D} size={76} /></span><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>{def.length > 1 ? `+${def.length - 1} ${def.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
+          <div className="sd"><span className="desk-only splash-faces">{(() => { const n = D.id === s.player ? s.legacy?.leader : D.leader?.name; return n ? <Portrait f={faceFor(D, n, 'leader')} size={64} title={n} /> : null; })()}<Emblem c={D} size={76} /></span><i style={{ background: nationalColor(D) }} /><b>{D.name}</b><small>{def.length > 1 ? `+${def.length - 1} ${def.length > 2 ? 'allies' : 'ally'}` : 'alone'}</small></div>
         </div>
         <div className="splash-grid">
           <span>{fmtNum(tA)}</span><label>troops</label><span>{fmtNum(tD)}</span>

@@ -1,3 +1,4 @@
+import { Portrait, faceFor } from '../art/Portrait';
 import { store } from '../../state/store';
 import { Meter, Note, Section } from '../widgets';
 import { fmtMoney } from '../format';
@@ -127,7 +128,8 @@ export function HighCommand({ id }: { id: number }) {
         const tr = gtrait(g.trait);
         return (
           <div className="card gen-card" key={g.id}>
-            <div className="gen-badge" aria-hidden="true">{g.name.split(' ').map((w) => w[0]).join('').slice(0, 2)}</div>
+            <div className="gen-badge mob-only" aria-hidden="true">{g.name.split(' ').map((w) => w[0]).join('').slice(0, 2)}</div>
+            <span className="desk-only"><Portrait f={faceFor(c, g.name, 'general')} size={46} title={`General ${g.name}`} /></span>
             <div className="grow">
               <div className="lab"><span className="gstars">{starText(g)}</span> General {g.name}</div>
               <div className="hint">{tr.icon} {tr.title}: {tr.desc}{g.wins ? ` · ${g.wins} region${g.wins > 1 ? 's' : ''} taken` : ''}</div>

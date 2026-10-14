@@ -10,6 +10,7 @@
  *   progress per tick = 0.16 · clamp(ln(attack/defence) + 0.25, −1.2, 1.6) scaled by province size.
  * A province changes hands when progress reaches 100%. Casualties are Lanchester-like in the force ratio.
  */
+import { cable } from './cables';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
 import { hash01, nextRand } from './rng';
@@ -191,6 +192,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
       }
     }
   }
+  if (d === s.player) cable(s, a, 'war_on_you'); else if (a === s.player) cable(s, d, 'you_declared');
   return { ok: true };
 }
 
@@ -291,6 +293,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
   const w = warBetween(s, a, b);
   if (!w) return;
   const A = s.countries[a], B = s.countries[b];
+  if (a === s.player || b === s.player) cable(s, a === s.player ? b : a, 'peace');
   if (t.kind === 'restore') {
     for (const p of [...A.provinces, ...B.provinces]) {
       const core = s.core[p];

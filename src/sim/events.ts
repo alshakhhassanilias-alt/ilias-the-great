@@ -3,6 +3,7 @@
  * answered); world events hit AI countries and appear in the news, shifting the global situation.
  * Everything is driven by the seeded RNG, so a seed + the same choices give the same history.
  */
+import { EVENTS4 } from './events4';
 import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp } from './util';
@@ -185,7 +186,7 @@ export const EVENTS: EventDef[] = [
 import { EVENTS2 } from './events2';
 import { finalizeResolution, proposeResolution } from './politics';
 import { EVENTS3 } from './events3';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3];
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4];
 export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
 
 export const INBOX_MAX = 4;

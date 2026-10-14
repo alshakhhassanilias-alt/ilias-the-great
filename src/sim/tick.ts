@@ -1,3 +1,4 @@
+import { stepCables } from './cables';
 import { setInTick } from './relations';
 import type { Geo } from './geo';
 import { stepEconomiesGen } from './economy';
@@ -5,6 +6,7 @@ import { stepWars, forcePeaceAll, logEvent } from './war';
 import { stepPartisans } from './specops';
 import { stepAutopilot } from './modes';
 import { stepLegacy } from './legacy';
+import { stepCabinet } from './cabinet';
 import { stepArmies } from './armies';
 import { stepAIGen } from './ai';
 import { nextRand } from './rng';
@@ -91,6 +93,8 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield;
   yield* stepAIGen(s, geo);
   stepAutopilot(s, geo);
+  stepCabinet(s);
+  stepCables(s);
   checkInstability(s, geo);
   stepWorldEvents(s, geo);
   yield;

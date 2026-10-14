@@ -8,6 +8,7 @@ import { DiplomacyTab } from './tabs/DiplomacyTab';
 import { GOV, REGION, relLabel } from './format';
 import { getRelation, isAtWar } from '../sim/relations';
 import { Emblem } from './art/Emblem';
+import { Portrait, faceFor } from './art/Portrait';
 import { TAB_ICONS } from './art/Icons';
 import { traitById } from '../sim/leaders';
 import { OppositionDesk } from './Legacy';
@@ -49,6 +50,7 @@ export function SidePanel() {
               </div>
               {c.leader && c.id !== s.player && <div className="desk-only head-leader">Led by <b>{c.leader.name}</b> · {c.leader.traits.map((x) => traitById(x).title).join(', ')}</div>}
             </div>
+            {(() => { const nm = c.id === s.player ? s.legacy?.leader : c.leader?.name; return nm ? <span className="desk-only head-portrait" title={nm}><Portrait f={faceFor(c, nm, 'leader')} size={58} /></span> : null; })()}
             {c.id !== s.player && <button className="iconbtn" title="Back to your country" aria-label="Back to your country" onClick={() => store.select(s.player, null, true)}>⌂</button>}
           </div>
           <nav className="tabs" role="tablist">

@@ -19,6 +19,9 @@ import { stepAssembly } from '../src/sim/events';
 import { levelOf, BDEF } from '../src/sim/buildings';
 import { hasGuarantee } from '../src/sim/relations';
 
+import { actAppoint, actCourt, candidates, ministerEffects, ministerOf } from '../src/sim/cabinet';
+import { actReplyCable } from '../src/sim/cables';
+import { nationalName } from '../src/sim/names';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
 const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
@@ -734,6 +737,7 @@ describe('depth: doctrines, explanations, calendar', () => {
     const s = fresh('Germany');
     const c = s.countries[id('Germany')];
     c.eco.cash = 1e13;
+    const cab = c.cabinet; c.cabinet = undefined; // measure the doctrines alone (ministers add their own effects)
     expect(mods(c).tfp).toBe(0); // no doctrine = calibrated baseline
     expect(setDoctrine(s, c.id, 'eco', 'market').ok).toBe(true);
     expect(mods(c).tfp).toBeCloseTo(0.006);
@@ -742,6 +746,7 @@ describe('depth: doctrines, explanations, calendar', () => {
     s.tick += REFORM_COOLDOWN;
     expect(setDoctrine(s, c.id, 'eco', 'welfare').ok).toBe(true);
     expect(mods(c).stab).toBe(5);
+    c.cabinet = cab;
     expect(setDoctrine(s, c.id, 'mil', 'conscript').ok).toBe(false);
   });
   it('a pro-growth doctrine out-grows an identical country without one', () => {
@@ -1161,5 +1166,96 @@ describe('round 11: modes, control levels, Legacy, army groups', () => {
     actArmyOrder(s, 3, 'defend');
     expect(holdBonus(s, geo, s.countries[s.player].capital)).toBeGreaterThan(1.2);
     expect(actArmyTarget(s, geo, 2, id('Germany') === s.owner[s.countries[id('Germany')].capital] ? s.countries[id('Germany')].capital : 0).ok).toBe(false); // not at war with Germany
+  });
+});
+
+describe('round 12: the cabinet, national names, diplomatic cables', () => {
+  it('the player gets a cabinet of four distinct ministers whose skill and traits change real numbers', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    expect(c.cabinet!.length).toBe(4);
+    expect(new Set(c.cabinet!.map((m) => m.role)).size).toBe(4);
+    expect(new Set(c.cabinet!.map((m) => m.name)).size).toBe(4);
+    for (const m of c.cabinet!) { expect(m.skill).toBeGreaterThanOrEqual(1); expect(m.skill).toBeLessThanOrEqual(5); expect(ministerEffects(m).length).toBeGreaterThan(0); }
+    // a brilliant Interior Minister steadies the country, a hopeless one does not
+    const it = ministerOf(c, 'interior')!;
+    it.trait = 'technocrat'; it.skill = 5; const hi = mods(c).stab;
+    it.skill = 1; const lo = mods(c).stab;
+    expect(hi - lo).toBeCloseTo(6);
+    // AI countries have no cabinet
+    expect(s.countries[id('Germany')].cabinet).toBeUndefined();
+  });
+  it('names fit the country: Polish ministers have Polish names (with feminine surnames)', () => {
+    const s = fresh('Poland');
+    const polish = /(ski|ska|cki|cka|Nowicki|Mazur|Kaczmarek|Pawlak|Krawczyk|Wiśniewsk|Zielińsk|Wróblewsk|Sadowsk|Jabłońsk|Góreck|Michalsk)/;
+    for (const m of s.countries[s.player].cabinet!) expect(m.name).toMatch(polish);
+    expect(nationalName({ name: 'Russia', region: 'RU', gov: 'A' }, 0.01, 0, 0)).toMatch(/a$/); // a woman's surname: Volkova
+    expect(nationalName({ name: 'Poland', region: 'EU', gov: 'D' }, 0.9, 0, 0)).toBe('Tomasz Nowicki');
+  });
+  it('reshuffles pick from three candidates, cost goodwill, and cannot be repeated at once; courting buys loyalty', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    c.eco.cash = 1e12;
+    const old = ministerOf(c, 'finance')!;
+    const cands = candidates(s, 'finance');
+    expect(cands.length).toBe(3);
+    const minId = s.stats.minId;
+    candidates(s, 'finance');
+    expect(s.stats.minId).toBe(minId); // previews do not consume ids
+    expect(actAppoint(s, 'finance', 1).ok).toBe(true);
+    expect(ministerOf(c, 'finance')!.name).toBe(cands[1].name);
+    expect(ministerOf(c, 'finance')!.id).not.toBe(old.id);
+    expect(actAppoint(s, 'finance', 0).ok).toBe(false); // too soon
+    const f = ministerOf(c, 'foreign')!; f.loyalty = 40;
+    expect(actCourt(s, f.id).ok).toBe(true);
+    expect(f.loyalty).toBeGreaterThan(40);
+    expect(actCourt(s, f.id).ok).toBe(false);
+  });
+  it('scandals, plots and budget fights reach the inbox with the minister named, and every answer works', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    c.eco.cash = 1e12;
+    for (const id0 of ['min_scandal', 'min_revolt', 'min_clash']) {
+      const def = eventById(id0);
+      for (let i = 0; i < def.options.length; i++) {
+        const s2 = JSON.parse(JSON.stringify(s)) as GameState;
+        const c2 = s2.countries[s2.player];
+        const data = { m: c2.cabinet![2].id, k: 2, amt: 0.5, f: ministerOf(c2, 'finance')!.id, d: ministerOf(c2, 'defence')!.id };
+        expect(def.text(s2, c2, data)).toContain(id0 === 'min_clash' ? ministerOf(c2, 'finance')!.name : c2.cabinet![2].name);
+        s2.inbox = [{ uid: 1, id: id0, tick: 1, expires: 99, urgent: true, data }];
+        expect(resolveEvent(s2, geo, i).ok).toBe(true);
+        expect(c2.cabinet!.length).toBe(4);
+      }
+    }
+    // a minister who is pushed too far eventually quits and is replaced
+    const s3 = fresh('Poland');
+    const P = s3.countries[s3.player];
+    const victim = ministerOf(P, 'defence')!;
+    for (let i = 0; i < 160 && P.cabinet!.some((m) => m.id === victim.id); i++) { victim.loyalty = 0; run(s3, 1); }
+    expect(P.cabinet!.some((m) => m.id === victim.id)).toBe(false);
+    expect(P.cabinet!.length).toBe(4);
+  });
+  it('foreign leaders answer in cables: war, treaties and sanctions draw a reply you can answer once', () => {
+    const s = fresh('Poland', { defensiveAlliances: false });
+    actSanction(s, s.player, id('Belarus'), 1);
+    expect(s.cables!.some((x) => x.from === id('Belarus'))).toBe(true);
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    const cb = s.cables!.filter((x) => x.from === id('Belarus')).at(-1)!;
+    expect(cb.mood).toBe('angry');
+    expect(cb.text.length).toBeGreaterThan(15);
+    actPropose(s, geo, s.player, id('Lithuania'), 'trade');
+    const lt = s.cables!.at(-1)!;
+    expect(lt.from).toBe(id('Lithuania'));
+    const r0 = getRelation(s, s.player, id('Lithuania'));
+    expect(actReplyCable(s, lt.seq, 'firm').ok).toBe(true);
+    expect(getRelation(s, s.player, id('Lithuania'))).toBeLessThan(r0);
+    expect(actReplyCable(s, lt.seq, 'warm').ok).toBe(false); // one answer per cable
+  });
+  it('cables and the cabinet keep the world deterministic', () => {
+    const a = fresh('Japan'), b = fresh('Japan');
+    run(a, 60); run(b, 60);
+    expect(JSON.stringify(a.countries[a.player].cabinet)).toBe(JSON.stringify(b.countries[b.player].cabinet));
+    expect(JSON.stringify(a.cables ?? [])).toBe(JSON.stringify(b.cables ?? []));
+    expect(a.rng).toBe(b.rng);
   });
 });

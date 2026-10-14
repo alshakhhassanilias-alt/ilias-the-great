@@ -4,6 +4,7 @@
  * Everything here applies to screens wider than 900px only: the phone layout is untouched.
  */
 @media (max-width: 900px) { .desk-only { display: none !important; } }
+@media (min-width: 901px) { .mob-only { display: none !important; } }
 
 @media (min-width: 901px) {
   :root {

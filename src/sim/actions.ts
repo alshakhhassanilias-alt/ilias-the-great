@@ -2,6 +2,7 @@
  * Actions available to both the player and AI. Every action takes effect IMMEDIATELY (no timers):
  * money moves now, capacity / forces / stats change now, and the next tick reflects the new state.
  */
+import { cable } from './cables';
 import { addGrudge } from './leaders';
 import type { Geo } from './geo';
 import { clamp } from './util';
@@ -156,6 +157,7 @@ export function toggleFocus(s: GameState, cid: number, p: ProvId): ActionResult 
 // ---- diplomacy wrappers ----
 export function actPropose(s: GameState, geo: Geo, cid: number, to: number, kind: Proposal): ActionResult {
   const r = propose(s, geo, cid, to, kind);
+  if (cid === s.player) cable(s, to, r.accept ? 'treaty_yes' : 'treaty_no');
   return r.accept ? ok('Accepted!') : fail(r.reasons.join(' · ') || 'Declined');
 }
 export function actCancel(s: GameState, cid: number, to: number, kind: Proposal): ActionResult { addGrudge(s, to, cid, `cancelled its ${kind === 'alliance' ? 'alliance' : kind === 'trade' ? 'trade deal' : 'treaty'}`, kind === 'alliance' ? 14 : 5); cancelTreaty(s, cid, to, kind); return ok('Treaty cancelled'); }
@@ -174,10 +176,16 @@ export function actPeace(s: GameState, geo: Geo, cid: number, to: number, terms:
   return { ...fail(`Rejected (willingness ${(ev.willingness * 100).toFixed(0)} vs required ${(ev.required * 100).toFixed(0)})`), reasons: ev.reasons };
 }
 export function actAcceptOffer(s: GameState, geo: Geo, offerId: number): ActionResult {
+  const o = s.offers.find((x) => x.id === offerId);
+  if (o && o.kind !== 'peace') cable(s, o.from, 'accepted_offer');
   acceptOffer(s, geo, offerId, (a, b, terms) => makePeace(s, geo, a, b, terms as PeaceTerms));
   return ok('Offer accepted');
 }
-export function actDeclineOffer(s: GameState, offerId: number): ActionResult { declineOffer(s, offerId); return ok('Offer declined'); }
+export function actDeclineOffer(s: GameState, offerId: number): ActionResult {
+  const o = s.offers.find((x) => x.id === offerId);
+  if (o && o.kind !== 'peace') cable(s, o.from, 'declined_offer');
+  declineOffer(s, offerId); return ok('Offer declined');
+}
 export { termProvinces };
 
 // ---- active war operations ----

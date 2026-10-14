@@ -357,10 +357,8 @@ function geoRef(_s: GameState): Geo { return geoRefGet(); }
 void logEvent;
 
 /** Public approval (or elite loyalty): a transparent function of how the country is doing. */
-export function approval(_s: GameState, c: Country): number {
-  const e = c.eco;
-  return clamp(50 + 0.45 * (e.stability - 50) + 500 * (e.growth - 0.02) - 250 * Math.max(0, e.inflation - 0.04) - 100 * Math.max(0, e.unemployment - e.uNat - 0.02) - 20 * c.mil.exhaustion, 5, 95);
-}
+export { approval } from './approval';
+import { approval } from './approval';
 function electionResult(s: GameState, c: Country, bonus: number): string {
   const pct = clamp(approval(s, c) + bonus + (nextRand(s) - 0.5) * 14, 0, 100);
   const free = c.gov === 'D' || c.gov === 'F';

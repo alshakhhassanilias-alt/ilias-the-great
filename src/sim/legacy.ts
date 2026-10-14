@@ -12,6 +12,7 @@ import type { Country, GameState, LegacyState, TermRecord } from './types';
 import { START_YEAR, TICKS_PER_YEAR } from './types';
 import { agendaById, dealHand } from './agenda';
 import { approval } from './events3';
+import { avgLoyalty, ensureCabinet } from './cabinet';
 import { personName } from './leaders';
 import { strength } from './military';
 import { alliesOf, isAtWar } from './relations';
@@ -139,7 +140,8 @@ export function voteShare(s: GameState): number {
   const kept = L ? L.agenda.filter((a) => a.done).length : 0, failed = L ? L.agenda.length - kept : 0;
   const fatigue = Math.max(0, (L?.term ?? 1) - 2) * 2.5;
   const diff = s.settings.difficulty === 'easy' ? 4 : s.settings.difficulty === 'hard' ? -4 : 0;
-  return clamp(approval(s, c) * 0.8 + 9 + 3.5 * kept - 2 * failed - fatigue + diff + (s.stats.campaign ?? 0), 2, 95);
+  const cab = c.cabinet?.length ? clamp((avgLoyalty(c) - 50) * 0.08, -3, 2) : 0; // a divided cabinet leaks against you
+  return clamp(approval(s, c) * 0.8 + 9 + 3.5 * kept - 2 * failed - fatigue + diff + cab + (s.stats.campaign ?? 0), 2, 95);
 }
 
 function holdVote(s: GameState) {
@@ -194,6 +196,7 @@ function comebackVote(s: GameState) {
   s.stats.campaign = 0;
   if (share >= 50) {
     L.status = 'office'; L.term++; L.termStart = s.tick; L.nextVote = s.tick + TERM;
+    c.cabinet = undefined; ensureCabinet(s, L.term); // a new government, new faces
     s.stats[`termGdp:${L.term}`] = gdppc(c);
     L.agenda = []; L.hand = dealHand(s, c, L.term + 100);
     L.parts.terms = (L.parts.terms ?? 0) + 40;

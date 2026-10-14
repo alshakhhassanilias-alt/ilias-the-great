@@ -1,4 +1,5 @@
 /** Treaty proposals, sanctions and how other countries respond. */
+import { cable } from './cables';
 import { addGrudge } from './leaders';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
@@ -114,6 +115,7 @@ export function propose(s: GameState, geo: Geo, from: CountryId, to: CountryId, 
     if (!s.offers.some((o) => o.from === from && o.kind === kind) && (last === undefined || s.tick - last > 104)) {
       s.offers.push({ id: s.nextOfferId++, from, kind: kind as OfferKind, tick: s.tick });
       s.offerLog[key] = s.tick;
+      cable(s, from, 'offer');
     }
     return { accept: false, score: 0, needed: 0, reasons: ['Offer sent'] };
   }
@@ -136,6 +138,7 @@ export function cancelTreaty(s: GameState, a: CountryId, b: CountryId, kind: Pro
 
 export function imposeSanction(s: GameState, from: CountryId, to: CountryId, level: 1 | 2) {
   if (sanctionLevel(s, from, to) >= level) return;
+  if (to === s.player) cable(s, from, 'sanctions_you'); else if (from === s.player) cable(s, to, 'sanctioned');
   addGrudge(s, to, from, level === 2 ? 'embargoed it' : 'imposed sanctions on it', level === 2 ? 14 : 8);
   setSanction(s, from, to, level);
   const t = getTreaty(s, from, to);

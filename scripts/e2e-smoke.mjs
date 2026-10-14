@@ -114,6 +114,15 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.evaluate(() => window.__store.select(window.__store.state.player, null, false));
   await pg.click('.tabs button:has-text("Goals")');
   check('the Goals tab shows objectives and the country check-up', (await pg.locator('.goal-card').count()) >= 1 && (await pg.locator('.check-row').count()) >= 5);
+  await pg.click('.tabs button:has-text("Overview")');
+  check('the cabinet briefs you: four named ministers with portraits', (await pg.locator('.minister').count()) === 4 && (await pg.locator('.minister .portrait').count()) === 4);
+  await pg.click('.min-head >> nth=0');
+  check('a minister reports concrete numbers and can be replaced', /GDP/.test(await pg.locator('.min-more').innerText()) && (await pg.locator('.min-more button:has-text("Replace")').count()) === 1);
+  await pg.evaluate(() => { const st = window.__store, s = st.state; const ru = s.countries.findIndex((x) => x.name === 'Russia'); s.stats.cableSeq = (s.stats.cableSeq || 0) + 1; (s.cables ||= []).push({ tick: s.tick, from: ru, text: 'A test of the cable desk, from Moscow.', mood: 'cold', seq: s.stats.cableSeq }); st.notify(); });
+  await sleep(100);
+  check('a diplomatic cable shows the foreign leader and can be answered', (await pg.locator('.cable .portrait').count()) === 1);
+  await pg.click('.cable button:has-text("Reply warmly")');
+  check('answering a cable closes it', (await pg.locator('.cable').count()) === 0);
   await pg.click('button[aria-label="Pause"]');
   // save / load
   await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Save game")');

@@ -5,6 +5,7 @@ import { fmtMoney, fmtNum } from './format';
 import { nationalColor } from '../map/palette';
 import { levelOf } from '../sim/buildings';
 import { Emblem } from './art/Emblem';
+import { Portrait, faceFor } from './art/Portrait';
 
 /** The report for one battle: who fights, the odds, everything that tips the balance, and what you can do. */
 export function BattleCard() {
@@ -30,8 +31,8 @@ export function BattleCard() {
       </div>
       {(r.genA || r.genD) && (
         <div className="bc-gens">
-          <div>{r.genA ? <><span className="gstars">{'★'.repeat(r.genA.stars)}</span> Gen. {r.genA.name}<small>{r.genA.icon} {r.genA.trait}{r.genA.wins ? ` · ${r.genA.wins} victories` : ''}</small></> : <small>no general</small>}</div>
-          <div>{r.genD ? <><span className="gstars">{'★'.repeat(r.genD.stars)}</span> Gen. {r.genD.name}<small>{r.genD.icon} {r.genD.trait}{r.genD.wins ? ` · ${r.genD.wins} victories` : ''}</small></> : <small>no general</small>}</div>
+          <div className="bc-gen">{r.genA && <span className="desk-only"><Portrait f={faceFor(A, r.genA.name, 'general')} size={44} /></span>}<span>{r.genA ? <><span className="gstars">{'★'.repeat(r.genA.stars)}</span> Gen. {r.genA.name}<small>{r.genA.icon} {r.genA.trait}{r.genA.wins ? ` · ${r.genA.wins} victories` : ''}</small></> : <small>no general</small>}</span></div>
+          <div className="bc-gen">{r.genD && <span className="desk-only"><Portrait f={faceFor(D, r.genD.name, 'general')} size={44} /></span>}<span>{r.genD ? <><span className="gstars">{'★'.repeat(r.genD.stars)}</span> Gen. {r.genD.name}<small>{r.genD.icon} {r.genD.trait}{r.genD.wins ? ` · ${r.genD.wins} victories` : ''}</small></> : <small>no general</small>}</span></div>
         </div>
       )}
       <div className="bc-forces" title="Share of troops committed to this battle">

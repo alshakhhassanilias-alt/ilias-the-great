@@ -3,7 +3,9 @@ import { store } from '../../state/store';
 import { Meter, Note, RelationBar, Section, Stat } from '../widgets';
 import { GOV, REGION, fog, fmtMoney, fmtNum, pct, relLabel, signedPct, sizeClass } from '../format';
 import { LineChart } from '../LineChart';
-import { advisor, alertsFor, briefing, sectorsOf, stabilityParts, tradeProfile } from '../explain';
+import { advisor, alertsFor, sectorsOf, stabilityParts, tradeProfile } from '../explain';
+import { CabinetSection } from './Cabinet';
+import { Portrait, faceFor } from '../art/Portrait';
 import { getRelation, isAtWar, warsOf } from '../../sim/relations';
 import { strengthIndex } from '../../sim/military';
 import { warScore } from '../../sim/war';
@@ -37,7 +39,6 @@ export function OverviewTab({ id }: { id: number }) {
   const alerts = mine ? alertsFor(c, s) : [];
   const gl = guideLevel(s);
   const advice = mine && gl !== 'none' ? advisor(c, s, geo).slice(0, gl === 'full' ? 4 : 1) : [];
-  const brief = mine ? briefing(s, c) : null;
   const pr = store.selectedProv;
   const wars = warsOf(s, id);
   const sectors = sectorsOf(c);
@@ -48,11 +49,7 @@ export function OverviewTab({ id }: { id: number }) {
 
   return (
     <>
-      {mine && brief && (
-        <Section title="Briefing" hint={`since ${brief.since}`}>
-          <div className="card" style={{ fontSize: 13, lineHeight: 1.5 }}>{brief.lines.map((l, i) => <div key={i} className={i === 0 ? '' : 'muted'}>{l}</div>)}</div>
-        </Section>
-      )}
+      {mine && <CabinetSection />}
 
       {mine && <SituationSection />}
 
@@ -71,8 +68,8 @@ export function OverviewTab({ id }: { id: number }) {
 
       {!mine && c.leader && (
         <Section title="Leadership" hint={`in power ${Math.max(0, (s.tick - c.leader.since) / 52).toFixed(1)} yr`}>
-          <div className="card">
-            <div style={{ fontSize: 15, fontWeight: 650 }}>{c.leader.name}</div>
+          <div className="card leader-card">
+            <div className="leader-top"><Portrait f={faceFor(c, c.leader.name, 'leader')} size={72} title={c.leader.name} /><div><small className="faint">{c.gov === 'M' ? 'Monarch' : c.gov === 'D' || c.gov === 'F' ? 'Head of government' : 'Ruler'} of {c.name}</small><div style={{ fontSize: 16, fontWeight: 650 }}>{c.leader.name}</div>{(() => { const cb = (s.cables ?? []).filter((x) => x.from === id).slice(-1)[0]; return cb ? <div className={`leader-quote mood-${cb.mood}`}>“{cb.text}” <span className="faint">· {dateLabel(cb.tick)}</span></div> : null; })()}</div></div>
             <div className="chips" style={{ margin: '6px 0' }}>
               {c.leader.traits.map((t) => { const tr = traitById(t); return <span className="pill" key={t} title={tr.desc}>{tr.icon} {tr.title}</span>; })}
             </div>

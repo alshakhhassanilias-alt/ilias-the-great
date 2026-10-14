@@ -7,6 +7,7 @@ import { clamp } from './util';
 import type { Country, GameState } from './types';
 import { fund } from './actions';
 import { logEvent } from './log';
+import { cabinetEff, cabinetKey } from './cabinet';
 
 export interface Eff {
   tfp?: number;      // productivity growth, points per year (0.005 = +0.5%/yr)
@@ -56,7 +57,7 @@ const ONE: Required<Eff> = { tfp: 0, stab: 0, cost: 1, manpower: 1, off: 1, def:
 /** Combined effect of a country's three doctrines. */
 export function mods(c: Country): Required<Eff> {
   const d = doctorOf(c);
-  const key = `${d.eco}|${d.mil}|${d.dip}`;
+  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}`;
   const hit = cache.get(c);
   if (hit && hit.key === key) return hit.eff;
   const out = { ...ONE };
@@ -65,6 +66,11 @@ export function mods(c: Country): Required<Eff> {
     const e = doctrineById(id).eff;
     out.tfp += e.tfp ?? 0; out.stab += e.stab ?? 0; out.accept += e.accept ?? 0; out.ops += e.ops ?? 0; out.rep += e.rep ?? 0; out.infra += e.infra ?? 0; out.milTech += e.milTech ?? 0;
     out.cost *= e.cost ?? 1; out.manpower *= e.manpower ?? 1; out.off *= e.off ?? 1; out.def *= e.def ?? 1; out.deter *= e.deter ?? 1;
+  }
+  if (c.cabinet?.length) {
+    const e = cabinetEff(c);
+    out.tfp += e.tfp ?? 0; out.stab += e.stab ?? 0; out.accept += e.accept ?? 0; out.ops += e.ops ?? 0; out.rep += e.rep ?? 0; out.milTech += e.milTech ?? 0;
+    out.cost *= e.cost ?? 1; out.off *= e.off ?? 1; out.def *= e.def ?? 1; out.deter *= e.deter ?? 1;
   }
   cache.set(c, { key, eff: out });
   return out;

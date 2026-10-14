@@ -2,8 +2,10 @@
  * Leaders, long-term goals and long memories: what makes one country behave differently from another.
  * Leaders are fictional (generated names); their traits shift the country's AI personality while they rule.
  */
+import { cable } from './cables';
 import type { Geo } from './geo';
 import { clamp } from './util';
+import { nationalName } from './names';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
 import { claimStrength } from './war';
@@ -28,39 +30,10 @@ export const TRAITS: Trait[] = [
 ];
 export const traitById = (id: string) => TRAITS.find((t) => t.id === id)!;
 
-const FIRST: Record<string, string[]> = {
-  NA: ['James', 'Robert', 'Michael', 'David', 'Sarah', 'Linda', 'Daniel', 'Karen', 'Thomas', 'Susan', 'Paul', 'Laura'],
-  LA: ['Carlos', 'Miguel', 'Lucia', 'Andrés', 'Sofía', 'Rafael', 'Camila', 'Diego', 'Elena', 'Javier', 'Mateo', 'Paula'],
-  EU: ['Jan', 'Pierre', 'Anna', 'Lukas', 'Marta', 'Henrik', 'Sofia', 'Marco', 'Elena', 'Viktor', 'Katarina', 'Stefan'],
-  RU: ['Dmitri', 'Sergei', 'Irina', 'Nikolai', 'Olga', 'Andrei', 'Tatiana', 'Boris', 'Vera', 'Pavel', 'Anton', 'Mikhail'],
-  ME: ['Omar', 'Khalid', 'Layla', 'Hassan', 'Yusuf', 'Fatima', 'Tariq', 'Samira', 'Ali', 'Nadia', 'Rashid', 'Zaid'],
-  AF: ['Kwame', 'Amara', 'Tunde', 'Zuri', 'Samuel', 'Nia', 'Joseph', 'Chidi', 'Fatou', 'Moses', 'Abena', 'Idris'],
-  SA: ['Arjun', 'Priya', 'Rahul', 'Anita', 'Imran', 'Sunita', 'Vikram', 'Farah', 'Rohan', 'Meera', 'Sanjay', 'Nisha'],
-  EA: ['Wei', 'Hiroshi', 'Min-jun', 'Mei', 'Kenji', 'Ji-woo', 'Lin', 'Takeshi', 'Yuki', 'Hao', 'Soo-ah', 'Jun'],
-  SEA: ['Somchai', 'Nguyen', 'Putri', 'Arif', 'Lan', 'Budi', 'Siti', 'Minh', 'Rizal', 'Ananda', 'Kim', 'Sokha'],
-  OC: ['Jack', 'Olivia', 'Tane', 'Matthew', 'Aroha', 'Liam', 'Grace', 'Sione', 'Ben', 'Lily', 'Ethan', 'Kiri'],
-};
-const LAST: Record<string, string[]> = {
-  NA: ['Walker', 'Brooks', 'Carter', 'Hughes', 'Foster', 'Reed', 'Morgan', 'Bennett', 'Cole', 'Hayes'],
-  LA: ['Vargas', 'Herrera', 'Castillo', 'Mendoza', 'Rojas', 'Silva', 'Ortega', 'Navarro', 'Cruz', 'Salazar'],
-  EU: ['Novak', 'Lefèvre', 'Johansson', 'Rossi', 'Kowalski', 'Weber', 'Costa', 'Petrov', 'Hoffmann', 'Larsen'],
-  RU: ['Volkov', 'Sokolov', 'Orlov', 'Kuznetsov', 'Morozov', 'Lebedev', 'Pavlov', 'Zaytsev', 'Fedorov', 'Belov'],
-  ME: ['al-Rashid', 'Haddad', 'Karimi', 'Nasser', 'Farouk', 'Mansour', 'Qureshi', 'Saleh', 'Aziz', 'Bakr'],
-  AF: ['Mensah', 'Okafor', 'Diallo', 'Kamara', 'Nkosi', 'Abara', 'Traoré', 'Banda', 'Osei', 'Mwangi'],
-  SA: ['Sharma', 'Khan', 'Reddy', 'Banerjee', 'Gupta', 'Hussain', 'Patel', 'Nair', 'Verma', 'Chaudhry'],
-  EA: ['Zhang', 'Tanaka', 'Park', 'Liu', 'Sato', 'Kim', 'Chen', 'Watanabe', 'Choi', 'Huang'],
-  SEA: ['Tran', 'Santos', 'Wijaya', 'Chaiyasit', 'Lim', 'Pham', 'Rahman', 'Dela Cruz', 'Phan', 'Sok'],
-  OC: ['Smith', 'Walker', 'Parata', 'Taylor', 'Hohepa', 'Wilson', 'Tui', 'Murray', 'Ngata', 'Brown'],
-};
-/** a fictional person's name typical of the country's region (deterministic for the same salt) */
-export const personName = (c: Country, salt: string, n: number) => {
-  const f = FIRST[c.region] ?? FIRST.EU, l = LAST[c.region] ?? LAST.EU;
-  return `${f[Math.floor(hash01(`${salt}f`, c.id, n) * f.length)]} ${l[Math.floor(hash01(`${salt}l`, c.id, n) * l.length)]}`;
-};
-const leaderName = (c: Country, gen: number) => {
-  const f = FIRST[c.region] ?? FIRST.EU, l = LAST[c.region] ?? LAST.EU;
-  return `${f[Math.floor(hash01('lf', c.id, gen) * f.length)]} ${l[Math.floor(hash01('ll', c.id, gen) * l.length)]}`;
-};
+/** a fictional person's name typical of the country (deterministic for the same salt) */
+export const personName = (c: Country, salt: string, n: number) =>
+  nationalName(c, hash01(`${salt}g`, c.id, n), hash01(`${salt}f`, c.id, n), hash01(`${salt}l`, c.id, n), salt === 'gen' ? 'general' : 'politician');
+const leaderName = (c: Country, gen: number) => nationalName(c, hash01('lg', c.id, gen), hash01('lf', c.id, gen), hash01('ll', c.id, gen));
 const traitWeights = (gov: string): number[] => TRAITS.map((t) => {
   const base = 1;
   if (gov === 'D') return base * ({ dove: 1.6, pragmatist: 1.5, reformer: 1.6, mercantilist: 1.3, hawk: 0.6, strongman: 0.2, paranoid: 0.5 } as Record<string, number>)[t.id]! || base;
@@ -169,5 +142,6 @@ export function stepLeaders(s: GameState, geo: Geo) {
     c.goal = chooseGoal(s, geo, c);
     const how = turmoil ? 'after a collapse of the government' : free ? 'after an election' : old && years > 15 ? 'after the old ruler’s death' : 'in a palace shake-up';
     logEvent(s, `🆕 ${c.name}: ${c.leader!.name} (${traitsText(c.leader!)}) takes over ${how}.`, 'diplo', [c.id], isMajor(s, c.id) || isAtWar(s, c.id));
+    if (isMajor(s, c.id) || neighborsOf(s, geo, s.player).includes(c.id)) cable(s, c.id, 'new_leader');
   }
 }

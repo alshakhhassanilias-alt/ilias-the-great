@@ -2,6 +2,7 @@
  * Legacy mode screens: the agenda draft, the career dossier, the newspaper after each term, the opposition
  * desk and the history book at the end.
  */
+import { Portrait, faceFor } from './art/Portrait';
 import { useState } from 'react';
 import { store, useStore } from '../state/store';
 import { AGENDA, actAgendaAction, agendaById, type AgendaCat } from '../sim/agenda';
@@ -70,7 +71,7 @@ export function AgendaDraft() {
     <div className="scrim legacy-scrim" role="presentation">
       <div className="agenda-draft" role="dialog" aria-label="Choose your agenda">
         <div className="ad-kicker">{L.term === 1 ? `${dateLabel(s.tick)} · Inauguration` : `${ordinal(L.term)} term · ${dateLabel(s.tick)}`}</div>
-        <h2>{L.term === 1 ? `${L.title} ${L.leader}, what will you promise ${c.name}?` : 'A new term. A new agenda.'}</h2>
+        <div className="ad-who"><Portrait f={faceFor(c, L.leader, 'leader')} size={64} title={L.leader} /><h2>{L.term === 1 ? `${L.title} ${L.leader}, what will you promise ${c.name}?` : 'A new term. A new agenda.'}</h2></div>
         <p className="ad-sub">Choose up to three promises. Keep them before the next {isFree(c.gov) ? 'election' : 'party congress'} and your legacy grows and voters reward you. Break them and they remember.</p>
         <div className="ad-cards">{L.hand.map((id) => <Card key={id} id={id} picked={sel.includes(id)} onClick={() => toggle(id)} />)}</div>
         <div className="ad-foot">
@@ -102,7 +103,7 @@ export function TermReview() {
         <h2 className="gz-head">{t.headline}</h2>
         <div className="gz-body">
           <div className="gz-col">{t.lines.map((l, i) => <p key={i} className={i === 0 ? 'lead' : ''}>{l}</p>)}</div>
-          <aside className="gz-side"><Emblem c={c} size={90} /><div className="gz-grade">Legacy<br /><b className={`grade g-${grade(t.score)}`}>{grade(t.score)}</b><small>{t.score.toFixed(0)} points</small></div></aside>
+          <aside className="gz-side"><span className="gz-photo"><Portrait f={faceFor(c, L.leader, 'leader')} size={110} title={L.leader} /><small>{L.title} {L.leader}</small></span><div className="gz-grade">Legacy<br /><b className={`grade g-${grade(t.score)}`}>{grade(t.score)}</b><small>{t.score.toFixed(0)} points</small></div></aside>
         </div>
         <button className="btn primary" onClick={close}>{L.status === 'opposition' ? (isFree(c.gov) ? 'Lead the opposition' : 'Go into exile') : L.status === 'ended' ? 'Read the history books' : 'Begin the new term'}</button>
       </article>
@@ -125,7 +126,8 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
         <div className="modal-head"><h2>Your Legacy</h2><button className="iconbtn" aria-label="Close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="ld-head">
-            <Emblem c={c} size={84} />
+            <Portrait f={faceFor(c, L.leader, 'leader')} size={84} title={L.leader} />
+            <Emblem c={c} size={70} />
             <div className="grow">
               <div className="ld-kicker">{L.status === 'office' ? `${ordinal(L.term)} term · ${yearsIn.toFixed(1)} years` : L.status === 'opposition' ? (isFree(c.gov) ? 'Leader of the opposition' : 'In exile') : 'The career is over'}</div>
               <h3>{L.title} {L.leader}</h3>
@@ -224,7 +226,7 @@ export function HistoryBook() {
       <article className="history-book" role="dialog" aria-label="The history books">
         <div className="hb-page hb-left">
           <div className="hb-kicker">A History of {c.name}</div>
-          <Emblem c={c} size={120} />
+          <div className="hb-faces"><Portrait f={faceFor(c, L.leader, 'leader')} size={110} title={L.leader} /><Emblem c={c} size={96} /></div>
           <h2>{L.leader}</h2>
           <div className="hb-epithet">{epithet(s)}</div>
           <div className="hb-years">{L.title} · {Math.floor(from)}–{Math.floor(to)}</div>
