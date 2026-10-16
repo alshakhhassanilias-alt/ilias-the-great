@@ -237,7 +237,7 @@ export function InboxTray() {
               const who = presenterOf(s, it.id, it.data);
               const sp = def.speaker?.(s, c, it.data) ?? null;
               const en = def.options.map((o) => !o.enabled || o.enabled(s, c));
-              const adv = who && !it.id.startsWith('min_') ? adviceOf(who, def.options, en) : null;
+              const adv = who && !it.id.startsWith('min_') ? adviceOf(who, def.options, en, c) : null;
               const place = placeOf(s, it);
               const spC = sp ? s.countries[sp.cid] : c;
               return (

@@ -1505,6 +1505,7 @@ import { getTreaty } from '../src/sim/relations';
 import { stanceOf, negotiate } from '../src/sim/negotiate';
 import { previewLapse } from '../src/sim/events';
 import { FOLLOW_UPS, rememberChoice } from '../src/sim/events7';
+import { adviceOf } from '../src/sim/cabinet';
 
 describe('round 15: trust, treasury, negotiation, consequences', () => {
   it('the finance minister quotes the same budget as the Economy tab, from the very first week', () => {
@@ -1652,6 +1653,17 @@ describe('round 15: trust, treasury, negotiation, consequences', () => {
         expect(resolveEvent(s!, geo, k, 950 + k).ok).toBe(true);
       }
     }
+  });
+  it('ministers read penalties as penalties and do not advise borrowing they would not need', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const fin = { ...c.cabinet!.find((m) => m.role === 'finance')!, trait: 'technocrat' };
+    const opts = [{ label: 'Spend big', hint: 'Costs 2% of GDP · stability +2' }, { label: 'Do something unpopular', hint: 'Free · stability −6' }, { label: 'Do little', hint: 'Free · stability −1' }];
+    c.eco.cash = 0.05 * c.eco.gdp;
+    expect(adviceOf(fin, opts, [true, true, true], c)!.idx).not.toBe(1); // −6 is a cost, not a gain
+    c.eco.cash = 0;
+    const a = adviceOf(fin, opts, [true, true, true], c)!;
+    expect(a.idx).toBe(2); // the treasury is empty: the finance minister will not borrow 2% of GDP for it
   });
   it('decisions do not repeat: faction demands stay rare and each faction speaks at most once a year', () => {
     const s = fresh('Japan', { seed: 7 });

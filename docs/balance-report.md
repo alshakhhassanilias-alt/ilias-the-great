@@ -104,6 +104,19 @@ Germany at the start, trade unless noted:
 
 Each sweetener's value depends on what the other side wants and is capped, so money alone cannot buy a hostile government. Money is worth more to poor or indebted countries, and less to governments that distrust you.
 
+### Elections after this round
+
+Twelve matched 8-year Legacy games use the "politician" bot, with the same seeds on the previous and the current version.
+
+| | Before | After |
+| --- | --- | --- |
+| Elections won / lost | 6 / 10 | 5 / 11 |
+| Average approval | 56.6% | 55.3% |
+| Average growth | 3.9% | 3.7% |
+| Debt after 8 years | 91% of GDP | 75% of GDP |
+
+The difference in elections is within noise; the clear change is lower debt. Under both versions the bot wins only about a third of its elections in this time frame. This round did not cause that, but it is the next balance question for human playtesting.
+
 ### Still open
 
 - Treasury balance is now gentle by default; "hard" difficulty only trims revenue by 5%. A harder fiscal mode may be worth adding.

@@ -5,7 +5,7 @@
  * rivals inside the cabinet clash over money, and a minister who is pushed too far resigns in public.
  * You can reshuffle (pick from three candidates) or buy goodwill. Only the player has a cabinet.
  */
-import { clamp } from './util';
+import { clamp, fmtMoney } from './util';
 import { fiscalNow } from './economy';
 import { hash01, nextRand } from './rng';
 import { personName } from './leaders';
@@ -251,13 +251,15 @@ export function presenterOf(s: GameState, eventId: string, data?: Record<string,
 }
 
 /** Which option a minister would pick, and why (read from the option's own hint). */
-export function adviceOf(m: Minister, options: { label: string; hint: string }[], enabled: boolean[]): { idx: number; why: string } | null {
+export function adviceOf(m: Minister, options: { label: string; hint: string }[], enabled: boolean[], c?: Country): { idx: number; why: string } | null {
   const view = mtraitById(m.trait).view;
-  let best = -1, bv = -Infinity, why = '';
+  let best = -1, bv = -Infinity, why = '', borrow = 0;
+  // what an option would have to borrow, given what is in the treasury now
+  const borrowFor = (costPct: number) => (c && costPct > 0 ? Math.max(0, (costPct / 100) * c.eco.gdp - c.eco.cash) : 0);
   options.forEach((o, i) => {
     if (!enabled[i]) return;
     const t = `${o.label} ${o.hint}`.toLowerCase();
-    const num = (re: RegExp) => { const x = re.exec(t); return x ? parseFloat(x[1].replace('−', '-')) * (x[0].includes('−') ? -1 : 1) : 0; };
+    const num = (re: RegExp) => { const x = re.exec(t); return x ? parseFloat(x[1].replace('−', '-')) : 0; }; // "−4" is minus four (it was read as +4)
     const cost = num(/costs? ([\d.]+)%/);
     const stabv = num(/stability ([+−-]?[\d.]+)/);
     const repv = num(/reputation ([+−-]?[\d.]+)/);
@@ -270,11 +272,15 @@ export function adviceOf(m: Minister, options: { label: string; hint: string }[]
     if (view === 'bold') v = bold * 2 + repv * 0.4 + stabv * 0.3 - cost * 0.3;
     if (view === 'cheap') v = -cost * 4 + (t.includes('deal') ? 1 : 0);
     v += (i === 0 ? 0.05 : 0);
+    // nobody sensible recommends borrowing for it when the books are already in the red; the Finance Minister least of all
+    const b = borrowFor(cost);
+    if (b > 0 && c) v -= (m.role === 'finance' ? 3 : 1) * (b / c.eco.gdp) * 100;
     if (v > bv) {
-      bv = v; best = i;
+      bv = v; best = i; borrow = b;
       why = view === 'prudent' ? 'the safest and cheapest course' : view === 'popular' ? 'what the public wants to see' : view === 'tough' ? 'it shows strength' : view === 'bold' ? 'it moves the country forward' : 'it costs us least';
     }
   });
+  if (best >= 0 && borrow > 0) why += `, even though the treasury cannot cover it and ${fmtMoney(borrow)} would be borrowed`;
   return best >= 0 ? { idx: best, why } : null;
 }
 
