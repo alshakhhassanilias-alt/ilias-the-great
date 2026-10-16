@@ -6,6 +6,7 @@ import type { Country, GameState, Minister } from '../sim/types';
 import { mtraitById } from '../sim/cabinet';
 import { drivers, stabilityParts } from './explain';
 import { fmtMoney } from '../sim/util';
+import { balanceText, budgetReport } from '../sim/treasury';
 import { dateLabel } from '../sim/tick';
 import { alliesOf, enemiesOf, getRelation, isAtWar, warsOf } from '../sim/relations';
 import { strength } from '../sim/military';
@@ -32,22 +33,23 @@ export function ministerReport(s: GameState, c: Country, m: Minister, near: Set<
   const opener = (OPENER[m.trait] ?? 'Briefly:').replace('Prime Minister', leaderTitle(c));
   const e = c.eco;
   if (m.role === 'finance') {
-    const deficit = e.spending - e.revenue;
-    const bal = deficit / Math.max(1, e.gdp);
+    // the same figures as the Economy tab (budgetReport): annual rates at today's tax and spending settings
+    const B = budgetReport(s, c);
     const nom = e.growth + e.inflation;
-    const ratio = e.debt / e.gdp;
-    const proj = (e.debt + deficit * 2) / (e.gdp * Math.pow(1 + nom, 2));
+    const proj = (B.debt - B.balance * 2) / (e.gdp * Math.pow(1 + nom, 2));
     const d = drivers(c).filter((x) => x.key !== 'convergence');
     const up = d.filter((x) => x.v > 0.0008)[0], down = d.filter((x) => x.v < -0.0008)[0];
     const lines: string[] = [];
-    lines.push(`Debt is ${pc(ratio, 0)} of GDP (${fmtMoney(e.debt)}); at this pace it will be ${pc(proj, 0)} by ${dateLabel(s.tick + 104)}.`);
-    lines.push(`Growth ${pc(e.growth)}${up ? `, carried by ${up.label.toLowerCase()} (${sgn(up.v * 100, 2)} pts)` : ''}${down ? `; ${down.label.toLowerCase()} is costing us ${sgn(down.v * 100, 2)} pts` : ''}.`);
-    lines.push(`Inflation ${pc(e.inflation)}${e.inflation > 0.05 ? ' and rising prices are eating wages' : e.inflation < 0 ? ', prices are falling' : ''} · unemployment ${pc(e.unemployment)} · treasury ${fmtMoney(e.cash)}${deficit > 0 && e.cash > 0 ? ` (${Math.max(0, Math.round(e.cash / (deficit / 52)))} weeks of deficit)` : ''}.`);
-    const headline = bal > 0.04 ? `We are borrowing ${fmtMoney(deficit)} a year, ${pc(bal)} of GDP. That cannot go on.`
-      : bal > 0.015 ? `A deficit of ${fmtMoney(deficit)} a year (${pc(bal)} of GDP). Manageable, for now.`
-      : bal < -0.005 ? `We run a surplus of ${fmtMoney(-deficit)} a year. Room to invest or cut taxes.`
-      : `The budget is roughly balanced (${bal > 0 ? '−' : '+'}${fmtMoney(Math.abs(deficit))} a year).`;
-    return { opener, headline, lines, tone: bal > 0.04 || ratio > 1.2 || e.inflation > 0.08 ? 'bad' : bal > 0.015 || e.growth < 0 ? 'warn' : 'good', go: 'economy', goLabel: 'Open the budget' };
+    lines.push(`Revenue ${fmtMoney(B.revenue)} a year, spending ${fmtMoney(B.spending)} (of which interest ${fmtMoney(B.interest)}): ${balanceText(B.balance)}.`);
+    lines.push(`Treasury ${fmtMoney(B.cash)}${B.balance < 0 ? (B.cash > 0 ? `, enough to cover the deficit for ${Math.round(B.weeksOfCash)} weeks; after that we borrow` : '; it is empty, so the deficit is borrowed') : ''} · debt ${pc(B.debtPct, 0)} of GDP, heading for ${pc(proj, 0)} by ${dateLabel(s.tick + 104)}.`);
+    lines.push(`Growth ${pc(e.growth)}${up ? `, carried by ${up.label.toLowerCase()} (${sgn(up.v * 100, 2)} pts)` : ''}${down ? `; ${down.label.toLowerCase()} is costing us ${sgn(down.v * 100, 2)} pts` : ''} · inflation ${pc(e.inflation)} · unemployment ${pc(e.unemployment)}.`);
+    const bal = -B.balancePct; // deficit as a share of GDP (positive = deficit)
+    const headline = bal > 0.04 ? `We are running a deficit of ${fmtMoney(-B.balance)} a year, ${pc(bal)} of GDP. That cannot go on.`
+      : bal > 0.015 ? `A deficit of ${fmtMoney(-B.balance)} a year (${pc(bal)} of GDP). Manageable, for now.`
+      : bal > 0.002 ? `A small deficit: ${fmtMoney(-B.balance)} a year (${pc(bal)} of GDP).${B.cash > 0 ? ' The treasury covers it for now.' : ''}`
+      : bal < -0.005 ? `We run a surplus of ${fmtMoney(B.balance)} a year. Room to invest or cut taxes.`
+      : `The budget is roughly balanced (${B.balance >= 0 ? '+' : '−'}${fmtMoney(Math.abs(B.balance))} a year).`;
+    return { opener, headline, lines, tone: bal > 0.04 || B.debtPct > 1.2 || e.inflation > 0.08 ? 'bad' : bal > 0.015 || e.growth < 0 ? 'warn' : 'good', go: 'economy', goLabel: 'Open the budget' };
   }
   if (m.role === 'foreign') {
     const others = s.countries.filter((x) => x.alive && x.id !== c.id);

@@ -5,7 +5,7 @@ import { TopBar } from './TopBar';
 import { TimeControls } from './TimeControls';
 import { SidePanel } from './SidePanel';
 import { Drawers } from './Drawers';
-import { BreakingBanner, Splash, YearReview, InboxTray, MapModes, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
+import { BreakingBanner, Splash, YearReview, InboxTray, MapModes, NotesColumn, Offers, RippleCard, Ticker, Toasts, VictoryBanner } from './Overlays';
 import { StartScreen } from './StartScreen';
 import { BattleCard } from './BattleCard';
 import { ArmyPanel } from './ArmyPanel';
@@ -28,6 +28,8 @@ export function App() {
       if (!store.state || store.preview || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
       if (e.code === 'Space') { e.preventDefault(); store.togglePause(); }
       else if (e.key >= '1' && e.key <= '4') store.setSpeed(Number(e.key));
+      else if (e.key === '+' || e.key === '=') window.dispatchEvent(new CustomEvent('wo-zoom', { detail: 1.4 }));
+      else if (e.key === '-' || e.key === '_') window.dispatchEvent(new CustomEvent('wo-zoom', { detail: 1 / 1.4 }));
       else if (e.key === 'Escape') store.openDrawer('none');
     };
     window.addEventListener('keydown', onKey);
@@ -35,6 +37,7 @@ export function App() {
   }, []);
   if (!store.state) return null;
   if (store.preview) return <StartScreen />;
+  const desk = window.matchMedia?.('(min-width: 901px)').matches ?? window.innerWidth > 900;
   const bottom = window.innerWidth < 900 ? (store.sheet === 'peek' ? '112px' : store.sheet === 'half' ? '50vh' : '92vh') : '0px';
   return (
     <div className="app" style={{ ['--map-bottom' as string]: bottom }}>
@@ -46,13 +49,12 @@ export function App() {
           <TimeControls />
           <Ticker />
           <Toasts />
-          <Offers />
-          <RippleCard />
+          {desk ? <NotesColumn /> : <><Offers /><RippleCard /></>}
           <InboxTray />
           <BattleCard />
           <ArmyPanel />
           <BreakingBanner />
-          <YearReview />
+          {!desk && <YearReview />}
           <Splash />
         </div>
         <SidePanel />

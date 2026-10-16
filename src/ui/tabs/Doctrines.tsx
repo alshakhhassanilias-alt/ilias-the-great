@@ -3,6 +3,7 @@ import { store } from '../../state/store';
 import { Section } from '../widgets';
 import { fmtMoney } from '../format';
 import { actSetDoctrine } from '../../sim/actions';
+import { fundingText } from '../../sim/treasury';
 import { DOCTRINES, REFORM_COOLDOWN, REFORM_COST, SLOT_LABEL, doctrineOf, slotOptions, type Doctrine } from '../../sim/doctrines';
 
 const SLOTS: Doctrine['slot'][] = ['eco', 'mil', 'dip'];
@@ -39,7 +40,7 @@ export function DoctrinesSection() {
                   {shown !== chosen && (
                     <button className="btn primary sm" style={{ marginTop: 6 }} disabled={wait > 0 && cur.changed > -9000}
                       onClick={() => { store.act((g) => actSetDoctrine(g, g.player, slot, d.id)); setView({ ...view, [slot]: undefined }); }}>
-                      Adopt · {fmtMoney(cost)}
+                      Adopt · {fundingText(c, cost)}
                     </button>
                   )}
                   {shown === chosen && <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>Your current doctrine.</div>}

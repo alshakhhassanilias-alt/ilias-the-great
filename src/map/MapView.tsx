@@ -238,6 +238,9 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('pointerleave', leave);
     canvas.addEventListener('wheel', wheel, { passive: false });
+    // keyboard zoom (+ / −), dispatched by the app's key handler
+    const keyZoom = (e: Event) => { const r = rendRef.current; if (r) r.zoomAt(r.w / 2, r.h / 2, (e as CustomEvent<number>).detail); };
+    window.addEventListener('wo-zoom', keyZoom);
     canvas.addEventListener('contextmenu', context);
     return () => {
       canvas.removeEventListener('contextmenu', context);
@@ -247,6 +250,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       canvas.removeEventListener('pointercancel', up);
       canvas.removeEventListener('pointerleave', leave);
       canvas.removeEventListener('wheel', wheel);
+      window.removeEventListener('wo-zoom', keyZoom);
     };
   }, [onPick]);
 

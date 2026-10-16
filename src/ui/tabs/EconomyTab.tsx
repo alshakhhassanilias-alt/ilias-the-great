@@ -7,11 +7,13 @@ import { fmtMoney, fmtNum, pct, signed, signedPct } from '../format';
 import { LineChart } from '../LineChart';
 import { drags, drivers, growthNarrative } from '../explain';
 import { BUDGET_LIMITS, borrow, buildProject, printMoney, repayDebt, setBudget, type Project } from '../../sim/actions';
-import { fiscalNow, revenueAnnual, taxBurden, taxFactor } from '../../sim/economy';
+import { revenueAnnual, taxBurden, taxFactor } from '../../sim/economy';
 import type { Budget } from '../../sim/types';
 import { partnersOf, sanctionLevel } from '../../sim/relations';
 import { fog } from '../format';
 import { ProjectsSection } from './Projects';
+import { TreasurySection } from './Treasury';
+import { fundingText } from '../../sim/treasury';
 
 const PRESETS = [0.0025, 0.005, 0.01, 0.02];
 
@@ -22,8 +24,6 @@ export function EconomyTab({ id }: { id: number }) {
   const mine = id === s.player;
   const [preset, setPreset] = useState(0.01);
   const set = (k: keyof Budget, v: number) => store.act((g) => setBudget(g, g.player, k, v), true);
-  const fn = fiscalNow(c, s);
-  const rev = fn.revenue, spend = fn.spending, bal = fn.balance;
   const dr = drivers(c);
   const maxAbs = Math.max(0.01, ...dr.map((d) => Math.abs(d.v)));
   const trade = e.exports - e.imports;
@@ -32,10 +32,9 @@ export function EconomyTab({ id }: { id: number }) {
   const partners = partnersOf(s, id, 'trade');
   const burden = taxBurden(c.budget) * e.collection;
   const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
-  const cost = (p: number) => fmtMoney(p * e.gdp);
   const proj = (k: Project, label: string, sub: string) => (
     <button key={k} className="btn" onClick={() => store.act((g) => buildProject(g, g.player, k, preset))}>
-      {label}<small>{sub} · {cost(preset)}</small>
+      {label}<small>{sub} · {fundingText(c, preset * e.gdp)}</small>
     </button>
   );
   const gdp = fog(s, c, e.gdp, 'gdp2');
@@ -83,19 +82,12 @@ export function EconomyTab({ id }: { id: number }) {
         </div>
       </Section>
 
-      <Section title="Government finances" hint="per year">
-        <div className="grid2">
-          <Stat label="Revenue" value={fmtMoney(rev)} sub={`${pct(rev / e.gdp)} of GDP`} />
-          <Stat label="Spending" value={fmtMoney(spend)} sub={`incl. interest ${fmtMoney(e.interest)}`} />
-          <Stat label="Balance" value={`${bal >= 0 ? '+' : ''}${fmtMoney(bal)}`} tone={bal < 0 ? 'bad' : 'good'} sub={`${signedPct(bal / e.gdp)} of GDP`} />
-          <Stat label="Treasury" value={mine ? fmtMoney(e.cash) : '—'} sub={`debt ${fmtMoney(e.debt)} (${pct(e.debt / e.gdp, 0)})`} />
-        </div>
-        <div className="grid3" style={{ marginTop: 8 }}>
-          <Stat label="GDP" value={`${gdp.approx ? '≈' : ''}${fmtMoney(gdp.v)}`} />
-          <Stat label="Interest rate" value={pct(e.avgRate)} />
-          <Stat label="Tax burden" value={pct(burden, 0)} sub="of GDP" />
-        </div>
-      </Section>
+      <TreasurySection c={c} />
+      <div className="grid3" style={{ margin: '-4px 0 12px' }}>
+        <Stat label="GDP" value={`${gdp.approx ? '≈' : ''}${fmtMoney(gdp.v)}`} sub="per year" />
+        <Stat label="Tax burden" value={pct(burden, 0)} sub="of GDP" />
+        <Stat label="Interest rate" value={pct(e.avgRate)} sub="average on debt" />
+      </div>
 
       {mine && !delegated && (
         <>
@@ -140,13 +132,13 @@ export function EconomyTab({ id }: { id: number }) {
               {proj('farms', 'Expand farms & logistics', `food ${(foodBal * 100).toFixed(0)}% of demand`)}
               {proj('research', 'Fund R&D programme', `tech ${e.tech.toFixed(0)}`)}
             </div>
-            <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>Paid from the treasury ({fmtMoney(e.cash)}); any shortfall is borrowed automatically.</div>
+            <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>One-off costs come from the treasury ({fmtMoney(e.cash)} now); whatever it cannot cover is borrowed and added to debt. Each button shows the split.</div>
           </Section>
 
-          <Section title="Treasury">
+          <Section title="Borrowing and repayment" hint="moves money between the treasury and debt">
             <div className="btnrow">
-              <button className="btn" onClick={() => store.act((g) => borrow(g, g.player, 0.02))}>Borrow 2% GDP<small>{fmtMoney(0.02 * e.gdp)} at {pct(e.avgRate)}</small></button>
-              <button className="btn" disabled={e.cash <= 0 || e.debt <= 0} onClick={() => store.act((g) => repayDebt(g, g.player, 0.02))}>Repay up to 2% GDP<small>from the treasury</small></button>
+              <button className="btn" onClick={() => store.act((g) => borrow(g, g.player, 0.02))}>Borrow 2% GDP<small>+{fmtMoney(0.02 * e.gdp)} cash, +{fmtMoney(0.02 * e.gdp * e.avgRate)}/yr interest</small></button>
+              <button className="btn" disabled={e.cash <= 0 || e.debt <= 0} onClick={() => store.act((g) => repayDebt(g, g.player, 0.02))}>Repay up to 2% GDP<small>{fmtMoney(Math.min(0.02 * e.gdp, e.cash, e.debt))} from the treasury, saves {fmtMoney(Math.min(0.02 * e.gdp, e.cash, e.debt) * e.avgRate)}/yr</small></button>
               <button className="btn danger" onClick={() => store.act((g) => printMoney(g, g.player, 0.01))}>Print 1% GDP<small>inflation + unrest</small></button>
             </div>
           </Section>

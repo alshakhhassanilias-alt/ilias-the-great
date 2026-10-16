@@ -2,6 +2,7 @@
  * Game store: owns the GameState, the simulation clock (pause / speeds), selection, notifications and saves.
  * The simulation itself is plain TypeScript (src/sim); React only reads from here.
  */
+import { AUTOSAVE_WEEKS } from '../ui/controls';
 import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { loadGeo } from '../sim/load';
 import { createGame } from '../sim/init';
@@ -50,6 +51,23 @@ class Store {
   focusRequest = 0; // bumps when the map should pan to the selected country
   pauseOnWar = true;
   pauseOnDecision = false;
+  /** the clock holds while you read a decision, a menu or a dialog, so nothing lapses while your eyes are elsewhere */
+  holdWhileReading = (() => { try { return localStorage.getItem('wo-hold') !== '0'; } catch { return true; } })();
+  setHoldWhileReading(on: boolean) { this.holdWhileReading = on; try { localStorage.setItem('wo-hold', on ? '1' : '0'); } catch { /* storage unavailable */ } this.notify(); }
+  /** pause before a decision with consequences lapses unanswered (urgent ones, or ones with a default outcome) */
+  pauseBeforeLapse = true;
+  private lapseWarned = new Set<number>();
+  /** dialogs that hold the clock while open (negotiation, legacy dossier, ...) */
+  private holds = new Set<string>();
+  hold(key: string, on: boolean) { const had = this.holds.has(key); if (on) this.holds.add(key); else this.holds.delete(key); if (had !== on) this.notify(); }
+  /** why the clock is held right now (null: it is not) */
+  get heldBy(): string | null {
+    if (!this.holdWhileReading || !this.state || this.preview) return null;
+    if (this.inboxOpen !== null && this.state.inbox.some((x) => x.uid === this.inboxOpen)) return 'a decision';
+    if (this.holds.size) return [...this.holds][0];
+    if (this.drawer.open !== 'none') return 'the menu';
+    return null;
+  }
   /** graphics: auto adapts to the device (drops effects if frames get slow) */
   graphics: 'auto' | 'high' | 'medium' | 'low' = (() => { try { return (localStorage.getItem('wo-graphics') as 'auto' | 'high' | 'medium' | 'low') || 'auto'; } catch { return 'auto'; } })();
   /** quality currently in use (0 low, 1 medium, 2 high), set by the map view */
@@ -185,7 +203,7 @@ class Store {
       const dt = Math.min(0.25, (t - this.last) / 1000);
       this.last = t;
       if (!this.state || this.state.victory?.achieved === false) return;
-      if (this.speed === 0) { if (this.pending) { this.flushTick(); this.notify(false); } return; }
+      if (this.speed === 0 || this.heldBy) { if (this.pending) { this.flushTick(); this.notify(false); } return; }
       this.acc = Math.min(3, this.acc + dt * SPEEDS[this.speed].tps);
       // run the simulation in slices within a small time budget per frame: drawing always gets its share
       const s = this.state, t0 = performance.now();
@@ -198,7 +216,7 @@ class Store {
         if (r.done) {
           this.pending = null; weeks++;
           this.processLog();
-          if (s.tick % 52 === 0) this.autosave();
+          if (s.tick % AUTOSAVE_WEEKS === 0) this.autosave();
           if (this.speed === 0) break; // an event (e.g. war against us) paused the clock
         }
       }
@@ -226,7 +244,7 @@ class Store {
       this.processLog();
       if (respectPause && this.speed === 0) break; // an event (e.g. war against us) paused the clock
     }
-    if (s.tick % 52 === 0) this.autosave();
+    if (s.tick % AUTOSAVE_WEEKS === 0) this.autosave();
   }
   private processLog() {
     const s = this.state!;
@@ -271,6 +289,17 @@ class Store {
         if (this.speed > 2) this.speed = 2; // slow down, never stop
       }
       if (this.pauseOnDecision && this.speed !== 0) this.speed = 0;
+    }
+    // last chance: stop the clock two weeks before a decision with consequences lapses unanswered
+    if (this.pauseBeforeLapse && !this.preview) {
+      for (const it of s.inbox) {
+        if (this.lapseWarned.has(it.uid) || it.expires - s.tick > 2) continue;
+        const def = eventById(it.id);
+        if (!it.urgent && !def.lapse) continue;
+        this.lapseWarned.add(it.uid);
+        if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; }
+        this.toast(`⏳ Last chance: “${def.title}” lapses in ${Math.max(0, it.expires - s.tick)} weeks. Decide now, or press play to let it lapse.`, 'danger');
+      }
     }
   }
   private breakTimer = 0;

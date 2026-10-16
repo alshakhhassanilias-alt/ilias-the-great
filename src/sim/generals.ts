@@ -101,7 +101,7 @@ export function actRecruitGeneral(s: GameState, cid: number, trait: string) {
   const c = s.countries[cid];
   if (activeGenerals(c).length >= 6) return { ok: false, message: 'Your general staff is full (6). Retire someone first.' };
   const cost = 0.0005 * c.eco.gdp;
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, 'New general');
   if (!f.ok) return f;
   c.generals ??= [];
   const g = newGeneral(s, c, trait);

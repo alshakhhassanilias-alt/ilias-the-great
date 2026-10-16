@@ -3,7 +3,7 @@ import { store } from '../state/store';
 const STEPS: { title: string; body: string[] }[] = [
   { title: 'You run a country, in real time you control', body: [
     'The world starts on 1 January 2024 with real countries, real borders and approximate real data. Nothing waits in real life: every decision takes effect at once or at the next tick (one week of game time).',
-    'Use the clock (bottom-left): ⏸ pause, ▶ slow (a year in ~1m45s), ▶▶ normal, ▶▶▶ fast, ⏩ very fast. Start slow, pause any time to think, then resume. Space toggles pause; keys 1-4 pick a speed. Big news about you slows fast-forward down automatically.' ] },
+    'Use the clock (bottom-left): ⏸ pause, ▶ slow (a year in ~1m45s), ▶▶ normal, ▶▶▶ fast, ⏩ very fast. Start slow, pause any time to think, then resume. Space toggles pause; keys 1-4 pick a speed (1 slow, 2 normal, 3 fast, 4 very fast); + and − zoom the map. Big news about you slows fast-forward down automatically.' ] },
   { title: 'Two ways to play', body: [
     '🌍 Sandbox: the open world. Play as long as you like and set the start (today, a world depression, a new cold war, détente), random events, nuclear weapons and an end year in World options.',
     '📜 Legacy: a political career. You serve terms of four years. At the start of each term pick up to three promises from five agenda cards; keeping them grows your legacy. Eight weeks before each vote a campaign begins; lose and you lead the opposition (or go into exile) and can fight your way back. Two failed comebacks, retirement or the end of the era close the career and history writes its verdict (grade S to F). The 👑 chip in the top bar opens your legacy.',

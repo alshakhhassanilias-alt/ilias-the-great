@@ -158,3 +158,9 @@
 .army-row.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .army-row small { display: block; color: var(--muted); font-size: 11.5px; }
 @media (max-width: 900px) { .army-panel { right: 8px; left: 8px; width: auto; bottom: calc(var(--map-bottom, 0px) + 54px); } }
+.ld-part > span { display: flex; flex-direction: column; gap: 1px; }
+.ld-hint { font-size: 10.5px; line-height: 1.25; color: var(--faint); font-weight: 400; }
+.ld-part { grid-template-columns: minmax(150px, 46%) 1fr 54px; }
+.ld-wars { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
+.ld-wars li { padding: 3px 0; border-top: 1px dashed var(--line-soft); }
+.ld-wars li span { display: inline-block; min-width: 86px; opacity: .7; }

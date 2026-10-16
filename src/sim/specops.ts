@@ -64,7 +64,7 @@ export function actLaunchOp(s: GameState, geo: Geo, cid: CountryId, p: ProvId, k
   const why = canLaunch(s, geo, cid, p, kind);
   if (why) return { ok: false, message: why };
   const c = s.countries[cid];
-  const f = fund(s, cid, opCost(c, kind));
+  const f = fund(s, cid, opCost(c, kind), 'Special operation');
   if (!f.ok) return f;
   const ops = opsOf(c);
   for (let i = ops.length - 1; i >= 0; i--) if (ops[i].until <= s.tick) ops.splice(i, 1);
@@ -91,7 +91,7 @@ export function actPartisans(s: GameState, cid: CountryId) {
   if (!occ.length) return { ok: false, message: 'None of your land is occupied' };
   if (partisansActive(s, cid)) return { ok: false, message: 'The resistance is already armed' };
   const cost = 0.001 * c.eco.gdp;
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, 'Arming the resistance');
   if (!f.ok) return f;
   s.stats[pKey(cid)] = s.tick + 26;
   logEvent(s, `🔥 Partisans rise up in occupied ${c.name}: rail lines are blown and convoys ambushed.`, 'war', [cid], true, { prov: occ[0] });

@@ -23,6 +23,7 @@ import { logEvent } from './log';
 import { acceptOffer, cancelTreaty, declineOffer, imposeSanction, liftSanction, propose, type Proposal } from './diplomacy';
 import { warBetween } from './relations';
 import type { Budget, GameState, ProvId } from './types';
+import { DEBT_CEILING, record } from './treasury';
 
 export interface ActionResult { ok: boolean; message: string }
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -40,23 +41,26 @@ export function setBudget(s: GameState, cid: number, key: keyof Budget, value: n
   return ok('Policy updated');
 }
 
-/** Pay from cash, borrowing the shortfall if the country can still access credit. */
-export function fund(s: GameState, cid: number, cost: number): ActionResult {
+/** Pay from cash, borrowing the shortfall if the country can still access credit. `what` names it in the ledger. */
+export function fund(s: GameState, cid: number, cost: number, what = 'One-off cost'): ActionResult {
   const c = s.countries[cid], e = c.eco;
-  if (cost <= e.cash) { e.cash -= cost; return ok('Paid from the treasury'); }
+  if (cost <= e.cash) { e.cash -= cost; record(s, c, what, -cost, 0); return ok(`Paid ${fmtMoney(cost)} from the treasury`); }
   const need = cost - e.cash;
-  if ((e.debt + need) / e.gdp > 2.5) return fail(`Not enough funds (${fmtMoney(cost)} needed) and creditors refuse further lending`);
+  if ((e.debt + need) / e.gdp > DEBT_CEILING) return fail(`Not enough funds (${fmtMoney(cost)} needed) and creditors refuse further lending`);
+  const fromCash = e.cash;
   e.debt += need;
   e.cash = 0;
-  return ok(`Financed by borrowing ${fmtMoney(need)}`);
+  record(s, c, what, -cost, need);
+  return ok(fromCash > 0 ? `Paid ${fmtMoney(fromCash)} from the treasury and borrowed ${fmtMoney(need)}` : `The treasury is empty: borrowed all ${fmtMoney(need)}`);
 }
 export const costOf = (s: GameState, cid: number, pctGdp: number) => pctGdp * s.countries[cid].eco.gdp;
 
 export type Project = 'industry' | 'infra' | 'energy' | 'farms' | 'research';
+export const PROJECT_LABEL: Record<Project, string> = { industry: 'factories', infra: 'infrastructure', energy: 'power plants', farms: 'farmland', research: 'research' };
 export function buildProject(s: GameState, cid: number, kind: Project, pctGdp: number): ActionResult {
   const c = s.countries[cid], e = c.eco;
   const cost = costOf(s, cid, pctGdp);
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, `Investment: ${PROJECT_LABEL[kind]}`);
   if (!f.ok) return f;
   const real = cost / e.price;
   switch (kind) {
@@ -117,7 +121,7 @@ export function recruit(s: GameState, cid: number, n: number): ActionResult {
   n = Math.floor(Math.min(n, avail));
   if (n <= 0) return fail('No available manpower');
   const cost = n * m.unitCost * e.price * 0.5;
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, 'Recruitment');
   if (!f.ok) return f;
   const total = m.troops + n;
   m.readiness = (m.readiness * m.troops + 0.45 * n) / total;
@@ -134,7 +138,7 @@ export function demobilize(s: GameState, cid: number, n: number): ActionResult {
 export function buyEquipment(s: GameState, cid: number, kind: 'army' | 'air' | 'navy', pctGdp: number): ActionResult {
   const c = s.countries[cid], m = c.mil;
   const cost = costOf(s, cid, pctGdp);
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, 'Equipment purchase');
   if (!f.ok) return f;
   const real = (cost / c.eco.price) * 0.9;
   if (kind === 'army') m.equipArmy += real; else if (kind === 'air') m.equipAir += real; else m.equipNavy += real;
@@ -196,7 +200,7 @@ export function actAirstrike(s: GameState, cid: number, prov: ProvId): ActionRes
   for (const w of s.wars) {
     const fr = w.fronts.find((f) => f.prov === prov && f.by === cid);
     if (!fr) continue;
-    const f = fund(s, cid, cost);
+    const f = fund(s, cid, cost, 'Air strike');
     if (!f.ok) return f;
     const enemy = s.countries[s.owner[prov]];
     const sup = airSuperiority(c, enemy);
@@ -244,7 +248,7 @@ export function actGuarantee(s: GameState, cid: number, to: number, on: boolean)
 export function actAid(s: GameState, cid: number, to: number, pct: number): ActionResult {
   const c = s.countries[cid], T = s.countries[to];
   const cost = pct * c.eco.gdp;
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, `Aid to ${s.countries[to].name}`);
   if (!f.ok) return f;
   T.eco.cash += cost; T.eco.stability = Math.min(100, T.eco.stability + 1.5);
   addRelation(s, cid, to, Math.min(25, 30 * pct * 100 / 1.0 * 0.4 + 4));
@@ -296,7 +300,7 @@ export function actMediate(s: GameState, geo: Geo, cid: number, warId: number): 
   const key = `mediate:${warId}`;
   if ((s.opCooldown[key] ?? -999) + 13 > s.tick) return fail('You tried mediating this war very recently');
   const cost = 0.0025 * c.eco.gdp;
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, 'Peace mediation');
   if (!f.ok) return f;
   s.opCooldown[key] = s.tick;
   const A = s.countries[w.attackers[0]], B = s.countries[w.defenders[0]];

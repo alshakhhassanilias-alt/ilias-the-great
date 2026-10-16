@@ -8,7 +8,7 @@ export function TimeControls() {
   const labels = ['⏸', '▶', '▶▶', '▶▶▶', '⏩'];
   return (
     <div className="timebox" role="group" aria-label="Time controls">
-      <div className="date">{dateLabel(s.tick)}<small>{store.speed === 0 ? 'paused' : SPEEDS[store.speed].label.toLowerCase()}</small></div>
+      <div className="date">{dateLabel(s.tick)}<small className={store.heldBy && store.speed ? 'held' : ''}>{store.speed === 0 ? 'paused' : store.heldBy ? `held: reading ${store.heldBy}` : SPEEDS[store.speed].label.toLowerCase()}</small></div>
       {s.crisis && (() => { const d = crisisById(s.crisis.id); return <div className={`crisis-chip ${d.id === 'boom' ? 'good' : ''}`} title={d.blurb}>{d.icon}<span className="t"> {d.title} ·</span> {crisisLeft(s)} wk</div>; })()}
       <div className="speedrow">
         {SPEEDS.map((sp, i) => (

@@ -16,6 +16,8 @@ import { declareWar, forcePeaceAll } from './war';
 import type { Country, GameState, InboxItem } from './types';
 
 import { type D, type EventDef, type EventOption, name, pay, stab, rep, money, canPay } from './eventkit';
+import { asPurchase } from './treasury';
+import { FACTIONS } from './domestic';
 export type { EventDef, EventOption };
 
 export const EVENTS: EventDef[] = [
@@ -273,7 +275,8 @@ export function resolveEvent(s: GameState, geo: Geo, option: number, uid?: numbe
   const opt = def.options[option];
   if (!opt) return { ok: false, message: 'Unknown option' };
   if (opt.enabled && !opt.enabled(s, c)) return { ok: false, message: 'Cannot afford that option' };
-  const msg = opt.apply(s, c, it.data, geo);
+  // every cost, income and loan in this decision is one line in the treasury ledger
+  const msg = asPurchase(s, c, def.title, () => opt.apply(s, c, it.data, geo));
   s.inbox = s.inbox.filter((x) => x !== it);
   logEvent(s, `${def.title}: ${msg}`, 'info', [s.player]);
   return { ok: true, message: msg };
@@ -319,4 +322,28 @@ export function stepWorldEvents(s: GameState, geo: Geo) {
   for (const e of WORLD) { rr -= e.w; if (rr <= 0) { ev = e; break; } }
   const text = ev.run(s, c, geo);
   if (text) logEvent(s, `${text}.`, 'info', [c.id], false);
+}
+
+/** What happens if the player lets a decision lapse: run its default outcome on a copy of the world. */
+export function previewLapse(s: GameState, geo: Geo, uid: number): { text: string; fx: string[] } {
+  const it = s.inbox.find((x) => x.uid === uid);
+  if (!it) return { text: '', fx: [] };
+  const def = eventById(it.id);
+  if (!def.lapse) return { text: 'Nothing happens: the chance simply passes.', fx: [] };
+  const t = structuredClone(s) as GameState;
+  const a = s.countries[s.player], b = t.countries[t.player];
+  let text = '';
+  try { text = def.lapse(t, b, { ...it.data }, geo); } catch { return { text: 'The matter is decided without you.', fx: [] }; }
+  const fx: string[] = [];
+  const d = (label: string, v: number, unit = '', dp = 0) => { if (Math.abs(v) >= (dp ? 0.05 : 0.5)) fx.push(`${label} ${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(dp)}${unit}`); };
+  d('stability', b.eco.stability - a.eco.stability);
+  const money = (b.eco.cash - b.eco.debt) - (a.eco.cash - a.eco.debt);
+  if (Math.abs(money) > 0.0002 * a.eco.gdp) fx.push(`${money < 0 ? 'costs' : 'gains'} ${(Math.abs(money) / a.eco.gdp * 100).toFixed(2)}% of GDP`);
+  d('reputation', b.reputation - a.reputation);
+  if (a.politics && b.politics) {
+    d('political capital', b.politics.pc - a.politics.pc);
+    for (const f of b.politics.factions) { const f0 = a.politics.factions.find((x) => x.id === f.id); if (f0) d(FACTIONS.find((x) => x.id === f.id)?.short ?? f.id, f.mood - f0.mood); }
+  }
+  if (t.wars.length > s.wars.length && t.wars.some((w) => (w.attackers.includes(t.player) || w.defenders.includes(t.player)) && !s.wars.some((x) => x.id === w.id))) fx.unshift('WAR');
+  return { text, fx: fx.slice(0, 5) };
 }

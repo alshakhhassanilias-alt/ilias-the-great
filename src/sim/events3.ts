@@ -4,7 +4,9 @@
  * countries and regions and changes the world, not just a number.
  */
 import { nextRand } from './rng';
-import { clamp } from './util';
+import { clamp, fmtMoney } from './util';
+import { fiscalNow } from './economy';
+import { balanceText } from './treasury';
 import { logEvent } from './log';
 import { type EventDef, type D, canPay, money, name, pay, rep, stab } from './eventkit';
 import { addRelation, alliesOf, getRelation, isAtWar, partnersOf } from './relations';
@@ -78,7 +80,7 @@ export const EVENTS3: EventDef[] = [
   {
     id: 'treasury_plan', icon: '🏦', title: 'The treasury proposes a budget', weight: 0, cooldown: 0, ttl: 12,
     eligible: () => null,
-    text: (_s, c, d) => `Your finance minister has looked at the books and proposes to ${describeBudget(c, d)}. The deficit is ${((c.eco.spending - c.eco.revenue) / c.eco.gdp * 100).toFixed(1)}% of GDP and debt ${(c.eco.debt / c.eco.gdp * 100).toFixed(0)}%.`,
+    text: (s, c, d) => { const bal = fiscalNow(c, s).balance; return `Your finance minister has looked at the books and proposes to ${describeBudget(c, d)}. Right now the budget runs ${balanceText(bal)} (${(Math.abs(bal) / c.eco.gdp * 100).toFixed(1)}% of GDP), the treasury holds ${fmtMoney(c.eco.cash)} and debt is ${(c.eco.debt / c.eco.gdp * 100).toFixed(0)}% of GDP.`; },
     options: [
       { label: 'Approve the plan', hint: 'The budget changes as proposed', apply: (_s, c, d) => { for (const [k, v] of Object.entries(d)) (c.budget as unknown as Record<string, number>)[k] = v; return 'The new budget passed.'; } },
       { label: 'Reject it', hint: 'Keep the current budget', apply: () => 'You kept the budget as it is.' },

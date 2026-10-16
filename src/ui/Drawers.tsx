@@ -1,3 +1,4 @@
+import { AUTOSAVE_TEXT, CONTROLS_TEXT } from './controls';
 import { nationalColor } from '../map/palette';
 import { TROPHIES } from '../sim/trophies';
 import { useRef, useState } from 'react';
@@ -205,7 +206,7 @@ function MenuDrawer({ onClose }: { onClose: () => void }) {
         <button className="btn" onClick={() => store.openDrawer('settings')}>⚙ Game settings</button>
         <button className="btn danger" onClick={() => { if (confirm('Quit to the main menu? Unsaved progress will be lost.')) { store.quitToMenu(); } }}>Quit to main menu</button>
       </div>
-      <p className="faint" style={{ fontSize: 11.5, marginTop: 12 }}>Autosave runs every half year of game time. Keyboard: Space = pause, 1–3 = speed, +/− zoom map.</p>
+      <p className="faint" style={{ fontSize: 11.5, marginTop: 12 }}>{AUTOSAVE_TEXT} {CONTROLS_TEXT}</p>
     </Modal>
   );
 }
@@ -226,7 +227,9 @@ function SettingsDrawer({ onClose }: { onClose: () => void }) {
       <div className="field"><label>Graphics</label><Segmented<'auto' | 'high' | 'medium' | 'low'> value={store.graphics} onChange={(v) => store.setGraphics(v)} options={[{ v: 'auto', label: 'Auto' }, { v: 'high', label: 'Beautiful' }, { v: 'medium', label: 'Balanced' }, { v: 'low', label: 'Fast' }]} />
         <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>Auto starts high and lowers the effects by itself if your device struggles. Fast keeps battles still and draws at normal resolution.</div></div>
       <label className="check"><input type="checkbox" checked={store.autoSlow} onChange={(e) => { store.autoSlow = e.target.checked; store.notify(); }} /><span><b>Slow down on big news about me</b><small>Fast-forward drops to Normal when something major happens to you</small></span></label>
-      <label className="check"><input type="checkbox" checked={store.pauseOnDecision} onChange={(e) => { store.pauseOnDecision = e.target.checked; store.notify(); }} /><span><b>Pause when a decision arrives</b><small>Off by default: decisions wait in the inbox and the game keeps running</small></span></label>
+      <label className="check"><input type="checkbox" checked={store.holdWhileReading} onChange={(e) => store.setHoldWhileReading(e.target.checked)} /><span><b>Hold the clock while I read</b><small>On by default: time stops while a decision, a menu or a negotiation is open, so nothing lapses behind your back</small></span></label>
+      <label className="check"><input type="checkbox" checked={store.pauseBeforeLapse} onChange={(e) => { store.pauseBeforeLapse = e.target.checked; store.notify(); }} /><span><b>Pause before a decision lapses</b><small>On by default: two weeks before an urgent decision (or one with a default outcome) runs out, the game stops and tells you</small></span></label>
+      <label className="check"><input type="checkbox" checked={store.pauseOnDecision} onChange={(e) => { store.pauseOnDecision = e.target.checked; store.notify(); }} /><span><b>Pause whenever a decision arrives</b><small>Off by default: new decisions wait in the inbox while the game runs</small></span></label>
       <label className="check"><input type="checkbox" checked={store.pauseOnWar} onChange={(e) => { store.pauseOnWar = e.target.checked; store.notify(); }} /><span><b>Pause when a war involving me starts</b></span></label>
       <div className="field"><label>Victory condition</label>
         <select value={st.victory} onChange={(e) => upd({ victory: e.target.value as VictoryMode })}>

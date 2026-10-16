@@ -6,6 +6,7 @@
  * You can reshuffle (pick from three candidates) or buy goodwill. Only the player has a cabinet.
  */
 import { clamp } from './util';
+import { fiscalNow } from './economy';
 import { hash01, nextRand } from './rng';
 import { personName } from './leaders';
 import { logEvent } from './log';
@@ -172,7 +173,7 @@ export function actCourt(s: GameState, id: number) {
   if (!m) return { ok: false, message: 'No such minister' };
   const key = `minCourt:${id}`;
   if (s.tick - (s.stats[key] ?? -999) < 26) return { ok: false, message: `You did that recently (again in ${26 - (s.tick - (s.stats[key] ?? 0))} weeks)` };
-  const f = fund(s, c.id, 0.0004 * c.eco.gdp);
+  const f = fund(s, c.id, 0.0004 * c.eco.gdp, `Courting ${m.name}`);
   if (!f.ok) return f;
   s.stats[key] = s.tick;
   m.loyalty = clamp(m.loyalty + (m.trait === 'ambitious' ? 8 : 15), 0, 100);
@@ -226,7 +227,7 @@ export function stepCabinet(s: GameState) {
   // the classic fight over money: the Treasury against Defence
   const fin = ministerOf(c, 'finance'), def = ministerOf(c, 'defence');
   if (fin && def && s.settings.randomEvents !== false && s.tick > 30 && s.tick - (s.stats.minClash ?? -999) > 90 && (s.tick + c.id) % 13 === 4 && nextRand(s) < 0.12) {
-    const deficit = (c.eco.spending - c.eco.revenue) / Math.max(1, c.eco.gdp);
+    const deficit = -fiscalNow(c, s).balance / Math.max(1, c.eco.gdp);
     if (deficit > 0.015 || c.budget.military > 0.03) { const n = s.inbox.length; queue(s, 'min_clash', { f: fin.id, d: def.id }, 18); if (s.inbox.length > n) s.stats.minClash = s.tick; }
   }
 }

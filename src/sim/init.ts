@@ -87,14 +87,15 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
   const industry = 0.01;
   const edu = clamp(0.03 + 0.01 * lg + (rn('edu') - 0.5) * 0.008, 0.02, 0.058);
   const intelSpend = Math.min(0.004, 0.08 * mil);
-  const deficit = debtRatio > 1.2 ? 0.035 : B.gov === 'D' ? 0.03 : 0.022;
+  // starting deficits are milder than real-world ones so a new government has room to choose; see docs/balance-report.md
+  const deficit = debtRatio > 1.2 ? 0.015 : B.gov === 'D' ? 0.01 : 0.006;
   const e: Economy = {
     pop, laborForce: pop * lfShare, lfShare,
     realGdp: gdp, price: 1, gdp, potential: gdp,
     capital: kOverY * gdp, tfp: 1, tfpTrend,
     infra: infra0, tech: tech0,
     energyCap: 0, energyDemand: 0, foodCap: 0, foodDemand: 0, energyUnmet: 0, foodUnmet: 0,
-    debt: debtRatio * gdp, cash: 0.03 * gdp, reserves: 0.12 * gdp, avgRate: 0.03,
+    debt: debtRatio * gdp, cash: 0.05 * gdp, reserves: 0.12 * gdp, avgRate: 0.03,
     inflation: infl0, unemployment: 0, uNat: clamp(0.045 + 0.05 * rn('u') + (gdppc < 3000 ? 0.02 : 0), 0.03, 0.14),
     monetary: 0, openness: clamp(0.95 * Math.pow(Math.max(B.gdpB, 0.5), -0.19), 0.1, 1.2), goodsBias: (rn('gb') - 0.5) * 0.04,
     exports: 0, imports: 0, tradeIndex: 1, sanctionShare: 0, blockade: 0,
@@ -114,6 +115,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
   const spendTotal = revT + deficit;
   const social = Math.max(0.04, spendTotal - (e.interest / gdp) - mil - intelSpend - infraSpend - industry - edu);
   e.baseSocial = social;
+  e.spending = (social + infraSpend + industry + edu + mil + intelSpend) * gdp + e.interest;
   const budget: Budget = {
     taxIncome, taxCorporate, taxVat, social, infra: infraSpend, industry, education: edu, military: mil, intel: intelSpend,
     milArmy: 0.42, milAir: 0.33, milNavy: 0.25,

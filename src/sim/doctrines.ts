@@ -100,7 +100,7 @@ export function setDoctrine(s: GameState, cid: number, slot: Doctrine['slot'], i
   if (cur[slot] === id) return { ok: false, message: 'Already your doctrine' };
   if (s.tick - cur.changed < REFORM_COOLDOWN && cur.changed > -9000) return { ok: false, message: `Reform fatigue: wait ${REFORM_COOLDOWN - (s.tick - cur.changed)} more weeks before changing doctrine again` };
   if (c.politics && c.politics.pc < REFORM_PC) return { ok: false, message: `A reform needs ${REFORM_PC} political capital (you have ${Math.floor(c.politics.pc)})` };
-  const f = fund(s, cid, REFORM_COST * c.eco.gdp);
+  const f = fund(s, cid, REFORM_COST * c.eco.gdp, 'Doctrine reform');
   if (!f.ok) return f;
   if (c.politics) c.politics.pc -= REFORM_PC;
   c.doctrine = { ...cur, [slot]: id, changed: s.tick };

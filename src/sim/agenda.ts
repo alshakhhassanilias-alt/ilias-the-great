@@ -120,7 +120,7 @@ export function actAgendaAction(s: GameState, id: string) {
   if (!L || !pick || !card.action) return { ok: false, message: 'Not on your agenda' };
   const key = `agact:${id}:${L.term}`;
   if (s.stats[key]) return { ok: false, message: 'Already launched this term' };
-  const f = fund(s, c.id, card.action.cost * c.eco.gdp);
+  const f = fund(s, c.id, card.action.cost * c.eco.gdp, `Agenda: ${card.title}`);
   if (!f.ok) return f;
   s.stats[key] = 1;
   return { ok: true, message: card.action.run(s, c) };

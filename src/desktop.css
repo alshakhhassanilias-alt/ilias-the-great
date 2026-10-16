@@ -306,3 +306,13 @@
   .picklist { border-color: #4d3f27; background: #110e0b; border-radius: 5px; }
   .picklist .listitem { border-bottom-color: rgba(214, 171, 82, 0.08); }
 }
+
+/* one column of notices on the right; decisions keep their own tray on the left */
+@media (min-width: 901px) {
+  .notes-col { position: absolute; right: 12px; top: 56px; bottom: 66px; width: 320px; z-index: 28; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; pointer-events: none; scrollbar-width: thin; }
+  .notes-col .note-slot, .notes-col .notes-more { pointer-events: auto; }
+  .notes-col .ripple, .notes-col .ripple.review { position: relative; right: auto; bottom: auto; width: auto; }
+  .notes-more { align-self: flex-end; background: var(--walnut, #1b140c); color: var(--brass-hi, #e7c98a); border: 1px solid var(--brass, #8a6d3b); border-radius: 14px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  .toasts .toast:nth-last-child(n+3) { display: none; }
+  .inbox .inbox-head { display: block; pointer-events: none; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--brass-hi, #e7c98a); text-shadow: 0 1px 2px #000; padding-left: 2px; }
+}

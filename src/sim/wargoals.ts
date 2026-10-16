@@ -20,6 +20,7 @@ import type { Eff } from './doctrines';
 import type { Country, GameState, War, WarRecord } from './types';
 
 import { GOALS_META, type WarGoal } from './goalmeta';
+import { legacyWarAim } from './legacy';
 export { GOALS_META, type WarGoal };
 export const goalOf = (s: GameState, w: War): WarGoal | 0 => (s.stats[`wgoal:${w.id}`] ?? 0) as WarGoal | 0;
 
@@ -63,13 +64,13 @@ export function settleGoal(s: GameState, rec: WarRecord) {
     c.eco.stability = clamp(c.eco.stability + (g === 2 ? 6 : 4), 0, 100);
     if (P) P.pc = Math.min(100, P.pc + (g === 2 ? 18 : 12));
     sway(c, 'military', 10); sway(c, 'nationalists', g === 3 ? 6 : 10);
-    if (s.legacy) s.legacy.parts.wars = (s.legacy.parts.wars ?? 0) + (g === 2 ? 30 : 18);
+    legacyWarAim(s, GOALS_META[g].title, true, g === 2 ? 30 : 18);
     logEvent(s, `🏆 WAR AIMS ACHIEVED: ${GOALS_META[g].title} in the ${rec.name}. The nation celebrates; your authority grows.`, 'info', [c.id], true, { big: true, prov: c.capital });
   } else {
     c.eco.stability = clamp(c.eco.stability - (g === 2 ? 8 : 4), 0, 100);
     if (P) P.pc = Math.max(0, P.pc - 8);
     sway(c, 'nationalists', -12); sway(c, 'military', -8);
-    if (s.legacy) s.legacy.parts.wars = (s.legacy.parts.wars ?? 0) - (g === 2 ? 30 : 15);
+    legacyWarAim(s, GOALS_META[g].title, false, g === 2 ? -30 : -15);
     logEvent(s, `📉 WAR AIMS FAILED: you promised the country ${GOALS_META[g].title.toLowerCase()} in the ${rec.name} (${GOALS_META[g].success}) and did not deliver.`, 'danger', [c.id], true, { big: true, prov: c.capital });
   }
 }
@@ -106,7 +107,7 @@ export function actStartProgramme(s: GameState, id: string) {
   if (!p) return { ok: false, message: 'No such programme' };
   if (c.progs?.some((x) => x.id === id)) return { ok: false, message: 'Already started' };
   if ((c.progs ?? []).filter((x) => !x.done).length >= 2) return { ok: false, message: 'Two programmes at a time at most' };
-  const f = fund(s, c.id, p.cost * c.eco.gdp);
+  const f = fund(s, c.id, p.cost * c.eco.gdp, `Programme: ${p.title}`);
   if (!f.ok) return f;
   (c.progs ??= []).push({ id, until: s.tick + p.weeks, done: false });
   return { ok: true, message: `${p.title}: the programme begins (${p.weeks} weeks).` };
@@ -132,7 +133,7 @@ export function actMissileStrike(s: GameState, target: number) {
   if (!T?.alive || !areAtWar(s, c.id, target)) return { ok: false, message: 'You are not at war with them' };
   const key = `msl:${target}`;
   if (s.tick - (s.stats[key] ?? -999) < 4) return { ok: false, message: `Missiles are being reloaded (${4 - (s.tick - (s.stats[key] ?? 0))} weeks)` };
-  const f = fund(s, c.id, 0.001 * c.eco.gdp);
+  const f = fund(s, c.id, 0.001 * c.eco.gdp, 'Missile strike');
   if (!f.ok) return f;
   s.stats[key] = s.tick;
   const intercept = T.mil.equipAir / Math.max(1, T.mil.equipAir + c.mil.equipAir * 1.5);

@@ -152,7 +152,7 @@ export function stepProjects(s: GameState, geo: Geo) {
     const weekly = r.cost / r.weeks;
     const isPlayer = r.owner === s.player;
     let paid = false;
-    if (isPlayer) paid = fund(s, r.owner, weekly).ok;
+    if (isPlayer) paid = fund(s, r.owner, weekly, projectById(r.id).title).ok;
     else if (c.eco.cash >= weekly * 2) { c.eco.cash -= weekly; paid = true; }
     if (!paid) {
       if (!r.stalled && isPlayer) logEvent(s, `${projectById(r.id).icon} ${projectById(r.id).title} is stalled: the treasury cannot pay.`, 'danger', [r.owner]);

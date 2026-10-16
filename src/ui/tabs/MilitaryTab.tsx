@@ -14,6 +14,7 @@ import { warScore } from '../../sim/war';
 import type { Budget } from '../../sim/types';
 import { HighCommand, HomeFront, SupplyLines, supTone } from './HomeFront';
 import { warSupport } from '../../sim/warsupport';
+import { fundingText } from '../../sim/treasury';
 import { dateLabel } from '../../sim/tick';
 
 export function MilitaryTab({ id }: { id: number }) {
@@ -40,7 +41,7 @@ export function MilitaryTab({ id }: { id: number }) {
     const cost = n * m.unitCost * e.price * 0.5;
     return (
       <button key={frac} className="btn" disabled={mpool < 1} onClick={() => store.act((g) => recruit(g, g.player, n))}>
-        Recruit +{fmtNum(n)}<small>{fmtMoney(cost)} · instant</small>
+        Recruit +{fmtNum(n)}<small>{fundingText(c, cost)} · instant</small>
       </button>
     );
   };
@@ -232,7 +233,7 @@ function Programmes() {
                 {st && !st.done && <div className="path-prog"><i style={{ width: `${Math.min(100, 100 * (1 - (st.until - s.tick) / p.weeks))}%` }} /></div>}
               </div>
               {st?.done ? <span className="good" style={{ fontSize: 12 }}>✓ operational</span> : st ? <span className="faint" style={{ fontSize: 12 }}>{st.until - s.tick} wk</span>
-                : <button className="btn" disabled={running >= 2} onClick={() => store.act((g) => actStartProgramme(g, p.id))}>{fmtMoney(p.cost * c.eco.gdp)} · {p.weeks} wk</button>}
+                : <button className="btn" disabled={running >= 2} onClick={() => store.act((g) => actStartProgramme(g, p.id))}>{fundingText(c, p.cost * c.eco.gdp)} · {p.weeks} wk</button>}
             </div>
           );
         })}

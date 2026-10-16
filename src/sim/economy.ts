@@ -12,7 +12,8 @@ import { mods } from './doctrines';
 import { DT } from './types';
 import type { Budget, Country, GameState } from './types';
 import type { Geo } from './geo';
-import { clamp } from './util';
+import { clamp, fmtMoney } from './util';
+import { DEFICIT_LABEL, record } from './treasury';
 import { logEvent } from './log';
 import { stepMilitary } from './military';
 import { getRelation, pairOf, warsOf } from './relations';
@@ -276,7 +277,15 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.revenue = revenue;
   e.spending = spending;
   e.cash += (revenue - spending) * DT;
-  if (e.cash < 0) { e.debt -= e.cash; e.cash = 0; }
+  if (e.cash < 0) {
+    // the treasury is empty: the rest of this week's deficit is covered by issuing bonds
+    record(s, c, DEFICIT_LABEL, e.cash, -e.cash);
+    e.debt -= e.cash; e.cash = 0;
+    if (c.isPlayer && !e.dry) {
+      e.dry = true;
+      logEvent(s, `🏦 The treasury is empty. From now on the deficit (${fmtMoney(spending - revenue)} a year) is covered by borrowing, and one-off costs are borrowed too. Raise taxes or cut spending in the Economy tab to stop the debt growing.`, 'danger', [c.id], true);
+    }
+  } else if (e.dry && e.cash > 0.01 * e.gdp) e.dry = false;
   // debt crisis
   const debtRatio = e.debt / e.gdp;
   if (debtRatio > 3 && s.tick - e.lastDefault > 520) {

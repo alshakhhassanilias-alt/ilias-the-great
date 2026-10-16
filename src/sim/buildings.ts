@@ -47,7 +47,7 @@ export function build(s: GameState, geo: Geo, cid: number, p: ProvId, t: BType):
   if (why) return { ok: false, message: why };
   const lvl = levelOf(s, p, t);
   const cost = costOfBuilding(c, lvl, t);
-  const f = fund(s, cid, cost);
+  const f = fund(s, cid, cost, 'Construction');
   if (!f.ok) return f;
   s.bld[key(p, t)] = lvl + 1;
   if (t === 'factory') c.eco.capital += (0.005 * c.eco.realGdp);

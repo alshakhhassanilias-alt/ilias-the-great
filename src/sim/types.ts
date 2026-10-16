@@ -64,6 +64,7 @@ export interface Budget {
   milNavy: number;
 }
 
+export interface LedgerEntry { t: number; what: string; amount: number; borrowed: number }
 export interface Economy {
   pop: number;
   laborForce: number;
@@ -85,6 +86,10 @@ export interface Economy {
   foodUnmet: number;
   debt: number;
   cash: number;
+  /** player only: recent one-off costs, income and automatic borrowing (newest last) */
+  ledger?: LedgerEntry[];
+  /** player only: set once the treasury has run dry and the deficit is being borrowed */
+  dry?: boolean;
   reserves: number; // foreign reserves (cumulative trade balance)
   avgRate: number; // average interest rate on debt
   inflation: number;
@@ -380,7 +385,10 @@ export const DT = 1 / TICKS_PER_YEAR;
 export const HIST_EVERY = 4;
 export const HIST_MAX = 120;
 
-export interface AgendaPick { id: string; start: number; base: number; done: boolean; failed?: boolean }
+/** pts: legacy points this promise earned (+) or cost (−) once judged */
+export interface AgendaPick { id: string; start: number; base: number; done: boolean; failed?: boolean; pts?: number }
+/** one war of yours during the career, as the legacy score counts it */
+export interface LegacyWar { tick: number; name: string; foe: string; result: 'won' | 'lost' | 'draw'; pts: number; aim?: string; aimOk?: boolean; aimPts?: number }
 export interface TermRecord { term: number; start: number; end: number; score: number; headline: string; lines: string[]; result: 'reelected' | 'defeated' | 'retired' | 'ended' | 'ousted' | 'returned' | 'removed' }
 export interface LegacyState {
   leader: string; title: string;
@@ -397,6 +405,10 @@ export interface LegacyState {
   maxYear: number;
   /** milestones already written into the history book */
   chronicle: { tick: number; text: string }[];
+  /** every war you fought while in office, with the points it earned (the "Wars" and "War aims" parts) */
+  wars?: LegacyWar[];
+  /** career promise tally */
+  promises?: { kept: number; broken: number };
 }
 
 export type ArmyOrder = 'advance' | 'hold' | 'encircle' | 'raid' | 'defend';

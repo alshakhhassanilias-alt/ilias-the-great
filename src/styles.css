@@ -479,3 +479,19 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
   .toasts .toast:not(:last-child) { display: none; }
 }
 .app:has(.splash) .toasts { display: none; }
+
+/* government finances: annual flows vs. stocks right now */
+.fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fin-col { display: flex; flex-direction: column; gap: 6px; }
+.fin-kicker { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.fin-runway { margin-top: 8px; font-size: 12.5px; padding: 7px 10px; border-left: 3px solid var(--teal); background: var(--panel-2); border-radius: 4px; }
+.fin-runway.warn { border-left-color: var(--amber); }
+.fin-runway.bad { border-left-color: var(--red); }
+.fin-fixes, .fin-ledger { margin-top: 8px; }
+.fin-fixes .btn.sm, .btn.sm { padding: 4px 10px; font-size: 12px; min-height: 0; }
+.timebox .date small.held { color: var(--amber); }
+.inbox-title small.soon { color: #ff9c7a; font-weight: 600; }
+.lapse-line { margin: 8px 0 4px; font-size: 12px; line-height: 1.4; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.04); border-left: 3px solid var(--amber); }
+.lapse-fx { color: var(--muted); }
+.event-opt .opt-fund { display: block; opacity: .8; font-size: 11px; margin-top: 2px; }
+.inbox-head { display: none; }

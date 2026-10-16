@@ -8,7 +8,7 @@
  * conquered, retiring or reaching the end of the era close the book: a history page sums up your rule.
  */
 import type { Geo } from './geo';
-import type { Country, GameState, LegacyState, TermRecord } from './types';
+import type { AgendaPick, Country, GameState, LegacyState, TermRecord, WarRecord } from './types';
 import { START_YEAR, TICKS_PER_YEAR } from './types';
 import { agendaById, dealHand } from './agenda';
 import { approval } from './events3';
@@ -74,7 +74,51 @@ export function scoreParts(s: GameState): Record<string, number> {
 }
 export const totalScore = (parts: Record<string, number>) => Object.values(parts).reduce((t, v) => t + v, 0);
 export function grade(score: number) { return score >= 900 ? 'S' : score >= 600 ? 'A' : score >= 350 ? 'B' : score >= 150 ? 'C' : score >= 0 ? 'D' : 'F'; }
-export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises kept', wars: 'Wars', terms: 'Mandates' };
+export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises (kept − broken)', wars: 'Wars you fought', aims: 'War aims', terms: 'Mandates' };
+/** What each part of the score measures, in one line (shown under the bar). */
+export function partHint(s: GameState, k: string): string {
+  const L = s.legacy!;
+  const pr = L.promises ?? { kept: 0, broken: 0 };
+  const wars = L.wars ?? [];
+  switch (k) {
+    case 'prosperity': return 'Living standards (GDP per person) since you took office.';
+    case 'power': return 'Military strength and regions held, against your first day.';
+    case 'people': return 'Builds up week by week while stability and approval are above 50; falls while below.';
+    case 'standing': return 'Reputation and allies gained since you took office.';
+    case 'agenda': return `Career: ${pr.kept} kept (+ their full points), ${pr.broken} broken (− a quarter of their points each).`;
+    case 'wars': return wars.length ? `${wars.length} war${wars.length > 1 ? 's' : ''} you were a party to while in office: won +45, lost −45, draw 0. Wars between other countries never count.` : 'You have fought no wars in office. Wars between other countries never count, so peace keeps this at 0.';
+    case 'aims': return 'War aims you declared: achieved +18/+30, failed −15/−30.';
+    case 'terms': return 'Re-elected +25 · defeated −20 · comeback +40.';
+  }
+  return '';
+}
+
+/** A war of the player's ended: count it once, here (and its war aim, if one was declared). */
+export function legacyWarEnded(s: GameState, rec: WarRecord) {
+  const L = s.legacy;
+  if (!L || L.status !== 'office' || (rec.a !== s.player && rec.b !== s.player)) return;
+  const me = rec.a === s.player ? 'a' : 'b';
+  const result = rec.winner === 'draw' ? 'draw' : rec.winner === me ? 'won' : 'lost';
+  const pts = result === 'won' ? 45 : result === 'lost' ? -45 : 0;
+  (L.wars ??= []).push({ tick: s.tick, name: rec.name, foe: s.countries[me === 'a' ? rec.b : rec.a].name, result, pts });
+  L.parts.wars = (L.parts.wars ?? 0) + pts;
+}
+/** The war aim of a war that just ended was judged (called by settleGoal). */
+export function legacyWarAim(s: GameState, aim: string, ok: boolean, pts: number) {
+  const L = s.legacy;
+  if (!L || L.status !== 'office') return;
+  const w = L.wars?.at(-1);
+  if (w && w.tick === s.tick) { w.aim = aim; w.aimOk = ok; w.aimPts = pts; }
+  L.parts.aims = (L.parts.aims ?? 0) + pts;
+}
+function judge(L: LegacyState, a: AgendaPick, kept: boolean) {
+  const card = agendaById(a.id);
+  a.pts = kept ? card.points : -Math.round(card.points * 0.25);
+  if (kept) a.done = true; else a.failed = true;
+  L.parts.agenda = (L.parts.agenda ?? 0) + a.pts;
+  L.promises ??= { kept: 0, broken: 0 };
+  if (kept) L.promises.kept++; else L.promises.broken++;
+}
 
 export function epithet(s: GameState): string {
   const L = s.legacy!, parts = scoreParts(s), score = totalScore(parts);
@@ -104,8 +148,7 @@ export function stepLegacy(s: GameState, geo: Geo) {
       const card = agendaById(a.id);
       if (card.atTermEnd) continue;
       if (card.progress(s, c, a).value >= 1) {
-        a.done = true;
-        L.parts.agenda = (L.parts.agenda ?? 0) + card.points;
+        judge(L, a, true);
         L.chronicle.push({ tick: s.tick, text: `Promise kept: ${card.title}.` });
         logEvent(s, `🏅 PROMISE KEPT: ${card.title}. Your legacy grows (+${card.points}).`, 'info', [s.player], true, { big: true, prov: c.capital });
       }
@@ -152,8 +195,7 @@ function holdVote(s: GameState) {
   for (const a of L.agenda) {
     if (a.done || a.failed) continue;
     const card = agendaById(a.id);
-    if (card.progress(s, c, a).value >= 0.999 || (card.atTermEnd && card.progress(s, c, a).value >= 0.98)) { a.done = true; L.parts.agenda = (L.parts.agenda ?? 0) + card.points; }
-    else { a.failed = true; L.parts.agenda = (L.parts.agenda ?? 0) - Math.round(card.points * 0.25); }
+    judge(L, a, card.progress(s, c, a).value >= 0.999 || (!!card.atTermEnd && card.progress(s, c, a).value >= 0.98));
   }
   const share = clamp(voteShare(s) + (nextRand(s) - 0.5) * 10, 1, 97);
   s.stats.campaign = 0;
@@ -272,8 +314,11 @@ function closeTerm(s: GameState, result: TermRecord['result'], line: string) {
   const prev = L.terms.filter((t) => t.result !== 'returned').at(-1);
   const startGdp = s.stats[`termGdp:${L.term}`] ?? L.start.gdppc;
   const growth = gdppc(c) / startGdp - 1;
-  const kept = L.agenda.filter((a) => a.done).map((a) => agendaById(a.id).title);
-  const failed = L.agenda.filter((a) => a.failed).map((a) => agendaById(a.id).title);
+  const kept = L.agenda.filter((a) => a.done).map((a) => `${agendaById(a.id).title} (+${a.pts ?? agendaById(a.id).points})`);
+  const failed = L.agenda.filter((a) => a.failed).map((a) => `${agendaById(a.id).title} (${a.pts ?? 0})`);
+  // a term cut short (removed, retired, the era ends) leaves some promises unjudged: no penalty, but say so
+  const open = L.agenda.filter((a) => !a.done && !a.failed).map((a) => agendaById(a.id).title);
+  const promisePts = L.agenda.reduce((t, a) => t + (a.pts ?? 0), 0);
   const wars = (s.warHistory ?? []).filter((r) => r.end >= L.termStart && (r.a === c.id || r.b === c.id));
   const score = totalScore(scoreParts(s));
   const share = s.stats.lastVote ?? 50, free = isFree(c.gov), surname = L.leader.split(' ').slice(-1)[0].toUpperCase();
@@ -284,8 +329,12 @@ function closeTerm(s: GameState, result: TermRecord['result'], line: string) {
   const lines = [
     line,
     `Living standards ${growth >= 0 ? 'rose' : 'fell'} ${Math.abs(growth * 100).toFixed(1)}% over the term.`,
-    kept.length ? `Promises kept: ${kept.join(', ')}.` : 'No promises were kept.',
-    ...(failed.length ? [`Broken promises: ${failed.join(', ')}.`] : []),
+    ...(!L.agenda.length ? ['You made no promises this term.'] : [
+      kept.length ? `Promises kept: ${kept.join(', ')}.` : 'No promises were kept this term.',
+      ...(failed.length ? [`Broken promises: ${failed.join(', ')}.`] : []),
+      ...(open.length ? [`Unfinished when the term ended (not judged): ${open.join(', ')}.`] : []),
+      `Promise points this term: ${promisePts >= 0 ? '+' : ''}${promisePts} · career total ${(L.parts.agenda ?? 0) >= 0 ? '+' : ''}${(L.parts.agenda ?? 0).toFixed(0)}.`,
+    ]),
     ...(wars.length ? [`Wars ended: ${wars.map((w) => `${w.name} (${(w.a === c.id ? w.winner === 'a' : w.winner === 'b') ? 'won' : w.winner === 'draw' ? 'draw' : 'lost'})`).join(', ')}.`] : []),
     `Legacy score: ${score.toFixed(0)} (${grade(score)})${prev ? `, ${score - prev.score >= 0 ? '+' : ''}${(score - prev.score).toFixed(0)} this term` : ''}.`,
   ];
@@ -297,11 +346,7 @@ function closeTerm(s: GameState, result: TermRecord['result'], line: string) {
 export function endLegacy(s: GameState, reason: string) {
   const L = s.legacy!;
   if (L.status === 'ended') return;
-  // wars count once, at the end
-  const c = s.countries[s.player];
-  let w = 0;
-  for (const r of s.warHistory ?? []) if (r.end >= L.start.tick && (r.a === c.id || r.b === c.id)) { const won = r.a === c.id ? r.winner === 'a' : r.winner === 'b'; w += r.winner === 'draw' ? 0 : won ? 45 : -45; }
-  L.parts.wars = w;
+  // wars were counted as each one ended (legacyWarEnded), so nothing is recounted here
   L.parts = scoreParts(s);
   L.score = totalScore(L.parts);
   L.status = 'ended';

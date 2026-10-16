@@ -3,6 +3,7 @@
  * Defence fighting over money. Every one names the minister, the sums involved and what each answer does.
  */
 import { clamp, fmtMoney } from './util';
+import { fiscalNow } from './economy';
 import { nextRand } from './rng';
 import { type EventDef, canPay, pay, rep, stab } from './eventkit';
 import { mtraitById, ministerById, replaceMinister, roleTitle } from './cabinet';
@@ -100,9 +101,9 @@ export const EVENTS4: EventDef[] = [
     eligible: () => null,
     text: (s, c, d) => {
       const f = who(c, d.f), df = who(c, d.d);
-      const deficit = (c.eco.spending - c.eco.revenue);
+      const deficit = -fiscalNow(c, s).balance;
       const threat = [...s.countries].filter((x) => x.alive && x.id !== c.id).sort((a, b) => strength(b) - strength(a)).find((x) => getRelation(s, x.id, c.id) < -20);
-      return `${f ? `${roleTitle('finance')} ${f.name}` : 'The Treasury'} wants to cut the military budget by 0.3% of GDP (${fmtMoney(0.003 * c.eco.gdp)} a year) to ${deficit > 0 ? `close a ${fmtMoney(deficit)} deficit` : 'fund schools and hospitals'}. ${df ? `${roleTitle('defence')} ${df.name}` : 'The Defence Ministry'} says it would leave the country exposed${threat ? ` to ${threat.name}` : ''} and threatens to resign. The cabinet room is silent; everyone is looking at you.`;
+      return `${f ? `${roleTitle('finance')} ${f.name}` : 'The Treasury'} wants to cut the military budget by 0.3% of GDP (${fmtMoney(0.003 * c.eco.gdp)} a year) to ${deficit > 0 ? `close a deficit of ${fmtMoney(deficit)} a year` : 'fund schools and hospitals'}. ${df ? `${roleTitle('defence')} ${df.name}` : 'The Defence Ministry'} says it would leave the country exposed${threat ? ` to ${threat.name}` : ''} and threatens to resign. The cabinet room is silent; everyone is looking at you.`;
     },
     options: [
       { label: 'Back the Treasury: cut the military', hint: 'Military budget −0.3% of GDP · Finance loyalty +10 · Defence loyalty −18', apply: (_s, c, d) => {

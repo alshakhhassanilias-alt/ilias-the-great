@@ -5,6 +5,7 @@ import { actCancelProject, actStartProject, blocked, pathOf, type NatNode } from
 import { fmtMoney } from '../../sim/util';
 import { factionMeta } from '../../sim/domestic';
 import { dateLabel } from '../../sim/tick';
+import { fundingText } from '../../sim/treasury';
 import type { Country, FactionId } from '../../sim/types';
 
 /** What a project does, in plain words. */
@@ -105,7 +106,7 @@ export function NationPath() {
             {node.excl && <div className="faint" style={{ fontSize: 12 }}>Choosing this closes off: {node.excl.map((x) => path.nodes.find((y) => y.id === x)?.title).join(', ')}.</div>}
             <div className="btnrow">
               <button className="btn primary" disabled={!!why} onClick={() => { store.act((g) => actStartProject(g, node.id)); setSel(null); }}>
-                {why ?? `Start · ${node.pc} PC${node.cost ? ` · ${fmtMoney(node.cost * c.eco.gdp)}` : ''} · ${node.weeks} weeks`}
+                {why ?? `Start · ${node.pc} PC${node.cost ? ` · ${fundingText(c, node.cost * c.eco.gdp)}` : ''} · ${node.weeks} weeks`}
               </button>
             </div>
           </div>

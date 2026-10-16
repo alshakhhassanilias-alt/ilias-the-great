@@ -12,6 +12,7 @@
  */
 import { addAggression, coalitionAgainst } from './coalitions';
 import { settleGoal } from './wargoals';
+import { legacyWarEnded } from './legacy';
 import { cable } from './cables';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
@@ -326,6 +327,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
     const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
     const hist = s.warHistory ?? (s.warHistory = []);
     hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind });
+    legacyWarEnded(s, hist[hist.length - 1]);
     settleGoal(s, hist[hist.length - 1]);
     if (hist.length > 40) hist.splice(0, hist.length - 40);
   }

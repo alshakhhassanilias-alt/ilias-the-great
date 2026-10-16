@@ -279,7 +279,7 @@ export function actStartProject(s: GameState, id: string) {
   if (!n) return { ok: false, message: 'No such project' };
   const why = blocked(s, c, n);
   if (why) return { ok: false, message: why };
-  if (n.cost > 0) { const f = fund(s, c.id, n.cost * c.eco.gdp); if (!f.ok) return f; }
+  if (n.cost > 0) { const f = fund(s, c.id, n.cost * c.eco.gdp, `National project: ${n.title}`); if (!f.ok) return f; }
   spendPC(c, n.pc);
   c.nat ??= { done: [] };
   c.nat.active = { id, start: s.tick, until: s.tick + n.weeks };

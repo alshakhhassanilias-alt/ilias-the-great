@@ -1,9 +1,12 @@
+import { previewLapse } from '../sim/events';
+import { fundingText } from '../sim/treasury';
+import type { Country } from '../sim/types';
 import { store, useStore } from '../state/store';
 import { actAcceptOffer, actDeclineOffer } from '../sim/actions';
 import { PROPOSAL_LABEL, type Proposal } from '../sim/diplomacy';
 import { actResolveEvent } from '../sim/actions';
 import { eventById } from '../sim/events';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { dateLabel } from '../sim/tick';
 import { nationalColor } from '../map/palette';
 import { Emblem } from './art/Emblem';
@@ -56,29 +59,61 @@ export function Offers() {
   return (
     <div className="offers">
       <CableCard />
-      {s.offers.slice(0, 2).map((o) => {
-        const C = s.countries[o.from];
-        const quote = (s.cables ?? []).filter((x) => x.from === o.from).slice(-1)[0];
-        const react = o.kind !== 'peace' ? previewReactions(s, o.from, s.player, o.kind).filter((x) => x.id !== s.player).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3) : [];
-        return (
-          <div className="offer" key={o.id} role="alert">
-            <div className="offer-top">
-              {C.leader && <Portrait f={faceFor(C, C.leader.name, 'leader')} size={52} title={C.leader.name} />}
-              <div className="grow">
-                <small className="faint">{C.leader ? `${C.leader.name} · ${C.name}` : C.name}</small>
-                <div><b>{o.kind === 'peace' ? `Offers peace: ${({ status_quo: 'ceasefire on current lines', restore: 'pre-war borders', demand: 'they want territory', concede: 'they give concessions', surrender: 'their surrender' } as Record<string, string>)[o.terms?.kind ?? ''] ?? o.terms?.kind}` : `Proposes a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}</b></div>
-              </div>
-            </div>
-            {quote && s.tick - quote.tick < 30 && <div className="offer-quote">“{quote.text}”</div>}
-            {o.kind !== 'peace' && <ul className="offer-gives">{(KIND_GIVES[o.kind] ?? []).map((g, i) => <li key={i}>{g}</li>)}</ul>}
-            {react.length > 0 && <div className="offer-react">{react.map((r) => <span key={r.id} className={r.delta < 0 ? 'bad' : 'good'}>{s.countries[r.id]?.name} {r.delta > 0 ? '+' : ''}{r.delta.toFixed(0)}</span>)}</div>}
-            <div className="btnrow">
-              <button className="btn good" onClick={() => store.act((g) => actAcceptOffer(g, store.geo, o.id))}>Accept</button>
-              <button className="btn" onClick={() => store.act((g) => actDeclineOffer(g, o.id), true)}>Decline</button>
-            </div>
-          </div>
-        );
-      })}
+      {s.offers.slice(0, 2).map((o) => <OfferCard key={o.id} o={o} />)}
+    </div>
+  );
+}
+
+function OfferCard({ o }: { o: GameState['offers'][number] }) {
+  const s = store.state!;
+  const C = s.countries[o.from];
+  const quote = (s.cables ?? []).filter((x) => x.from === o.from).slice(-1)[0];
+  const react = o.kind !== 'peace' ? previewReactions(s, o.from, s.player, o.kind).filter((x) => x.id !== s.player).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3) : [];
+  return (
+    <div className="offer" role="alert">
+      <div className="offer-top">
+        {C.leader && <Portrait f={faceFor(C, C.leader.name, 'leader')} size={52} title={C.leader.name} />}
+        <div className="grow">
+          <small className="faint">{C.leader ? `${C.leader.name} · ${C.name}` : C.name}</small>
+          <div><b>{o.kind === 'peace' ? `Offers peace: ${({ status_quo: 'ceasefire on current lines', restore: 'pre-war borders', demand: 'they want territory', concede: 'they give concessions', surrender: 'their surrender' } as Record<string, string>)[o.terms?.kind ?? ''] ?? o.terms?.kind}` : `Proposes a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}</b></div>
+        </div>
+      </div>
+      {quote && s.tick - quote.tick < 30 && <div className="offer-quote">“{quote.text}”</div>}
+      {o.kind !== 'peace' && <ul className="offer-gives">{(KIND_GIVES[o.kind] ?? []).map((g, i) => <li key={i}>{g}</li>)}</ul>}
+      {react.length > 0 && <div className="offer-react">{react.map((r) => <span key={r.id} className={r.delta < 0 ? 'bad' : 'good'}>{s.countries[r.id]?.name} {r.delta > 0 ? '+' : ''}{r.delta.toFixed(0)}</span>)}</div>}
+      <div className="btnrow">
+        <button className="btn good" onClick={() => store.act((g) => actAcceptOffer(g, store.geo, o.id))}>Accept</button>
+        <button className="btn" onClick={() => store.act((g) => actDeclineOffer(g, o.id), true)}>Decline</button>
+      </div>
+    </div>
+  );
+}
+
+const cableNow = (s: GameState) => [...(s.cables ?? [])].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10);
+const rippleNow = (s: GameState) => { const r = s.lastRipple; return r && (r.a === s.player || r.b === s.player) && store.rippleSeen !== `${r.tick}:${r.a}:${r.b}:${r.kind}` && s.tick - r.tick <= 26; };
+const reviewNow = (s: GameState) => !!s.review && store.reviewSeen < s.review.tick && s.tick - s.review.tick <= 30;
+
+/**
+ * Desktop: every notice that is not a decision (offers, cables, how the world reacted, the year in review) in one
+ * column on the right, most actionable first. Two are shown; the rest wait behind "+N more", so fast play never
+ * buries the map or the decision tray.
+ */
+export function NotesColumn() {
+  useStore();
+  const s = store.state!;
+  const [all, setAll] = useState(false);
+  const cards: { key: string; el: ReactElement }[] = [
+    ...s.offers.map((o) => ({ key: `o${o.id}`, el: <OfferCard o={o} /> })),
+    ...(cableNow(s) ? [{ key: 'cable', el: <CableCard /> }] : []),
+    ...(rippleNow(s) ? [{ key: 'ripple', el: <RippleCard /> }] : []),
+    ...(reviewNow(s) ? [{ key: 'review', el: <YearReview /> }] : []),
+  ];
+  if (!cards.length) return null;
+  const shown = all ? cards : cards.slice(0, 2);
+  return (
+    <div className="notes-col" role="region" aria-label="Notices">
+      {shown.map((x) => <div key={x.key} className="note-slot">{x.el}</div>)}
+      {cards.length > 2 && <button className="notes-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `+${cards.length - 2} more notice${cards.length > 3 ? 's' : ''}`}</button>}
     </div>
   );
 }
@@ -151,15 +186,30 @@ export function MapModes() {
   );
 }
 
-/** Decisions wait here. They never stop the game: answer when you like, or let them lapse. */
+const lapseMemo = new Map<string, { text: string; fx: string[] }>();
+function lapseOf(uid: number) {
+  const s = store.state!, key = `${uid}:${s.tick}`;
+  let v = lapseMemo.get(key);
+  if (!v) { v = previewLapse(s, store.geo, uid); lapseMemo.clear(); lapseMemo.set(key, v); }
+  return v;
+}
+/** "Costs 0.5% of GDP" → where the money would come from */
+function optionFunding(c: Country, hint: string) {
+  const m = /Costs ([\d.]+)% of GDP/.exec(hint);
+  return m ? fundingText(c, (Number(m[1]) / 100) * c.eco.gdp) : null;
+}
+
+/** Decisions wait here, most urgent first. While one is open the clock holds (unless switched off in the menu). */
 export function InboxTray() {
   useStore();
   const s = store.state;
   if (!s || !s.inbox.length) return null;
   const c = s.countries[s.player];
+  const items = [...s.inbox].sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.expires - b.expires);
   return (
     <div className="inbox" role="region" aria-label="Decisions waiting">
-      {s.inbox.map((it) => {
+      {items.length > 1 && <div className="inbox-head">{items.length} decisions waiting · most urgent first</div>}
+      {items.map((it) => {
         const def = eventById(it.id);
         const open = store.inboxOpen === it.uid;
         const left = Math.max(0, it.expires - s.tick);
@@ -168,7 +218,7 @@ export function InboxTray() {
           <div key={it.uid} className={`inbox-item ${it.urgent ? 'urgent' : ''} ${open ? 'open' : ''}`}>
             <button className="inbox-row" aria-expanded={open} onClick={() => store.openInbox(open ? null : it.uid)}>
               <span className="inbox-icon" aria-hidden="true">{def.icon}</span>
-              <span className="inbox-title"><b>{def.title}</b><small>{it.urgent ? 'Urgent · ' : ''}{left} wk left</small></span>
+              <span className="inbox-title"><b>{def.title}</b><small className={left <= 3 ? 'soon' : ''}>{it.urgent ? 'Urgent · ' : ''}{left <= 0 ? 'lapses now' : `${left} wk left · lapses ${dateLabel(it.expires)}`}</small></span>
               <span className="inbox-go">{open ? '▾' : 'Decide'}</span>
               <i className="inbox-bar" style={{ width: `${(100 * left) / total}%` }} />
             </button>
@@ -197,12 +247,13 @@ export function InboxTray() {
                     return (
                       <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''} ${adv?.idx === i ? 'advised' : ''}`} disabled={!ok}
                         onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i, it.uid)); store.inboxOpen = null; store.notify(); }}>
-                        {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>
+                        {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>{ok && optionFunding(c, o.hint) && <small className="opt-fund">💰 {optionFunding(c, o.hint)}</small>}
                       </button>
                     );
                   })}
                 </div>
-                <button className="linkbtn" onClick={() => store.openInbox(null)}>Decide later (the game keeps running)</button>
+                {(() => { const lp = lapseOf(it.uid); return <div className="lapse-line"><b>If you let it lapse ({dateLabel(it.expires)}):</b> {lp.text}{lp.fx.length > 0 && <span className="lapse-fx"> {lp.fx.join(' · ')}</span>}</div>; })()}
+                <button className="linkbtn" onClick={() => store.openInbox(null)}>Decide later{store.holdWhileReading ? ' (the clock is held while this is open)' : ' (the game keeps running)'}</button>
               </div>
               );
             })()}

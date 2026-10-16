@@ -6,11 +6,12 @@ import { Portrait, faceFor } from './art/Portrait';
 import { useState } from 'react';
 import { store, useStore } from '../state/store';
 import { AGENDA, actAgendaAction, agendaById, type AgendaCat } from '../sim/agenda';
-import { OPP_ACTIONS, PART_LABEL, actChooseAgenda, actForceVote, actOpposition, actRetire, continueAsSandbox, epithet, grade, isFree, ordinal, scoreParts, totalScore, voteShare } from '../sim/legacy';
+import { OPP_ACTIONS, PART_LABEL, partHint, actChooseAgenda, actForceVote, actOpposition, actRetire, continueAsSandbox, epithet, grade, isFree, ordinal, scoreParts, totalScore, voteShare } from '../sim/legacy';
 import { approval } from '../sim/events3';
 import { dateLabel } from '../sim/tick';
 import { fmtMoney } from './format';
 import { Emblem } from './art/Emblem';
+import { fundingText } from '../sim/treasury';
 import { START_YEAR, TICKS_PER_YEAR } from '../sim/types';
 
 const CAT_COLOR: Record<AgendaCat, string> = { economy: '#d6ab52', power: '#c8553f', diplomacy: '#5e9fd6', society: '#62c29e', territory: '#a46fd0' };
@@ -138,9 +139,14 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
           <div className="ld-parts">
             {Object.entries(PART_LABEL).map(([k, label]) => {
               const v = parts[k] ?? 0;
-              return <div className="ld-part" key={k}><span>{label}</span><div className="bar mid"><i style={{ left: v >= 0 ? '50%' : `${50 - Math.min(50, Math.abs(v) / 8)}%`, width: `${Math.min(50, Math.abs(v) / 8)}%`, background: v >= 0 ? 'var(--teal)' : 'var(--red)' }} /></div><b className={v >= 0 ? 'good' : 'bad'}>{v >= 0 ? '+' : ''}{v.toFixed(0)}</b></div>;
+              return <div className="ld-part" key={k} title={partHint(s, k)}><span>{label}<small className="ld-hint">{partHint(s, k)}</small></span><div className="bar mid"><i style={{ left: v >= 0 ? '50%' : `${50 - Math.min(50, Math.abs(v) / 8)}%`, width: `${Math.min(50, Math.abs(v) / 8)}%`, background: v >= 0 ? 'var(--teal)' : 'var(--red)' }} /></div><b className={v >= 0 ? 'good' : 'bad'}>{v >= 0 ? '+' : ''}{v.toFixed(0)}</b></div>;
             })}
           </div>
+          {(L.wars?.length ?? 0) > 0 && (
+            <ul className="ld-wars">
+              {L.wars!.map((w, i) => <li key={i}><span>{dateLabel(w.tick)}</span>{w.name} vs {w.foe}: <b className={w.pts > 0 ? 'good' : w.pts < 0 ? 'bad' : ''}>{w.result} ({w.pts >= 0 ? '+' : ''}{w.pts})</b>{w.aim && <> · aim “{w.aim}” {w.aimOk ? 'achieved' : 'failed'} ({(w.aimPts ?? 0) >= 0 ? '+' : ''}{w.aimPts})</>}</li>)}
+            </ul>
+          )}
           {L.status === 'office' && (
             <>
               <h4 className="ld-sub">This term's promises · {isFree(c.gov) ? 'election' : 'congress'} {dateLabel(L.nextVote)} · polls {voteShare(s).toFixed(0)}%</h4>
@@ -153,7 +159,7 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
                   return (
                     <div key={a.id} className="ld-card">
                       <Card id={a.id} progress={{ ...pr, done: a.done, failed: a.failed }} />
-                      {card.action && !a.done && <button className="btn" disabled={launched} onClick={() => store.act((g) => actAgendaAction(g, a.id))}>{launched ? 'Launched' : card.action.label}<small>{launched ? 'once per term' : `${fmtMoney(card.action.cost * c.eco.gdp)} · ${card.action.desc}`}</small></button>}
+                      {card.action && !a.done && <button className="btn" disabled={launched} onClick={() => store.act((g) => actAgendaAction(g, a.id))}>{launched ? 'Launched' : card.action.label}<small>{launched ? 'once per term' : `${fundingText(c, card.action.cost * c.eco.gdp)} · ${card.action.desc}`}</small></button>}
                     </div>
                   );
                 })}
@@ -241,7 +247,7 @@ export function HistoryBook() {
             <div><b>{c.alive ? c.provinces.length - L.start.provinces : -L.start.provinces}</b><small>regions gained</small></div>
             <div><b>{(s.warHistory ?? []).filter((r) => r.end >= L.start.tick && (r.a === c.id || r.b === c.id)).length}</b><small>wars fought</small></div>
           </div>
-          <div className="hb-parts">{Object.entries(PART_LABEL).map(([k, label]) => <div key={k}><span>{label}</span><b className={(L.parts[k] ?? 0) >= 0 ? 'good' : 'bad'}>{(L.parts[k] ?? 0) >= 0 ? '+' : ''}{(L.parts[k] ?? 0).toFixed(0)}</b></div>)}</div>
+          <div className="hb-parts">{Object.entries(PART_LABEL).map(([k, label]) => <div key={k} title={partHint(s, k)}><span>{label}</span><b className={(L.parts[k] ?? 0) >= 0 ? 'good' : 'bad'}>{(L.parts[k] ?? 0) >= 0 ? '+' : ''}{(L.parts[k] ?? 0).toFixed(0)}</b></div>)}</div>
           <h3>Chronicle</h3>
           <ul className="hb-chron">{L.chronicle.slice(-12).map((e, i) => <li key={i}><span>{dateLabel(e.tick)}</span>{e.text}</li>)}</ul>
           <p className="hb-end">{L.endReason}</p>
