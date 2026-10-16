@@ -1,4 +1,5 @@
 import { stepCoalitions } from './coalitions';
+import { stepAlignment } from './alignment';
 import { stepProgrammes } from './wargoals';
 import { stepWarEvents } from './events6';
 import { stepNations } from './nations';
@@ -105,6 +106,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepArcs(s, geo);
   stepNations(s, geo);
   stepCoalitions(s, geo);
+  stepAlignment(s, geo);
   stepProgrammes(s);
   stepWarEvents(s);
   stepCables(s);

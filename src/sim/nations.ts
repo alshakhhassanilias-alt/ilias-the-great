@@ -9,11 +9,12 @@
  * AI countries walk their own paths too (a project every year or two), so the world around you changes: China
  * may build a blue-water navy and press the Taiwan question; Iran may cross the nuclear threshold.
  */
+import { changeGov } from './alignment';
 import { clamp } from './util';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
-import { NAME_TO_ID, addRelation, areAtWar, getRelation } from './relations';
-import { applyTreaty, neighborsOf, type Proposal } from './diplomacy';
+import { NAME_TO_ID, addRelation, areAtWar, getRelation, sanctionLevel } from './relations';
+import { applyTreaty, liftSanction, neighborsOf, type Proposal } from './diplomacy';
 import { fund } from './actions';
 import { sway, spendPC } from './domestic';
 import { isMajor } from './drama';
@@ -36,6 +37,12 @@ export interface Fx {
   treaty?: [string, Proposal][];
   /** a justified cause for war against this country (smaller diplomatic fallout) */
   cb?: string;
+  /** a shift in geopolitical orientation (+ toward the West, − toward the East) and in how the West sees you */
+  orient?: number; hostile?: number;
+  /** a new form of government */
+  gov?: string;
+  /** Western-leaning countries that are not hostile lift their sanctions */
+  liftWest?: boolean;
 }
 export interface NatNode { id: string; icon: string; title: string; desc: string; weeks: number; pc: number; cost: number; fx: Fx; req?: string[]; any?: string[]; excl?: string[]; news?: string }
 export interface NatPath { key: string; title: string; intro: string; nodes: NatNode[] }
@@ -64,7 +71,7 @@ export const PATHS: Record<string, NatPath> = {
     N('cn_navy', '⚓', 'Blue-Water Navy', 'Six carrier groups by the end of the decade.', 36, 14, 0.012, { navy: 0.006, eff: { off: 1.03 }, fac: { military: 8, nationalists: 6 } }),
     N('cn_taiwan', '🎯', 'The Taiwan Question', 'Make reunification a matter of when, not if.', 20, 14, 0, { cb: 'Taiwan', rel: [['Taiwan', -30], ['United States of America', -15], ['Japan', -10]], fac: { nationalists: 15, liberals: -10, business: -6 } }, { req: ['cn_navy'], news: 'Beijing declares the Taiwan question "can no longer be passed from generation to generation".' }),
   ] },
-  Russia: { key: 'russia', title: 'Fortress Russia', intro: 'Sanctioned by the West, rich in oil, grain and nuclear warheads, short of people. Dig in, turn east, or reach for the near abroad.', nodes: [
+  Russia: { key: 'russia', title: 'Fortress Russia', intro: 'Sanctioned by the West, rich in oil, grain and nuclear warheads, short of people. Dig in, turn east, reach for the near abroad, or risk a reset with the West.', nodes: [
     N('ru_fortress', '🏰', 'Fortress Economy', 'Import substitution and a war-proof budget.', 20, 10, 0.004, { eff: { stab: 2 }, capital: 0.01, fac: { nationalists: 8, business: -4 } }),
     N('ru_east', '🐉', 'Pivot to the East', 'Pipelines and payments that bypass the West.', 22, 10, 0, { rel: [['China', 15], ['India', 8], ['Iran', 6]], treaty: [['China', 'trade']] }, { req: ['ru_fortress'] }),
     N('ru_eurasia', '🤝', 'Eurasian Union', 'Bind the old republics together again.', 22, 10, 0.003, { rel: [['Belarus', 12], ['Kazakhstan', 10], ['Armenia', 8]], treaty: [['Belarus', 'trade'], ['Kazakhstan', 'trade']] }),
@@ -72,6 +79,10 @@ export const PATHS: Record<string, NatPath> = {
     N('ru_grain', '🌾', 'Grain Superpower', 'Feed Africa and the Middle East, and win friends.', 18, 8, 0.002, { food: 0.1, rel: [['Egypt', 8], ['Turkey', 5], ['Algeria', 6]], fac: { regions: 8 } }),
     N('ru_army', '🎖', 'Military Reform', 'Contract soldiers, drones and new tank factories.', 28, 12, 0.01, { eff: { off: 1.05 }, readiness: 0.1, army: 0.004, fac: { military: 10 } }),
     N('ru_near', '🎯', 'The Near Abroad', 'Declare the neighbours a zone of privileged interest.', 16, 12, 0, { cb: 'Ukraine', rel: [['Ukraine', -20], ['Georgia', -15], ['Moldova', -15], ['Poland', -8]], fac: { nationalists: 12, liberals: -10 } }, { req: ['ru_army'], news: 'Moscow declares the former Soviet republics "a zone of vital interest". Neighbours mobilise.' }),
+    N('ru_thaw', '🕊', 'The Thaw', 'Talk to Europe again: prisoner swaps, a ceasefire line, an end to the gas war. The hawks at home call it surrender.', 24, 14, 0, { orient: 0.15, hostile: -0.2, rel: [['Germany', 8], ['France', 8], ['Italy', 6], ['United States of America', 5], ['Poland', 3], ['Ukraine', 6]], fac: { liberals: 10, business: 8, nationalists: -12, military: -8 } }, { excl: ['ru_near'], news: 'Moscow reaches out to Europe. A thaw, or a trick? Western capitals are divided.' }),
+    N('ru_open', '🏦', 'Open for Business', 'Reconnect the banks to the West and invite back the companies that left. Sanctions may fall where trust allows.', 26, 12, 0.004, { orient: 0.1, hostile: -0.15, liftWest: true, capital: 0.02, eff: { tfp: 0.002 }, fac: { business: 12, nationalists: -6 } }, { req: ['ru_thaw'] }),
+    N('ru_vote', '🗳', 'Free Elections', 'Release the opposition, free the press, let the people choose. The generals are watching.', 30, 20, 0, { gov: 'D', orient: 0.05, hostile: -0.15, stab: -6, rep: 10, fac: { liberals: 18, military: -14, nationalists: -10, regions: 4 } }, { req: ['ru_open'], news: 'Russia holds its first free election in a generation. The world holds its breath.' }),
+    N('ru_europe', '🤝', 'A European Partnership', 'A partnership treaty with Europe: visas, trade and talks on a new security order.', 24, 12, 0.003, { orient: 0.15, rel: [['Germany', 6], ['France', 6], ['Italy', 5], ['Spain', 4], ['Netherlands', 4]], treaty: [['Germany', 'trade'], ['France', 'trade'], ['Italy', 'trade']], fac: { business: 6, nationalists: -6 } }, { req: ['ru_open'], excl: ['ru_east'] }),
   ] },
   India: { key: 'india', title: 'Viksit Bharat 2047', intro: 'The most populous country on earth wants to be a developed one by its hundredth birthday, and a great power that answers to no one.', nodes: [
     N('in_make', '🏭', 'Make in India', 'Factory zones and incentives to pull manufacturing from China.', 24, 10, 0.006, { capital: 0.03, eff: { tfp: 0.002 }, fac: { business: 8, labour: 4 } }),
@@ -322,6 +333,10 @@ export function applyFx(s: GameState, c: Country, fx: Fx) {
     if (!tr?.[kind]) applyTreaty(s, c.id, t, kind, true);
   }
   if (fx.cb) { const t = target(s, c, fx.cb); if (t >= 0) s.stats[`cb:${c.id}>${t}`] = 1; }
+  if (fx.orient) c.orient = clamp((c.orient ?? 0) + fx.orient, -1, 1);
+  if (fx.hostile) c.hostile = clamp((c.hostile ?? 0) + fx.hostile, 0, 1);
+  if (fx.gov) changeGov(s, c, fx.gov, fx.gov === 'D' ? 'free elections are held and the result is respected' : 'the constitution is rewritten');
+  if (fx.liftWest) for (const x of s.countries) if (x.alive && x.id !== c.id && (x.orient ?? 0) > 0.3 && sanctionLevel(s, x.id, c.id) > 0 && getRelation(s, x.id, c.id) > -45) liftSanction(s, x.id, c.id);
 }
 
 /** Permanent modifiers from completed national projects (folded into the country's modifiers). */
@@ -358,7 +373,9 @@ export function stepNations(s: GameState, geo: Geo) {
     const open = pathOf(c).nodes.filter((n) => !blocked(s, c, n));
     if (!open.length) continue;
     // aggressive leaders favour military and claim projects; traders favour the economy
-    const score = (n: NatNode) => hash01('np', c.id, n.id) + (n.fx.cb || n.fx.army || n.fx.navy || n.fx.nuclear ? c.ai.aggression : 0) + (n.fx.eff?.tfp || n.fx.capital ? c.ai.trade : 0);
+    const score = (n: NatNode) => hash01('np', c.id, n.id) + (n.fx.cb || n.fx.army || n.fx.navy || n.fx.nuclear ? c.ai.aggression : 0) + (n.fx.eff?.tfp || n.fx.capital ? c.ai.trade : 0)
+      // a government turns West (or East) only if it already leans that way: a shift of course is not random
+      + (n.fx.orient ? Math.sign(n.fx.orient) * ((c.orient ?? 0) * 1.2 + (c.gov === 'D' ? 0.3 : -0.4)) : 0) + (n.fx.gov === 'D' && c.gov !== 'D' ? -0.6 + c.eco.stability / 200 : 0);
     const n = open.sort((a, b) => score(b) - score(a))[0];
     c.nat ??= { done: [] };
     c.nat.active = { id: n.id, start: s.tick, until: s.tick + Math.round(n.weeks * 1.6) };

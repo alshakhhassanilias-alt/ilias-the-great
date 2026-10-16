@@ -18,6 +18,7 @@ import type { Country, GameState, InboxItem } from './types';
 
 import { type D, type EventDef, type EventOption, name, pay, stab, rep, money, canPay } from './eventkit';
 import { asPurchase } from './treasury';
+import { changeGov } from './alignment';
 import { FACTIONS } from './domestic';
 export type { EventDef, EventOption };
 
@@ -293,7 +294,20 @@ const WORLD: { id: string; w: number; run: (s: GameState, c: Country, geo: Geo) 
   { id: 'scandal', w: 1, run: (_s, c) => { stab(c, -4); return `Corruption scandal rocks the government of ${c.name}`; } },
   { id: 'boom', w: 1, run: (_s, c) => { c.eco.tfp *= 1.01; stab(c, 3); return `Tech boom lifts ${c.name}'s economy`; } },
   { id: 'deposit', w: 0.7, run: (_s, c) => { c.eco.energyCap *= 1.05; return `${c.name} announces a huge new energy discovery`; } },
-  { id: 'coup', w: 0.5, run: (s, c, geo) => { if (c.eco.stability > 45 || c.gov === 'D') return null; c.eco.stability = 40; forcePeaceAll(s, geo, c.id); return `Military coup in ${c.name}: the government is overthrown`; } },
+  { id: 'coup', w: 0.5, run: (s, c, geo) => { if (c.eco.stability > 45 || (c.gov === 'D' && c.eco.stability > 22)) return null; c.eco.stability = 40; forcePeaceAll(s, geo, c.id); changeGov(s, c, 'A', 'the army seizes power and suspends the constitution'); return null; } },
+  // regimes fall too: a weak autocracy can be swept away by its own people, a failing democracy by a strongman
+  { id: 'revolution', w: 0.45, run: (s, c) => {
+    if (c.gov === 'D' || c.gov === 'F' || c.eco.stability > 32) return null;
+    const free = nextRand(s) < 0.55;
+    c.eco.stability = 45;
+    changeGov(s, c, free ? 'D' : 'A', free ? 'crowds topple the regime and free elections follow' : 'the regime falls, and a new strongman takes its place');
+    return null;
+  } },
+  { id: 'emergency_rule', w: 0.35, run: (s, c) => {
+    if ((c.gov !== 'D' && c.gov !== 'F') || c.eco.stability > 28) return null;
+    changeGov(s, c, 'A', 'the president declares a state of emergency and rules by decree');
+    return null;
+  } },
   { id: 'famine', w: 0.6, run: (_s, c) => { if (c.eco.gdp / c.eco.pop > 6000) return null; c.eco.foodCap *= 0.95; stab(c, -6); return `Drought and food shortages push ${c.name} towards famine`; } },
   { id: 'incident', w: 1.6, run: (s, c, geo) => {
     const n = neighborsOf(s, geo, c.id).filter((x) => getRelation(s, c.id, x) < 15 && !areAtWar(s, c.id, x));

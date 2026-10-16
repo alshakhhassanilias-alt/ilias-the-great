@@ -366,7 +366,9 @@ export function stepPolitics(s: GameState, appr: number) {
   // a furious faction rises up
   if (!P.unrest) {
     const furious = P.factions.filter((f) => f.mood < 24 && f.support * clout(c, f.id) > 8);
-    if (furious.length && nextRand(s) < 0.04) queue(s, 'fac_unrest', { f: P.factions.indexOf(furious[0]) }, 10, true);
+    // the same faction does not rise up again within a year
+    const f0 = furious.find((f) => s.tick - (s.stats[`unrestAt:${f.id}`] ?? -999) >= 52);
+    if (f0 && nextRand(s) < 0.04 && queue(s, 'fac_unrest', { f: P.factions.indexOf(f0) }, 10, true)) s.stats[`unrestAt:${f0.id}`] = s.tick;
   }
 }
 

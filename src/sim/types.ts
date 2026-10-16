@@ -64,6 +64,19 @@ export interface Budget {
   milNavy: number;
 }
 
+export interface Org {
+  id: number; key: string; name: string; icon: string;
+  /** defence: members are allied (an attack on one is an attack on all); union: deep political and economic ties; economic: a club */
+  kind: 'defence' | 'union' | 'economic';
+  /** relations bonus between members */
+  bonus: number;
+  members: CountryId[];
+  founded: number;
+  /** who founded it (new organisations) */
+  founder?: CountryId;
+  /** the bloc it stands for, if any: +1 Western, −1 Eastern, 0 neither */
+  camp: number;
+}
 export interface LedgerEntry { t: number; what: string; amount: number; borrowed: number }
 export interface Economy {
   pop: number;
@@ -170,7 +183,12 @@ export interface Country {
   id: CountryId;
   name: string;
   iso3: string;
+  /** form of government; it can change (revolution, coup, reform, emergency rule) */
   gov: string;
+  /** geopolitical orientation: −1 the Eastern camp … 0 non-aligned … +1 the Western camp. Drifts with history. */
+  orient?: number;
+  /** 0..1: how far the Western camp treats it as an adversary (falls as it normalises relations) */
+  hostile?: number;
   region: string;
   color: number; // hue 0-360
   estimated: boolean;
@@ -311,6 +329,12 @@ export interface GameState {
   integ: number[];
   treaties: Record<string, Treaty>;
   relDelta: Record<string, number>;
+  /** long memory between pairs of countries: decades of goodwill or enmity that outlast the news cycle */
+  relHist?: Record<string, number>;
+  /** international organisations (alliances, unions, economic clubs); membership changes with the world */
+  orgs?: Org[];
+  /** bumps whenever any organisation's membership changes (relation caches key on it) */
+  orgVer?: number;
   wars: War[];
   nextWarId: number;
   market: Market;

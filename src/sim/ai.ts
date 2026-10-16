@@ -306,9 +306,15 @@ export function* stepAIGen(s: GameState, geo: Geo): Generator<void> {
     if (isAtWar(s, c.id)) managePeace(s, geo, c);
   }
   // drift relations: partners warm, rivals chill, memories fade
+  // part of what fades from recent memory settles into the long memory: years of friendship (or enmity) become
+  // part of what the relationship is made of, and that fades only over decades
+  const H = (s.relHist ??= {});
   for (const k of Object.keys(s.relDelta)) {
-    s.relDelta[k] *= 0.992;
+    const lost = s.relDelta[k] * 0.008;
+    s.relDelta[k] -= lost;
+    H[k] = clamp((H[k] ?? 0) + lost * 0.3, -40, 40);
     if (Math.abs(s.relDelta[k]) < 0.3) delete s.relDelta[k];
   }
+  if (s.tick % 4 === 2) for (const k of Object.keys(H)) { H[k] *= 0.998; if (Math.abs(H[k]) < 0.2) delete H[k]; }
   void partnersOf;
 }

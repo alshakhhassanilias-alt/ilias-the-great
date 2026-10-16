@@ -1681,3 +1681,89 @@ describe('round 15: trust, treasury, negotiation, consequences', () => {
     expect(new Set(seen.map((x) => x.id)).size).toBeGreaterThanOrEqual(12);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+import { actApplyOrg, actLeaveOrg, actRealign, alignmentSummary, applicationVotes, changeGov, credibility, foundOrg, leaveOrg, stepAlignment } from '../src/sim/alignment';
+import { orgsOf } from '../src/sim/relations';
+
+describe('round 16: alliances, camps and regimes can change', () => {
+  it('the world starts exactly as before: blocs, camps and adversaries reproduce the 2024 relations', () => {
+    const s = fresh();
+    const R = (a: string, b: string) => Math.round(getRelation(s, id(a), id(b)));
+    expect(R('Germany', 'Russia')).toBe(-41);
+    expect(R('United States of America', 'China')).toBe(-71);
+    expect(R('Germany', 'France')).toBeGreaterThan(80);
+    expect(s.orgs!.map((o) => o.key)).toEqual(['nato', 'eu', 'csto', 'arab', 'brics']);
+  });
+  it('a country that turns West is treated differently: camps and hostility are state, not fixed data', () => {
+    const s = fresh('Russia');
+    const before = getRelation(s, id('Germany'), id('Russia'));
+    const ru = s.countries[id('Russia')];
+    ru.orient = 1; ru.hostile = 0;
+    expect(getRelation(s, id('Germany'), id('Russia')) - before).toBeGreaterThan(50);
+    changeGov(s, ru, 'D', 'test');
+    expect(ru.gov).toBe('D');
+    expect(getRelation(s, id('Germany'), id('Russia'))).toBeGreaterThan(before + 60);
+  });
+  it('leaving a defence pact ends those alliances; too few members dissolve it; a new pact allies its members', () => {
+    const s = fresh('Poland');
+    const nato = s.orgs!.find((o) => o.key === 'nato')!;
+    expect(getTreaty(s, id('Poland'), id('Germany'))?.alliance).toBe(true);
+    expect(actLeaveOrg(s, nato.id).ok).toBe(true);
+    expect(getTreaty(s, id('Poland'), id('Germany'))?.alliance).toBe(false);
+    expect(orgsOf(s, id('Poland')).some((o) => o.key === 'nato')).toBe(false);
+    const csto = s.orgs!.find((o) => o.key === 'csto')!;
+    for (const m of [...csto.members].slice(0, 4)) leaveOrg(s, csto, m, 'test');
+    expect(s.orgs!.some((o) => o.key === 'csto')).toBe(false);
+    const p = foundOrg(s, id('Poland'), 'defence', [id('Lithuania'), id('Ukraine')]);
+    expect(getTreaty(s, id('Poland'), id('Ukraine'))?.alliance).toBe(true);
+    expect(p.members).toHaveLength(3);
+  });
+  it('applying to join is a vote you can read: Russia cannot walk into NATO, a close partner can join an economic club', () => {
+    const s = fresh('Russia');
+    const nato = s.orgs!.find((o) => o.key === 'nato')!;
+    const v = applicationVotes(s, nato, s.player);
+    expect(v.filter((x) => x.yes).length).toBe(0);
+    expect(actApplyOrg(s, nato.id).ok).toBe(false);
+    expect(actApplyOrg(s, nato.id).message).toMatch(/not reconsider/);
+  });
+  it('Russia can take the Reset: thaw, opening, free elections; it turns West step by step and the old guard may resist', () => {
+    const s = fresh('Russia', { randomEvents: false });
+    const c = s.countries[s.player];
+    const o0 = c.orient!;
+    for (const node of ['ru_thaw', 'ru_open', 'ru_vote']) {
+      c.politics!.pc = 100; c.eco.cash = 1e13;
+      expect(startNatProject(s, node).ok, node).toBe(true);
+      for (let i = 0; i < 40 && c.nat?.active; i++) run(s, 1);
+    }
+    expect(c.gov).toBe('D');
+    expect(c.orient!).toBeGreaterThan(o0 + 0.4);
+    expect(c.hostile!).toBeLessThan(0.6);
+    expect(startNatProject(s, 'ru_near').ok).toBe(false); // the Thaw closes off the near-abroad path
+    c.politics!.pc = 100;
+    const before = c.orient!;
+    expect(actRealign(s, 'west').ok).toBe(true);
+    expect(c.orient!).toBeGreaterThan(before);
+    expect(actRealign(s, 'west').ok).toBe(false); // once a year at most
+  });
+  it('an alliance whose leading power collapses loses credibility', () => {
+    const s = fresh('Poland', { randomEvents: false });
+    run(s, 4);
+    const nato = s.orgs!.find((o) => o.key === 'nato')!;
+    expect(credibility(s, nato)).toBeGreaterThan(0.95);
+    const U = s.countries[id('United States of America')];
+    U.mil.troops *= 0.05; U.mil.equipArmy *= 0.05; U.mil.equipAir *= 0.05; U.mil.equipNavy *= 0.05;
+    run(s, 1);
+    expect(credibility(s, nato)).toBeLessThan(0.7);
+  });
+  it('without a push the camps hold: over five years the number of Western- and Eastern-leaning countries barely moves', () => {
+    const s = fresh('Uruguay', { seed: 4 });
+    const a0 = alignmentSummary(s);
+    for (let w = 0; w < 52 * 5; w++) { s.inbox = []; tick(s, geo); }
+    const a1 = alignmentSummary(s);
+    expect(Math.abs(a1.west - a0.west)).toBeLessThanOrEqual(6);
+    expect(Math.abs(a1.east - a0.east)).toBeLessThanOrEqual(4);
+    expect(s.orgs!.some((o) => o.key === 'nato')).toBe(true);
+    void stepAlignment;
+  });
+});

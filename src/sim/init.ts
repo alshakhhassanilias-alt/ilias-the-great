@@ -5,6 +5,7 @@
  * baseline rate. Values derived here (capital stock, tech, infrastructure, tax-rate split ...) are
  * game-generated estimates, not real statistics.
  */
+import { ensureAlignment } from './alignment';
 import { ensurePolitics } from './domestic';
 import { setGeoRef } from './geoRef';
 import { initLeaders } from './leaders';
@@ -286,5 +287,6 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
   ensureCabinet(state);
   ensurePolitics(state);
   if (settings.mode === 'legacy') initLegacy(state);
+  ensureAlignment(state);
   return state;
 }

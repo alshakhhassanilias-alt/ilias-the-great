@@ -10,6 +10,7 @@ import { clamp } from './util';
 import { addRelation } from './relations';
 import { sway, spendPC } from './domestic';
 import { dateLabel } from './tick';
+import { changeGov } from './alignment';
 import { type D, type EventDef, name, pay, stab, rep, money, canPay } from './eventkit';
 import type { Country, GameState } from './types';
 
@@ -123,6 +124,42 @@ export const EVENTS7: EventDef[] = [
       { label: 'Let it go', hint: 'Military −6 · nationalists −6', apply: (_s, c) => { sway(c, 'military', -6); sway(c, 'nationalists', -6); return 'The generals call it weakness.'; } },
     ],
   },
+  {
+    id: 'old_guard', icon: '🕴', title: 'The old guard strikes back', weight: 0, cooldown: 0, urgent: true, ttl: 12,
+    eligible: () => null,
+    text: (_s, c, d) => `Since your change of course in ${when(d)}, generals and security chiefs who built their careers on the old alliances have been meeting in private. ${c.name}'s papers are full of leaks about "betrayal". Your interior minister says they are testing how far they can go.`,
+    options: [
+      { label: 'Compromise: slow down', hint: 'Orientation moves back a step · military +8 · nationalists +6', apply: (_s, c, d) => { c.orient = clamp((c.orient ?? 0) - 0.1 * (d.dir || 1), -1, 1); sway(c, 'military', 8); sway(c, 'nationalists', 6); return 'You slow the pace. The grumbling quiets.'; } },
+      { label: 'Purge them', hint: 'Costs 15 political capital · military −10 · stability −3 · the threat is gone', enabled: hasPC(15), apply: (_s, c) => { spendPC(c, 15); sway(c, 'military', -10); stab(c, -3); return 'Forty officers are retired before breakfast.'; } },
+      { label: 'Ignore it', hint: 'Military −8 · nationalists −6 · they may move against you', apply: (s, c) => {
+        sway(c, 'military', -8); sway(c, 'nationalists', -6);
+        if (nextRand(s) < 0.5 && c.politics && !c.politics.arc) { c.politics.arc = { id: 'coup', stage: 1, started: s.tick }; s.inbox.push({ uid: s.nextInbox++, id: 'arc_coup_1', tick: s.tick, expires: s.tick + 14, urgent: true, data: { corps: 1 + Math.floor(nextRand(s) * 9) } }); return 'They take your silence as weakness. A plot is forming.'; }
+        return 'Nothing happens, this time.';
+      } },
+    ],
+    lapse: (_s, c) => { sway(c, 'military', -6); return 'They watch, and wait.'; },
+  },
+  // ---- the form of government itself is on the table
+  {
+    id: 'emergency_powers', icon: '⚖', title: 'Emergency powers', weight: 0.7, cooldown: 300, ttl: 16,
+    eligible: (_s, c) => ((c.gov === 'D' || c.gov === 'F') && c.eco.stability < 30 ? {} : null),
+    text: (_s, c) => `Stability in ${c.name} is ${c.eco.stability.toFixed(0)}. Your interior minister brings you a draft decree: suspend parliament, postpone the next election "until order is restored", rule by decree. The army would back it. The liberals and the Western capitals would never forgive it.`,
+    options: [
+      { label: 'Refuse: govern within the law', hint: 'Stability −2 · liberals +6 · reputation +2', apply: (_s, c) => { stab(c, -2); sway(c, 'liberals', 6); rep(c, 2); return 'You tear up the decree. The constitution holds.'; } },
+      { label: 'Rule by decree', hint: 'Becomes an authoritarian regime · stability +10 · liberals −20 · reputation −12 · the West cools on you · elections become party congresses', apply: (s, c) => { stab(c, 10); sway(c, 'liberals', -20); sway(c, 'military', 6); rep(c, -12); changeGov(s, c, 'A', 'the government suspends parliament and rules by decree'); return 'Order is restored. Freedom is not.'; } },
+    ],
+  },
+  {
+    id: 'opening_demand', icon: '🗳', title: 'The street wants a vote', weight: 0.7, cooldown: 300, ttl: 16,
+    eligible: (_s, c) => (c.gov !== 'D' && c.gov !== 'F' && ((c.politics?.factions.find((f) => f.id === 'liberals')?.mood ?? 0) > 58 || c.eco.stability < 34) ? {} : null),
+    text: (_s, c) => `Hundreds of thousands are in the streets of ${c.name}, and this time the middle class is with them. They want free elections. Western embassies are watching; so are your generals.`,
+    options: [
+      { label: 'Promise reforms, later', hint: 'Costs 10 political capital · liberals +6 · buys a year', enabled: hasPC(10), apply: (_s, c) => { spendPC(c, 10); sway(c, 'liberals', 6); return 'A commission is appointed. The crowds go home, for now.'; } },
+      { label: 'Call free elections', hint: 'Becomes a democracy · liberals +20 · military −12 · nationalists −6 · stability −4 · reputation +8 · leans West', apply: (s, c) => { sway(c, 'liberals', 20); sway(c, 'military', -12); sway(c, 'nationalists', -6); stab(c, -4); rep(c, 8); changeGov(s, c, 'D', 'the government calls free elections and the opposition takes part'); return 'The ballot boxes are open. Nothing will be the same.'; } },
+      { label: 'Clear the squares', hint: 'Stability −5 · liberals −15 · reputation −6', apply: (_s, c) => { stab(c, -5); sway(c, 'liberals', -15); rep(c, -6); return 'The squares are cleared. The anger is not.'; } },
+    ],
+    lapse: (_s, c) => { stab(c, -3); sway(c, 'liberals', -6); return 'The protests go on without an answer.'; },
+  },
 ];
 
 /** Which answer leads to which consequence: option index (−1 = let it lapse), chance, delay in weeks. */
@@ -138,6 +175,7 @@ export const FOLLOW_UPS: { after: string; option: number; next: string; chance: 
   { after: 'border_incident', option: 1, next: 'border_titfortat', chance: 0.6, delay: [8, 20] },
   { after: 'border_incident', option: 0, next: 'border_again', chance: 0.45, delay: [20, 45] },
   { after: 'border_incident', option: -1, next: 'border_again', chance: 0.5, delay: [20, 45] },
+  // (old_guard follows a change of foreign-policy course, not a decision: see actRealign)
 ];
 
 /** Remember the answer and schedule its consequence, if any. */

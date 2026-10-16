@@ -62,31 +62,80 @@ export const hasAlliance = (s: GameState, a: CountryId, b: CountryId) => !!getTr
 export const hasNap = (s: GameState, a: CountryId, b: CountryId) => !!getTreaty(s, a, b)?.nap;
 export const hasCoop = (s: GameState, a: CountryId, b: CountryId) => !!getTreaty(s, a, b)?.coop;
 
-const baseCache = new Float32Array(N_COUNTRIES * N_COUNTRIES).fill(-999);
-export function baseRelation(a: CountryId, b: CountryId): number {
+// ---------------------------------------------------------------------------------------------------------------
+// Relations = what never changes (geography, old rivalries, chemistry)
+//           + what the world is like now (camps, organisations, forms of government) — all of it state that moves
+//           + long memory (decades) + recent memory (months) + treaties − war.
+// At the start this reproduces the 2024 picture exactly; after that, nothing about the blocs is fixed.
+
+/** Starting orientation: the 2024 Western camp +1, the Eastern camp −1, everyone else 0. */
+export function initialOrient(id: CountryId): number { return S_WEST.has(id) ? 1 : S_EAST.has(id) ? -1 : 0; }
+/** Starting hostility: how far the West treats a country as an adversary in 2024 (0..1). */
+export function initialHostile(id: CountryId): number { return ADV[id] !== undefined ? -ADV[id] / 30 : 0; }
+export const orientOf = (s: GameState, id: CountryId) => s.countries[id]?.orient ?? initialOrient(id);
+export const hostileOf = (s: GameState, id: CountryId) => s.countries[id]?.hostile ?? initialHostile(id);
+
+const staticCache = new Float64Array(N_COUNTRIES * N_COUNTRIES).fill(-999);
+/** The part of a relationship that does not change: neighbourhood, historic rivalries and friendships, chemistry. */
+export function staticRelation(a: CountryId, b: CountryId): number {
   if (a === b) return 100;
   if (a >= N_COUNTRIES || b >= N_COUNTRIES) return 0;
   const lo = Math.min(a, b), hi = Math.max(a, b);
   const idx = lo * N_COUNTRIES + hi;
-  if (baseCache[idx] > -900) return baseCache[idx];
+  if (staticCache[idx] > -900) return staticCache[idx];
   const A = COUNTRY_BASE[lo], B = COUNTRY_BASE[hi];
   let r = 0;
   if (A.region === B.region) r += 8;
-  if (S_NATO.has(lo) && S_NATO.has(hi)) r += 26;
-  else if (S_WEST.has(lo) && S_WEST.has(hi)) r += 14;
-  if (S_EU.has(lo) && S_EU.has(hi)) r += 14;
-  if (S_CSTO.has(lo) && S_CSTO.has(hi)) r += 22;
-  if (S_EAST.has(lo) && S_EAST.has(hi)) r += 14;
-  if ((S_WEST.has(lo) && S_EAST.has(hi)) || (S_EAST.has(lo) && S_WEST.has(hi))) r -= 14;
-  if (S_ARAB.has(lo) && S_ARAB.has(hi)) r += 14;
-  if (S_WEST.has(lo) && ADV[hi] !== undefined) r += ADV[hi];
-  if (S_WEST.has(hi) && ADV[lo] !== undefined) r += ADV[lo];
-  if (A.gov === 'D' && B.gov === 'D') r += 10;
-  else if ((A.gov === 'D') !== (B.gov === 'D')) r -= 3;
   r += RIV.get(lo * 1000 + hi) ?? 0;
   r += (hash01('rel', lo, hi) - 0.5) * 18;
-  baseCache[idx] = clamp(r, -100, 100);
-  return baseCache[idx];
+  staticCache[idx] = r;
+  return staticCache[idx];
+}
+
+/** Camps: same side warms, opposite sides chill, and the West's adversaries are treated as such. */
+export function campRelation(s: GameState, a: CountryId, b: CountryId): number {
+  const A = s.countries[a], B = s.countries[b];
+  const oa = A?.orient ?? initialOrient(a), ob = B?.orient ?? initialOrient(b);
+  const m = Math.min(oa < 0 ? -oa : oa, ob < 0 ? -ob : ob);
+  let r = oa * ob > 0 ? 14 * m : oa * ob < 0 ? -14 * m : 0;
+  if (ob > 0) r -= 30 * (A?.hostile ?? initialHostile(a)) * ob;
+  if (oa > 0) r -= 30 * (B?.hostile ?? initialHostile(b)) * oa;
+  return r;
+}
+/** Forms of government: democracies trust each other. */
+export function govRelation(s: GameState, a: CountryId, b: CountryId): number {
+  const ga = s.countries[a]?.gov ?? COUNTRY_BASE[a].gov, gb = s.countries[b]?.gov ?? COUNTRY_BASE[b].gov;
+  return ga === 'D' && gb === 'D' ? 10 : (ga === 'D') !== (gb === 'D') ? -3 : 0;
+}
+
+// organisation membership as one bit per organisation, rebuilt when membership changes
+let orgCache: { st: GameState; ver: number; masks: Int32Array; bonus: number[] } | null = null;
+function orgMasks(s: GameState) {
+  const ver = s.orgVer ?? 0;
+  if (orgCache && orgCache.st === s && orgCache.ver === ver) return orgCache;
+  const masks = new Int32Array(N_COUNTRIES), bonus: number[] = [];
+  (s.orgs ?? []).slice(0, 31).forEach((o, i) => { bonus[i] = o.bonus; for (const m of o.members) if (m < N_COUNTRIES) masks[m] |= 1 << i; });
+  orgCache = { st: s, ver, masks, bonus };
+  return orgCache;
+}
+/** Shared organisations (NATO, the EU, the CSTO ... and any founded later). */
+export function orgRelation(s: GameState, a: CountryId, b: CountryId): number {
+  if (!s.orgs?.length || a >= N_COUNTRIES || b >= N_COUNTRIES) return 0;
+  const M = orgMasks(s);
+  let both = M.masks[a] & M.masks[b], r = 0, i = 0;
+  while (both) { if (both & 1) r += M.bonus[i]; both >>>= 1; i++; }
+  return r;
+}
+export const orgsOf = (s: GameState, id: CountryId) => (s.orgs ?? []).filter((o) => o.members.includes(id));
+export const touchOrgs = (s: GameState) => { s.orgVer = (s.orgVer ?? 0) + 1; };
+
+/** Everything except treaties, war and recent memory: what the relationship is "made of" today. */
+export function baseRelation(a: CountryId, b: CountryId, s?: GameState): number {
+  if (a === b) return 100;
+  const st = staticRelation(a, b);
+  if (!s) return st;
+  const k = pairKey(a, b);
+  return clamp(st + campRelation(s, a, b) + govRelation(s, a, b) + orgRelation(s, a, b) + (s.relHist?.[k] ?? 0), -100, 100);
 }
 
 export function treatyBonus(t: Treaty | undefined): number {
@@ -104,7 +153,7 @@ export function treatyBonus(t: Treaty | undefined): number {
 export function getRelation(s: GameState, a: CountryId, b: CountryId): number {
   if (a === b) return 100;
   const k = pairKey(a, b);
-  return clamp(baseRelation(a, b) + (s.relDelta[k] ?? 0) + treatyBonus(s.treaties[k]) - (areAtWar(s, a, b) ? 60 : 0), -100, 100);
+  return clamp(staticRelation(a, b) + campRelation(s, a, b) + govRelation(s, a, b) + orgRelation(s, a, b) + (s.relHist?.[k] ?? 0) + (s.relDelta[k] ?? 0) + treatyBonus(s.treaties[k]) - (areAtWar(s, a, b) ? 60 : 0), -100, 100);
 }
 export function addRelation(s: GameState, a: CountryId, b: CountryId, d: number) {
   const k = pairKey(a, b);
@@ -178,32 +227,27 @@ export function guaranteedBy(s: GameState, c: CountryId): CountryId[] {
 }
 export const hasGuarantee = (s: GameState, from: CountryId, to: CountryId) => s.guarantees.includes(`${from}>${to}`);
 
-/** Why do two countries feel the way they do? Mirrors baseRelation + treaties + memory, so the UI can explain it. */
+/** Why do two countries feel the way they do? Mirrors getRelation part by part, so the UI can explain it. */
 export function relationBreakdown(s: GameState, a: CountryId, b: CountryId): { label: string; v: number }[] {
   if (a === b) return [];
   const lo = Math.min(a, b), hi = Math.max(a, b);
   const A = COUNTRY_BASE[lo], B = COUNTRY_BASE[hi];
   const parts: { label: string; v: number }[] = [];
-  const add = (label: string, v: number) => { if (Math.abs(v) >= 0.5) parts.push({ label, v }); };
-  let known = 0;
-  const k = (label: string, v: number) => { known += v; add(label, v); };
-  if (A.region === B.region) k('Same region', 8);
-  if (S_NATO.has(lo) && S_NATO.has(hi)) k('Fellow NATO members', 26);
-  else if (S_WEST.has(lo) && S_WEST.has(hi)) k('Western camp', 14);
-  if (S_EU.has(lo) && S_EU.has(hi)) k('Both in the EU', 14);
-  if (S_CSTO.has(lo) && S_CSTO.has(hi)) k('Both in the CSTO', 22);
-  if (S_EAST.has(lo) && S_EAST.has(hi)) k('Eastern partners', 14);
-  if ((S_WEST.has(lo) && S_EAST.has(hi)) || (S_EAST.has(lo) && S_WEST.has(hi))) k('Rival camps', -14);
-  if (S_ARAB.has(lo) && S_ARAB.has(hi)) k('Arab League', 14);
-  if (S_WEST.has(lo) && ADV[hi] !== undefined) k('Treated as an adversary by the West', ADV[hi]);
-  if (S_WEST.has(hi) && ADV[lo] !== undefined) k('Treated as an adversary by the West', ADV[lo]);
-  if (A.gov === 'D' && B.gov === 'D') k('Both democracies', 10);
-  else if ((A.gov === 'D') !== (B.gov === 'D')) k('Different political systems', -3);
+  const add = (label: string, v: number) => { if (Math.abs(v) >= 0.5) parts.push({ label, v: Math.round(v) }); };
+  if (A.region === B.region) add('Same region', 8);
   const rv = RIV.get(lo * 1000 + hi) ?? 0;
-  if (rv) k(rv < 0 ? 'Historic rivalry' : 'Historic friendship', rv);
-  const base = baseRelation(a, b);
-  const hist = Math.round(base - known);
-  if (Math.abs(hist) >= 1) add('History & chemistry', hist);
+  if (rv) add(rv < 0 ? 'Historic rivalry' : 'Historic friendship', rv);
+  add('Chemistry', staticRelation(a, b) - (A.region === B.region ? 8 : 0) - rv);
+  const oa = orientOf(s, a), ob = orientOf(s, b);
+  const camp = 14 * Math.min(Math.abs(oa), Math.abs(ob)) * Math.sign(oa * ob);
+  add(camp > 0 ? (oa > 0 ? 'Both in the Western camp' : 'Both in the Eastern camp') : 'Rival camps', camp);
+  const adv = -30 * (hostileOf(s, a) * Math.max(0, ob) + hostileOf(s, b) * Math.max(0, oa));
+  add('Treated as an adversary by the West', adv);
+  const g = govRelation(s, a, b);
+  add(g > 0 ? 'Both democracies' : 'Different political systems', g);
+  for (const o of s.orgs ?? []) if (o.members.includes(a) && o.members.includes(b)) add(`Both in ${o.name}`, o.bonus);
+  const hist = s.relHist?.[pairKey(a, b)] ?? 0;
+  add(hist > 0 ? 'Years of friendship (lasting)' : 'Years of enmity (lasting)', hist);
   const pk = pairKey(a, b);
   const t = s.treaties[pk];
   if (t?.alliance) add('Alliance', 30);

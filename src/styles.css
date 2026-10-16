@@ -534,3 +534,14 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .nego-actions { margin-top: 12px; }
 @media (max-width: 700px) { .nego-grid { grid-template-columns: 1fr; } }
 .arc-chip.conseq { border-color: var(--teal); color: var(--teal); }
+
+/* where a country stands: East ◀ ▶ West */
+.orient-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+.ob-track { position: relative; flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, rgba(200,70,60,.55), rgba(140,140,140,.25) 50%, rgba(60,120,210,.55)); }
+.ob-mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--line); }
+.ob-dot { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--text); border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); transition: left .4s ease; }
+.ob-ghost { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; border: 2px dashed var(--muted); }
+.org-card.member { border-color: var(--teal); }
+.org-members { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.org-members .pill { cursor: pointer; }
+.org-members .pill small { opacity: .7; margin-left: 3px; }

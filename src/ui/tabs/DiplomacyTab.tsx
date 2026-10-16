@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { AlignmentSection, OrgsSection, OrientBar, orientLabel } from './Alignment';
+import { GOV_LABEL } from '../../sim/alignment';
+import { orgsOf } from '../../sim/relations';
 import { AutopilotBanner } from '../Autopilot';
 import { store } from '../../state/store';
 import { Note, RelationBar, Section } from '../widgets';
@@ -33,7 +36,7 @@ export function DiplomacyTab({ id }: { id: number }) {
   const rl = relLabel(rel);
   const t = getTreaty(s, id, s.player);
   const atWar = areAtWar(s, id, s.player);
-  const base = baseRelation(id, s.player);
+  const base = baseRelation(id, s.player, s);
   const treatyBonus = rel - base;
   const mySanction = sanctionLevel(s, s.player, id);
   const theirSanction = sanctionLevel(s, id, s.player);
@@ -107,6 +110,8 @@ export function DiplomacyTab({ id }: { id: number }) {
       <Section title="Their outlook">
         <div className="card" style={{ fontSize: 13 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{c.intent || 'Going about its business'}</div>
+          <OrientBar o={c.orient ?? 0} />
+          <div className="hint" style={{ margin: '4px 0 6px' }}>{orientLabel(c.orient ?? 0)} · {GOV_LABEL[c.gov] ?? c.gov}{orgsOf(s, id).length ? ` · member of ${orgsOf(s, id).map((o) => o.name).join(', ')}` : ' · in no organisation'}{(c.hostile ?? 0) > 0.05 ? ` · treated as an adversary by the West (${((c.hostile ?? 0) * 100).toFixed(0)}%)` : ''}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {c.ai.aggression > 0.7 && <span className="pill red">Hawkish</span>}{c.ai.aggression < 0.2 && <span className="pill green">Pacifist</span>}
             {c.ai.expansion > 0.5 && <span className="pill red">Expansionist</span>}{c.ai.trade > 0.7 && <span className="pill blue">Mercantile</span>}
@@ -218,6 +223,7 @@ function OwnDiplomacy() {
   return (
     <>
       <AutopilotBanner area="diplomacy" />
+      <AlignmentSection />
       {s.offers.length > 0 && (
         <Section title="Pending offers">
           {s.offers.map((o) => (
@@ -236,6 +242,7 @@ function OwnDiplomacy() {
           <div><div className="hint" style={{ marginBottom: 4 }}>Military cooperation ({list('coop').length})</div>{chips(list('coop'))}</div>
         </div>
       </Section>
+      <OrgsSection />
       <Section title="Sanctions">
         <div className="card" style={{ display: 'grid', gap: 10 }}>
           <div><div className="hint" style={{ marginBottom: 4 }}>You sanction</div>{chips(imposed.map((x) => x.id))}</div>

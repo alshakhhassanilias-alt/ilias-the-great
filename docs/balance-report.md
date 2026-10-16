@@ -121,3 +121,18 @@ The difference in elections is within noise; the clear change is lower debt. Und
 
 - Treasury balance is now gentle by default; "hard" difficulty only trims revenue by 5%. A harder fiscal mode may be worth adding.
 - The negotiation odds are tuned on starting relations; real players may find combinations (tech + guarantee) that make alliances too cheap. Watch for it.
+
+## Round 16: alignment, organisations and regimes
+
+The 2024 blocs are now starting state, not constants. At the start, relations are identical to the previous version except between BRICS members (+6, they now share an organisation).
+
+Twenty-year AI-only runs (the player is Uruguay):
+
+- **Camps hold without a push.** Western-leaning countries go from 49 to 47–50, Eastern-leaning from 18 to 15–18. Earlier tuning let the West snowball to 104; bandwagoning now applies only when a camp is below 40% or above 80% of world power, and non-aligned countries hedge.
+- **Plausible membership changes.** Ukraine joins NATO and the EU (not while at war), Balkan states join the EU, the UK sometimes rejoins the EU, and India sometimes leaves BRICS. Traditionally neutral states (Austria, Ireland, Switzerland, Malta ...) stay out of defence pacts unless attacked. Countries join a defence pact only when a dangerous, hostile neighbour gives them a reason.
+- **New organisations.** Asian democracies found a Seoul Pact, and some regional economic forums appear. Clubs stop absorbing members who already share a closer union with most of them.
+- **Regime changes: about 8–10 in 20 years,** almost all in fragile states (coups, revolutions, emergency rule).
+- **Lasting US collapse** (forced every year): the West's share of power falls to about 50%. NATO's credibility drops, Japan, South Korea and Taiwan found their own pact, and Turkey cools. Europe does not flip East, because its friendships and institutions hold.
+- **Russia played as a reformer** (Thaw, Open for Business, Free Elections, European Partnership, turning West once a year): it moves from −1 to about +0.67 over 12 years. Relations with Germany go from −41 to about +55, with France about +50, and with China fall to −66. NATO and the EU still reject Russia after 10 years: Poland, Finland, the Baltic states and the US vote no.
+
+**Performance:** about 15% more simulation time per week.
