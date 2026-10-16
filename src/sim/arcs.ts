@@ -113,8 +113,11 @@ export function stepArcs(s: GameState, geo: Geo) {
   }
   if (s.tick < 26 || s.tick - P.lastArc < 30 || s.settings.randomEvents === false) return;
   if ((s.tick + c.id) % 3 !== 0 || nextRand(s) > 0.1) return;
-  // the same story does not come back for three years, and never more than twice
-  const opts = ARCS.filter((a) => (s.stats[`arc:${a.id}`] ?? 0) < 2 && s.tick - (s.stats[`arcAt:${a.id}`] ?? -999) > 156).map((a) => ({ a, d: a.trigger(s, c, geo) })).filter((x) => x.d);
+  // the same story does not come back for five years, and never more than twice
+  const fresh = (max: number) => ARCS.filter((a) => (s.stats[`arc:${a.id}`] ?? 0) < max && s.tick - (s.stats[`arcAt:${a.id}`] ?? -999) > 260).map((a) => ({ a, d: a.trigger(s, c, geo) })).filter((x) => x.d);
+  // a story you have not seen comes first; one you have seen can return only when nothing new fits
+  let opts = fresh(1);
+  if (!opts.length) opts = fresh(2);
   if (!opts.length) return;
   // a story that has already been told is less likely to repeat
   const w = (x: (typeof opts)[number]) => x.a.weight(s, c) / (1 + 3 * (s.stats[`arc:${x.a.id}`] ?? 0));

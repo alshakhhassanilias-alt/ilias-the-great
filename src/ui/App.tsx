@@ -1,3 +1,4 @@
+import { NegotiationTable } from './Negotiation';
 import { useEffect } from 'react';
 import { store, useStoreSelect } from '../state/store';
 import { MapView } from '../map/MapView';
@@ -63,6 +64,7 @@ export function App() {
       <VictoryBanner />
       <AgendaDraft />
       <TermReview />
+      <NegotiationTable />
       <HistoryBook />
     </div>
   );

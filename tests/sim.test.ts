@@ -1494,3 +1494,178 @@ describe('round 14: national paths, war goals, programmes, coalitions, new crise
     for (const e of EVENTS) expect(/declare war/i.test(e.options[0]?.label ?? ''), e.id).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+import { budgetReport, fundingPreview, DEFICIT_LABEL } from '../src/sim/treasury';
+import { fund } from '../src/sim/actions';
+import { fiscalNow } from '../src/sim/economy';
+import { ministerReport } from '../src/ui/reports';
+import { scoreParts, partHint, legacyWarEnded } from '../src/sim/legacy';
+import { getTreaty } from '../src/sim/relations';
+import { stanceOf, negotiate } from '../src/sim/negotiate';
+import { previewLapse } from '../src/sim/events';
+import { FOLLOW_UPS, rememberChoice } from '../src/sim/events7';
+
+describe('round 15: trust, treasury, negotiation, consequences', () => {
+  it('the finance minister quotes the same budget as the Economy tab, from the very first week', () => {
+    for (const n of ['Germany', 'Poland', 'Egypt', 'Saudi Arabia']) {
+      const s = fresh(n);
+      const c = s.countries[s.player];
+      const f = fiscalNow(c, s), B = budgetReport(s, c);
+      expect(Math.abs(c.eco.spending - f.spending) / f.spending).toBeLessThan(0.01); // spending is not 0 at the start
+      expect(B.balance).toBeCloseTo(f.revenue - f.spending, -3);
+      const fin = c.cabinet!.find((m) => m.role === 'finance')!;
+      const r = ministerReport(s, c, fin);
+      const said = `${r.headline} ${r.lines.join(' ')}`;
+      if (B.balance < -0.002 * c.eco.gdp) { expect(said).toMatch(/deficit/i); expect(said).not.toMatch(/surplus/i); }
+      if (B.balance > 0.005 * c.eco.gdp) expect(said).toMatch(/surplus/i);
+    }
+  });
+  it('one-off costs come from the treasury first, then borrowing, exactly as previewed, and are written in the ledger', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player], e = c.eco;
+    e.cash = 0.002 * e.gdp;
+    const cost = 0.005 * e.gdp;
+    const p = fundingPreview(c, cost);
+    const debt0 = e.debt;
+    expect(fund(s, c.id, cost, 'Test project').ok).toBe(true);
+    expect(e.cash).toBeCloseTo(0, 0);
+    expect(e.debt - debt0).toBeCloseTo(p.borrowed, -3);
+    expect(p.fromCash).toBeCloseTo(0.002 * e.gdp, -3);
+    const L = e.ledger!.at(-1)!;
+    expect(L.what).toBe('Test project');
+    expect(L.borrowed).toBeCloseTo(p.borrowed, -3);
+    // a decision's costs and gains become one ledger line named after it
+    s.inbox = [{ uid: 900, id: 'strike', tick: s.tick, expires: s.tick + 10, urgent: false, data: {} }];
+    e.cash = 1e13;
+    resolveEvent(s, geo, 0, 900);
+    expect(e.ledger!.at(-1)!.what).toBe(eventById('strike').title);
+  });
+  it('the starting treasury lasts: no major economy runs dry in its first year, and running dry is announced', () => {
+    for (const n of ['Germany', 'Poland', 'United States of America', 'Brazil', 'India']) {
+      const s = fresh(n, { randomEvents: false });
+      for (let w = 0; w < 52; w++) { s.inbox = []; tick(s, geo); }
+      expect(s.countries[s.player].eco.cash, n).toBeGreaterThan(0);
+    }
+    const s = fresh('Germany', { randomEvents: false });
+    const c = s.countries[s.player];
+    c.eco.cash = 0; c.budget.social += 0.03;
+    run(s, 2);
+    expect(c.eco.ledger!.some((x) => x.what === DEFICIT_LABEL && x.borrowed > 0)).toBe(true);
+    expect(s.log.some((l) => /treasury is empty/i.test(l.text))).toBe(true);
+  });
+  it('Legacy: the term recap and the score agree on promises, and a peaceful career scores 0 for wars', () => {
+    const s = fresh('Poland', { mode: 'legacy', randomEvents: false });
+    const L = s.legacy!;
+    // three promises that cannot be kept in a few weeks
+    L.hand = [];
+    L.agenda = ['miracle', 'tech', 'build'].map((x) => ({ id: x, start: s.tick, base: agendaById(x).base(s, s.countries[s.player]), done: false }));
+    L.parts.agenda = 10; // as if an earlier term had earned some points
+    const before = L.parts.agenda;
+    L.nextVote = s.tick + 3;
+    run(s, 4);
+    const T = L.terms.at(-1)!;
+    const line = T.lines.find((l) => /Promise points this term/.test(l))!;
+    const termPts = Number(/this term: ([+-]?\d+)/.exec(line)![1]);
+    expect(termPts).toBe(Math.round(L.parts.agenda - before));
+    expect(termPts).toBeLessThan(0);
+    expect(T.lines.join(' ')).toMatch(/No promises were kept this term/);
+    expect(line).toMatch(/career total/);
+    expect(L.wars ?? []).toHaveLength(0);
+    expect(scoreParts(s).wars ?? 0).toBe(0);
+    expect(partHint(s, 'wars')).toMatch(/no wars/i);
+    actRetire(s);
+    expect(L.parts.wars ?? 0).toBe(0);
+  });
+  it('Legacy: each war of yours counts once, with its result, and wars between others never count', () => {
+    const s = fresh('Poland', { mode: 'legacy', randomEvents: false });
+    const L = s.legacy!;
+    const me = s.player, foe = id('Belarus'), x = id('France'), y = id('Spain');
+    legacyWarEnded(s, { id: 1, name: 'Test War', a: me, b: foe, start: 0, end: s.tick, casA: 0, casB: 0, provsA: 2, provsB: 0, winner: 'a', terms: 'demand' });
+    legacyWarEnded(s, { id: 2, name: 'Their War', a: x, b: y, start: 0, end: s.tick, casA: 0, casB: 0, provsA: 0, provsB: 0, winner: 'a', terms: 'demand' });
+    expect(L.parts.wars).toBe(45);
+    expect(L.wars).toHaveLength(1);
+    actRetire(s);
+    expect(L.parts.wars).toBe(45); // not recounted at the end
+  });
+  it('negotiation: friends, neutrals and rivals answer differently, for reasons you can read', () => {
+    const s = fresh('Germany');
+    const st = (n: string, give: ('cash3' | 'tech' | 'lift')[] = []) => stanceOf(s, geo, id(n), { goal: 'trade', give });
+    const friend = stanceOf(s, geo, id('France'), { goal: 'coop', give: [] }), neutral = st('Brazil'), hostile = st('Russia');
+    expect(friend.p).toBeGreaterThan(neutral.p);
+    expect(neutral.p).toBeGreaterThan(hostile.p);
+    for (const x of [friend, neutral, hostile]) { expect(x.factors.length).toBeGreaterThan(1); expect(x.interests.length).toBeGreaterThan(0); }
+    // a sweetener they value moves the odds
+    expect(st('Russia', ['tech']).p).toBeGreaterThan(hostile.p);
+    // red lines block outright, with the reason
+    const ally = stanceOf(s, geo, id('Russia'), { goal: 'alliance', give: [] });
+    expect(ally.blocked).toBeTruthy();
+    expect(negotiate(s, geo, id('Russia'), { goal: 'alliance', give: [] }).outcome).toBe('blocked');
+  });
+  it('negotiation: a near miss brings a counteroffer, accepting it is certain, and patience runs out', () => {
+    let countered = false;
+    for (let seed = 1; seed < 40 && !countered; seed++) {
+      const s = fresh('Germany', { seed });
+      const them = id('Brazil');
+      const r = negotiate(s, geo, them, { goal: 'coop', give: [] });
+      expect(r.why.length).toBeGreaterThan(0);
+      if (r.outcome === 'counter') {
+        countered = true;
+        const ok = negotiate(s, geo, them, { goal: 'coop', give: r.counter! }, true);
+        expect(ok.outcome).toBe('accepted');
+        expect(getTreaty(s, s.player, them)?.coop).toBe(true);
+      }
+    }
+    expect(countered).toBe(true);
+    const s = fresh('Germany');
+    const them = id('Iran');
+    let blocked = false;
+    for (let i = 0; i < 6; i++) { const r = negotiate(s, geo, them, { goal: 'coop', give: [] }); if (r.outcome === 'blocked') { blocked = true; break; } }
+    expect(blocked).toBe(true);
+  });
+  it('previewing what happens if a decision lapses does not change the world', () => {
+    const s = fresh('Poland');
+    s.inbox = [{ uid: 901, id: 'fac_demand', tick: s.tick, expires: s.tick + 10, urgent: false, data: { f: 0, k: 0 } }];
+    const before = JSON.stringify(s);
+    const p = previewLapse(s, geo, 901);
+    expect(p.text.length).toBeGreaterThan(5);
+    expect(JSON.stringify(s)).toBe(before);
+  });
+  it('choices have consequences: follow-ups arrive later, refer back to the choice, and every answer works', () => {
+    for (const f of FOLLOW_UPS) {
+      expect(eventById(f.next), f.next).toBeDefined();
+      let s: GameState | null = null;
+      for (let seed = 1; seed < 30; seed++) {
+        const g = fresh('Poland', { seed, randomEvents: false });
+        rememberChoice(g, f.after, f.option, { n: id('Belarus'), from: id('Germany') });
+        if (g.scheduled.some((x) => x.id === f.next)) { s = g; break; }
+      }
+      expect(s, f.next).not.toBeNull();
+      const sc = s!.scheduled.find((x) => x.id === f.next)!;
+      expect(sc.tick - s!.tick).toBeGreaterThanOrEqual(f.delay[0]);
+      const c = s!.countries[s!.player];
+      c.eco.cash = 1e13; c.politics!.pc = 100;
+      const def = eventById(f.next);
+      expect(def.text(s!, c, sc.data)).toMatch(/\d{4}/); // names when you made the original choice
+      for (let k = 0; k < def.options.length; k++) {
+        s!.inbox = [{ uid: 950 + k, id: f.next, tick: s!.tick, expires: s!.tick + 10, urgent: false, data: sc.data }];
+        expect(resolveEvent(s!, geo, k, 950 + k).ok).toBe(true);
+      }
+    }
+  });
+  it('decisions do not repeat: faction demands stay rare and each faction speaks at most once a year', () => {
+    const s = fresh('Japan', { seed: 7 });
+    const seen: { id: string; t: number; f?: number }[] = [];
+    let last = s.nextInbox;
+    for (let w = 0; w < 52 * 6; w++) {
+      for (const it of [...s.inbox]) { const def = eventById(it.id); const k = def.options.findIndex((o) => !o.enabled || o.enabled(s, s.countries[s.player])); resolveEvent(s, geo, Math.max(0, k), it.uid); }
+      tick(s, geo);
+      for (const it of s.inbox) if (it.uid >= last) seen.push({ id: it.id, t: s.tick, f: it.data.f });
+      last = s.nextInbox;
+    }
+    const demands = seen.filter((x) => x.id === 'fac_demand');
+    expect(demands.length / 6).toBeLessThanOrEqual(1.8);
+    for (let i = 0; i < demands.length; i++) for (let j = i + 1; j < demands.length; j++) if (demands[i].f === demands[j].f) expect(demands[j].t - demands[i].t).toBeGreaterThanOrEqual(52);
+    expect(new Set(seen.map((x) => x.id)).size).toBeGreaterThanOrEqual(12);
+  });
+});

@@ -314,11 +314,12 @@ export function actRepealLaw(s: GameState, id: string) {
 }
 
 // ------------------------------------------------------------------ the weekly step
-function queue(s: GameState, id: string, data: Record<string, number>, ttl: number, urgent: boolean) {
+function queue(s: GameState, id: string, data: Record<string, number>, ttl: number, urgent: boolean, quiet = false) {
   if (s.inbox.length >= 4 || s.inbox.some((x) => x.id === id)) return false;
   const it: InboxItem = { uid: s.nextInbox++, id, tick: s.tick, expires: s.tick + ttl, urgent, data };
   s.inbox.push(it);
-  s.lastEventTick = s.tick;
+  // a routine faction demand does not hold back the other stories the world has for you
+  if (!quiet) s.lastEventTick = s.tick;
   return true;
 }
 
@@ -352,10 +353,15 @@ export function stepPolitics(s: GameState, appr: number) {
   } else if (U) P.unrest = undefined;
   // demands from the unhappiest faction
   if (s.tick >= P.nextDemand) {
-    // the unhappiest faction speaks up (never the same one twice in a row)
-    const worst = [...P.factions].sort((a, b) => a.mood - b.mood).find((f) => P.factions.indexOf(f) !== s.stats.lastDemandF) ?? P.factions[0];
-    P.nextDemand = s.tick + 16 + Math.floor(nextRand(s) * 14);
-    if (worst.mood < 50 && queue(s, 'fac_demand', { f: P.factions.indexOf(worst), k: Math.floor(nextRand(s) * 2) }, 16, false)) s.stats.lastDemandF = P.factions.indexOf(worst);
+    // the unhappiest faction speaks up: never the same one twice in a row, and each at most once a year
+    const worst = [...P.factions].sort((a, b) => a.mood - b.mood).find((f) => P.factions.indexOf(f) !== s.stats.lastDemandF && s.tick - (s.stats[`facAt:${f.id}`] ?? -999) >= 52);
+    P.nextDemand = s.tick + 32 + Math.floor(nextRand(s) * 22);
+    if (worst && worst.mood < 44) {
+      const fi = P.factions.indexOf(worst);
+      // they remember how you answered last time (1 gave in, 2 a smaller deal, 3 refused, 0 ignored)
+      const prev = s.stats[`facAns:${worst.id}`] ?? -1;
+      if (queue(s, 'fac_demand', { f: fi, k: Math.floor(nextRand(s) * 2), prev }, 16, false, true)) { s.stats.lastDemandF = fi; s.stats[`facAt:${worst.id}`] = s.tick; }
+    }
   }
   // a furious faction rises up
   if (!P.unrest) {

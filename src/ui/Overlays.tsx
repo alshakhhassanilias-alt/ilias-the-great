@@ -1,5 +1,7 @@
 import { previewLapse } from '../sim/events';
-import { fundingText } from '../sim/treasury';
+import { FOLLOW_UPS } from '../sim/events7';
+import { balanceText, budgetReport, fundingText } from '../sim/treasury';
+import { fmtMoney as fmtM, pct } from './format';
 import type { Country } from '../sim/types';
 import { store, useStore } from '../state/store';
 import { actAcceptOffer, actDeclineOffer } from '../sim/actions';
@@ -196,7 +198,16 @@ function lapseOf(uid: number) {
 /** "Costs 0.5% of GDP" → where the money would come from */
 function optionFunding(c: Country, hint: string) {
   const m = /Costs ([\d.]+)% of GDP/.exec(hint);
-  return m ? fundingText(c, (Number(m[1]) / 100) * c.eco.gdp) : null;
+  if (m) return `one-off: ${fundingText(c, (Number(m[1]) / 100) * c.eco.gdp)}`;
+  // a lasting budget change: say it is per year and what it does to the balance
+  const r = /(spending|budget|Revenue)[^·]*?([+−-])([\d.]+)% of GDP/i.exec(hint);
+  if (r) {
+    const s = store.state!, amt = (Number(r[3]) / 100) * c.eco.gdp * (r[2] === '+' ? 1 : -1);
+    const bal = budgetReport(s, c).balance + (/revenue/i.test(r[1]) ? amt : -amt);
+    return `every year: ${amt > 0 ? '+' : '−'}${fmtM(Math.abs(amt))} ${/revenue/i.test(r[1]) ? 'revenue' : 'spending'} → ${balanceText(bal)}`;
+  }
+  const d = /Debt \+([\d.]+)% of GDP/.exec(hint);
+  return d ? `adds ${fmtM((Number(d[1]) / 100) * c.eco.gdp)} to debt (${pct((c.eco.debt + (Number(d[1]) / 100) * c.eco.gdp) / c.eco.gdp)} of GDP), with interest every year` : null;
 }
 
 /** Decisions wait here, most urgent first. While one is open the clock holds (unless switched off in the menu). */
@@ -231,6 +242,7 @@ export function InboxTray() {
               const spC = sp ? s.countries[sp.cid] : c;
               return (
               <div className="inbox-body">
+                {(() => { const f = FOLLOW_UPS.find((x) => x.next === it.id); return f && it.data.t !== undefined ? <div className="arc-chip conseq">↩ A consequence of how you handled “{eventById(f.after).title}” ({dateLabel(it.data.t)})</div> : null; })()}
                 {def.arc && <div className="arc-chip">⚠ {def.arc.title} · stage {def.arc.stage} of {def.arc.of}<span className="arc-steps">{Array.from({ length: def.arc.of }, (_, i) => <i key={i} className={i < def.arc!.stage ? 'on' : ''} />)}</span></div>}
                 {(sp || who) && (
                   <div className="presenter">

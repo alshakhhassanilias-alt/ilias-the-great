@@ -2,6 +2,7 @@
  * Game store: owns the GameState, the simulation clock (pause / speeds), selection, notifications and saves.
  * The simulation itself is plain TypeScript (src/sim); React only reads from here.
  */
+import type { Goal } from '../sim/negotiate';
 import { AUTOSAVE_WEEKS } from '../ui/controls';
 import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { loadGeo } from '../sim/load';
@@ -108,6 +109,9 @@ class Store {
   get sound() { return audio.enabled; }
   setSound(on: boolean) { setSound(on); this.notify(); }
   inboxOpen: number | null = null;
+  /** the negotiating table, when open */
+  nego: { them: number; goal: Goal } | null = null;
+  openNego(them: number, goal: Goal) { this.nego = { them, goal }; this.notify(); }
   private lastInboxUid = 0;
   rippleSeen = '';
   helpStep = 0;

@@ -9,27 +9,21 @@ import { fmtMoney } from '../format';
 import { previewReactions } from '../../sim/politics';
 import { actAid, actGuarantee, actMediate, actSummit, actUltimatum } from '../../sim/actions';
 import { hasGuarantee, guarantorsOf } from '../../sim/relations';
-import { actCancel, actDeclareWar, actPropose, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
-import { evaluateProposal, PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
+import { actCancel, actDeclareWar, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
+import { PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
+import { GOAL_DESC, GOAL_LABEL, stanceOf, type Goal } from '../../sim/negotiate';
 import { alliesOf, areAtWar, baseRelation, relationBreakdown, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
 import { grudgesOf } from '../../sim/leaders';
 import { assessAttack } from '../../sim/ai';
 import { claimStrength } from '../../sim/war';
 
 const KINDS: Proposal[] = ['trade', 'nap', 'alliance', 'coop'];
-const KIND_DESC: Record<Proposal, string> = {
-  trade: 'Boosts both economies and relations.',
-  nap: 'Neither side may attack without a reputation penalty.',
-  alliance: 'Mutual defence (if enabled), strong relations bonus.',
-  coop: 'Joint exercises and tech sharing; deepens ties.',
-};
 
 export function DiplomacyTab({ id }: { id: number }) {
   const s = store.state!;
   const geo = store.geo;
   const mine = id === s.player;
   const c = s.countries[id];
-  const [msg, setMsg] = useState<Record<string, string>>({});
   const [confirmWar, setConfirmWar] = useState(false);
 
   if (mine) return <OwnDiplomacy />;
@@ -47,12 +41,6 @@ export function DiplomacyTab({ id }: { id: number }) {
   const wars = warsOf(s, id);
   const claim = claimStrength(id, s.player);
   const allies = alliesOf(s, id);
-
-  const doPropose = (k: Proposal) => {
-    const r = store.act((g) => actPropose(g, geo, g.player, id, k), true);
-    setMsg((m) => ({ ...m, [k]: r.message }));
-    store.toast(r.ok ? `${c.name} accepted the ${PROPOSAL_LABEL[k].toLowerCase()}.` : `${c.name} declined: ${r.message}`, r.ok ? 'diplo' : 'danger');
-  };
 
   return (
     <>
@@ -82,30 +70,33 @@ export function DiplomacyTab({ id }: { id: number }) {
       </Section>
 
       {!atWar && (
-        <Section title="Agreements" hint="their answer depends on relations & interests">
+        <Section title="Agreements" hint="open talks to see what they want and bargain">
+          {(() => {
+            const st = stanceOf(s, geo, id, { goal: 'trade', give: [] });
+            return st.interests.length > 0 && <div className="hint" style={{ marginBottom: 8 }}>{c.name} wants: {st.interests.slice(0, 3).map((i) => i.label.split(':')[0].toLowerCase()).join(', ')}{st.redLines.length ? ` · red line: ${st.redLines[0].toLowerCase()}` : ''}</div>;
+          })()}
           <div className="list">
-            {KINDS.map((k) => {
-              const has = !!t?.[k];
-              const ev = !has ? evaluateProposal(s, geo, s.player, id, k) : null;
+            {([...KINDS, 'aid', ...(theirSanction ? ['relief'] : [])] as Goal[]).map((k) => {
+              const has = k !== 'aid' && k !== 'relief' && !!t?.[k as Proposal];
+              const ev = !has ? stanceOf(s, geo, id, { goal: k, give: [] }) : null;
               return (
                 <div className="card" key={k} style={{ marginBottom: 8 }}>
                   <div className="row" style={{ border: 'none', padding: 0 }}>
-                    <div className="grow"><b>{PROPOSAL_LABEL[k]}</b><div className="hint">{KIND_DESC[k]}</div></div>
-                    {has ? <button className="btn" onClick={() => store.act((g) => actCancel(g, g.player, id, k), true)}>Cancel</button>
-                      : <button className="btn primary" onClick={() => doPropose(k)}>Propose</button>}
+                    <div className="grow"><b>{GOAL_LABEL[k]}</b><div className="hint">{GOAL_DESC[k]}</div></div>
+                    {has ? <button className="btn" onClick={() => store.act((g) => actCancel(g, g.player, id, k as Proposal), true)}>Cancel</button>
+                      : <button className="btn primary" onClick={() => store.openNego(id, k)}>Negotiate…</button>}
                   </div>
                   {ev && (
                     <div className="hint" style={{ marginTop: 6 }}>
-                      Likelihood: <b className={ev.accept ? 'good' : 'bad'}>{ev.accept ? 'likely to accept' : 'likely to refuse'}</b> · {ev.reasons.join(' · ')}
+                      {ev.blocked ? <b className="bad">Red line: {ev.blocked}</b> : <>As it stands: <b className={ev.p >= 0.6 ? 'good' : ev.p >= 0.35 ? '' : 'bad'}>{Math.round(ev.p * 100)}% chance</b> · {[...ev.factors].sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)).slice(0, 2).map((f) => `${f.label} ${f.pts > 0 ? '+' : ''}${f.pts}`).join(' · ')}</>}
                     </div>
                   )}
-                  {!has && (() => {
-                    const rx = previewReactions(s, s.player, id, k);
+                  {!has && k !== 'aid' && k !== 'relief' && (() => {
+                    const rx = previewReactions(s, s.player, id, k as Proposal);
                     const neg = rx.filter((r) => r.delta < 0).slice(0, 3), pos = rx.filter((r) => r.delta > 0).slice(0, 3);
                     if (!neg.length && !pos.length) return <div className="hint" style={{ marginTop: 3 }}>World reaction: little interest.</div>;
                     return <div className="hint" style={{ marginTop: 3 }}>World reaction: {neg.length > 0 && <span className="bad">↓ {neg.map((r) => s.countries[r.id].name).join(', ')}{rx.filter((r) => r.delta < 0).length > 3 ? ` +${rx.filter((r) => r.delta < 0).length - 3}` : ''}</span>}{neg.length > 0 && pos.length > 0 ? ' · ' : ''}{pos.length > 0 && <span className="good">↑ {pos.map((r) => s.countries[r.id].name).join(', ')}</span>}</div>;
                   })()}
-                  {msg[k] && !has && <div className="hint warn" style={{ marginTop: 4 }}>Last answer: {msg[k]}</div>}
                 </div>
               );
             })}

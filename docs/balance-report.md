@@ -52,3 +52,59 @@ What this means:
 - **Peaceful stability is still high for rich democracies** (USA 88–91). It's realistic, but the USA could use more domestic friction, for example a stronger effect from nationalist/liberal polarisation.
 - **Coups never happened in any peaceful game.** The coup storyline needs an angry military, which a peaceful player rarely creates. That's fine, but it means many players will never see it.
 - **The bots are simple.** Real players will find strategies they don't, such as stacking cheap laws or exploiting peace deals. Human playtesting is still the real test.
+
+## Round 15: trust, treasury, negotiation, repetition
+
+### The treasury
+
+Measured with `fiscalNow` over the first two years with no player input. The "before" column is the previous calibration.
+
+| | Before | After |
+| --- | --- | --- |
+| Starting deficit (most countries) | 2–3.5% of GDP | 0.5–1.4% of GDP |
+| Starting treasury | 3% of GDP | 5% of GDP |
+| Treasury empty | week 47–87 (Egypt week 17) | not within two years for 11 of 12 test countries |
+| Spending figure at the start | $0 (so advisers reported revenue as a surplus) | equals the Economy tab |
+
+Egypt is the exception. Its interest bill is about 9% of GDP, so it starts with an 8% deficit and its treasury runs dry in about 33 weeks. That is a deliberately hard start, and the game now announces it ("The treasury is empty ...") instead of borrowing silently.
+
+The AI still targets deficits of up to 3% of GDP when its debt is low. Over a decade, AI countries therefore run modest deficits.
+
+### Decisions: repetition
+
+Six 10-year sandbox games (Germany, Poland, Brazil, India, Nigeria, Japan). The bot answers every decision with its first allowed option.
+
+| | Before | After |
+| --- | --- | --- |
+| Faction demands | 109 (35–40% of all decisions; each one reset the clock for every other story) | 45 |
+| Distinct decisions per game | 19–25 | 25–31 |
+| Median gap before the same decision returns | 29 weeks | 159 weeks |
+| Decisions per year | 4.3–5.8 | 4.0–5.4 |
+
+Root cause: faction demands were queued every 16–30 weeks. Each one also reset the timer that lets the main event pool fire, so the 75+ ordinary events were crowded out.
+
+What changed:
+
+- Demands now come every 32–54 weeks, from each faction at most once a year.
+- Demands no longer hold back other events.
+- Each faction remembers your last answer to it.
+- Minister scandals are limited to one every 40 weeks, and the same minister can revolt at most once a year.
+- A crisis arc cannot repeat for five years, and only once all fresh arcs are used up.
+
+### Negotiation calibration
+
+Germany at the start, trade unless noted:
+
+- **France** (friend, already allied): military cooperation about 97%.
+- **Brazil** (neutral): trade 88%, cooperation 52%, alliance 11%. Its paranoid/dove leader likes NAPs and dislikes alliances.
+- **India** (neutral, hawkish leader): trade 94%, NAP 64%.
+- **China** (−30): trade 46%, NAP 12%.
+- **Russia** (−41): trade 31%. Cooperation and alliance are blocked by a red line while Germany is allied with Russia's rival.
+- **Iran** (−40, ideologue): trade 19%, rising to 30% with a 0.3% investment package. An alliance is a red line.
+
+Each sweetener's value depends on what the other side wants and is capped, so money alone cannot buy a hostile government. Money is worth more to poor or indebted countries, and less to governments that distrust you.
+
+### Still open
+
+- Treasury balance is now gentle by default; "hard" difficulty only trims revenue by 5%. A harder fiscal mode may be worth adding.
+- The negotiation odds are tuned on starting relations; real players may find combinations (tech + guarantee) that make alliances too cheap. Watch for it.

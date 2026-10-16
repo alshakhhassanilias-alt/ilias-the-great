@@ -195,13 +195,14 @@ export function replaceMinister(s: GameState, id: number, why: string) {
 }
 
 const MIN_EVENT_GAP = 14;
-function queue(s: GameState, id: string, data: Record<string, number>, ttl: number, urgent = false) {
-  if (s.inbox.some((x) => x.id.startsWith('min_')) || s.inbox.length >= 4) return;
-  if (s.tick - (s.stats.minEvt ?? -999) < MIN_EVENT_GAP) return;
+function queue(s: GameState, id: string, data: Record<string, number>, ttl: number, urgent = false): boolean {
+  if (s.inbox.some((x) => x.id.startsWith('min_')) || s.inbox.length >= 4) return false;
+  if (s.tick - (s.stats.minEvt ?? -999) < MIN_EVENT_GAP) return false;
   s.stats.minEvt = s.tick;
   const it: InboxItem = { uid: s.nextInbox++, id, tick: s.tick, expires: s.tick + ttl, urgent, data };
   s.inbox.push(it);
   s.lastEventTick = s.tick;
+  return true;
 }
 
 /** Weekly: loyalty drifts with your popularity; scandals, plots, clashes and resignations. */
@@ -221,8 +222,9 @@ export function stepCabinet(s: GameState) {
       continue;
     }
     if (s.settings.randomEvents === false) continue;
-    if (nextRand(s) < t.scandal * (m.skill <= 2 ? 1.5 : 1) * (s.tick < 20 ? 0 : 1) * (c.politics?.laws.some((l) => l.id === 'anti_graft') ? 0.4 : 1)) queue(s, 'min_scandal', { m: m.id, k: Math.floor(nextRand(s) * 6), amt: nextRand(s) }, 20, true);
-    else if (t.id === 'ambitious' && m.loyalty < 32 && nextRand(s) < 0.015) queue(s, 'min_revolt', { m: m.id }, 14, true);
+    // a scandal or a revolt is a story: at most one scandal every 40 weeks, and the same minister revolts at most once a year
+    if (s.tick - (s.stats.minScandalAt ?? -999) >= 40 && nextRand(s) < t.scandal * (m.skill <= 2 ? 1.5 : 1) * (s.tick < 20 ? 0 : 1) * (c.politics?.laws.some((l) => l.id === 'anti_graft') ? 0.4 : 1)) { if (queue(s, 'min_scandal', { m: m.id, k: Math.floor(nextRand(s) * 6), amt: nextRand(s) }, 20, true)) s.stats.minScandalAt = s.tick; }
+    else if (t.id === 'ambitious' && m.loyalty < 32 && s.tick - (s.stats[`minRevolt:${m.id}`] ?? -999) >= 52 && nextRand(s) < 0.015) { if (queue(s, 'min_revolt', { m: m.id }, 14, true)) s.stats[`minRevolt:${m.id}`] = s.tick; }
   }
   // the classic fight over money: the Treasury against Defence
   const fin = ministerOf(c, 'finance'), def = ministerOf(c, 'defence');

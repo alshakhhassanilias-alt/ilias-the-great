@@ -53,6 +53,13 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('expanding a decision shows its choices', (await pg.locator('.inbox .event-opt').count()) >= 2);
   await pg.locator('.inbox .event-opt:not([disabled])').first().click();
   check('answering a decision clears it', (await pg.locator('.inbox-item').count()) === 0);
+  await pg.evaluate(() => { const s = window.__store.state; s.inbox.push({ uid: 98, id: 'tax_demand', tick: s.tick, expires: s.tick + 200, urgent: false, data: {} }); window.__store.notify(); });
+  await pg.click('.inbox-row');
+  const ht = (await S(pg)).tick; await sleep(1200);
+  check('the clock holds while a decision is open', (await S(pg)).tick === ht && (await pg.evaluate(() => window.__store.heldBy)) === 'a decision');
+  check('an open decision says what happens if it lapses', (await pg.locator('.lapse-line').count()) === 1);
+  await answerEvent(pg); await sleep(800);
+  check('the clock runs again once the decision is answered', (await S(pg)).tick > ht);
   await pg.evaluate(() => { const s = window.__store.state; s.log.push({ seq: s.logSeq++, tick: s.tick, text: 'TEST CAPITAL FALLS', kind: 'war', countries: [s.player], important: true, big: true, prov: 0 }); });
   await sleep(1200);
   check('breaking news shows a banner', (await pg.locator('.breaking').count()) === 1);
@@ -63,6 +70,12 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   const s1 = await S(pg);
   check('time advances at very fast speed and pauses', s1.tick > 10 && (await S(pg)).tick === s1.tick, `(tick ${s1.tick})`);
   await pg.click('.tabs button:has-text("Economy")');
+  {
+    const fin = await pg.locator('.fin-grid').innerText();
+    const top = await pg.locator('.kpi:has-text("Treasury") small').innerText();
+    const bal = await pg.evaluate(() => { const st = window.__store, s = st.state, c = s.countries[s.player]; const e = c.eco, b = c.budget; return e.gdp * e.collection * (b.taxIncome * 0.5 + b.taxCorporate * 0.2 + b.taxVat * 0.55) > 0; });
+    check('the budget names a deficit or a surplus the same way in the top bar and the Economy tab', bal && (/DEFICIT/i.test(fin) ? /deficit/.test(top) : /surplus/.test(top)));
+  }
   await pg.locator('input[aria-label="Consumption tax (VAT)"]').fill('0.05');
   check('tax slider changes policy immediately', (await S(pg)).vat === 0.05);
   const k0 = (await S(pg)).capital;
@@ -83,18 +96,31 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('mouse wheel zooms', (await pg.evaluate(() => window.__map.view.k)) > kz);
   // diplomacy + war + fronts
   await pg.click('.tabs button:has-text("Diplomacy")');
+  await pg.click('button:has-text("Negotiate…")');
+  check('the negotiating table shows what they want, the odds and the factors', (await pg.locator('.modal.nego').count()) === 1 && /%|Refused/.test(await pg.locator('.nego-odds').innerText()) && (await pg.locator('.nego-factors li').count()) >= 2);
+  await pg.click('.nego-actions button:has-text("Walk away")');
+  check('walking away closes the table', (await pg.locator('.modal.nego').count()) === 0);
   await pg.click('button:has-text("Declare war")'); await pg.click('.btnrow button:has-text("Declare war")');
   check('declaring war takes effect immediately', (await S(pg)).wars >= 1);
-  await pg.click('button[aria-label="Very fast"]'); await sleep(2500); await answerEvent(pg); await sleep(500);
-  check('simulation keeps running after the player declares war', (await S(pg)).tick > s1.tick + 5);
+  await pg.click('button[aria-label="Very fast"]'); await sleep(2500);
+  // an urgent decision about to lapse stops the clock and says so; answer it and carry on
+  const lastChance = (await S(pg)).speed === 0 && (await pg.locator('.toast:has-text("Last chance")').count()) > 0;
+  if (!(await pg.locator('.inbox .event-opt').count())) await pg.locator('.inbox-row').first().click().catch(() => {});
+  await answerEvent(pg);
+  await pg.evaluate(() => window.__store.openInbox(null));
+  await pg.click('button[aria-label="Very fast"]'); await sleep(1500);
+  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > s1.tick + 5, `(tick ${(await S(pg)).tick})`);
   // battles: zoom onto the front, click a battle marker, the report opens
   await pg.click('button[aria-label="Pause"]');
+  await pg.evaluate(() => window.__store.openInbox(null));
   await pg.evaluate(() => { const s = window.__store.state; const R = window.__renderer; const b = R.geom.focusBox(s, s.player); R.focusBox([b[0], b[1], b[2] + 12, b[3]], 0, 440, false); });
   await sleep(900);
   const hits = await pg.evaluate(() => window.__renderer.battleHits);
   if (hits.length) {
     const mapBox = await pg.locator('.map-wrap').boundingBox();
-    await pg.mouse.click(mapBox.x + hits[0].x, mapBox.y + hits[0].y);
+    // click a marker that no panel covers (the decision tray sits over the bottom-left of the map)
+    const free = await pg.evaluate(({ hs, bx, by }) => hs.find((h) => document.elementFromPoint(bx + h.x, by + h.y)?.classList.contains('map-canvas')) ?? hs[0], { hs: hits, bx: mapBox.x, by: mapBox.y });
+    await pg.mouse.click(mapBox.x + free.x, mapBox.y + free.y);
     await sleep(300);
   }
   check('clicking a battle opens the battle report', hits.length > 0 && (await pg.locator('.battle-card').count()) === 1, `(${hits.length} battles)`);
@@ -184,6 +210,10 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await quiet(pg, true);
   await pg.evaluate(() => { const s = window.__store.state; const id = s.countries.findIndex((c) => c.name === 'Belarus'); window.__store.select(id, null, false); });
   await pg.click('.tabs button:has-text("Diplomacy")');
+  await pg.click('button:has-text("Negotiate…")');
+  check('the negotiating table shows what they want, the odds and the factors', (await pg.locator('.modal.nego').count()) === 1 && /%|Refused/.test(await pg.locator('.nego-odds').innerText()) && (await pg.locator('.nego-factors li').count()) >= 2);
+  await pg.click('.nego-actions button:has-text("Walk away")');
+  check('walking away closes the table', (await pg.locator('.modal.nego').count()) === 0);
   await pg.click('button:has-text("Declare war")'); await pg.click('.btnrow button:has-text("Declare war")');
   await pg.evaluate(() => { const st = window.__store; st.closeSplash(); for (let i = 0; i < 3; i++) st.stepOnce(); st.select(st.state.player, null, false); st.toasts = []; st.breaking = null; st.notify(); });
   await pg.evaluate(() => { const r = window.__renderer; const s = window.__store.state; const geo = window.__store.geo; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const n of ['Poland', 'Belarus']) for (const p of s.countries.find((c) => c.name === n).provinces) { const bb = geo.provinces[p].bbox; x0 = Math.min(x0, bb[0]); y0 = Math.min(y0, bb[1]); x1 = Math.max(x1, bb[2]); y1 = Math.max(y1, bb[3]); } r.focusBox([x0, y0, x1, y1], 0, 470, false); });

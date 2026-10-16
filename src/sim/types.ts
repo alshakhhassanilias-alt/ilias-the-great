@@ -335,6 +335,8 @@ export interface GameState {
   review: { tick: number; title: string; lines: string[] } | null;
   /** the player's main rival (country id) or -1 */
   rival: number;
+  /** negotiating-table memory per country: patience left and any standing counteroffer */
+  nego?: Record<number, { patience: number; until: number; counter?: { goal: string; give: string[]; tick: number } }>;
   /** the current world-wide crisis (recession, pandemic, cold war ...) and when the next one may start */
   crisis: { id: string; start: number; end: number } | null;
   nextCrisis: number;

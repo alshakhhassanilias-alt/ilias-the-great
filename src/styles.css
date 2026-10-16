@@ -495,3 +495,42 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .lapse-fx { color: var(--muted); }
 .event-opt .opt-fund { display: block; opacity: .8; font-size: 11px; margin-top: 2px; }
 .inbox-head { display: none; }
+
+/* the negotiating table */
+.modal.nego { width: min(900px, 100%); }
+.nego-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+.nego-head .grow { display: flex; flex-direction: column; gap: 2px; }
+.nego-head small { color: var(--muted); font-size: 12px; }
+.nego-goals { display: flex; flex-wrap: wrap; gap: 6px; }
+.nego-goals .nego-chip { border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 14px; padding: 4px 11px; font-size: 12.5px; cursor: pointer; }
+.nego-goals .nego-chip.on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.nego-goals .nego-chip:disabled { opacity: .45; cursor: default; }
+.nego-desc { font-size: 12.5px; color: var(--muted); margin: 8px 0 10px; }
+.nego-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; }
+.nego-grid h4 { margin: 10px 0 6px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.nego-grid h4:first-child { margin-top: 0; }
+.nego-want { position: relative; font-size: 12.5px; padding: 4px 6px; margin-bottom: 4px; border-radius: 4px; overflow: hidden; background: var(--panel-2); }
+.nego-want span { position: relative; z-index: 1; }
+.nego-want i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(80, 180, 160, .22); }
+.nego-list { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.45; }
+.nego-list.bad li { color: #ff9c7a; }
+.nego-term { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-size: 12.5px; }
+.nego-term small { display: block; color: var(--muted); font-size: 11.5px; }
+.nego-odds { margin: 10px 0 6px; padding: 8px 10px; border-radius: 8px; background: var(--panel-2); border-left: 4px solid var(--amber); }
+.nego-odds b { font-size: 22px; margin-right: 8px; }
+.nego-odds small { color: var(--muted); }
+.nego-odds.good { border-left-color: var(--green); } .nego-odds.bad, .nego-odds.blocked { border-left-color: var(--red); }
+.nego-odds.blocked b { font-size: 15px; }
+.nego-meter { height: 5px; border-radius: 3px; background: rgba(255,255,255,.08); margin-top: 6px; overflow: hidden; }
+.nego-meter i { display: block; height: 100%; background: var(--teal); transition: width .25s ease; }
+.nego-factors { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.nego-factors li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--line-soft); }
+.nego-factors b { font-variant-numeric: tabular-nums; }
+.nego-costs { font-size: 12px; margin-top: 8px; line-height: 1.45; }
+.nego-result { margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: var(--panel-2); border-left: 4px solid var(--amber); display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.nego-result.good { border-left-color: var(--green); } .nego-result.bad { border-left-color: var(--red); }
+.nego-result small { color: var(--muted); font-size: 12px; }
+.nego-counter { margin-top: 8px; font-size: 12.5px; padding: 6px 10px; border: 1px dashed var(--amber); border-radius: 6px; }
+.nego-actions { margin-top: 12px; }
+@media (max-width: 700px) { .nego-grid { grid-template-columns: 1fr; } }
+.arc-chip.conseq { border-color: var(--teal); color: var(--teal); }

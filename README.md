@@ -57,8 +57,10 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Diplomatic cables:** foreign leaders answer what you do (treaties, refusals, sanctions, war, peace) in their own voice, coloured by their traits; rivals send the occasional threat, friends a kind word. Reply warmly or firmly. Offers show the leader, their pitch, what the treaty gives you and how the world would react.
 
 ## What keeps it busy
+* **Choices with consequences:** pay off strikers and other unions want the same; cover up a scandal and the cover-up can unravel a year later; take the investor's money and the strings show up; admit refugees and integration becomes the issue; reinforce a border and they answer in kind. Follow-ups say which choice of yours led to them. Factions remember how you answered their last demand.
+* **A treasury you can read:** annual revenue, spending (services, defence, interest) and balance kept apart from the cash in hand and the debt; how long the cash lasts; one-click ways to balance the budget with their side effects; a ledger of one-off costs and automatic borrowing; and every cost button showing how much comes from the treasury and how much is borrowed.
 * **Crisis arcs** now also include an outbreak, a heatwave blackout and a leaked-files scandal.
-* **Decision events** (about 5 a year, 16 kinds): strikes, energy shocks, border incidents, research breakthroughs, disasters, scandals, investment offers, refugees, central-bank calls, coup plots, trade delegations, arms deals, harvest failures, tax demands, allies asking for help, resource discoveries. The game pauses and each choice has real costs and effects.
+* **Decision events** (about 5 a year, drawn from 140+ kinds): strikes, energy shocks, border incidents, research breakthroughs, disasters, scandals, investment offers, refugees, central-bank calls, coup plots, trade delegations, arms deals, harvest failures, tax demands, allies asking for help, resource discoveries and many more. Each choice has real costs and effects; each card says what happens if you let it lapse and when.
 * **A living world:** AI countries have disasters, strikes, coups, booms and border clashes that show up in a live **news ticker**; they declare wars, sign peace, offer you treaties, sanction aggressors and call allies.
 * **Objectives:** ten optional goals (grow GDP, open markets, build infrastructure, climb the rankings, win your first conquest ...) that pay out immediately.
 * **Covert operations:** gather intelligence, influence, steal technology, sabotage, incite unrest; success depends on the intelligence gap.
@@ -86,10 +88,13 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
      demobilise, buy equipment; offensive commitment and manual or automatic targeting; peace talks. At war it also
      shows the **home front** (war support, why it moves, propaganda / war bonds / censorship) and **supply lines**
      (supply per offensive, encircled pockets, a one-tap "build a supply hub here" suggestion).
-   * **Diplomacy** — relations breakdown, treaty proposals (with a likelihood preview and reasons), sanctions and
-     embargoes, war declaration (with an odds estimate), pending offers from AI countries.
-4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–4 = speed.
-   The game pauses automatically when someone declares war on you (toggle in settings).
+   * **Diplomacy** — relations breakdown, the **negotiating table** (what they want, red lines, your leverage, terms
+     you can add, the odds with every factor, counteroffers and patience), sanctions and embargoes, war declaration
+     (with an odds estimate), pending offers from AI countries.
+4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–4 = speed, + / − zoom.
+   The game pauses automatically when someone declares war on you, and two weeks before an urgent decision would
+   lapse. While a decision, a menu or the negotiating table is open, the clock holds. Each can be switched off in
+   settings. Autosave runs every 26 weeks of game time.
 
 ## Architecture
 

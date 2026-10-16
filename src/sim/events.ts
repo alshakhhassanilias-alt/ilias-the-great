@@ -6,6 +6,7 @@
 import { EVENTS4 } from './events4';
 import { EVENTS5 } from './events5';
 import { EVENTS6 } from './events6';
+import { EVENTS7, rememberChoice } from './events7';
 import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp } from './util';
@@ -190,7 +191,7 @@ export const EVENTS: EventDef[] = [
 import { EVENTS2 } from './events2';
 import { finalizeResolution, proposeResolution } from './politics';
 import { EVENTS3 } from './events3';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6];
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7];
 export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
 
 export const INBOX_MAX = 4;
@@ -229,6 +230,7 @@ function expireInbox(s: GameState, geo: Geo) {
     s.inbox = s.inbox.filter((x) => x !== it);
     const def = eventById(it.id);
     const msg = def.lapse ? def.lapse(s, c, it.data, geo) : 'The chance passed.';
+    rememberChoice(s, it.id, -1, it.data);
     logEvent(s, `${def.title}: you let it lapse. ${msg}`, 'info', [s.player], it.urgent);
   }
 }
@@ -278,6 +280,7 @@ export function resolveEvent(s: GameState, geo: Geo, option: number, uid?: numbe
   // every cost, income and loan in this decision is one line in the treasury ledger
   const msg = asPurchase(s, c, def.title, () => opt.apply(s, c, it.data, geo));
   s.inbox = s.inbox.filter((x) => x !== it);
+  rememberChoice(s, it.id, option, it.data);
   logEvent(s, `${def.title}: ${msg}`, 'info', [s.player]);
   return { ok: true, message: msg };
 }

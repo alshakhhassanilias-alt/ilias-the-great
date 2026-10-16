@@ -88,19 +88,21 @@ export const EVENTS5: EventDef[] = [
   {
     id: 'fac_demand', icon: '✊', title: 'A faction makes demands', weight: 0, cooldown: 0, ttl: 16,
     eligible: () => null, speaker: facSpeaker,
-    lapse: (_s, c, d) => { const f = fac(c, d); if (f) sway(c, f.id, -8); return 'Ignored, they feel betrayed.'; },
+    lapse: (s, c, d) => { const f = fac(c, d); if (f) { sway(c, f.id, d.prev === 0 || d.prev === 3 ? -12 : -8); s.stats[`facAns:${f.id}`] = 0; } return d.prev === 0 || d.prev === 3 ? 'Ignored again. They stop asking politely.' : 'Ignored, they feel betrayed.'; },
     text: (s, c, d) => {
       const f = fac(c, d), dm = demandOf(c, d);
       if (!f || !dm) return 'A faction is unhappy with the government.';
-      return `${f.leader}, ${factionMeta(f.id).people} for the ${factionMeta(f.id).name} (${f.support.toFixed(0)}% of the country, mood: ${moodLabel(f.mood).toLowerCase()}), demands ${dm.text(s, c)}. "${QUOTES[f.id]}"`;
+      // they remember your last answer
+      const past = d.prev === 3 ? 'You turned them down last time, and they have not forgotten. ' : d.prev === 0 ? 'Last time you did not even answer them. ' : d.prev === 1 ? 'You gave them what they asked for last time; now they want more. ' : d.prev === 2 ? 'Your compromise last time bought a year of quiet. ' : '';
+      return `${past}${f.leader}, ${factionMeta(f.id).people} for the ${factionMeta(f.id).name} (${f.support.toFixed(0)}% of the country, mood: ${moodLabel(f.mood).toLowerCase()}), demands ${dm.text(s, c)}. "${QUOTES[f.id]}"`;
     },
     options: [
       { label: 'Give them what they want', hint: 'The demand is met · their mood +16 · their rivals grumble', apply: (s, c, d) => {
         const f = fac(c, d), dm = demandOf(c, d); if (!f || !dm) return 'Too late.';
-        const r = dm.apply(s, c); sway(c, f.id, 16); for (const x of RIVALS[f.id]) sway(c, x, -4); return r;
+        const r = dm.apply(s, c); sway(c, f.id, 16); for (const x of RIVALS[f.id]) sway(c, x, -4); s.stats[`facAns:${f.id}`] = 1; return r;
       } },
-      { label: 'Offer a smaller deal', hint: 'Costs 8 political capital · their mood +6', enabled: hasPC(8), apply: (_s, c, d) => { const f = fac(c, d); if (!f) return ''; spendPC(c, 8); sway(c, f.id, 6); return 'A compromise buys you time.'; } },
-      { label: 'Refuse', hint: 'Their mood −10 · their rivals approve (+3)', apply: (_s, c, d) => { const f = fac(c, d); if (!f) return ''; sway(c, f.id, -10); for (const x of RIVALS[f.id]) sway(c, x, 3); return f.mood < 30 ? 'They are furious. Expect trouble.' : 'You refuse. They will remember.'; } },
+      { label: 'Offer a smaller deal', hint: 'Costs 8 political capital · their mood +6', enabled: hasPC(8), apply: (s, c, d) => { const f = fac(c, d); if (!f) return ''; spendPC(c, 8); sway(c, f.id, d.prev === 3 ? 3 : 6); s.stats[`facAns:${f.id}`] = 2; return d.prev === 3 ? 'After last time, they take the crumbs grudgingly.' : 'A compromise buys you time.'; } },
+      { label: 'Refuse', hint: 'Their mood −10 (−14 if you refused them last time too) · their rivals approve (+3)', apply: (s, c, d) => { const f = fac(c, d); if (!f) return ''; sway(c, f.id, d.prev === 3 ? -14 : -10); for (const x of RIVALS[f.id]) sway(c, x, 3); s.stats[`facAns:${f.id}`] = 3; return f.mood < 30 ? 'They are furious. Expect trouble.' : 'You refuse. They will remember.'; } },
     ],
   },
   {
