@@ -1767,3 +1767,110 @@ describe('round 16: alliances, camps and regimes can change', () => {
     void stepAlignment;
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+import { actAbandonCourse, actAdvanceCourse, actStartCourse, coursesFor } from '../src/sim/courses';
+import { actProposeDefence, actRenameOrg, cleanName, mergeOrgs, orgName, upgradeToDefence } from '../src/sim/blocs';
+import { actFoundOrg } from '../src/sim/alignment';
+import { addRelation } from '../src/sim/relations';
+
+describe('round 17: every country can change course; alliances live and evolve', () => {
+  const finishCourse = (s: GameState, name?: string) => {
+    const c = s.countries[s.player];
+    for (let guard = 0; guard < 400 && c.course; guard++) {
+      c.politics!.pc = 100; c.eco.cash = 1e13;
+      if (c.course.until <= s.tick) actAdvanceCourse(s, geo, name);
+      for (const it of [...s.inbox]) { const d = eventById(it.id); const k = d.options.findIndex((o, i) => i === 0 && (!o.enabled || o.enabled(s, c))); resolveEvent(s, geo, Math.max(0, k), it.uid); }
+      run(s, 1);
+    }
+  };
+  it('every country has four courses written for its situation, and at least two it can take', () => {
+    const s = fresh('Germany');
+    for (const c of s.countries.filter((x) => x.alive)) {
+      const ks = coursesFor(s, c, geo);
+      expect(ks.map((k) => k.id)).toEqual(['west', 'east', 'third', 'region']);
+      for (const k of ks) { expect(k.title.length).toBeGreaterThan(3); for (const st of k.stages) { expect(st.title).not.toMatch(/undefined|NaN/); expect(st.desc).not.toMatch(/undefined|NaN/); } }
+      if (c.provinces.length > 3) expect(ks.filter((k) => k.ok).length, c.name).toBeGreaterThanOrEqual(2);
+    }
+    const tr = coursesFor(s, s.countries[id('Turkey')], geo).find((k) => k.id === 'east')!;
+    expect(tr.title).toBe('The Eurasian Turn');
+    const us = coursesFor(s, s.countries[id('United States of America')], geo);
+    expect(us.find((k) => k.id === 'west')!.ok).toBe(false);
+  });
+  it('turning West step by step moves a country, changes its friends and can end in membership', () => {
+    const s = fresh('Kazakhstan', { randomEvents: false });
+    const c = s.countries[s.player];
+    const o0 = c.orient!, us0 = getRelation(s, s.player, id('United States of America'));
+    expect(actStartCourse(s, geo, 'west').ok).toBe(true);
+    expect(actStartCourse(s, geo, 'east').ok).toBe(false); // one course at a time
+    finishCourse(s);
+    expect(c.course).toBeUndefined();
+    expect(c.coursesDone).toContain('west');
+    expect(c.orient!).toBeGreaterThan(o0 + 0.3);
+    expect(getRelation(s, s.player, id('United States of America'))).toBeGreaterThan(us0 + 10);
+    expect(orgsOf(s, s.player).some((o) => o.key === 'csto')).toBe(false); // it broke with the old camp
+  });
+  it('leading your region ends in an organisation with the name you chose', () => {
+    const s = fresh('Brazil', { randomEvents: false });
+    expect(actStartCourse(s, geo, 'region').ok).toBe(true);
+    finishCourse(s, 'The Southern Cross Union');
+    expect(s.orgs!.some((o) => o.name === 'The Southern Cross Union' && o.founder === s.player)).toBe(true);
+  });
+  it('abandoning a course costs a little and blocks retrying at once', () => {
+    const s = fresh('Turkey', { randomEvents: false });
+    s.countries[s.player].politics!.pc = 100;
+    expect(actStartCourse(s, geo, 'east').ok).toBe(true);
+    expect(actAbandonCourse(s).ok).toBe(true);
+    expect(actStartCourse(s, geo, 'east').ok).toBe(false);
+  });
+  it('names are varied, never repeated, and a founder can name and rename its own organisation', () => {
+    const s = fresh('Poland');
+    const names = new Set<string>();
+    for (let i = 0; i < 12; i++) { const n = orgName(s, (['defence', 'union', 'economic'] as const)[i % 3], id('Poland'), [id('Lithuania'), id('Czechia')], 1, i); expect(n).not.toMatch(/the the/i); names.add(n); }
+    expect(names.size).toBeGreaterThan(6);
+    expect(cleanName('  <b>x')).toBeNull();
+    s.countries[s.player].politics!.pc = 100;
+    for (const x of ['Lithuania', 'Czechia', 'Slovakia']) addRelation(s, s.player, id(x), 60);
+    const r = actFoundOrg(s, 'economic', [id('Lithuania'), id('Czechia'), id('Slovakia')], 'The Amber Road');
+    expect(r.ok).toBe(true);
+    const o = s.orgs!.find((x) => x.name === 'The Amber Road')!;
+    expect(actRenameOrg(s, o.id, 'The Amber League').ok).toBe(true);
+    expect(o.name).toBe('The Amber League');
+    expect(actRenameOrg(s, s.orgs!.find((x) => x.key === 'nato')!.id, 'Mine').ok).toBe(false);
+  });
+  it('clubs can become alliances, and a big bloc absorbs a small one', () => {
+    const s = fresh('Poland');
+    const brics = s.orgs!.find((x) => x.key === 'brics')!;
+    upgradeToDefence(s, brics, 'test');
+    expect(brics.kind).toBe('defence');
+    expect(getTreaty(s, id('Brazil'), id('India'))?.alliance).toBe(true);
+    expect(brics.history!.some((h) => /mutual-defence/.test(h.text))).toBe(true);
+    const nato = s.orgs!.find((x) => x.key === 'nato')!;
+    const small = { ...nato, id: 99, key: 'x', name: 'the Test Pact', members: [id('Sweden'), id('Finland'), id('Ukraine')], founded: 5 };
+    s.orgs!.push(small);
+    const m = mergeOrgs(s, nato, small);
+    expect(m).toBe(nato);
+    expect(nato.name).toBe('NATO');
+    expect(nato.members).toContain(id('Ukraine'));
+    expect(s.orgs!.includes(small)).toBe(false);
+  });
+  it('a member can propose a mutual-defence clause; the members vote', () => {
+    const s = fresh('Brazil');
+    const brics = s.orgs!.find((x) => x.key === 'brics')!;
+    const r = actProposeDefence(s, brics.id);
+    expect(r.message.length).toBeGreaterThan(5);
+    expect(actProposeDefence(s, brics.id).ok).toBe(false); // not again this year
+  });
+  it('AI countries change course rarely and for reasons; the camps do not snowball', () => {
+    const s = fresh('Uruguay', { seed: 5 });
+    const a0 = alignmentSummary(s);
+    let starts = 0, last = 0;
+    for (let w = 0; w < 52 * 8; w++) {
+      s.inbox = []; tick(s, geo);
+      for (const e of s.log) { if (e.seq <= last) continue; last = e.seq; if (/CHANGES COURSE/.test(e.text)) starts++; }
+    }
+    const a1 = alignmentSummary(s);
+    expect(starts).toBeLessThanOrEqual(16);
+    expect(Math.abs(a1.west - a0.west)).toBeLessThanOrEqual(8);
+  });
+});

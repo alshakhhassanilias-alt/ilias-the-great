@@ -24,7 +24,7 @@ import { isMajor } from './drama';
 import { nextRand } from './rng';
 import { clamp } from './util';
 import { logEvent } from './log';
-import { placeName } from './places';
+import { cleanName, evolveOrgs, orgName } from './blocs';
 import { geoRefGet } from './geoRef';
 import { neighborsOf } from './diplomacy';
 import type { Country, CountryId, GameState, Org } from './types';
@@ -34,13 +34,13 @@ const ids = (names: string[]) => names.map((n) => NAME_TO_ID[n]).filter((x) => x
 
 /** The organisations of 2024. NATO's bonus sits on top of the Western camp's (+14), matching the old fixed values. */
 export function initialOrgs(): Org[] {
-  return [
+  return ([
     { id: 1, key: 'nato', name: 'NATO', icon: '🛡', kind: 'defence', bonus: 12, members: ids(NATO), founded: 0, camp: 1 },
     { id: 2, key: 'eu', name: 'the European Union', icon: '⭐', kind: 'union', bonus: 14, members: ids(EU), founded: 0, camp: 1 },
     { id: 3, key: 'csto', name: 'the CSTO', icon: '⚔', kind: 'defence', bonus: 22, members: ids(CSTO), founded: 0, camp: -1 },
     { id: 4, key: 'arab', name: 'the Arab League', icon: '🌙', kind: 'economic', bonus: 14, members: ids(ARAB_LEAGUE), founded: 0, camp: 0 },
     { id: 5, key: 'brics', name: 'BRICS', icon: '🌐', kind: 'economic', bonus: 6, members: ids(BRICS), founded: 0, camp: 0 },
-  ];
+  ] as Org[]).map((o) => ({ ...o, base: o.bonus, depth: 2 / 3, history: [{ tick: 0, text: 'A founding pillar of the 2024 world order' }] }));
 }
 
 /** Older saves and new games: make sure orientation, hostility, organisations and long memory exist. */
@@ -54,6 +54,8 @@ export function ensureAlignment(s: GameState) {
 }
 
 const nameOf = (s: GameState, id: CountryId) => s.countries[id]?.name ?? '?';
+/** Where a country stood in 2024 (+1 West, −1 East, 0 neither). */
+export const initialOrientOf = (c: Country) => initialOrient(c.id);
 // military strength of every country, computed once per week (it is read thousands of times by the steps below)
 let strCache: { st: GameState; tick: number; v: Float64Array } | null = null;
 function str(s: GameState, id: CountryId): number {
@@ -100,12 +102,13 @@ function bilateral(s: GameState, a: CountryId, b: CountryId, except: Org) {
 export function foundOrg(s: GameState, founder: CountryId, kind: Org['kind'], members: CountryId[], name?: string): Org {
   const F = s.countries[founder];
   const id = Math.max(0, ...(s.orgs ?? []).map((o) => o.id)) + 1;
-  const city = placeName(F.capital);
+  const camp = Math.sign(Math.round(orientOf(s, founder) * 2) / 2);
+  const bonus = kind === 'defence' ? 14 : kind === 'union' ? 12 : 6;
   const o: Org = {
     id, key: `org${id}`, kind, founded: s.tick, founder, members: [],
-    name: name ?? (kind === 'defence' ? `the ${city} Pact` : kind === 'union' ? `the ${city} Union` : `the ${city} Economic Forum`),
-    icon: kind === 'defence' ? '🛡' : kind === 'union' ? '🤝' : '💱', bonus: kind === 'defence' ? 14 : kind === 'union' ? 12 : 6,
-    camp: Math.sign(Math.round(orientOf(s, founder) * 2) / 2),
+    name: name ?? orgName(s, kind, founder, members, camp),
+    icon: kind === 'defence' ? '🛡' : kind === 'union' ? '🤝' : '💱', bonus: Math.round(bonus * 0.84), base: bonus, depth: 0.4, camp,
+    history: [{ tick: s.tick, text: `Founded by ${F.name}` }],
   };
   (s.orgs ??= []).push(o);
   for (const m of [founder, ...members]) if (!o.members.includes(m)) {
@@ -285,6 +288,7 @@ function stepOrgs(s: GameState) {
     const pick = cands[0];
     if (pick && admitted(o, applicationVotes(s, o, pick.c.id))) joinOrg(s, o, pick.c.id, 'the members voted it in');
   }
+  evolveOrgs(s);
 }
 
 /** Countries with a long tradition of military neutrality: they join a defence pact only if attacked. */
@@ -386,8 +390,11 @@ export function actFoundOrg(s: GameState, kind: Org['kind'], invitees: CountryId
   if (kind === 'defence' && orgsOf(s, s.player).some((o) => o.kind === 'defence')) return { ok: false, message: 'Leave your current defence pact first' };
   const yes = foundingAnswers(s, kind, invitees).filter((a) => a.yes).map((a) => a.m);
   if (yes.length < 2) return { ok: false, message: 'At least two countries must agree to join' };
+  const clean = name ? cleanName(name) : null;
+  if (name && !clean) return { ok: false, message: 'A name needs 3 to 40 characters' };
+  if (clean && (s.orgs ?? []).some((x) => x.name.toLowerCase() === clean.toLowerCase())) return { ok: false, message: 'That name is already taken' };
   if (c.politics) c.politics.pc -= FOUND_PC;
-  const o = foundOrg(s, s.player, kind, yes, name);
+  const o = foundOrg(s, s.player, kind, yes, clean ?? undefined);
   return { ok: true, message: `${o.name} is born, with ${yes.length} founding partners.` };
 }
 

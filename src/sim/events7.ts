@@ -11,6 +11,7 @@ import { addRelation } from './relations';
 import { sway, spendPC } from './domestic';
 import { dateLabel } from './tick';
 import { changeGov } from './alignment';
+import { imposeSanction } from './diplomacy';
 import { type D, type EventDef, name, pay, stab, rep, money, canPay } from './eventkit';
 import type { Country, GameState } from './types';
 
@@ -138,6 +139,18 @@ export const EVENTS7: EventDef[] = [
       } },
     ],
     lapse: (_s, c) => { sway(c, 'military', -6); return 'They watch, and wait.'; },
+  },
+  {
+    id: 'camp_pressure', icon: '📞', title: 'Your old patron pushes back', weight: 0, cooldown: 0, urgent: true, ttl: 10,
+    eligible: () => null,
+    speaker: (s, _c, d) => { const P = s.countries[d.p]; return P?.leader ? { name: P.leader.name, role: `Leader of ${P.name}`, cid: P.id, kind: 'leader' } : null; },
+    text: (s, c, d) => { const P = s.countries[d.p]; return `${P?.leader?.name ?? 'The leader'} of ${P?.name ?? 'your old patron'} is on the phone, and the tone is cold. ${c.name}'s change of course has been noticed. "Friends do not walk away from friends," you are told. "And when they do, they find out what friendship was worth." Trade, gas and security are all on the table.`; },
+    options: [
+      { label: 'Reassure them: slow down', hint: 'Costs 10 political capital · relations with them +8 · your current step takes 8 weeks longer', enabled: hasPC(10), apply: (s, c, d) => { spendPC(c, 10); addRelation(s, c.id, d.p, 8); if (c.course && c.course.until > s.tick) c.course.until += 8; return 'You buy time with soft words.'; } },
+      { label: 'Hold your course', hint: 'Relations with them −10 · they may impose sanctions', apply: (s, c, d) => { addRelation(s, c.id, d.p, -10); if (nextRand(s) < 0.5 && s.countries[d.p]?.alive) { imposeSanction(s, d.p, c.id, 1); return 'They answer with sanctions. You hold firm.'; } return 'You hold firm. They grumble, for now.'; } },
+      { label: 'Back down: abandon the course', hint: 'The course ends · relations with them +6 · reputation −2', apply: (s, c, d) => { if (c.course) { for (const x of c.course.leaders) addRelation(s, c.id, x, -5); c.course = undefined; } addRelation(s, c.id, d.p, 6); rep(c, -2); return 'You step back into line.'; } },
+    ],
+    lapse: (s, c, d) => { addRelation(s, c.id, d.p, -8); return 'Your silence is read as defiance.'; },
   },
   // ---- the form of government itself is on the table
   {

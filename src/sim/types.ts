@@ -76,6 +76,12 @@ export interface Org {
   founder?: CountryId;
   /** the bloc it stands for, if any: +1 Western, −1 Eastern, 0 neither */
   camp: number;
+  /** how deep the ties run (0..1): grows while members get on, frays when they do not; scales the relations bonus */
+  depth?: number;
+  /** the bonus at full strength, before depth scales it */
+  base?: number;
+  /** what happened to it: founded, merged, upgraded, split, renamed */
+  history?: { tick: number; text: string }[];
 }
 export interface LedgerEntry { t: number; what: string; amount: number; borrowed: number }
 export interface Economy {
@@ -219,6 +225,10 @@ export interface Country {
   politics?: Politics;
   /** national path: completed projects and the one under way */
   nat?: { done: string[]; active?: { id: string; start: number; until: number } };
+  /** a change of foreign-policy course under way: West, East, a third way, or leading the region */
+  course?: { id: 'west' | 'east' | 'third' | 'region'; stage: number; until: number; started: number; leaders: number[]; old: number[]; neighbors: number[]; org?: number; name?: string };
+  /** courses completed, for the record */
+  coursesDone?: string[];
   /** the player's weapons programmes */
   progs?: { id: string; until: number; done: boolean }[];
 }

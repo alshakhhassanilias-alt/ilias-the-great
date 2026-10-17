@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CoursesSection } from './Courses';
 import { AlignmentSection, OrgsSection, OrientBar, orientLabel } from './Alignment';
 import { GOV_LABEL } from '../../sim/alignment';
 import { orgsOf } from '../../sim/relations';
@@ -111,7 +112,7 @@ export function DiplomacyTab({ id }: { id: number }) {
         <div className="card" style={{ fontSize: 13 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{c.intent || 'Going about its business'}</div>
           <OrientBar o={c.orient ?? 0} />
-          <div className="hint" style={{ margin: '4px 0 6px' }}>{orientLabel(c.orient ?? 0)} · {GOV_LABEL[c.gov] ?? c.gov}{orgsOf(s, id).length ? ` · member of ${orgsOf(s, id).map((o) => o.name).join(', ')}` : ' · in no organisation'}{(c.hostile ?? 0) > 0.05 ? ` · treated as an adversary by the West (${((c.hostile ?? 0) * 100).toFixed(0)}%)` : ''}</div>
+          <div className="hint" style={{ margin: '4px 0 6px' }}>{orientLabel(c.orient ?? 0)} · {GOV_LABEL[c.gov] ?? c.gov}{orgsOf(s, id).length ? ` · member of ${orgsOf(s, id).map((o) => o.name).join(', ')}` : ' · in no organisation'}{(c.hostile ?? 0) > 0.05 ? ` · treated as an adversary by the West (${((c.hostile ?? 0) * 100).toFixed(0)}%)` : ''}{c.course ? ` · 🧭 changing course: ${({ west: 'turning West', east: 'turning East', third: 'stepping out of the camps', region: 'building a regional bloc' } as Record<string, string>)[c.course.id]} (step ${c.course.stage + 1})` : ''}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {c.ai.aggression > 0.7 && <span className="pill red">Hawkish</span>}{c.ai.aggression < 0.2 && <span className="pill green">Pacifist</span>}
             {c.ai.expansion > 0.5 && <span className="pill red">Expansionist</span>}{c.ai.trade > 0.7 && <span className="pill blue">Mercantile</span>}
@@ -224,6 +225,7 @@ function OwnDiplomacy() {
     <>
       <AutopilotBanner area="diplomacy" />
       <AlignmentSection />
+      <CoursesSection />
       {s.offers.length > 0 && (
         <Section title="Pending offers">
           {s.offers.map((o) => (

@@ -9,6 +9,7 @@ import {
   FOUND_PC, GOV_LABEL, REALIGN_PC, actApplyOrg, actFoundOrg, actLeaveOrg, actRealign, admitted, applicationVotes, credibility, foundingAnswers, orientTarget, westShare,
 } from '../../sim/alignment';
 import { areAtWar, getRelation } from '../../sim/relations';
+import { actProposeDefence, actRenameOrg, defenceClauseVotes, depthLabel, orgName } from '../../sim/blocs';
 import type { Org } from '../../sim/types';
 
 export const orientLabel = (o: number) => (o > 0.7 ? 'Firmly Western' : o > 0.3 ? 'Leans West' : o < -0.7 ? 'Firmly Eastern' : o < -0.3 ? 'Leans East' : 'Non-aligned');
@@ -82,13 +83,15 @@ export function OrgsSection() {
               <div className="row" style={{ border: 'none', padding: 0 }}>
                 <div className="grow">
                   <b>{o.icon} {o.name.replace(/^the /, 'The ')}</b>{member && <span className="pill green" style={{ marginLeft: 6 }}>member</span>}
-                  <div className="hint">{KIND_LABEL[o.kind]} · {o.members.length} members{o.camp ? ` · ${o.camp > 0 ? 'Western' : 'Eastern'} camp` : ''}{o.founded > 0 ? ` · founded ${2024 + Math.floor(o.founded / 52)}` : ''}{cred < 0.8 ? ` · credibility ${(cred * 100).toFixed(0)}%` : ''}</div>
+                  <div className="hint">{KIND_LABEL[o.kind]} · {o.members.length} members{o.camp ? ` · ${o.camp > 0 ? 'Western' : 'Eastern'} camp` : ''}{o.founded > 0 ? ` · founded ${2024 + Math.floor(o.founded / 52)}` : ''} · ties {depthLabel(o.depth ?? 2 / 3)} (+{o.bonus} relations between members){cred < 0.8 ? ` · credibility ${(cred * 100).toFixed(0)}%` : ''}{o.founder === me ? ' · you founded it' : ''}</div>
                 </div>
                 {member
                   ? <button className="btn danger" onClick={() => store.act((g) => actLeaveOrg(g, o.id))}>Leave<small>relations with members fall</small></button>
                   : <button className={`btn ${admitted(o, votes) ? 'primary' : ''}`} disabled={wait > 0} onClick={() => store.act((g) => actApplyOrg(g, o.id))}>Apply<small>{wait > 0 ? `again in ${wait} wk` : `${yes}/${votes.length} would vote yes · ${admitted(o, votes) ? 'likely admitted' : 'would be rejected'}`}</small></button>}
               </div>
-              <button className="linkbtn" onClick={() => setOpen(open === o.id ? null : o.id)}>{open === o.id ? 'Hide members' : member ? 'Members' : 'Who votes how'}</button>
+              <button className="linkbtn" onClick={() => setOpen(open === o.id ? null : o.id)}>{open === o.id ? 'Hide details' : member ? 'Members, history and proposals' : 'Who votes how, and its history'}</button>
+              {open === o.id && (o.history?.length ?? 0) > 0 && <ul className="org-history">{o.history!.slice(-5).map((h, i) => <li key={i}><span>{2024 + Math.floor(h.tick / 52)}</span>{h.text}</li>)}</ul>}
+              {open === o.id && member && <OrgProposals o={o} />}
               {open === o.id && (
                 <div className="org-members">
                   {member ? o.members.map((m) => <span key={m} className="pill" onClick={() => store.select(m, null, true)}>{s.countries[m].name}</span>)
@@ -104,14 +107,36 @@ export function OrgsSection() {
   );
 }
 
+function OrgProposals({ o }: { o: Org }) {
+  const s = store.state!;
+  const [name, setName] = useState(o.name);
+  const votes = o.kind !== 'defence' ? defenceClauseVotes(s, o) : [];
+  return (
+    <div className="org-props">
+      {o.kind !== 'defence' && (
+        <button className="btn" onClick={() => store.act((g) => actProposeDefence(g, o.id))}>Propose a mutual-defence clause<small>{votes.filter((v) => v.yes).length}/{votes.length} members in favour (needs 75%) · turns it into an alliance</small></button>
+      )}
+      {o.founder === s.player && (
+        <div className="row" style={{ border: 'none', gap: 6 }}>
+          <input className="org-name-input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="New name" />
+          <button className="btn" disabled={name.trim() === o.name} onClick={() => store.act((g) => actRenameOrg(g, o.id, name))}>Rename</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FoundOrg() {
   const s = store.state!;
   const me = s.player;
   const [kind, setKind] = useState<Org['kind'] | null>(null);
   const [pick, setPick] = useState<number[]>([]);
+  const [name, setName] = useState('');
+  const [salt, setSalt] = useState(0);
   if (!kind) return <button className="btn" style={{ marginTop: 8, width: '100%' }} onClick={() => setKind('economic')}>Found a new organisation…<small>{FOUND_PC} political capital · needs at least two countries to join</small></button>;
   const cands = s.countries.filter((x) => x.alive && x.id !== me && !areAtWar(s, me, x.id)).sort((a, b) => getRelation(s, me, b.id) - getRelation(s, me, a.id)).slice(0, 10);
   const ans = foundingAnswers(s, kind, pick);
+  const suggestion = orgName(s, kind, me, pick, Math.sign(Math.round((s.countries[me].orient ?? 0) * 2) / 2), salt);
   return (
     <div className="card" style={{ marginTop: 8 }}>
       <div className="btnrow">{(['economic', 'union', 'defence'] as const).map((k) => <button key={k} className={`btn ${kind === k ? 'primary' : ''}`} onClick={() => setKind(k)}>{k === 'defence' ? 'Defence pact' : k === 'union' ? 'Union' : 'Economic club'}</button>)}</div>
@@ -122,8 +147,13 @@ function FoundOrg() {
           return <span key={x.id} className={`pill ${on ? (a?.yes ? 'green' : 'red') : ''}`} style={{ cursor: 'pointer' }} onClick={() => setPick(on ? pick.filter((y) => y !== x.id) : pick.length < 5 ? [...pick, x.id] : pick)}>{on ? (a?.yes ? '✓ ' : '✗ ') : ''}{x.name} <small>{on && a ? a.why : `relations ${getRelation(s, me, x.id).toFixed(0)}`}</small></span>;
         })}
       </div>
+      <div className="org-name-row">
+        <label className="hint" htmlFor="org-name">Its name</label>
+        <input id="org-name" className="org-name-input" value={name} maxLength={40} placeholder={suggestion} onChange={(e) => setName(e.target.value)} />
+        <button className="linkbtn" onClick={() => { setName(''); setSalt(salt + 1); }}>suggest another</button>
+      </div>
       <div className="btnrow" style={{ marginTop: 8 }}>
-        <button className="btn primary" disabled={ans.filter((a) => a.yes).length < 2} onClick={() => { const r = store.act((g) => actFoundOrg(g, kind, pick)); if (r.ok) { setKind(null); setPick([]); } }}>Found it<small>{ans.filter((a) => a.yes).length} would join</small></button>
+        <button className="btn primary" disabled={ans.filter((a) => a.yes).length < 2} onClick={() => { const r = store.act((g) => actFoundOrg(g, kind, pick, name.trim() || suggestion)); if (r.ok) { setKind(null); setPick([]); setName(''); } }}>Found {name.trim() || suggestion}<small>{ans.filter((a) => a.yes).length} would join · {FOUND_PC} political capital</small></button>
         <button className="btn" onClick={() => { setKind(null); setPick([]); }}>Cancel</button>
       </div>
     </div>

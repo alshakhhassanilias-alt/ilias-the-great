@@ -136,3 +136,17 @@ Twenty-year AI-only runs (the player is Uruguay):
 - **Russia played as a reformer** (Thaw, Open for Business, Free Elections, European Partnership, turning West once a year): it moves from −1 to about +0.67 over 12 years. Relations with Germany go from −41 to about +55, with France about +50, and with China fall to −66. NATO and the EU still reject Russia after 10 years: Poland, Finland, the Baltic states and the US vote no.
 
 **Performance:** about 15% more simulation time per week.
+
+## Round 17: courses and evolving alliances
+
+Twenty-year AI runs, three seeds:
+
+- **AI course changes are rare and motivated.** There are about 10–15 per 20 years worldwide, and at most four run at once. Typical stories:
+  - Pakistan turns toward Washington, then a decade later back to China.
+  - India pursues the Quad and joins a Western economic grouping.
+  - Nigeria and Algeria join BRICS.
+  - Vietnam, Argentina, Spain and Thailand found regional unions.
+  - Iran attempts a Grand Bargain and is turned down.
+- **No snowball.** Western-leaning countries end at 49–51 (49 at the start); Eastern-leaning countries end at 16–19.
+- **Alliances evolve.** Clubs add defence clauses when threatened (a Kyiv-founded forum became the Kharkiv Pact after a threat), small blocs are absorbed, and NATO and the EU keep their names. Schisms are rare: they need a big bloc whose members have fallen out.
+- **Player courses:** a completed West course moves Kazakhstan about +0.3 on the East–West scale (drift back toward old friends offsets part of it), lifts relations with the US by more than 10, and takes it out of the CSTO.
