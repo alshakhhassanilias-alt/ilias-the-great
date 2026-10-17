@@ -84,6 +84,14 @@ export function cable(s: GameState, from: number, kind: CableKind) {
   if (s.cables.length > 30) s.cables.splice(0, s.cables.length - 30);
 }
 
+/** A message in a leader's own words (judgements of the player's record, see minds.ts). */
+export function cableText(s: GameState, from: number, text: string, mood: Cable['mood']) {
+  if (from === s.player || !s.countries[from]?.alive) return;
+  s.stats.cableSeq = (s.stats.cableSeq ?? 0) + 1;
+  (s.cables ??= []).push({ tick: s.tick, from, text, mood, seq: s.stats.cableSeq });
+  if (s.cables.length > 30) s.cables.splice(0, s.cables.length - 30);
+}
+
 /** Weekly: rivals and close friends send the occasional message unprompted. */
 export function stepCables(s: GameState) {
   if (s.tick % 9 !== 4) return;

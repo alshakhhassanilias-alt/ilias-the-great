@@ -3,6 +3,7 @@
  * spectacular, visible result (a space station, a nuclear deterrent, a fortress belt ...).
  * The AI runs them too, so the news fills with other nations' achievements.
  */
+import { addRec } from './minds';
 import type { Geo } from './geo';
 import { clamp, fmtMoney } from './util';
 import { nextRand } from './rng';
@@ -41,7 +42,7 @@ export const PROJECTS: ProjectDef[] = [
     perk: 'Becomes a nuclear power (enemy offensives against you slow sharply) · reputation −12 · neighbours furious',
     req: (s, c) => (c.mil.nuclear ? 'You already have nuclear weapons' : c.eco.tech < 30 ? `Needs technology level 30 (you have ${c.eco.tech.toFixed(0)})` : null),
     finish: (s, c) => {
-      c.mil.nuclear = true; c.reputation = clamp(c.reputation - 12, 0, 100);
+      c.mil.nuclear = true; c.reputation = clamp(c.reputation - 12, 0, 100); addRec(s, c.id, 'nuke', 1);
       for (const o of s.countries) if (o.alive && o.id !== c.id) addRelation(s, c.id, o.id, getRelation(s, c.id, o.id) < 20 ? -9 : -4);
       return 'The first test detonation shakes the desert. You are now a nuclear power.';
     },
@@ -175,7 +176,7 @@ export function stepProjects(s: GameState, geo: Geo) {
     for (const c of s.countries) {
       if (!c.alive || c.id === s.player || c.eco.gdp < 6e10 || runsOf(s, c.id).length >= 1) continue;
       if (nextRand(s) > 0.012 + c.eco.gdp / 5e13) continue;
-      const opts = PROJECTS.filter((d) => !canStart(s, c.id, d.id) && !(d.id === 'nuclear' && c.ai.caution > 0.5) && c.eco.cash > (d.pct * c.eco.gdp) / 6);
+      const opts = PROJECTS.filter((d) => !canStart(s, c.id, d.id) && d.id !== 'nuclear' && c.eco.cash > (d.pct * c.eco.gdp) / 6); // the bomb is a decision (plans.ts), not a lottery
       if (!opts.length) continue;
       const d = opts[Math.floor(nextRand(s) * opts.length)];
       startProject(s, c.id, d.id);

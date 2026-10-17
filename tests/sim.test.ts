@@ -28,6 +28,10 @@ import { actMissileStrike, actStartProgramme, goalOf, settleGoal } from '../src/
 import { addAggression, coalitionAgainst } from '../src/sim/coalitions';
 import { STORIES } from '../src/data/stories';
 import { issueNow, possibleEndings, seedOf, storyEvents } from '../src/sim/story';
+import { actTrigger } from '../src/sim/story';
+import { addRec, makeAgenda, moodTraitWeight, opinionOf } from '../src/sim/minds';
+import { choosePlan, pursuePlan } from '../src/sim/plans';
+import { memberValue, stepMembership } from '../src/sim/membership';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
 const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
@@ -690,7 +694,7 @@ describe('action layer: projects, crises, uprisings, rival, drama', () => {
   it('battles produce named reports, casualty milestones and breaking news', () => {
     const s = fresh('Brazil');
     s.nextCrisis = 1e9;
-    declareWar(s, geo, id('Russia'), id('Estonia'));
+    declareWar(s, geo, id('Russia'), id('Georgia'));
     run(s, 80);
     expect(s.log.some((e) => /Battle of/.test(e.text))).toBe(true);
     expect(s.log.some((e) => e.big)).toBe(true);
@@ -1913,7 +1917,7 @@ describe('round 18: national storylines for every country, steered by the player
   it('the player walks four acts; the road chosen in Act I unlocks its own options and decides the ending', () => {
     const s = fresh('Turkey', { randomEvents: false });
     const c = s.countries[s.player];
-    const seen = playStory(s, [1, 3, 0, 4], 52 * 5);
+    const seen = playStory(s, [1, 3, 0, 4], 52 * 8);
     expect(seen.slice(0, 4)).toEqual([`story1_${seedOf(c).issue}`, 'story2_iron', `story3_${seedOf(c).econ}_iron`, 'story4']);
     expect(eventById('story2_iron').options[3].label).toBe('Prepare for war');
     expect(eventById('story2_reform').options[3].label).toBe('International arbitration');
@@ -1923,7 +1927,7 @@ describe('round 18: national storylines for every country, steered by the player
   });
   it('a different road gives a different story', () => {
     const s = fresh('Turkey', { randomEvents: false });
-    playStory(s, [0, 3, 3, 4], 52 * 5);
+    playStory(s, [0, 3, 3, 4], 52 * 8);
     const c = s.countries[s.player];
     expect(c.story!.arch).toBe('reform');
     expect(c.story!.ending).toBe('The Reformed Social Market');
@@ -1931,7 +1935,7 @@ describe('round 18: national storylines for every country, steered by the player
   it('after the ending a new chapter opens, built from where the country stands then', () => {
     const s = fresh('Japan', { randomEvents: false });
     const c = s.countries[s.player];
-    playStory(s, [0, 0, 0, 4], 52 * 5);
+    playStory(s, [0, 0, 0, 4], 52 * 8);
     expect(c.story!.act).toBe(5);
     c.eco.damage = 0.3;
     expect(issueNow(s, c)).toBe('rebuild');
@@ -1940,15 +1944,15 @@ describe('round 18: national storylines for every country, steered by the player
     expect(issueNow(s, c)).toBe('inflation');
     c.eco.inflation = 0.02;
     s.tick = c.story!.next; // jump to the chapter break
-    playStory(s, [2, 0, 0, 4], 2);
+    const seen = playStory(s, [2, 0, 0, 4], 12);
     expect(c.story!.ch).toBe(2);
     expect(c.story!.past?.[0].ending).toMatch(/^The /);
-    expect(s.inbox.some((x) => x.id.startsWith('story1_'))).toBe(true);
+    expect(seen.some((x) => x.startsWith('story1_'))).toBe(true); // chapter II's first act arrived (and was answered)
   });
   it('AI countries play their stories by character without flooding the headlines', () => {
     const s = fresh('Germany', { randomEvents: false });
     const seq0 = s.logSeq;
-    run(s, 52 * 5);
+    run(s, 52 * 8);
     const alive = s.countries.filter((x) => x.alive && !x.isPlayer);
     expect(alive.filter((x) => (x.story?.act ?? 1) > 4 || (x.story?.ch ?? 1) > 1).length).toBeGreaterThan(alive.length * 0.8);
     const story = s.log.filter((e) => e.seq >= seq0 && /📖/.test(e.text));
@@ -1960,5 +1964,128 @@ describe('round 18: national storylines for every country, steered by the player
     const a = fresh('Brazil', { seed: 9 }), b = fresh('Brazil', { seed: 9 });
     run(a, 200); run(b, 200);
     expect(a.countries.map((x) => JSON.stringify(x.story))).toEqual(b.countries.map((x) => JSON.stringify(x.story)));
+  });
+});
+
+describe('round 19: a world of minds: agendas, plans, membership sums and judgement', () => {
+  it('every AI leader has an agenda, a stance on alliances, a camp preference, a mandate and an aim', () => {
+    const s = fresh('Germany');
+    for (const c of s.countries.filter((x) => x.alive && !x.isPlayer)) {
+      const l = c.leader!;
+      const sum = Object.values(l.agenda!).reduce((a, b) => a + b, 0);
+      expect(sum, c.name).toBeGreaterThan(0.98); expect(sum).toBeLessThan(1.02);
+      expect(Math.abs(l.commit!)).toBeLessThanOrEqual(1); expect(Math.abs(l.lean!)).toBeLessThanOrEqual(1);
+      expect(l.mandate!.length).toBeGreaterThan(5);
+      expect(c.goal?.text.length, c.name).toBeGreaterThan(5);
+    }
+  });
+  it('the public mood shapes who comes next: a war-weary, overburdened country elects "country first" leaders', () => {
+    const s = fresh('Germany');
+    const us = s.countries[id('United States of America')];
+    s.tick = 10; // (the leaders of 2024 itself are never "country first")
+    const count = () => { let n = 0; for (let g = 1; g <= 300; g++) { crownLeader(s, us, g); if (us.leader!.traits.includes('isolationist')) n++; } return n; };
+    us.mood = { weary: 0, burden: 0, pain: 0, threat: 0.6, shame: 0 };
+    const calm = count();
+    us.mood = { weary: 0.7, burden: 0.9, pain: 0.4, threat: 0, shame: 0 };
+    const tired = count();
+    expect(tired).toBeGreaterThan(calm * 2.5);
+    expect(moodTraitWeight(us, 'isolationist')).toBeGreaterThan(2);
+    // and their stance follows: a tired country's leader commits less to alliances
+    const a1 = makeAgenda(s, us, ['pragmatist', 'reformer'], 7);
+    us.mood = { weary: 0, burden: 0, pain: 0, threat: 0.8, shame: 0 };
+    const a2 = makeAgenda(s, us, ['pragmatist', 'reformer'], 7);
+    expect(a2.commit!).toBeGreaterThan(a1.commit!);
+    expect(a2.agenda!.security).toBeGreaterThan(a1.agenda!.security);
+  });
+  it('leaders judge the player through their own agendas, and it shows in deals and votes', () => {
+    const s = fresh('Hungary', { randomEvents: false });
+    const de = s.countries[id('Germany')], ru = s.countries[id('Russia')];
+    de.leader!.agenda = { security: 0.2, expansion: 0.05, wealth: 0.2, prestige: 0.1, ideology: 0.45 };
+    ru.leader!.agenda = { security: 0.3, expansion: 0.2, wealth: 0.2, prestige: 0.2, ideology: 0.1 };
+    const before = opinionOf(s, de.id, s.player).v;
+    addRec(s, s.player, 'repress', 2);
+    const de1 = opinionOf(s, de.id, s.player), ru1 = opinionOf(s, ru.id, s.player);
+    expect(de1.v).toBeLessThan(before - 15);
+    expect(de1.reasons[0].label).toMatch(/cracked down/);
+    expect(ru1.v).toBeGreaterThanOrEqual(0); // a strongman respects order
+    const kind = (['trade', 'nap', 'coop', 'alliance'] as const).find((k) => evaluateProposal(s, geo, s.player, de.id, k).reasons[0] !== 'Already in force')!;
+    const ev = evaluateProposal(s, geo, s.player, de.id, kind);
+    expect(ev.reasons.join(' ')).toMatch(/cracked down/);
+    addRec(s, s.player, 'aggr', 3);
+    const pl = s.countries[id('Austria')];
+    pl.leader!.agenda = { security: 0.5, expansion: 0.05, wealth: 0.2, prestige: 0.05, ideology: 0.2 };
+    expect(opinionOf(s, pl.id, s.player).reasons.some((r) => /wars of aggression/.test(r.label))).toBe(true);
+  });
+  it('an alarmed neighbour makes containing the player its long-term aim', () => {
+    const s = fresh('Hungary', { randomEvents: false });
+    run(s, 2);
+    s.stats[`agg:${s.player}`] = 80;
+    addRec(s, s.player, 'aggr', 4);
+    const at = s.countries[id('Austria')];
+    at.leader!.agenda = { security: 0.6, expansion: 0.05, wealth: 0.15, prestige: 0.05, ideology: 0.15 };
+    const g = choosePlan(s, geo, at, true);
+    expect(g.kind).toBe('contain');
+    expect(g.target).toBe(s.player);
+  });
+  it('plans are pursued and abandoned: a bomb programme is found out; a hopeless arms race is given up', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const ir = s.countries[id('Iran')];
+    ir.mil.nuclear = false; ir.eco.cash = ir.eco.gdp;
+    ir.goal = { kind: 'nukes', target: -1, text: 'Build a nuclear deterrent', since: s.tick, progress: 0, best: 0, patience: 1, step: 0 };
+    pursuePlan(s, geo, ir);
+    const run0 = s.projects.find((p) => p.owner === ir.id && p.id === 'nuclear');
+    expect(run0).toBeDefined();
+    run0!.done = run0!.weeks * 0.4;
+    pursuePlan(s, geo, ir);
+    expect(s.stats[`nukeSeen:${ir.id}`]).toBeDefined();
+    expect(s.log.some((e) => /secretly building a nuclear weapon/.test(e.text))).toBe(true);
+    const ge = s.countries[id('Georgia')];
+    ge.goal = { kind: 'security', target: id('Russia'), text: 'Deter Russia', since: s.tick, progress: 0, best: 0, patience: 0.1, step: 0 };
+    for (let i = 0; i < 10 && ge.goal; i++) pursuePlan(s, geo, ge);
+    expect(ge.goal).toBeUndefined(); // matching Russia alone is hopeless: patience runs out
+    expect(s.stats['plan:security:fail']).toBe(1);
+  });
+  it('AI countries no longer build the bomb at random', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    for (const c of s.countries) if (c.goal?.kind === 'nukes') c.goal = undefined;
+    run(s, 52 * 3);
+    const starts = s.projects.filter((p) => p.id === 'nuclear' && s.countries[p.owner].goal?.kind !== 'nukes');
+    expect(starts.length).toBe(0);
+  });
+  it('membership is a running sum: a "country first" leader carrying the alliance threatens to leave, and the others pay more', () => {
+    const s = fresh('Uruguay', { randomEvents: false });
+    const nato = s.orgs!.find((o) => o.key === 'nato')!;
+    const us = s.countries[id('United States of America')];
+    expect(memberValue(s, nato, us.id).v).toBeGreaterThan(-0.1);
+    us.leader!.commit = -0.95; us.leader!.traits = ['isolationist', 'mercantilist'];
+    us.leader!.agenda = { security: 0.15, expansion: 0.05, wealth: 0.5, prestige: 0.1, ideology: 0.2 };
+    const v = memberValue(s, nato, us.id);
+    expect(v.v).toBeLessThan(-0.08);
+    expect(v.parts.some((p) => /Pays more than its rich partners|cost of the commitment/.test(p.label))).toBe(true);
+    expect(v.parts.some((p) => /sphere of influence/.test(p.label))).toBe(true);
+    const de = s.countries[id('Germany')], mil0 = de.budget.military;
+    for (let i = 0; i < 12 && !nato.ultimatum; i++) { s.tick += 1; stepMembership(s); }
+    expect(nato.ultimatum?.by).toBe(us.id);
+    for (let i = 0; i < 20; i++) { s.tick += 1; stepMembership(s); }
+    expect(de.budget.military).toBeGreaterThan(mil0);
+  });
+  it('storyline acts are triggered by what actually happens', () => {
+    const s = fresh('Turkey', { randomEvents: false });
+    const c = s.countries[s.player];
+    run(s, 1);
+    const st = c.story!;
+    st.act = 2; st.rival = id('Greece'); st.why = undefined;
+    st.snap = { t: s.tick, rel: getRelation(s, c.id, id('Greece')), troops: s.countries[id('Greece')].mil.troops, ws: 0.7, gdp: c.eco.gdp, nb: '', ml: '' };
+    expect(actTrigger(s, geo, c, st)).toBeNull();
+    s.countries[id('Greece')].mil.troops *= 1.3;
+    expect(actTrigger(s, geo, c, st)).toMatch(/Greece has grown its army/);
+    st.act = 1; st.issue = 'inflation'; c.eco.inflation = 0.2;
+    expect(actTrigger(s, geo, c, st)).toMatch(/inflation has hit 20%/);
+  });
+  it('the world with minds stays deterministic', () => {
+    const a = fresh('India', { seed: 4 }), b = fresh('India', { seed: 4 });
+    run(a, 160); run(b, 160);
+    expect(a.countries.map((x) => `${x.leader?.name}|${x.goal?.kind}|${x.goal?.target}|${(x.orient ?? 0).toFixed(4)}`)).toEqual(b.countries.map((x) => `${x.leader?.name}|${x.goal?.kind}|${x.goal?.target}|${(x.orient ?? 0).toFixed(4)}`));
+    expect(JSON.stringify(a.rec)).toBe(JSON.stringify(b.rec));
   });
 });

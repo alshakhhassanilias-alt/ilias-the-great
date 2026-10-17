@@ -9,6 +9,7 @@ import {
 import { claimStrength, logEvent } from './war';
 import { recordRipple, rippleSanction, rippleTreaty } from './politics';
 import { strength } from './military';
+import { addRec, asYou, opinionOf } from './minds';
 import { clamp } from './util';
 import type { CountryId, GameState, OfferKind } from './types';
 
@@ -51,6 +52,9 @@ export function evaluateProposal(s: GameState, geo: Geo, from: CountryId, to: Co
   const rel = getRelation(s, to, from);
   let score = rel / 100 + (from === s.player || F.isPlayer ? mods(F).accept : 0);
   reasons.push(`Relations ${rel >= 0 ? '+' : ''}${rel.toFixed(0)}`);
+  // the other leader judges your record through their own agenda
+  const op = T.isPlayer ? { v: 0, reasons: [] as { label: string }[] } : opinionOf(s, to, from);
+  if (Math.abs(op.v) >= 6) { score += op.v / 120; if (op.reasons[0]) reasons.push(`${T.leader?.name ?? T.name} ${op.v < 0 ? 'holds it against you that' : 'likes that'} you ${asYou(op.reasons[0].label)}`); }
   let needed = 0.15;
   const ratio = strength(F) / Math.max(1, strength(T));
   const neighbors = areNeighbors(s, geo, from, to);
@@ -140,6 +144,7 @@ export function imposeSanction(s: GameState, from: CountryId, to: CountryId, lev
   if (sanctionLevel(s, from, to) >= level) return;
   if (to === s.player) cable(s, from, 'sanctions_you'); else if (from === s.player) cable(s, to, 'sanctioned');
   addGrudge(s, to, from, level === 2 ? 'embargoed it' : 'imposed sanctions on it', level === 2 ? 14 : 8);
+  addRec(s, from, 'sanction', level === 2 ? 0.45 : 0.3);
   setSanction(s, from, to, level);
   const t = getTreaty(s, from, to);
   if (t) t.trade = false;

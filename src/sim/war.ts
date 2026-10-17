@@ -10,6 +10,7 @@
  *   progress per tick = 0.16 · clamp(ln(attack/defence) + 0.25, −1.2, 1.6) scaled by province size.
  * A province changes hands when progress reaches 100%. Casualties are Lanchester-like in the force ratio.
  */
+import { addRec } from './minds';
 import { addAggression, coalitionAgainst } from './coalitions';
 import { settleGoal } from './wargoals';
 import { legacyWarEnded } from './legacy';
@@ -146,7 +147,8 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   const justified = claimStrength(a, d) > 0.3 || getRelation(s, a, d) < -60 || !!s.stats[`cb:${a}>${d}`];
   let severity = justified ? 2 : 7;
   const treaty = s.treaties[pairKey(a, d)];
-  if (treaty?.nap) { addGrudge(s, d, a, 'broke a non-aggression pact with it', 15); severity += 6; A.reputation = Math.max(0, A.reputation - 10); logEvent(s, `${A.name} broke its non-aggression pact with ${D.name}.`, 'diplo', [a, d], true); }
+  addRec(s, a, 'aggr', justified ? 0.6 : 1);
+  if (treaty?.nap) { addRec(s, a, 'betray', 1); addGrudge(s, d, a, 'broke a non-aggression pact with it', 15); severity += 6; A.reputation = Math.max(0, A.reputation - 10); logEvent(s, `${A.name} broke its non-aggression pact with ${D.name}.`, 'diplo', [a, d], true); }
   if (treaty?.alliance) { severity += 4; }
   if (treaty) { treaty.alliance = false; treaty.nap = false; treaty.trade = false; treaty.coop = false; touchTreaties(s); }
   const war: War = {
@@ -178,10 +180,12 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
         war.defenders.push(x);
         war.startProvs[x] = X.provinces.length;
         onEnterWar(s, X, 'ally');
+        addRec(s, x, 'loyal', 0.6);
         addRelation(s, x, a, -25);
         logEvent(s, `${X.name} honours its alliance and joins the war on ${D.name}'s side.`, 'war', [x, d], x === s.player || d === s.player);
       } else {
         X.reputation = Math.max(0, X.reputation - 4);
+        addRec(s, x, 'betray', 0.5);
         logEvent(s, `${X.name} declined to defend its ally ${D.name}.`, 'diplo', [x, d]);
       }
     }
@@ -326,6 +330,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
     const edge = provsA - provsB + 3 * scoreA;
     const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
     const hist = s.warHistory ?? (s.warHistory = []);
+    if (winner !== 'draw') s.stats[`lostWar:${winner === 'a' ? b : a}`] = s.tick;
     hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind });
     legacyWarEnded(s, hist[hist.length - 1]);
     settleGoal(s, hist[hist.length - 1]);
@@ -589,6 +594,7 @@ export function stepWars(s: GameState, geo: Geo) {
         bumpSupport(W, 0.006 + 0.08 * Math.min(0.5, f));
         bumpSupport(E, -(0.004 + 0.12 * Math.min(0.5, f)));
         addGrudge(s, e, winner, 'seized its land', 6);
+        if (w.attackers.includes(winner)) addRec(s, winner, 'conquest', 0.25);
         const la = best.la ?? 0, ld = best.ld ?? 0;
         const big = p === E.capital || isBigNews(s, winner, e);
         const gw = generalAt(W, p);

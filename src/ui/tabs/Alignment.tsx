@@ -2,6 +2,7 @@
  * Where your country stands in the world, and the organisations that bind countries together: see what pulls you
  * East or West, change course, apply to join, leave, or found a bloc of your own.
  */
+import { MembershipWorth } from './Minds';
 import { useState } from 'react';
 import { store } from '../../state/store';
 import { Section } from '../widgets';
@@ -83,7 +84,7 @@ export function OrgsSection() {
               <div className="row" style={{ border: 'none', padding: 0 }}>
                 <div className="grow">
                   <b>{o.icon} {o.name.replace(/^the /, 'The ')}</b>{member && <span className="pill green" style={{ marginLeft: 6 }}>member</span>}
-                  <div className="hint">{KIND_LABEL[o.kind]} · {o.members.length} members{o.camp ? ` · ${o.camp > 0 ? 'Western' : 'Eastern'} camp` : ''}{o.founded > 0 ? ` · founded ${2024 + Math.floor(o.founded / 52)}` : ''} · ties {depthLabel(o.depth ?? 2 / 3)} (+{o.bonus} relations between members){cred < 0.8 ? ` · credibility ${(cred * 100).toFixed(0)}%` : ''}{o.founder === me ? ' · you founded it' : ''}</div>
+                  <div className="hint">{KIND_LABEL[o.kind]} · {o.members.length} members{o.camp ? ` · ${o.camp > 0 ? 'Western' : 'Eastern'} camp` : ''}{o.founded > 0 ? ` · founded ${2024 + Math.floor(o.founded / 52)}` : ''} · ties {depthLabel(o.depth ?? 2 / 3)} (+{o.bonus} relations between members){cred < 0.8 ? ` · credibility ${(cred * 100).toFixed(0)}%` : ''}{o.ultimatum ? ` · 📢 ${s.countries[o.ultimatum.by].name} threatens to leave` : ''}{o.founder === me ? ' · you founded it' : ''}</div>
                 </div>
                 {member
                   ? <button className="btn danger" onClick={() => store.act((g) => actLeaveOrg(g, o.id))}>Leave<small>relations with members fall</small></button>
@@ -91,6 +92,7 @@ export function OrgsSection() {
               </div>
               <button className="linkbtn" onClick={() => setOpen(open === o.id ? null : o.id)}>{open === o.id ? 'Hide details' : member ? 'Members, history and proposals' : 'Who votes how, and its history'}</button>
               {open === o.id && (o.history?.length ?? 0) > 0 && <ul className="org-history">{o.history!.slice(-5).map((h, i) => <li key={i}><span>{2024 + Math.floor(h.tick / 52)}</span>{h.text}</li>)}</ul>}
+              {open === o.id && member && <MembershipWorth orgId={o.id} />}
               {open === o.id && member && <OrgProposals o={o} />}
               {open === o.id && (
                 <div className="org-members">

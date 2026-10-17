@@ -2,6 +2,7 @@
  * Actions available to both the player and AI. Every action takes effect IMMEDIATELY (no timers):
  * money moves now, capacity / forces / stats change now, and the next tick reflects the new state.
  */
+import { addRec } from './minds';
 import { cable } from './cables';
 import { addGrudge } from './leaders';
 import type { Geo } from './geo';
@@ -254,6 +255,7 @@ export function actAid(s: GameState, cid: number, to: number, pct: number): Acti
   addRelation(s, cid, to, Math.min(25, 30 * pct * 100 / 1.0 * 0.4 + 4));
   c.reputation = Math.min(100, c.reputation + 1);
   s.stats.aid = (s.stats.aid ?? 0) + 1;
+  addRec(s, cid, 'aid', Math.min(1, pct * 100 * 0.4));
   return ok(`${fmtMoney(cost)} of aid delivered to ${T.name}. Relations improve.`);
 }
 export function actSummit(s: GameState, cid: number, to: number): ActionResult {

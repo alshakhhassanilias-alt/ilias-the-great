@@ -26,7 +26,7 @@ export function StorylinePanel() {
   return (
     <Section title={`📖 ${c.name}: ${seed.ambition}`} hint={`national storyline · ${storyChip(c) || 'chapter I · act I of IV'}`}>
       <div className="card story-card">
-        <p className="story-intro">{ch === 1 ? <>The question of your age: <b>{seed.text}</b>.</> : <>Chapter {ROMAN[ch - 1]}: a new trouble defines the age.</>} Every act is a decision that arrives in your inbox. What you choose changes the next acts and the ending.</p>
+        <p className="story-intro">{ch === 1 ? <>The question of your age: <b>{seed.text}</b>.</> : <>Chapter {ROMAN[ch - 1]}: a new trouble defines the age.</>} Every act is a decision that arrives in your inbox when events make it urgent (a crisis, a move by your rival, a shift in the world). What you choose changes the next acts and the ending.</p>
         <ol className="story-acts">
           {titles.map((t, i) => {
             const n = i + 1;
@@ -35,7 +35,7 @@ export function StorylinePanel() {
               <li key={i} className={state}>
                 <b>{t}</b>
                 {state === 'done' && <span className="hint">✓ {choiceLabel(c, n, st?.path[i])}</span>}
-                {state === 'now' && <span className="hint">{waiting ? '⏳ waiting in your decisions' : st && st.next > s.tick ? `arrives around ${dateLabel(st.next)}` : 'arrives soon'}</span>}
+                {state === 'now' && <span className="hint">{waiting ? '⏳ waiting in your decisions' : st?.due !== undefined ? `comes when events make it urgent${st.next > s.tick ? ` (not before ${dateLabel(st.next)})` : ''}, ${dateLabel(st.due)} at the latest` : st && st.next > s.tick ? `arrives around ${dateLabel(st.next)}` : 'arrives soon'}</span>}
                 {state === 'later' && n === 2 && !st?.arch && <span className="hint faint">its options depend on your road</span>}
               </li>
             );

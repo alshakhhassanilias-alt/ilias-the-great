@@ -14,6 +14,7 @@
  * - Governments. Revolutions, juntas, emergency rule and free elections change a country's form of government, which
  *   changes who trusts it.
  */
+import { addRec, asYou, opinionOf } from './minds';
 import type { Geo } from './geo';
 import { ARAB_LEAGUE, CSTO, EU, NATO } from '../data/countryData';
 import {
@@ -129,7 +130,11 @@ export function applicationVotes(s: GameState, o: Org, c: CountryId): { m: Count
     if (o.camp !== 0 && oc * o.camp < -0.2) return { m, yes: false, why: 'you belong to the other camp' };
     if (o.kind === 'defence' && orgsOf(s, c).some((x) => x.kind === 'defence' && x !== o)) return { m, yes: false, why: 'you are in a rival defence pact' };
     const need = o.kind === 'defence' ? 25 : o.kind === 'union' ? 30 : 10;
-    return r >= need ? { m, yes: true, why: `relations ${r.toFixed(0)}` } : { m, yes: false, why: `relations ${r.toFixed(0)} (needs ${need})` };
+    // members judge the applicant's record, not only today's relations
+    const op = opinionOf(s, m, c);
+    const score = r + op.v * 0.6;
+    const rec = Math.abs(op.v) >= 8 && op.reasons[0] ? `; ${op.v < 0 ? 'holds it against you that' : 'likes that'} you ${asYou(op.reasons[0].label)}` : '';
+    return score >= need ? { m, yes: true, why: `relations ${r.toFixed(0)}${rec}` } : { m, yes: false, why: `relations ${r.toFixed(0)} (needs ${need})${rec}` };
   });
 }
 /** Admission rule: defence pacts and unions need near-unanimity (one in ten may abstain); economic clubs a two-thirds majority. */
@@ -161,6 +166,7 @@ export function changeGov(s: GameState, c: Country, gov: string, why: string) {
   if (c.gov === gov) return;
   const was = GOV_LABEL[c.gov] ?? c.gov;
   c.gov = gov;
+  if (gov === 'D') addRec(s, c.id, 'reform', 1); else if (gov === 'A' || gov === 'C') addRec(s, c.id, 'repress', 0.7);
   // a freely elected government looks West; a junta or strongman looks for friends who will not lecture it
   if (gov === 'D') { c.orient = clamp((c.orient ?? 0) + 0.25, -1, 1); c.hostile = Math.max(0, (c.hostile ?? 0) - 0.25); }
   if (gov === 'A') c.orient = clamp((c.orient ?? 0) - 0.1, -1, 1);
@@ -180,7 +186,7 @@ export function westShare(s: GameState): number {
 }
 
 /** Where a country's orientation is heading, and why (for the UI). */
-export function orientTarget(s: GameState, c: Country, share = westShare(s)): { target: number; friends: number; bandwagon: number; gov: number } {
+export function orientTarget(s: GameState, c: Country, share = westShare(s)): { target: number; friends: number; bandwagon: number; gov: number; lean: number } {
   let sw = 0, so = 0;
   for (const x of s.countries) {
     if (!x.alive || x.id === c.id) continue;
@@ -200,7 +206,10 @@ export function orientTarget(s: GameState, c: Country, share = westShare(s)): { 
   // protection no longer looks believable (its leading power has collapsed)
   const doubt = campDoubt(s, c);
   const hedge = (Math.abs(o) < 0.5 ? 0.6 : 0.85) * (doubt < 0.75 ? 0.4 + doubt * 0.6 : 1);
-  return { target: clamp(hedge * friends + bandwagon + gov, -1, 1), friends, bandwagon, gov };
+  // the leader's own preference pulls too: a pro-Western reformer, a pro-Russian populist, a pragmatist who keeps out
+  const base = hedge * friends + bandwagon + gov;
+  const lean = c.isPlayer || c.leader?.lean === undefined ? 0 : (c.leader.lean - base) * 0.25 * (0.6 + (c.leader.agenda?.ideology ?? 0.15) * 2);
+  return { target: clamp(base + lean, -1, 1), friends, bandwagon, gov, lean };
 }
 
 export function stepAlignment(s: GameState, geo: Geo) {
@@ -224,6 +233,9 @@ export function stepAlignment(s: GameState, geo: Geo) {
     // a dead zone keeps settled countries where they are; outside it they move about 15% of the gap a year
     const gap = target - o;
     if (Math.abs(gap) > 0.25) c.orient = clamp(o + Math.sign(gap) * (Math.abs(gap) - 0.25) * 0.045, -1, 1);
+    // the government's own preference moves the country too, most of all where it sits between the camps
+    const L = c.leader, o2 = c.orient ?? 0;
+    if (!c.isPlayer && L?.lean !== undefined && Math.abs(L.lean - o2) > 0.15) c.orient = clamp(o2 + (L.lean - o2) * 0.035 * (0.5 + (L.agenda?.ideology ?? 0.15) * 2) * (1 - Math.abs(o2) * 0.5), -1, 1);
     // the West's view of a country: it forgives slowly if the country leans West and keeps the peace with it
     const h = c.hostile ?? 0;
     if (fightsWest.has(c.id) && (c.orient ?? 0) < 0.5) c.hostile = Math.min(1, h + 0.12);

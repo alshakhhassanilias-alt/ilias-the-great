@@ -158,3 +158,37 @@ Twenty-year AI runs, three seeds:
 - **Chapter II problems** come from the state of the world. In one 14-year run they were corruption 52, exodus 39, crime 25, energy 20, climate 20, polarisation 20, restless generals 10, debt 7, succession 2 and sanctions 1. This makes the later chapters differ from the 2024 problems.
 - **Headlines.** AI chapter endings go into the news feed as plain lines, and only the big powers' turns are reported. The player's own endings and new chapters are the only storyline headlines.
 - **AI choices follow character.** Democracies take the reformer's road; juntas, communist states and hawks take the iron hand; the rest are pragmatists. Act IV never changes an AI country's camp: AI course changes keep their own rules from round 17.
+
+## Round 19: a world of minds
+
+AI-only worlds, 20 years each. The baseline is 16 worlds before this round; "now" is 50 worlds on the final code. The player is Uruguay and does nothing.
+
+| | before | now |
+|---|---|---|
+| Western-leaning countries at the end | 48–52 | 48–56 |
+| India's orientation at the end | 0.0–0.8 | −0.1 to 0.8 |
+| Brazil's orientation at the end | always 0.0–0.1 | −0.4 to +0.2 |
+| Saudi Arabia's orientation at the end | always 0.0 | −0.5 to +0.3 |
+| US leaves NATO | never | 8 of 50 worlds (after 36 threats) |
+| New nuclear states | 2–5 per world, picked at random (Canada, Cuba, Argentina ...) | none in 50 worlds; the bomb now takes a reason |
+| Wars per 20 years | 31–50 | 15–39 |
+| Leaders' names and traits | identical in every world (seeded by the date) | different in every world |
+
+**What changed and why**
+- **Every game is its own world.** New games used a fixed seed, so the same choices gave the same world. Leaders were also drawn from the calendar, not the seed: the same president took office in 2035 in four different worlds. Each new game now gets a fresh seed, and leaders, AI national paths, storyline timing and bloc names are drawn from it.
+- **Leaders come from the mood.** Successors are weighted by the public mood (war weariness, the burden of allies, economic pain, fear, humiliation), and each leader states the mandate they won on. The leaders of 2024 are never "Country First", because that mood has not happened yet.
+- **Swing states swing.** A leader's camp preference is centred on where the country stands, with no built-in tilt. An early version pulled democracies West and dictatorships East a second time, on top of the existing system pull, and the West grew to 61 in every world. Another bug centred the opening leaders on "neutral".
+- **The membership sum.** Burden only counts when the allies are rich enough to pay for themselves. Otherwise Russia "paid more than its partners" in the CSTO and quit it in 2024 in most worlds. Leading a bloc is worth a sphere of influence, except to a "country first" leader.
+- **NATO and the US.** A "country first" president facing rich allies makes the demand, and the partners who value the alliance raise their spending. At the deadline the president judges what was delivered. If it is under 0.25% of GDP, the US walks. Of the 8 exits, 4 came after the partners raised spending by only 0–0.2% of GDP. In the other 4 the alliance's sum had turned clearly negative for that president.
+- **The bomb is a decision.** AI countries no longer pick the nuclear project, or a nuclear node on a national path, at random. Before this, South Korea went nuclear in 28 of 50 worlds. Now a country needs a plan to build the bomb: a top-35 economy, technology of 40 or more, a real threat and no nuclear ally. A programme is found out at 30% and draws sanctions, alarm next door and possibly sabotage.
+- **Applications.** A country applies to join a bloc only when at least half the members would vote yes, and goes public only at 75%. This stopped Caribbean microstates being turned down by the same South American union over and over.
+- **Historic organisations.** NATO, the EU and the other founding bodies absorb merging blocs and keep their names. In one world the EU had become the "Kyiv Union".
+
+**Plans across 50 worlds**
+- Long-term aims adopted: security 10k, joining a bloc 4.2k, containing a troublemaker 1.4k, revenge 600, building a bloc 258, regional dominance 269, the bomb 56, leaving a bloc 32.
+- Revenge plans are given up about one time in four.
+- Bids to join a bloc succeed three times in four, because governments wait until they have support.
+
+**Still open**
+- The US remains the top economy in 47 of 50 worlds; the economic model drives that, not the minds.
+- Russia, China and Iran never change camp without the player.

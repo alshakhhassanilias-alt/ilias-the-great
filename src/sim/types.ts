@@ -82,6 +82,8 @@ export interface Org {
   base?: number;
   /** what happened to it: founded, merged, upgraded, split, renamed */
   history?: { tick: number; text: string }[];
+  /** a member threatening to walk out unless the others carry more of the load */
+  ultimatum?: { by: CountryId; until: number; since: number; /** the partners' defence spending (share of GDP) when it was issued */ avg0?: number };
 }
 export interface LedgerEntry { t: number; what: string; amount: number; borrowed: number }
 export interface Economy {
@@ -216,6 +218,8 @@ export interface Country {
   /** an AI country's head of government (fictional) and its long-term aim */
   leader?: Leader;
   goal?: NatGoal;
+  /** AI countries: how the public feels (shapes who wins the next election or seizes power) */
+  mood?: Mood;
   doctrine?: { eco: string; mil: string; dip: string; changed: number };
   /** the army's commanders (created when the country first goes to war) */
   generals?: General[];
@@ -228,7 +232,9 @@ export interface Country {
   /** a change of foreign-policy course under way: West, East, a third way, or leading the region */
   course?: { id: 'west' | 'east' | 'third' | 'region'; stage: number; until: number; started: number; leaders: number[]; old: number[]; neighbors: number[]; org?: number; name?: string };
   /** the national storyline: next act, when it comes, choices made, path, rival, ending */
-  story?: { act: number; next: number; path: number[]; arch?: 'reform' | 'iron' | 'pragmatic'; rival?: number; ending?: string; ch?: number; issue?: string; past?: { ch: number; ending: string; arch: string; issue: string; path: number[]; tick: number }[] };
+  story?: { act: number; next: number; path: number[]; arch?: 'reform' | 'iron' | 'pragmatic'; rival?: number; ending?: string; ch?: number; issue?: string; past?: { ch: number; ending: string; arch: string; issue: string; path: number[]; tick: number }[];
+    /** reactive acts: the act waits (from `next`) for something to happen, or until `due`; `why` is what happened; `snap` the world when the last act closed */
+    due?: number; why?: string; snap?: { t: number; rel: number; troops: number; ws: number; gdp: number; nb: string; ml: string } };
   /** courses completed, for the record */
   coursesDone?: string[];
   /** the player's weapons programmes */
@@ -277,8 +283,29 @@ export interface General {
   pinned?: boolean;
 }
 
-export interface Leader { name: string; traits: [string, string]; since: number; /** personality deltas currently applied, so a successor can undo them */ applied: Partial<Record<'aggression' | 'expansion' | 'trade' | 'ideology' | 'caution', number>> }
-export interface NatGoal { kind: string; target: number; text: string; since: number }
+export type Drive = 'security' | 'expansion' | 'wealth' | 'prestige' | 'ideology';
+export interface Leader {
+  name: string; traits: [string, string]; since: number;
+  /** personality deltas currently applied, so a successor can undo them */
+  applied: Partial<Record<'aggression' | 'expansion' | 'trade' | 'ideology' | 'caution', number>>;
+  /** what this leader cares about (weights sum to 1) */
+  agenda?: Record<Drive, number>;
+  /** −1 "our country first" (wants out of foreign commitments) … +1 believes in alliances and institutions */
+  commit?: number;
+  /** the camp this leader personally prefers: −1 East … +1 West */
+  lean?: number;
+  /** why this leader came to power, in words */
+  mandate?: string;
+}
+/** How an AI country's public feels (0..1 each), smoothed month by month. */
+export interface Mood { weary: number; burden: number; pain: number; threat: number; shame: number }
+/** What a country has done, as the world remembers it (fades over about a decade). */
+export interface Record_ { aggr: number; conquest: number; betray: number; loyal: number; sanction: number; repress: number; reform: number; aid: number; defaulted: number; nuke: number }
+export interface NatGoal {
+  kind: string; target: number; text: string; since: number;
+  /** long-term plans: how far along (0..1), the best it has been, patience left (0..1), an org or other detail, last news */
+  progress?: number; best?: number; patience?: number; ref?: number; note?: string; step?: number;
+}
 export interface Grudge { tick: number; why: string; w: number }
 
 export interface Treaty {
@@ -365,6 +392,8 @@ export interface GameState {
   projects: ProjectRun[];
   /** long memories: key `${victim}>${offender}` -> things the victim has not forgotten */
   grudges: Record<string, Grudge[]>;
+  /** each country's record as the world remembers it (by country id) */
+  rec?: Record<number, Record_>;
   /** player trophies: id -> tick unlocked */
   trophies: Record<string, number>;
   /** the last end-of-year summary card shown to the player */

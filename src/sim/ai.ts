@@ -24,11 +24,13 @@ import { claimStrength, declareWar, evaluatePeace, makePeace, warScore, type Pea
 import { buildProject, demobilize, recruit } from './actions';
 import { build, levelOf } from './buildings';
 import { taxBurden } from './economy';
+import { agendaOf, commitOf, moodOf, opinionOf } from './minds';
+import { planMilBias, planTradeBias, planWarPull } from './plans';
 import type { Country, GameState } from './types';
 
 const rand = (s: GameState) => nextRand(s);
 
-function mainThreat(s: GameState, geo: Geo, c: Country): { th: number; who: number } {
+export function mainThreat(s: GameState, geo: Geo, c: Country): { th: number; who: number } {
   const mine = strength(c) + 0.5 * alliesOf(s, c.id).reduce((t, a) => t + strength(s.countries[a]), 0) + 1;
   let best = -1, bv = 0;
   for (const o of neighborsOf(s, geo, c.id)) {
@@ -55,7 +57,7 @@ function updateIntent(s: GameState, geo: Geo, c: Country) {
   else c.intent = 'Focused on steady development';
 }
 
-function threatLevel(s: GameState, geo: Geo, c: Country): number {
+export function threatLevel(s: GameState, geo: Geo, c: Country): number {
   const mine = strength(c) + 0.5 * alliesOf(s, c.id).reduce((t, a) => t + strength(s.countries[a]), 0) + 1;
   let th = 0;
   const near = neighborsOf(s, geo, c.id);
@@ -85,7 +87,8 @@ export function manageEconomy(s: GameState, geo: Geo, c: Country, eco = true, mi
   const debtRatio = e.debt / e.gdp;
   const target = debtRatio < 0.6 ? 0.03 : debtRatio < 1 ? 0.015 : debtRatio < 1.5 ? 0 : -0.01;
   const th = threatLevel(s, geo, c);
-  const desiredMil = clamp((e.prev.mil0 ?? b.military) * (1 + 0.4 * Math.min(1, th)) * (0.92 + 0.16 * s.settings.aggression * c.ai.aggression) * (atWar ? 1.6 : 1), 0, 0.2);
+  const ag = c.isPlayer ? null : agendaOf(s, c);
+  const desiredMil = clamp((e.prev.mil0 ?? b.military) * (1 + 0.4 * Math.min(1, th)) * (0.92 + 0.16 * s.settings.aggression * c.ai.aggression) * (atWar ? 1.6 : 1) * (ag ? (1 + 0.3 * (ag.security + ag.expansion - 0.42)) * planMilBias(c) : 1), 0, 0.2);
   const step = 0.001;
   if (mil) {
     if (b.military < desiredMil - step) b.military = Math.min(desiredMil, b.military + step * (atWar ? 3 : 1));
@@ -167,8 +170,8 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
       if (o === s.player) { if (s.offers.length < 8 && ev.score > ev.needed - 0.05) propose(s, geo, c.id, o, kind); }
       else applyTreaty(s, c.id, o, kind);
     };
-    if (!hasTrade(s, c.id, o) && rel > 5 && sanctionLevel(s, c.id, o) === 0 && sanctionLevel(s, o, c.id) === 0) send('trade', 0.35 * c.ai.trade);
-    if (!hasAlliance(s, c.id, o) && rel > 35 && hasTrade(s, c.id, o)) send('alliance', 0.1);
+    if (!hasTrade(s, c.id, o) && rel > 5 && sanctionLevel(s, c.id, o) === 0 && sanctionLevel(s, o, c.id) === 0) send('trade', 0.35 * c.ai.trade * planTradeBias(c));
+    if (!hasAlliance(s, c.id, o) && rel > 35 && hasTrade(s, c.id, o)) send('alliance', 0.1 * (1 + 0.6 * commitOf(c)));
     else if (!hasAlliance(s, c.id, o) && threat.th > 0.4 && o !== threat.who && rel > 15 && getRelation(s, o, threat.who) < 0) send('alliance', 0.3); // a common enemy makes allies
     if (hasAlliance(s, c.id, o) && rel > 40) send('coop', 0.1);
     if (!hasNap(s, c.id, o) && !hasAlliance(s, c.id, o) && near.includes(o) && rel > -30 && rel < 30) send('nap', 0.1 + 0.2 * c.ai.caution);
@@ -179,7 +182,9 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
       if (w.attackers.includes(o)) for (const v of w.defenders) if (getRelation(s, c.id, v) > 30) aggressorOfFriend = true;
     }
     if (sanctionLevel(s, c.id, o) === 0 && o !== s.player || (o === s.player && sanctionLevel(s, c.id, o) === 0)) {
-      const dislike = rel < -50 || (aggressorOfFriend && rel < 15);
+      // a leader judges the record: an ideologue sanctions a crackdown, a security hawk a warmonger
+      const op = opinionOf(s, c.id, o).v;
+      const dislike = rel + op * 0.6 < -50 || (aggressorOfFriend && rel < 15) || (op < -28 && rel < 20 && agendaOf(s, c).ideology > 0.2);
       const cost = O.eco.gdp / Math.max(c.eco.gdp, 1) * c.eco.openness;
       if (dislike && c.ai.ideology > 0.35 && cost < 0.5 && rand(s) < 0.12 * (aggressorOfFriend ? 2 : 1)) imposeSanction(s, c.id, o, aggressorOfFriend && rel < -30 ? 2 : 1);
     } else if (sanctionLevel(s, c.id, o) > 0 && rel > 5 && rand(s) < 0.08) liftSanction(s, c.id, o);
@@ -222,17 +227,22 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     if (ratio < need) continue;
     const claim = claimStrength(c.id, t);
     const revenge = Math.min(0.25, grudgeScore(s, c.id, t) / 220) * (0.6 + c.ai.aggression);
-    const goalPull = c.goal && c.goal.target === t && (c.goal.kind === 'revanche' || c.goal.kind === 'claims') ? 0.15 : 0;
+    const goalPull = 0; // folded into the plan's pull below
     const cause = s.stats[`cb:${c.id}>${t}`] ? 0.2 : 0; // a national project made the case for this war
+    // the leader's agenda and long-term plan, the public's mood, and the judgement of the target's record
+    const ag = agendaOf(s, c), md = moodOf(c);
+    const mind = (ag.expansion - 0.15) * 0.5 + (ag.prestige - 0.15) * 0.1 - (ag.wealth - 0.2) * 0.25 - md.weary * 0.3 + planWarPull(s, c, t) + Math.max(0, -opinionOf(s, c.id, t).v) / 150;
     // coalitions: an aggressor already facing one thinks twice; members pile on the common enemy
     const coal = (coalitionAgainst(s, c.id) ? -0.25 : 0) + (inCoalitionAgainst(s, t, c.id) ? -0.15 : 0) + (inCoalitionAgainst(s, c.id, t) ? 0.12 : 0);
-    let desire = revenge + goalPull + cause + coal + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
+    let desire = mind + revenge + goalPull + cause + coal + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
     if (t === s.player) desire *= mods(T).deter * (s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1);
     if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (attack odds ${ratio.toFixed(1)}×)`;
     if (desire > 0.62 && (!best || desire > best.desire)) {
       const why: string[] = [];
+      if (planWarPull(s, c, t) > 0.1 && c.goal) why.push(`its aim: ${c.goal.text.charAt(0).toLowerCase() + c.goal.text.slice(1)}`);
+      if (opinionOf(s, c.id, t).v < -15) why.push(`${c.leader?.name ?? 'its leader'} has judged ${T.name}'s record and does not like it`);
       if (claim > 0.3) why.push('old territorial claims');
       if (rel < -40) why.push('deep hostility');
       if (ratio > 2.5) why.push(`it sees ${T.name} as weak (${ratio.toFixed(1)}× odds)`);

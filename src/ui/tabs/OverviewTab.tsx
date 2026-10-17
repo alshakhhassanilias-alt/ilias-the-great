@@ -1,4 +1,5 @@
 import { nationalColor } from '../../map/palette';
+import { LeaderMind, TheirJudgement } from './Minds';
 import { store } from '../../state/store';
 import { Meter, Note, RelationBar, Section, Stat } from '../widgets';
 import { GOV, REGION, fog, fmtMoney, fmtNum, pct, relLabel, signedPct, sizeClass } from '../format';
@@ -74,7 +75,8 @@ export function OverviewTab({ id }: { id: number }) {
               {c.leader.traits.map((t) => { const tr = traitById(t); return <span className="pill" key={t} title={tr.desc}>{tr.icon} {tr.title}</span>; })}
             </div>
             <div className="faint" style={{ fontSize: 12 }}>{c.leader.traits.map((t) => traitById(t).desc).join(' ')}</div>
-            {c.goal && <div style={{ marginTop: 8, fontSize: 13 }}><b>Wants:</b> {c.goal.text}</div>}
+            <LeaderMind c={c} />
+            <TheirJudgement id={id} />
             {(() => { const g = grudgesOf(s, id, s.player); return g.length > 0 && (
               <div style={{ marginTop: 8 }}>
                 <div className="why-title">They have not forgotten</div>

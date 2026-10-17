@@ -13,7 +13,9 @@ import { alliesOf, getRelation, isAtWar } from './relations';
 import { neighborsOf } from './diplomacy';
 import { strength } from './military';
 import { isMajor } from './drama';
-import type { Country, Grudge, GameState, Leader, NatGoal } from './types';
+import { makeAgenda, mandateOf, moodOf, moodTraitWeight } from './minds';
+import { choosePlan, pursuePlan, mainThreatOf } from './plans';
+import type { Country, Grudge, GameState, Leader } from './types';
 
 type Dl = Leader['applied'];
 export interface Trait { id: string; title: string; icon: string; desc: string; d: Dl }
@@ -27,6 +29,8 @@ export const TRAITS: Trait[] = [
   { id: 'paranoid', title: 'Paranoid', icon: '👁', desc: 'Sees plots everywhere and arms accordingly.', d: { caution: 0.2, aggression: 0.1, trade: -0.1 } },
   { id: 'reformer', title: 'Reformer', icon: '🛠', desc: 'Focused on the economy at home.', d: { trade: 0.1, caution: 0.05, aggression: -0.05 } },
   { id: 'strongman', title: 'Strongman', icon: '🥊', desc: 'Rules by force and projects power abroad.', d: { aggression: 0.1, expansion: 0.1 } },
+  { id: 'isolationist', title: 'Country First', icon: '🏠', desc: 'Wants out of foreign wars and alliances that cost more than they give.', d: { aggression: -0.05, caution: 0.1, trade: -0.05 } },
+  { id: 'internationalist', title: 'Internationalist', icon: '🌐', desc: 'Believes in alliances, institutions and standing by friends.', d: { trade: 0.05, ideology: 0.05 } },
 ];
 export const traitById = (id: string) => TRAITS.find((t) => t.id === id)!;
 
@@ -41,7 +45,9 @@ const traitWeights = (gov: string): number[] => TRAITS.map((t) => {
   return base;
 });
 function pickTraits(c: Country, gen: number): [string, string] {
-  const w = traitWeights(c.gov);
+  // the public picks (or the palace installs) what the moment seems to need
+  const w = traitWeights(c.gov).map((x, i) => Math.max(0.05, x * moodTraitWeight(c, TRAITS[i].id)));
+  if (w.length > 1) w[TRAITS.findIndex((t) => t.id === 'internationalist')] *= 0.6;
   const pick = (skip: string) => {
     const ws = TRAITS.map((t, i) => (t.id === skip ? 0 : w[i]));
     let r = hash01('lt', c.id, gen * 3 + (skip ? 1 : 0)) * ws.reduce((a, b) => a + b, 0);
@@ -49,7 +55,9 @@ function pickTraits(c: Country, gen: number): [string, string] {
     return TRAITS[0].id;
   };
   const a = pick('');
-  return [a, pick(a)];
+  let b = pick(a);
+  if ((a === 'isolationist' && b === 'internationalist') || (a === 'internationalist' && b === 'isolationist') || (a === 'dove' && b === 'hawk') || (a === 'hawk' && b === 'dove')) b = 'pragmatist';
+  return [a, b];
 }
 function applyTraits(c: Country, ids: [string, string]): Dl {
   const sum: Dl = {};
@@ -62,10 +70,12 @@ function removeTraits(c: Country) {
   if (!old) return;
   for (const [k, v] of Object.entries(old)) { const kk = k as keyof Country['ai']; c.ai[kk] = clamp(c.ai[kk] - (v as number), kk === 'aggression' ? 0.02 : 0, kk === 'aggression' ? 1.4 : 1); }
 }
-export function crownLeader(s: GameState, c: Country, gen: number) {
+export function crownLeader(s: GameState, c: Country, gen: number, threatWho = -1) {
   removeTraits(c);
-  const traits = pickTraits(c, gen);
-  c.leader = { name: leaderName(c, gen), traits, since: s.tick, applied: applyTraits(c, traits) };
+  let traits = pickTraits(c, gen);
+  // the leaders of 2024 were not elected on a mood that has not happened yet
+  for (let k = 1; s.tick === 0 && traits.includes('isolationist') && k < 20; k++) traits = pickTraits(c, gen + k * 7919);
+  c.leader = { name: leaderName(c, gen), traits, since: s.tick, applied: applyTraits(c, traits), ...makeAgenda(s, c, traits, gen), mandate: mandateOf(s, c, traits, threatWho) };
 }
 export const traitsText = (l: Leader) => l.traits.map((t) => traitById(t).title).join(' & ');
 
@@ -92,32 +102,9 @@ function decayGrudges(s: GameState) {
   }
 }
 
-// ------------------------------------------------------------------ goals
-function chooseGoal(s: GameState, geo: Geo, c: Country): NatGoal {
-  const mk = (kind: string, target: number, text: string): NatGoal => ({ kind, target, text, since: s.tick });
-  const e = c.eco;
-  if (e.debt / e.gdp > 1.6 || e.stability < 30) return mk('recover', -1, e.stability < 30 ? 'Restore order at home' : 'Get its debt under control');
-  if (e.sanctionShare > 0.15) return mk('sanctions', -1, 'Break out of sanctions');
-  // lost land: provinces whose historical owner is c but are held by someone else
-  const lost = new Map<number, number>();
-  for (let p = 0; p < s.owner.length; p++) if (s.core[p] === c.id && s.owner[p] !== c.id && s.countries[s.owner[p]]?.alive) lost.set(s.owner[p], (lost.get(s.owner[p]) ?? 0) + 1);
-  if (lost.size && c.ai.expansion > 0.25) { const [who, n] = [...lost.entries()].sort((a, b) => b[1] - a[1])[0]; return mk('revanche', who, `Win back ${n} lost region${n > 1 ? 's' : ''} from ${s.countries[who].name}`); }
-  let claim = -1, cv = 0.3;
-  for (const o of s.countries) if (o.alive && o.id !== c.id) { const v = claimStrength(c.id, o.id); if (v > cv) { cv = v; claim = o.id; } }
-  if (claim >= 0 && c.ai.expansion > 0.2) return mk('claims', claim, `Press its claims on ${s.countries[claim].name}`);
-  const nb = neighborsOf(s, geo, c.id);
-  const strongest = nb.map((x) => s.countries[x]).sort((a, b) => strength(b) - strength(a))[0];
-  if (strongest && strength(strongest) > strength(c) * 1.4 && getRelation(s, c.id, strongest.id) < 20) return mk('security', strongest.id, `Deter ${strongest.name}`);
-  const rank = s.countries.filter((x) => x.alive && x.eco.gdp > e.gdp).length + 1;
-  if (c.ai.aggression > 0.7 && c.ai.expansion > 0.4) return mk('dominance', -1, 'Become the dominant power in its region');
-  if (c.ai.ideology > 0.7 && alliesOf(s, c.id).length >= 2) return mk('bloc', -1, 'Lead its own bloc');
-  if (rank > 3) return mk('growth', -1, `Climb from #${rank} to #${Math.max(1, rank - 3)} in the world economy`);
-  return mk('growth', -1, 'Stay the world’s leading economy');
-}
-
 /** Give every AI country its first leader and aim (done when the game is created, so the first week has no spike). */
 export function initLeaders(s: GameState, geo: Geo) {
-  for (const c of s.countries) if (c.alive && c.id !== s.player && !c.leader) { crownLeader(s, c, 0); c.goal = chooseGoal(s, geo, c); }
+  for (const c of s.countries) if (c.alive && c.id !== s.player && !c.leader) { crownLeader(s, c, Math.round(hash01('gen0', c.id, s.settings.seed) * 1e6)); c.goal = choosePlan(s, geo, c); }
 }
 
 // ------------------------------------------------------------------ the weekly step
@@ -125,23 +112,27 @@ export function stepLeaders(s: GameState, geo: Geo) {
   if (s.tick % 4 === 3) decayGrudges(s);
   for (const c of s.countries) {
     if (!c.alive || c.id === s.player) continue;
-    if (!c.leader) { crownLeader(s, c, 0); c.goal = chooseGoal(s, geo, c); }
-    if ((s.tick + c.id) % 26 === 5 && (!c.goal || s.tick - c.goal.since > 52 || (c.goal.target >= 0 && !s.countries[c.goal.target]?.alive))) c.goal = chooseGoal(s, geo, c);
+    if (!c.leader) { crownLeader(s, c, Math.round(hash01('gen0', c.id, s.settings.seed) * 1e6)); c.goal = choosePlan(s, geo, c); }
+    // a long-term plan, worked on every month and reconsidered twice a year
+    if ((s.tick + c.id) % 4 === 2) pursuePlan(s, geo, c);
+    if ((s.tick + c.id) % 26 === 5) { const g = choosePlan(s, geo, c); if (g !== c.goal) c.goal = g; }
     // succession, once a year per country
     if ((s.tick + c.id * 7) % 52 !== 11) continue;
     const years = (s.tick - c.leader!.since) / 52;
     const free = c.gov === 'D' || c.gov === 'F';
     const turmoil = c.eco.stability < 18;
-    const p = turmoil ? 0.55 : free ? (years < 4 ? 0 : Math.min(0.6, 0.12 * (years - 3))) : (years < 8 ? 0.01 : Math.min(0.3, 0.04 * (years - 7)));
+    // voters punish a government for a bad economy, an endless war or a humiliation
+    const m = moodOf(c), anger = Math.max(m.pain, m.weary, m.shame);
+    const p = turmoil ? 0.55 : free ? (years < 4 ? 0 : Math.min(0.75, (0.12 * (years - 3)) * (0.6 + anger * 1.4))) : (years < 8 ? 0.01 + anger * 0.02 : Math.min(0.3, 0.04 * (years - 7)));
     if (nextRand(s) >= p) continue;
     const old = c.leader;
-    const gen = Math.round(hash01('gen', c.id, s.tick) * 1e6);
-    crownLeader(s, c, gen);
+    const gen = Math.round(hash01('gen', c.id, s.tick, s.settings.seed) * 1e6);
+    crownLeader(s, c, gen, mainThreatOf(s, geo, c).who);
     // a new face is a chance for a fresh start: grudges soften, hostility cools a little
     for (const k of Object.keys(s.grudges ?? {})) if (k.startsWith(`${c.id}>`)) for (const g of s.grudges[k]) g.w *= 0.6;
-    c.goal = chooseGoal(s, geo, c);
+    c.goal = choosePlan(s, geo, c, true);
     const how = turmoil ? 'after a collapse of the government' : free ? 'after an election' : old && years > 15 ? 'after the old ruler’s death' : 'in a palace shake-up';
-    logEvent(s, `🆕 ${c.name}: ${c.leader!.name} (${traitsText(c.leader!)}) takes over ${how}.`, 'diplo', [c.id], isMajor(s, c.id) || isAtWar(s, c.id));
+    logEvent(s, `🆕 ${c.name}: ${c.leader!.name} (${traitsText(c.leader!)}) takes over ${how}, ${c.leader!.mandate}. Aim: ${c.goal.text.charAt(0).toLowerCase() + c.goal.text.slice(1)}.`, 'diplo', [c.id], isMajor(s, c.id) || isAtWar(s, c.id));
     if (isMajor(s, c.id) || neighborsOf(s, geo, s.player).includes(c.id)) cable(s, c.id, 'new_leader');
   }
 }

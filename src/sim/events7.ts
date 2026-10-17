@@ -141,6 +141,23 @@ export const EVENTS7: EventDef[] = [
     lapse: (_s, c) => { sway(c, 'military', -6); return 'They watch, and wait.'; },
   },
   {
+    id: 'burden_demand', icon: '📢', title: 'Pay your share, or we leave', weight: 0, cooldown: 0, ttl: 20,
+    eligible: () => null,
+    speaker: (s, _c, d) => { const B = s.countries[d.by]; return B?.leader ? { name: B.leader.name, role: `Leader of ${B.name}`, cid: B.id, kind: 'leader' } : null; },
+    text: (s, c, d) => {
+      const B = s.countries[d.by], o = s.orgs?.find((x) => x.id === d.o);
+      if (!B) return 'An ally says the alliance costs it more than it gives, and threatens to walk out unless the partners carry more.';
+      return `${B.name} says ${o?.name ?? 'the alliance'} costs it more than it gives, and will walk out within the year unless the allies carry more. ${B.name} spends ${(B.budget.military * 100).toFixed(1)}% of its GDP on defence; you spend ${(c.budget.military * 100).toFixed(1)}%. If it goes, the alliance loses much of its strength, and its protection with it.`;
+    },
+    options: [
+      { label: 'Raise defence spending to 2.5% of GDP', hint: 'Costs more every year · relations with them +12 · they are likelier to stay', enabled: (_s, c) => c.budget.military < 0.025,
+        apply: (s, c, d) => { const was = c.budget.military; c.budget.military = 0.025; if (s.countries[d.by]) addRelation(s, c.id, d.by, 12); return `Defence spending rises from ${(was * 100).toFixed(1)}% to 2.5% of GDP. ${s.countries[d.by]?.name ?? 'Your ally'} welcomes it.`; } },
+      { label: 'Promise more later', hint: 'Relations +3 now · they may see through it', apply: (s, c, d) => { if (!s.countries[d.by]) return 'They will hold you to it.'; if (nextRand(s) < 0.5) { addRelation(s, c.id, d.by, -5); return `${name(s, d.by)} has heard that before.`; } addRelation(s, c.id, d.by, 3); return 'They will hold you to it.'; } },
+      { label: 'Refuse: we already pay our share', hint: 'Stability +1 · relations with them −12 (only −4 if you spend 2% or more)', apply: (s, c, d) => { stab(c, 1); if (s.countries[d.by]) addRelation(s, c.id, d.by, c.budget.military >= 0.02 ? -4 : -12); return c.budget.military >= 0.02 ? 'You point to your own budget. They grumble, but cannot argue.' : `${s.countries[d.by]?.name ?? 'Your ally'} takes note of who would not pay.`; } },
+    ],
+    lapse: (s, c, d) => { if (s.countries[d.by]) addRelation(s, c.id, d.by, -6); return `${s.countries[d.by]?.name ?? 'Your ally'} reads your silence as a no.`; },
+  },
+  {
     id: 'camp_pressure', icon: '📞', title: 'Your old patron pushes back', weight: 0, cooldown: 0, urgent: true, ttl: 10,
     eligible: () => null,
     speaker: (s, _c, d) => { const P = s.countries[d.p]; return P?.leader ? { name: P.leader.name, role: `Leader of ${P.name}`, cid: P.id, kind: 'leader' } : null; },

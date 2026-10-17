@@ -145,6 +145,8 @@ class Store {
   // ---- lifecycle ----
   newGame(settings: Settings, player: CountryId) {
     this.pending = null;
+    // every new game is its own world: a fresh seed (unless one was chosen on purpose)
+    if (settings.seed === DEFAULT_SETTINGS.seed) settings = { ...settings, seed: (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0 };
     this.state = createGame(this.geo, settings, player);
     this.preview = false;
     this.afterLoad(player);

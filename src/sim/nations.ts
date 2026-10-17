@@ -370,10 +370,11 @@ export function stepNations(s: GameState, geo: Geo) {
     if (!c.alive || c.isPlayer || !PATHS[c.name]) continue;
     if (c.nat?.active) { if (s.tick >= c.nat.active.until) { const n = nodeOf(c, c.nat.active.id); if (n) complete(s, c, n); else c.nat.active = undefined; } continue; }
     if (s.tick < 20 || nextRand(s) > 0.35) continue;
-    const open = pathOf(c).nodes.filter((n) => !blocked(s, c, n));
+    // the bomb is a decision a government makes for a reason (its long-term plan), not a project picked at random
+    const open = pathOf(c).nodes.filter((n) => !blocked(s, c, n) && (!n.fx.nuclear || c.goal?.kind === 'nukes'));
     if (!open.length) continue;
     // aggressive leaders favour military and claim projects; traders favour the economy
-    const score = (n: NatNode) => hash01('np', c.id, n.id) + (n.fx.cb || n.fx.army || n.fx.navy || n.fx.nuclear ? c.ai.aggression : 0) + (n.fx.eff?.tfp || n.fx.capital ? c.ai.trade : 0)
+    const score = (n: NatNode) => hash01('np', c.id, n.id, s.settings.seed) + (n.fx.cb || n.fx.army || n.fx.navy || n.fx.nuclear ? c.ai.aggression : 0) + (n.fx.eff?.tfp || n.fx.capital ? c.ai.trade : 0)
       // a government turns West (or East) only if it already leans that way: a shift of course is not random
       + (n.fx.orient ? Math.sign(n.fx.orient) * ((c.orient ?? 0) * 1.2 + (c.gov === 'D' ? 0.3 : -0.4)) : 0) + (n.fx.gov === 'D' && c.gov !== 'D' ? -0.6 + c.eco.stability / 200 : 0);
     const n = open.sort((a, b) => score(b) - score(a))[0];

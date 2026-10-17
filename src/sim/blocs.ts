@@ -51,7 +51,7 @@ export function orgName(s: GameState, kind: Org['kind'], founder: CountryId, mem
   const noun = region ? R_NOUN[region] : camp > 0 ? 'the Free World' : camp < 0 ? 'Eurasia' : 'the Global South';
   const used = new Set((s.orgs ?? []).map((o) => o.name.toLowerCase()));
   const pats = PATTERNS[kind];
-  const start = Math.floor(hash01('orgname', founder, s.tick + salt) * pats.length);
+  const start = Math.floor(hash01('orgname', founder, s.tick + salt, s.settings.seed) * pats.length);
   for (let i = 0; i < pats.length * adjs.length; i++) {
     const p = pats[(start + i) % pats.length];
     const adj = adjs[(Math.floor(i / pats.length) + start) % adjs.length];
@@ -93,8 +93,10 @@ export function upgradeToDefence(s: GameState, o: Org, why: string) {
 }
 /** Two like-minded organisations become one. A much bigger one simply absorbs the smaller and keeps its name. */
 export function mergeOrgs(s: GameState, a: Org, b: Org): Org {
-  const [big, small] = a.members.length >= b.members.length ? [a, b] : [b, a];
-  if (big.members.length >= small.members.length * 2.5) {
+  // the historic organisations (NATO, the EU ...) absorb newcomers and keep their names, whatever the numbers
+  const hist = (o: Org) => o.founded === 0 && o.founder === undefined;
+  const [big, small] = hist(a) !== hist(b) ? (hist(a) ? [a, b] : [b, a]) : a.members.length >= b.members.length ? [a, b] : [b, a];
+  if (hist(big) || big.members.length >= small.members.length * 2.5) {
     const added = small.members.filter((m) => !big.members.includes(m));
     if (big.kind === 'defence') for (const m of added) for (const x of big.members) if (!areAtWar(s, m, x)) ensureTreaty(s, m, x).alliance = true;
     big.members.push(...added);

@@ -1,4 +1,7 @@
 import { stepCoalitions } from './coalitions';
+import { stepMinds } from './minds';
+import { stepMembership } from './membership';
+import { threatLevel } from './ai';
 import { stepAlignment } from './alignment';
 import { stepCourses } from './courses';
 import { stepStories } from './story';
@@ -108,6 +111,8 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepArcs(s, geo);
   stepNations(s, geo);
   stepCoalitions(s, geo);
+  stepMinds(s, geo, (c) => threatLevel(s, geo, c));
+  stepMembership(s);
   stepAlignment(s, geo);
   stepCourses(s, geo);
   stepStories(s, geo);

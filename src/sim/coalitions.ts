@@ -7,6 +7,7 @@
  * Great powers also take sides in other people's wars: they ship arms to the side they like and sanction the
  * side they do not, renewed every few months while the war lasts.
  */
+import { opinionOf } from './minds';
 import type { Geo } from './geo';
 import { clamp } from './util';
 import { nextRand } from './rng';
@@ -49,7 +50,9 @@ export function stepCoalitions(s: GameState, geo: Geo) {
     for (const X of s.countries) {
       if (!X.alive || X.id === T.id || X.id === s.player || hasAlliance(s, X.id, T.id)) continue;
       const rel = getRelation(s, X.id, T.id);
-      const worried = (near.has(X.id) && rel < 10) || (isMajor(s, X.id) && rel < -10) || (rel < -35 && strength(X) > tStr * 0.15);
+      // leaders judge the aggressor's whole record through their own agenda, not only today's relations
+      const r = rel + opinionOf(s, X.id, T.id).v * 0.5;
+      const worried = (near.has(X.id) && r < 10) || (isMajor(s, X.id) && r < -10) || (r < -35 && strength(X) > tStr * 0.15);
       if (worried && nextRand(s) < 0.75) members.push(X.id);
     }
     if (members.length < 3) continue;

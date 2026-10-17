@@ -2,6 +2,7 @@
  * Situational events: they only appear when the world state calls for them, name the real countries
  * involved, and their outcomes change relations, treaties, wars and territory — not just numbers.
  */
+import { addRec } from './minds';
 import { addGrudge } from './leaders';
 import { onEnterWar } from './warsupport';
 import { crisisById, cushion } from './crises';
@@ -24,7 +25,7 @@ export const EVENTS2: EventDef[] = [
   // ---------------------------------------------------------------- alliance & war
   {
     id: 'ally_attacked', icon: '🛡', title: 'Your ally is under attack', weight: 0, cooldown: 0, urgent: true, ttl: 16,
-    lapse: (s, c, d) => { rep(c, -8); addRelation(s, c.id, d.ally, -20); return `${name(s, d.ally)} felt abandoned. Reputation −8.`; },
+    lapse: (s, c, d) => { rep(c, -8); addRelation(s, c.id, d.ally, -20); addRec(s, c.id, 'betray', 0.8); return `${name(s, d.ally)} felt abandoned. Reputation −8.`; },
     eligible: () => null,
     text: (s, _c, d) => `${name(s, d.aggressor)} has attacked your ally ${name(s, d.ally)}. Under your alliance you are expected to respond, and the whole world is watching what you do.`,
     options: [
@@ -32,7 +33,7 @@ export const EVENTS2: EventDef[] = [
         const w = s.wars.find((x) => x.id === d.war);
         if (!w) return 'The war ended before you could act.';
         if (!w.defenders.includes(c.id) && !w.attackers.includes(c.id)) { w.defenders.push(c.id); w.startProvs[c.id] = c.provinces.length; onEnterWar(s, c, 'ally'); }
-        addRelation(s, c.id, d.ally, 15); addRelation(s, c.id, d.aggressor, -30); rep(c, 3);
+        addRelation(s, c.id, d.ally, 15); addRelation(s, c.id, d.aggressor, -30); rep(c, 3); addRec(s, c.id, 'loyal', 1);
         logEvent(s, `${c.name} joins the war on ${name(s, d.ally)}'s side against ${name(s, d.aggressor)}.`, 'war', [c.id, d.ally, d.aggressor], true);
         return `You joined the war against ${name(s, d.aggressor)}.`;
       } },
@@ -42,7 +43,7 @@ export const EVENTS2: EventDef[] = [
       } },
       { label: 'Call for mediation', hint: 'Reputation +2 · relations with both sides +2', apply: (s, c, d) => { rep(c, 2); addRelation(s, c.id, d.ally, 2); addRelation(s, c.id, d.aggressor, 2); return 'You called for talks. Few listened.'; } },
       { label: 'Stay out of it', hint: 'Reputation −10 · ally relations −25 · they may cancel the alliance', apply: (s, c, d) => {
-        rep(c, -10); addRelation(s, c.id, d.ally, -25); addGrudge(s, d.ally, c.id, 'abandoned it when it was attacked', 25);
+        rep(c, -10); addRelation(s, c.id, d.ally, -25); addGrudge(s, d.ally, c.id, 'abandoned it when it was attacked', 25); addRec(s, c.id, 'betray', 1);
         if (nextRand(s) < 0.3) { const t = s.treaties[c.id < d.ally ? `${c.id}-${d.ally}` : `${d.ally}-${c.id}`]; if (t) t.alliance = false; return `${name(s, d.ally)} cancelled the alliance, calling you an unreliable partner.`; }
         return `${name(s, d.ally)} will remember that you stood aside.`;
       } },
