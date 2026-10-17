@@ -4,7 +4,7 @@ import { fund } from './actions';
 import type { Country, GameState } from './types';
 
 export type D = Record<string, number>;
-export interface EventOption { label: string; hint: string; enabled?: (s: GameState, c: Country) => boolean; apply: (s: GameState, c: Country, d: D, geo: Geo) => string }
+export interface EventOption { label: string; hint: string; enabled?: (s: GameState, c: Country) => boolean; /** why a disabled option is locked (default: cannot afford) */ why?: (s: GameState, c: Country) => string; apply: (s: GameState, c: Country, d: D, geo: Geo) => string }
 export interface EventDef {
   id: string; icon: string; title: string; weight: number; cooldown: number;
   eligible: (s: GameState, c: Country, geo: Geo) => D | null;

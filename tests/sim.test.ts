@@ -26,6 +26,8 @@ import { actPassLaw, actRepealLaw, factionTarget, forecast, lawById } from '../s
 import { actStartProject as startNatProject, blocked, pathOf } from '../src/sim/nations';
 import { actMissileStrike, actStartProgramme, goalOf, settleGoal } from '../src/sim/wargoals';
 import { addAggression, coalitionAgainst } from '../src/sim/coalitions';
+import { STORIES } from '../src/data/stories';
+import { issueNow, possibleEndings, seedOf, storyEvents } from '../src/sim/story';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
 const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
@@ -381,6 +383,7 @@ describe('things to do: events, goals, covert ops, war actions', () => {
       for (let i = 0; i < def.options.length; i++) {
         const s2 = JSON.parse(JSON.stringify(s)) as GameState;
         s2.inbox = [{ uid: 1, id: def.id, tick: 1, expires: 99, urgent: false, data: d }];
+        if (def.options[i].enabled && !def.options[i].enabled!(s2, s2.countries[id('Germany')])) continue; // locked options (e.g. Germany cannot "turn West")
         const r = resolveEvent(s2, geo, i);
         if (def.options[i].label.includes('declare war') && !r.ok) continue;
         expect(r.ok, `${def.id}/${i}`).toBe(true);
@@ -1093,7 +1096,7 @@ describe('round 11: modes, control levels, Legacy, army groups', () => {
     expect(s.countries.some((c) => c.mil.nuclear)).toBe(false);
     expect(s.crisis?.id).toBe('coldwar');
     run(s, 60);
-    expect(s.inbox.filter((x) => !['ally_attacked', 'assembly', 'fac_demand', 'fac_unrest'].includes(x.id)).length).toBe(0); // faction demands come from your politics, not chance
+    expect(s.inbox.filter((x) => !['ally_attacked', 'assembly', 'fac_demand', 'fac_unrest'].includes(x.id) && !x.id.startsWith('story')).length).toBe(0); // faction demands and storyline acts are not chance
   });
   it('an endless sandbox can be given an end year', () => {
     const s = fresh('Germany', { endYear: 2025 });
@@ -1872,5 +1875,90 @@ describe('round 17: every country can change course; alliances live and evolve',
     const a1 = alignmentSummary(s);
     expect(starts).toBeLessThanOrEqual(16);
     expect(Math.abs(a1.west - a0.west)).toBeLessThanOrEqual(8);
+  });
+});
+
+describe('round 18: national storylines for every country, steered by the player', () => {
+  /** Plays the player's story acts with the given choices (act i takes picks[i], or the first one it can). */
+  const playStory = (s: GameState, picks: number[], weeks: number) => {
+    const c = s.countries[s.player];
+    const seen: string[] = [];
+    for (let w = 0; w < weeks; w++) {
+      for (const it of [...s.inbox]) {
+        const d = eventById(it.id);
+        c.politics!.pc = 100;
+        if (it.id.startsWith('story')) {
+          seen.push(it.id);
+          const want = picks[(c.story?.act ?? 1) - 1] ?? 0;
+          const k = d.options[want] && (!d.options[want].enabled || d.options[want].enabled!(s, c)) ? want : d.options.length - 1;
+          resolveEvent(s, geo, k, it.uid);
+        } else resolveEvent(s, geo, 0, it.uid);
+      }
+      tick(s, geo);
+    }
+    return seen;
+  };
+  it('every country has a storyline seed, and every act exists for it', () => {
+    const s = fresh('Germany');
+    const ids = new Set(storyEvents().map((e) => e.id));
+    for (const c of s.countries) {
+      expect(STORIES[c.name], c.name).toBeDefined();
+      const seed = seedOf(c);
+      expect(ids.has(`story1_${seed.issue}`)).toBe(true);
+      for (const a of ['reform', 'iron', 'pragmatic']) expect(ids.has(`story3_${seed.econ}_${a}`), `${c.name} ${seed.econ}`).toBe(true);
+      expect(possibleEndings(c).length).toBe(12);
+    }
+    expect(ids.has('story4')).toBe(true);
+  });
+  it('the player walks four acts; the road chosen in Act I unlocks its own options and decides the ending', () => {
+    const s = fresh('Turkey', { randomEvents: false });
+    const c = s.countries[s.player];
+    const seen = playStory(s, [1, 3, 0, 4], 52 * 5);
+    expect(seen.slice(0, 4)).toEqual([`story1_${seedOf(c).issue}`, 'story2_iron', `story3_${seedOf(c).econ}_iron`, 'story4']);
+    expect(eventById('story2_iron').options[3].label).toBe('Prepare for war');
+    expect(eventById('story2_reform').options[3].label).toBe('International arbitration');
+    expect(c.story!.arch).toBe('iron');
+    expect(c.story!.ending).toBe('The Iron Industrial Power');
+    expect(s.stats[`cb:${c.id}>${c.story!.rival}`]).toBe(1); // preparing for war gave a casus belli
+  });
+  it('a different road gives a different story', () => {
+    const s = fresh('Turkey', { randomEvents: false });
+    playStory(s, [0, 3, 3, 4], 52 * 5);
+    const c = s.countries[s.player];
+    expect(c.story!.arch).toBe('reform');
+    expect(c.story!.ending).toBe('The Reformed Social Market');
+  });
+  it('after the ending a new chapter opens, built from where the country stands then', () => {
+    const s = fresh('Japan', { randomEvents: false });
+    const c = s.countries[s.player];
+    playStory(s, [0, 0, 0, 4], 52 * 5);
+    expect(c.story!.act).toBe(5);
+    c.eco.damage = 0.3;
+    expect(issueNow(s, c)).toBe('rebuild');
+    c.eco.damage = 0;
+    c.eco.inflation = 0.3;
+    expect(issueNow(s, c)).toBe('inflation');
+    c.eco.inflation = 0.02;
+    s.tick = c.story!.next; // jump to the chapter break
+    playStory(s, [2, 0, 0, 4], 2);
+    expect(c.story!.ch).toBe(2);
+    expect(c.story!.past?.[0].ending).toMatch(/^The /);
+    expect(s.inbox.some((x) => x.id.startsWith('story1_'))).toBe(true);
+  });
+  it('AI countries play their stories by character without flooding the headlines', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const seq0 = s.logSeq;
+    run(s, 52 * 5);
+    const alive = s.countries.filter((x) => x.alive && !x.isPlayer);
+    expect(alive.filter((x) => (x.story?.act ?? 1) > 4 || (x.story?.ch ?? 1) > 1).length).toBeGreaterThan(alive.length * 0.8);
+    const story = s.log.filter((e) => e.seq >= seq0 && /📖/.test(e.text));
+    expect(story.filter((e) => e.important && !e.countries.includes(s.player)).length).toBe(0);
+    const us = s.countries[id('United States of America')];
+    expect(us.story!.arch).toBe('reform'); // a democracy takes the reformer's road
+  });
+  it('storylines are deterministic', () => {
+    const a = fresh('Brazil', { seed: 9 }), b = fresh('Brazil', { seed: 9 });
+    run(a, 200); run(b, 200);
+    expect(a.countries.map((x) => JSON.stringify(x.story))).toEqual(b.countries.map((x) => JSON.stringify(x.story)));
   });
 });

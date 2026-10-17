@@ -22,6 +22,7 @@ import { traitsText } from '../sim/leaders';
 import { adviceOf, presenterOf, roleTitle } from '../sim/cabinet';
 import { isMajor } from '../sim/drama';
 import { placeLabel } from '../sim/places';
+import { storyChip } from '../sim/story';
 import type { GameState, InboxItem } from '../sim/types';
 
 const DOMESTIC = new Set(['strike', 'disaster', 'quake', 'flood', 'refugees', 'separatists', 'pandemic', 'housing', 'harvest', 'famine', 'oil_province', 'deposit', 'mutiny', 'cyber_blackout', 'olympics', 'world_cup', 'bank_run', 'brain_drain', 'investment', 'tech_giant', 'free_zone', 'coup_plot', 'coup', 'scandal', 'pension', 'green_transition']);
@@ -243,6 +244,7 @@ export function InboxTray() {
               return (
               <div className="inbox-body">
                 {(() => { const f = FOLLOW_UPS.find((x) => x.next === it.id); return f && it.data.t !== undefined ? <div className="arc-chip conseq">↩ A consequence of how you handled “{eventById(f.after).title}” ({dateLabel(it.data.t)})</div> : null; })()}
+                {it.id.startsWith('story') && c.story && <div className="arc-chip story-chip">📖 {storyChip(c)}<span className="arc-steps">{[1, 2, 3, 4].map((i) => <i key={i} className={i <= c.story!.act ? 'on' : ''} />)}</span></div>}
                 {def.arc && <div className="arc-chip">⚠ {def.arc.title} · stage {def.arc.stage} of {def.arc.of}<span className="arc-steps">{Array.from({ length: def.arc.of }, (_, i) => <i key={i} className={i < def.arc!.stage ? 'on' : ''} />)}</span></div>}
                 {(sp || who) && (
                   <div className="presenter">
@@ -259,7 +261,7 @@ export function InboxTray() {
                     return (
                       <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''} ${adv?.idx === i ? 'advised' : ''}`} disabled={!ok}
                         onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i, it.uid)); store.inboxOpen = null; store.notify(); }}>
-                        {o.label}<small>{ok ? o.hint : 'Cannot afford this'}</small>{ok && optionFunding(c, o.hint) && <small className="opt-fund">💰 {optionFunding(c, o.hint)}</small>}
+                        {o.label}<small>{ok ? o.hint : (o.why?.(s, c) ?? 'Cannot afford this')}</small>{ok && optionFunding(c, o.hint) && <small className="opt-fund">💰 {optionFunding(c, o.hint)}</small>}
                       </button>
                     );
                   })}

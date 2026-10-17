@@ -150,3 +150,11 @@ Twenty-year AI runs, three seeds:
 - **No snowball.** Western-leaning countries end at 49–51 (49 at the start); Eastern-leaning countries end at 16–19.
 - **Alliances evolve.** Clubs add defence clauses when threatened (a Kyiv-founded forum became the Kharkiv Pact after a threat), small blocs are absorbed, and NATO and the EU keep their names. Schisms are rare: they need a big bloc whose members have fallen out.
 - **Player courses:** a completed West course moves Kazakhstan about +0.3 on the East–West scale (drift back toward old friends offsets part of it), lifts relations with the US by more than 10, and takes it out of the CSTO.
+
+## Round 18: national storylines
+
+- **Coverage.** 199 storyline seeds, one per country (tested). Every act event resolves for every combination of problem, road and economy.
+- **Pacing.** Chapter I opens 4–14 months in. Its acts come 9–16 months apart and finish after about four years. The next chapter opens 4–5½ years later. After 14 years almost every country is in chapter II.
+- **Chapter II problems** come from the state of the world. In one 14-year run they were corruption 52, exodus 39, crime 25, energy 20, climate 20, polarisation 20, restless generals 10, debt 7, succession 2 and sanctions 1. This makes the later chapters differ from the 2024 problems.
+- **Headlines.** AI chapter endings go into the news feed as plain lines, and only the big powers' turns are reported. The player's own endings and new chapters are the only storyline headlines.
+- **AI choices follow character.** Democracies take the reformer's road; juntas, communist states and hawks take the iron hand; the rest are pragmatists. Act IV never changes an AI country's camp: AI course changes keep their own rules from round 17.

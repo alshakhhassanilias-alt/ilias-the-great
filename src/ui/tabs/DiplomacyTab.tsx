@@ -4,6 +4,7 @@ import { AlignmentSection, OrgsSection, OrientBar, orientLabel } from './Alignme
 import { GOV_LABEL } from '../../sim/alignment';
 import { orgsOf } from '../../sim/relations';
 import { AutopilotBanner } from '../Autopilot';
+import { ARCH_LABEL, seedOf, storyChip } from '../../sim/story';
 import { store } from '../../state/store';
 import { Note, RelationBar, Section } from '../widgets';
 import { relLabel } from '../format';
@@ -113,6 +114,7 @@ export function DiplomacyTab({ id }: { id: number }) {
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{c.intent || 'Going about its business'}</div>
           <OrientBar o={c.orient ?? 0} />
           <div className="hint" style={{ margin: '4px 0 6px' }}>{orientLabel(c.orient ?? 0)} · {GOV_LABEL[c.gov] ?? c.gov}{orgsOf(s, id).length ? ` · member of ${orgsOf(s, id).map((o) => o.name).join(', ')}` : ' · in no organisation'}{(c.hostile ?? 0) > 0.05 ? ` · treated as an adversary by the West (${((c.hostile ?? 0) * 100).toFixed(0)}%)` : ''}{c.course ? ` · 🧭 changing course: ${({ west: 'turning West', east: 'turning East', third: 'stepping out of the camps', region: 'building a regional bloc' } as Record<string, string>)[c.course.id]} (step ${c.course.stage + 1})` : ''}</div>
+          <div className="hint" style={{ margin: '0 0 6px' }}>📖 {seedOf(c).ambition} · {storyChip(c) || 'chapter I'}{c.story?.arch ? ` · ${ARCH_LABEL[c.story.arch]}` : ''}{c.story?.ending ? ` · ${c.story.ending}` : c.story?.past?.length ? ` · last chapter: ${c.story.past[c.story.past.length - 1].ending}` : ''}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {c.ai.aggression > 0.7 && <span className="pill red">Hawkish</span>}{c.ai.aggression < 0.2 && <span className="pill green">Pacifist</span>}
             {c.ai.expansion > 0.5 && <span className="pill red">Expansionist</span>}{c.ai.trade > 0.7 && <span className="pill blue">Mercantile</span>}

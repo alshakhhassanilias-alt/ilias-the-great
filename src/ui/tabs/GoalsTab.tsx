@@ -5,6 +5,7 @@ import { activeGoals, GOALS } from '../../sim/goals';
 import { dateLabel } from '../../sim/tick';
 import { ProjectsMini } from './Projects';
 import { NationPath } from './NationPath';
+import { StorylinePanel } from './Storyline';
 import { countryChecks, goalHelp, guideLevel, topPriority, type Check, type Fix } from '../guides';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
@@ -31,6 +32,7 @@ export function GoalsTab() {
   const [showDone, setShowDone] = useState(false);
   return (
     <>
+      <StorylinePanel />
       <NationPath />
       <div className={`guide-level ${level}`}>
         {level === 'full' && <><b>Guides: full</b> (Easy). Tips and one-tap fixes for everything below.</>}

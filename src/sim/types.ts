@@ -227,6 +227,8 @@ export interface Country {
   nat?: { done: string[]; active?: { id: string; start: number; until: number } };
   /** a change of foreign-policy course under way: West, East, a third way, or leading the region */
   course?: { id: 'west' | 'east' | 'third' | 'region'; stage: number; until: number; started: number; leaders: number[]; old: number[]; neighbors: number[]; org?: number; name?: string };
+  /** the national storyline: next act, when it comes, choices made, path, rival, ending */
+  story?: { act: number; next: number; path: number[]; arch?: 'reform' | 'iron' | 'pragmatic'; rival?: number; ending?: string; ch?: number; issue?: string; past?: { ch: number; ending: string; arch: string; issue: string; path: number[]; tick: number }[] };
   /** courses completed, for the record */
   coursesDone?: string[];
   /** the player's weapons programmes */

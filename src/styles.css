@@ -563,3 +563,20 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .org-props { margin-top: 6px; display: grid; gap: 6px; }
 .org-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .org-name-input { flex: 1; min-width: 160px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
+
+/* national storylines */
+.story-card { font-size: 13px; }
+.story-intro { margin: 0 0 8px; color: var(--muted); }
+.story-intro b { color: var(--text); }
+.story-acts { margin: 0 0 8px; padding-left: 20px; }
+.story-acts li { padding: 4px 0; color: var(--muted); }
+.story-acts li .hint { display: block; }
+.story-acts li.done { color: var(--green); }
+.story-acts li.now { color: var(--text); }
+.story-acts li.now b::before { content: '▸ '; color: var(--gold, #d8b45a); }
+.story-road { padding: 6px 8px; border-left: 3px solid var(--blue); background: var(--panel-2); border-radius: 4px; margin-bottom: 8px; }
+.story-ends { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-bottom: 6px; }
+.story-ending { padding: 6px 8px; border-left: 3px solid var(--green); background: var(--panel-2); border-radius: 4px; margin-bottom: 6px; }
+.story-past { margin-bottom: 6px; font-size: 12px; }
+.story-legend { font-size: 11px; margin-top: 4px; }
+.arc-chip.story-chip { border-color: var(--blue); color: var(--blue); }
