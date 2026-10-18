@@ -32,6 +32,7 @@ import { actTrigger } from '../src/sim/story';
 import { addRec, makeAgenda, moodTraitWeight, opinionOf } from '../src/sim/minds';
 import { choosePlan, pursuePlan } from '../src/sim/plans';
 import { memberValue, stepMembership } from '../src/sim/membership';
+import { backlashDue, crisisOf, policyTfp, stepThaw, turningLeader } from '../src/sim/turns';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
 const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
@@ -695,10 +696,11 @@ describe('action layer: projects, crises, uprisings, rival, drama', () => {
     const s = fresh('Brazil');
     s.nextCrisis = 1e9;
     declareWar(s, geo, id('Russia'), id('Georgia'));
-    run(s, 80);
-    expect(s.log.some((e) => /Battle of/.test(e.text))).toBe(true);
-    expect(s.log.some((e) => e.big)).toBe(true);
-    expect(s.log.some((e) => e.prov !== undefined)).toBe(true);
+    const seen: GameState['log'] = [];
+    for (let i = 0; i < 80; i++) { const from = s.logSeq; tick(s, geo); seen.push(...s.log.filter((e) => e.seq >= from)); } // collected as they happen (the log keeps only the latest lines)
+    expect(seen.some((e) => /Battle of/.test(e.text))).toBe(true);
+    expect(seen.some((e) => e.big)).toBe(true);
+    expect(seen.some((e) => e.prov !== undefined)).toBe(true);
   });
   it('a hundred weeks with no input produces no NaN and keeps the inbox bounded', () => {
     const s = fresh('India');
@@ -2087,5 +2089,59 @@ describe('round 19: a world of minds: agendas, plans, membership sums and judgem
     run(a, 160); run(b, 160);
     expect(a.countries.map((x) => `${x.leader?.name}|${x.goal?.kind}|${x.goal?.target}|${(x.orient ?? 0).toFixed(4)}`)).toEqual(b.countries.map((x) => `${x.leader?.name}|${x.goal?.kind}|${x.goal?.target}|${(x.orient ?? 0).toFixed(4)}`));
     expect(JSON.stringify(a.rec)).toBe(JSON.stringify(b.rec));
+  });
+});
+
+describe('round 20: turning points and leaders who run their economies', () => {
+  it('no turn without a crisis: a settled Russia keeps its line, a Russia in crisis can get an opener', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const ru = s.countries[id('Russia')];
+    s.tick = 100;
+    ru.mood = { weary: 0, burden: 0, pain: 0.1, threat: 0.2, shame: 0 };
+    let turned = 0;
+    for (let g = 1; g <= 200; g++) { crownLeader(s, ru, g); if (turningLeader(s, ru, g)) turned++; }
+    expect(turned).toBe(0);
+    ru.mood = { weary: 0.5, burden: 0, pain: 0.85, threat: 0.2, shame: 0.7 };
+    ru.eco.stability = 25;
+    expect(crisisOf(ru)).toBeGreaterThan(0.8);
+    let got = -1;
+    for (let g = 1; g <= 200 && got < 0; g++) { crownLeader(s, ru, g); if (turningLeader(s, ru, g)) got = g; }
+    expect(got).toBeGreaterThan(0);
+    expect(ru.leader!.turn!.from).toBeLessThan(-0.4);
+    expect(ru.leader!.lean!).toBeGreaterThan(ru.leader!.turn!.from + 0.6);
+    expect(ru.leader!.mandate).toMatch(/end the isolation/);
+  });
+  it('a thaw moves the country, the camp it courts warms, the old one cools, and the West drops its guard', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const ru = s.countries[id('Russia')];
+    ru.leader!.turn = { from: ru.orient!, since: 0 }; ru.leader!.lean = 0.3;
+    const o0 = ru.orient!, h0 = ru.hostile ?? 0;
+    const us0 = getRelation(s, ru.id, id('United States of America'));
+    for (let q = 0; q < 16; q++) stepThaw(s, ru);
+    expect(ru.orient!).toBeGreaterThan(o0 + 0.5);
+    expect(ru.hostile ?? 0).toBeLessThan(h0 + 1e-9);
+    expect(getRelation(s, ru.id, id('United States of America'))).toBeGreaterThan(us0 + 10);
+  });
+  it('the old guard can strike back, and a far-reaching turn is riskier', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const ru = s.countries[id('Russia')];
+    ru.leader!.turn = { from: -0.85, since: 0 };
+    const tries = (orient: number) => { ru.orient = orient; let n = 0; for (let i = 0; i < 4000; i++) if (backlashDue(s, ru)) n++; return n; };
+    expect(tries(-0.1)).toBeGreaterThan(tries(-0.8) * 1.5);
+    run(s, 1);
+    delete ru.leader!.turn;
+    expect(backlashDue(s, ru)).toBe(false);
+  });
+  it('leaders shape growth: reformers lift productivity, cronies and protectionists cost it', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const c = s.countries[id('Brazil')];
+    delete c.goal;
+    c.leader!.traits = ['reformer', 'mercantilist'];
+    const good = policyTfp(c);
+    c.leader!.traits = ['strongman', 'isolationist'];
+    const bad = policyTfp(c);
+    expect(good).toBeGreaterThan(0.003);
+    expect(bad).toBeLessThanOrEqual(-0.004 + 1e-9);
+    expect(policyTfp(s.countries[s.player])).toBe(0); // the player runs their own economy
   });
 });

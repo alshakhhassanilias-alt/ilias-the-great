@@ -192,3 +192,29 @@ AI-only worlds, 20 years each. The baseline is 16 worlds before this round; "now
 **Still open**
 - The US remains the top economy in 47 of 50 worlds; the economic model drives that, not the minds.
 - Russia, China and Iran never change camp without the player.
+
+## Round 20: turning points and leaders who run their economies
+
+50 AI-only worlds, 20 years each, on the final code.
+
+**Turning points.** A country changes sides only through a chain: an acute crisis (a lost war, a collapsing economy, a debt crisis, runaway inflation, a state losing its grip) → an early change of leader, or a regime forced to share power → a leader who breaks with the old line → a thaw → a possible hardliner coup that reverses it. Chronic hardship does not count. A first version counted years of sanctions as a crisis, and Russia then turned in 38 of 50 worlds and China in 25. A Western country humiliated by an Eastern aggressor does not turn away; only economic collapse or a failing state can push it. After a turn or a reversal, a country waits a decade before the next.
+
+| | result |
+|---|---|
+| Turns per world | 1–7 (mean 3.6) |
+| Hardliner backlashes per world | 0–4 (mean 1.2) |
+| Russia turns | 2 of 50 worlds; one reversed within a year |
+| Iran turns | 1 of 50 worlds; reversed |
+| China turns | none in AI-only worlds (it never hit a deep enough crisis on its own) |
+| Fragile regimes that open up | Venezuela 24, Myanmar 22, Syria 21, Laos 18, North Korea 16 (of 50) |
+| Western-leaning countries that turn away after a collapse | Georgia 11, Serbia 4, Ukraine 3, Taiwan, Italy 2 each |
+| Eastern-leaning countries at the end | 13–23 (it held together) |
+
+**Leaders' economics.** Reformers, traders and internationalists lift productivity growth by up to +0.45% a year; tariffs, cronyism and dogma cost up to −0.4%; a growth plan adds a little. Over-borrowed countries paying high rates can hit a debt crisis: productivity and capital −3%, stability −10, and an angry public. There are about 15 debt crises per world over 20 years.
+
+| | result |
+|---|---|
+| China's economy as a share of the US economy at the end | 0.70–1.02 (median 0.85) |
+| #1 economy | US in 49 of 50 worlds; China in 1 |
+
+China's growth in the base economic model is the main reason it rarely overtakes in 20 years. Who leads both countries now moves the gap by about ±15%.

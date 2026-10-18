@@ -296,6 +296,8 @@ export interface Leader {
   lean?: number;
   /** why this leader came to power, in words */
   mandate?: string;
+  /** a leader who broke with the old line: where the country stood when it began */
+  turn?: { from: number; since: number };
 }
 /** How an AI country's public feels (0..1 each), smoothed month by month. */
 export interface Mood { weary: number; burden: number; pain: number; threat: number; shame: number }

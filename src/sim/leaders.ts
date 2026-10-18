@@ -2,6 +2,8 @@
  * Leaders, long-term goals and long memories: what makes one country behave differently from another.
  * Leaders are fictional (generated names); their traits shift the country's AI personality while they rule.
  */
+import { backlashDue, crisisOf, stepDebtCrisis, turningLeader } from './turns';
+import { changeGov } from './alignment';
 import { cable } from './cables';
 import type { Geo } from './geo';
 import { clamp } from './util';
@@ -114,7 +116,7 @@ export function stepLeaders(s: GameState, geo: Geo) {
     if (!c.alive || c.id === s.player) continue;
     if (!c.leader) { crownLeader(s, c, Math.round(hash01('gen0', c.id, s.settings.seed) * 1e6)); c.goal = choosePlan(s, geo, c); }
     // a long-term plan, worked on every month and reconsidered twice a year
-    if ((s.tick + c.id) % 4 === 2) pursuePlan(s, geo, c);
+    if ((s.tick + c.id) % 4 === 2) { pursuePlan(s, geo, c); stepDebtCrisis(s, c); if (backlashDue(s, c)) backlash(s, geo, c); }
     if ((s.tick + c.id) % 26 === 5) { const g = choosePlan(s, geo, c); if (g !== c.goal) c.goal = g; }
     // succession, once a year per country
     if ((s.tick + c.id * 7) % 52 !== 11) continue;
@@ -123,16 +125,34 @@ export function stepLeaders(s: GameState, geo: Geo) {
     const turmoil = c.eco.stability < 18;
     // voters punish a government for a bad economy, an endless war or a humiliation
     const m = moodOf(c), anger = Math.max(m.pain, m.weary, m.shame);
-    const p = turmoil ? 0.55 : free ? (years < 4 ? 0 : Math.min(0.75, (0.12 * (years - 3)) * (0.6 + anger * 1.4))) : (years < 8 ? 0.01 + anger * 0.02 : Math.min(0.3, 0.04 * (years - 7)));
+    // a regime in crisis cracks: it changes faces sooner, and under a deep crisis it may fall outright
+    const cr = crisisOf(c, s);
+    const p = turmoil ? 0.55 : free ? (years < 4 ? 0 : Math.min(0.75, (0.12 * (years - 3)) * (0.6 + anger * 1.4))) : (years < 8 ? 0.01 + anger * 0.02 : Math.min(0.3, 0.04 * (years - 7))) + cr * 0.22;
     if (nextRand(s) >= p) continue;
     const old = c.leader;
     const gen = Math.round(hash01('gen', c.id, s.tick, s.settings.seed) * 1e6);
+    const fell = !free && cr > 0.55 && nextRand(s) < cr * 0.35;
+    if (fell) { changeGov(s, c, 'F', 'mass protests force the regime to share power'); s.stats[`regime:${c.id}`] = s.tick; }
     crownLeader(s, c, gen, mainThreatOf(s, geo, c).who);
+    const turned = turningLeader(s, c, gen);
     // a new face is a chance for a fresh start: grudges soften, hostility cools a little
     for (const k of Object.keys(s.grudges ?? {})) if (k.startsWith(`${c.id}>`)) for (const g of s.grudges[k]) g.w *= 0.6;
     c.goal = choosePlan(s, geo, c, true);
-    const how = turmoil ? 'after a collapse of the government' : free ? 'after an election' : old && years > 15 ? 'after the old ruler’s death' : 'in a palace shake-up';
+    const how = fell ? 'as the old regime falls' : turmoil ? 'after a collapse of the government' : free ? 'after an election' : old && years > 15 ? 'after the old ruler’s death' : 'in a palace shake-up';
     logEvent(s, `🆕 ${c.name}: ${c.leader!.name} (${traitsText(c.leader!)}) takes over ${how}, ${c.leader!.mandate}. Aim: ${c.goal.text.charAt(0).toLowerCase() + c.goal.text.slice(1)}.`, 'diplo', [c.id], isMajor(s, c.id) || isAtWar(s, c.id));
+    if (turned) logEvent(s, `🔓 ${c.name.toUpperCase()} TURNS: ${c.leader!.name} breaks with the old line, ${c.leader!.mandate}.`, 'diplo', [c.id], true, isMajor(s, c.id) ? { big: true, prov: c.capital } : undefined);
     if (isMajor(s, c.id) || neighborsOf(s, geo, s.player).includes(c.id)) cable(s, c.id, 'new_leader');
   }
+}
+
+/** The old guard strikes back against a leader who turned: a coup restores the old order and the old line. */
+function backlash(s: GameState, geo: Geo, c: Country) {
+  const from = c.leader!.turn!.from, ousted = c.leader!.name;
+  s.stats[`turnAt:${c.id}`] = s.tick;
+  if (c.gov !== 'A' && c.gov !== 'C') changeGov(s, c, 'A', 'the security services seize power');
+  s.stats[`regime:${c.id}`] = s.tick;
+  crownLeader(s, c, Math.round(hash01('hard', c.id, s.tick, s.settings.seed) * 1e6));
+  c.leader!.lean = from; c.leader!.mandate = 'promising to restore the old order';
+  c.goal = choosePlan(s, geo, c, true);
+  logEvent(s, `🪖 HARDLINERS STRIKE BACK in ${c.name}: ${ousted} is ousted and the opening is over. ${c.leader!.name} promises to restore the old order.`, 'danger', [c.id], true, isMajor(s, c.id) ? { big: true, prov: c.capital } : undefined);
 }

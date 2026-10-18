@@ -48,7 +48,8 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.evaluate(() => { const s = window.__store.state; s.inbox.push({ uid: 99, id: 'tax_demand', tick: s.tick, expires: s.tick + 200, urgent: false, data: {} }); window.__store.notify(); });
   await pg.click('button[aria-label="Very fast"]');
   await sleep(1500);
-  check('a decision waits in the inbox without stopping the game', (await pg.locator('.inbox-item').count()) === 1 && (await S(pg)).speed === 4 && (await S(pg)).tick > 5);
+  // (every new game is its own world, so another decision, such as a storyline act, may also have arrived by now)
+  check('a decision waits in the inbox without stopping the game', (await pg.evaluate(() => window.__store.state.inbox.some((x) => x.uid === 99))) && (await pg.locator('.inbox-item').count()) >= 1 && (await S(pg)).speed === 4 && (await S(pg)).tick > 5);
   await pg.click('.inbox-row');
   check('expanding a decision shows its choices', (await pg.locator('.inbox .event-opt').count()) >= 2);
   await pg.locator('.inbox .event-opt:not([disabled])').first().click();

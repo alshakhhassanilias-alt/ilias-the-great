@@ -1,4 +1,5 @@
 /** What foreign leaders want, what they are working toward, and what they think of you. */
+import { crisisOf, policyLabel, policyTfp } from '../../sim/turns';
 import { store } from '../../state/store';
 import { Section } from '../widgets';
 import { dateLabel } from '../../sim/tick';
@@ -27,7 +28,9 @@ export function LeaderMind({ c }: { c: Country }) {
       <div className="mind-drives">
         {top.map((d) => <div key={d} className="mind-drive" title={`${DRIVE_LABEL[d]}: ${Math.round(a[d] * 100)}% of what drives this leader`}><span>{DRIVE_ICON[d]} {DRIVE_LABEL[d]}</span><i style={{ width: `${Math.round((a[d] / a[top[0]]) * 100)}%` }} /></div>)}
       </div>
-      <div className="mind-line faint">{c.leader.commit !== undefined ? `${commitLabel(c.leader.commit)} · ` : ''}{c.leader.lean !== undefined ? `personally ${leanLabel(c.leader.lean)}` : ''}</div>
+      <div className="mind-line faint">{c.leader.commit !== undefined ? `${commitLabel(c.leader.commit)} · ` : ''}{c.leader.lean !== undefined ? `personally ${leanLabel(c.leader.lean)}` : ''} · economy: {policyLabel(policyTfp(c))}</div>
+      {c.leader.turn && <div className="mind-turn">🔓 Breaking with the old line since {dateLabel(c.leader.turn.since)}: steering {c.leader.lean! > c.leader.turn.from ? 'toward the West' : 'away from the West'} (from {c.leader.turn.from > 0 ? '+' : ''}{c.leader.turn.from.toFixed(2)}, now {(c.orient ?? 0) > 0 ? '+' : ''}{(c.orient ?? 0).toFixed(2)}). The old guard has not given up.</div>}
+      {crisisOf(c, s) > 0.25 && !c.leader.turn && <div className="mind-line faint">In crisis ({Math.round(crisisOf(c, s) * 100)}%): the next change of leader could break with the old line.</div>}
       {g && (
         <div className="mind-plan">
           <b>{PLAN_ICON[g.kind as PlanKind] ?? '🎯'} Aim: {g.text}</b>

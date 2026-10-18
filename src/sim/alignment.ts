@@ -14,6 +14,7 @@
  * - Governments. Revolutions, juntas, emergency rule and free elections change a country's form of government, which
  *   changes who trusts it.
  */
+import { stepThaw } from './turns';
 import { addRec, asYou, opinionOf } from './minds';
 import type { Geo } from './geo';
 import { ARAB_LEAGUE, CSTO, EU, NATO } from '../data/countryData';
@@ -235,7 +236,8 @@ export function stepAlignment(s: GameState, geo: Geo) {
     if (Math.abs(gap) > 0.25) c.orient = clamp(o + Math.sign(gap) * (Math.abs(gap) - 0.25) * 0.045, -1, 1);
     // the government's own preference moves the country too, most of all where it sits between the camps
     const L = c.leader, o2 = c.orient ?? 0;
-    if (!c.isPlayer && L?.lean !== undefined && Math.abs(L.lean - o2) > 0.15) c.orient = clamp(o2 + (L.lean - o2) * 0.035 * (0.5 + (L.agenda?.ideology ?? 0.15) * 2) * (1 - Math.abs(o2) * 0.5), -1, 1);
+    if (L?.turn) stepThaw(s, c);
+    else if (!c.isPlayer && L?.lean !== undefined && Math.abs(L.lean - o2) > 0.15) c.orient = clamp(o2 + (L.lean - o2) * 0.035 * (0.5 + (L.agenda?.ideology ?? 0.15) * 2) * (1 - Math.abs(o2) * 0.5), -1, 1);
     // the West's view of a country: it forgives slowly if the country leans West and keeps the peace with it
     const h = c.hostile ?? 0;
     if (fightsWest.has(c.id) && (c.orient ?? 0) < 0.5) c.hostile = Math.min(1, h + 0.12);
