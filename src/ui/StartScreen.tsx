@@ -5,7 +5,7 @@ import { MapView } from '../map/MapView';
 import { store, useStore } from '../state/store';
 import { DEFAULT_SETTINGS, type Difficulty, type Settings, type StartCondition, type VictoryMode, type WorldStart } from '../sim/types';
 import { ControlPicker } from './ControlPicker';
-import { personName } from '../sim/leaders';
+import { TRAITS, personName } from '../sim/leaders';
 import { titleFor } from '../sim/legacy';
 import { GOV, REGION, fmtMoney, fmtNum, pct, sizeClass } from './format';
 import { Segmented, Slider, Stat } from './widgets';
@@ -41,10 +41,10 @@ export function StartScreen() {
         <div className="scroll">
           <div className="mode-cards" role="radiogroup" aria-label="Game mode">
             <button role="radio" aria-checked={settings.mode !== 'legacy'} className={`mode-card ${settings.mode !== 'legacy' ? 'on' : ''}`} onClick={() => upd({ mode: 'sandbox' })}>
-              <span className="mc-icon" aria-hidden="true">🌍</span><b>Sandbox</b><small>Total freedom. Any nation, no story, no end. Shape the world however you like.</small>
+              <span className="mc-icon" aria-hidden="true">🌍</span><b>Sandbox</b><small>Total freedom. Any nation, no end. You are the nation itself; your storyline is optional.</small>
             </button>
             <button role="radio" aria-checked={settings.mode === 'legacy'} className={`mode-card ${settings.mode === 'legacy' ? 'on' : ''}`} onClick={() => upd({ mode: 'legacy' })}>
-              <span className="mc-icon" aria-hidden="true">📜</span><b>Legacy</b><small>Lead your nation term by term. Win elections, pursue your agenda, survive opposition. History will judge you.</small>
+              <span className="mc-icon" aria-hidden="true">📜</span><b>Legacy</b><small>You are one leader, term by term. Win elections, keep promises, survive opposition. The world judges you personally, and remembers.</small>
             </button>
           </div>
           <div className="field">
@@ -76,6 +76,18 @@ export function StartScreen() {
               <input type="text" value={leaderName || personName(c, 'me', 1)} maxLength={32} onChange={(e) => setLeaderName(e.target.value)} aria-label="Your name" />
             </div>
           )}
+          {settings.mode === 'legacy' && c && (
+            <div className="field"><label>Your style <span className="faint">pick two · foreign leaders react to it</span></label>
+              <div className="style-chips" role="group" aria-label="Your leadership style">
+                {TRAITS.map((t) => {
+                  const cur = settings.leaderTraits ?? ['pragmatist', 'reformer'];
+                  const on = cur.includes(t.id);
+                  return <button key={t.id} type="button" className={`pill style-chip ${on ? 'on' : ''}`} aria-pressed={on} title={t.desc} onClick={() => upd({ leaderTraits: on ? cur : [cur[1], t.id] as [string, string] })}>{t.icon} {t.title}</button>;
+                })}
+              </div>
+              <span className="faint" style={{ fontSize: 11.5 }}>{(settings.leaderTraits ?? ['pragmatist', 'reformer']).map((id) => TRAITS.find((t) => t.id === id)?.desc).join(' ')}</span>
+            </div>
+          )}
           <div className="field"><label>How much do you want to steer? <span className="faint">change any time</span></label>
             <ControlPicker value={settings.control ?? DEFAULT_SETTINGS.control!} onChange={(v) => upd({ control: v })} />
           </div>
@@ -95,6 +107,7 @@ export function StartScreen() {
                 <Segmented<WorldStart> value={settings.world ?? 'current'} onChange={(v) => upd({ world: v, aggression: v === 'peace' ? 0.5 : v === 'coldwar' ? 1.3 : settings.aggression })} options={[{ v: 'current', label: 'As it is' }, { v: 'depression', label: 'Depression' }, { v: 'coldwar', label: 'Cold war' }, { v: 'peace', label: 'Détente' }]} />
               </div>
               <label className="check"><input type="checkbox" checked={settings.randomEvents !== false} onChange={(e) => upd({ randomEvents: e.target.checked })} /><span><b>Random events</b><br /><span className="faint" style={{ fontSize: 12 }}>Disasters, scandals, discoveries and decisions. Off for a calm, predictable world.</span></span></label>
+              <label className="check"><input type="checkbox" checked={settings.storylines !== false} onChange={(e) => upd({ storylines: e.target.checked })} /><span><b>National storyline</b><br /><span className="faint" style={{ fontSize: 12 }}>Acts that arrive when events make them urgent, with branches and endings. Off for a pure sandbox (other countries keep theirs).</span></span></label>
               <label className="check"><input type="checkbox" checked={settings.nukes !== false} onChange={(e) => upd({ nukes: e.target.checked })} /><span><b>Nuclear powers</b><br /><span className="faint" style={{ fontSize: 12 }}>Off: no country has a deterrent, so even great powers can be invaded.</span></span></label>
               <div className="field"><label>Length</label>
                 <Segmented<number> value={settings.endYear ?? 0} onChange={(v) => upd({ endYear: v || null })} options={[{ v: 0, label: 'Endless' }, { v: 2035, label: 'Until 2035' }, { v: 2050, label: 'Until 2050' }, { v: 2075, label: 'Until 2075' }]} />

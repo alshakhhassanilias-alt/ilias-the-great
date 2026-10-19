@@ -316,3 +316,11 @@
   .toasts .toast:nth-last-child(n+3) { display: none; }
   .inbox .inbox-head { display: block; pointer-events: none; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--brass-hi, #e7c98a); text-shadow: 0 1px 2px #000; padding-left: 2px; }
 }
+
+/* smoothness: each busy region paints on its own, and side-panel sections out of view are skipped */
+@media (min-width: 901px) {
+  .topbar, .ticker, .timebar, .side-head { contain: layout paint style; will-change: transform; }
+  .side { contain: layout paint style; }
+  .side-body { will-change: transform; }
+  .side-body > section { content-visibility: auto; contain-intrinsic-size: auto 420px; }
+}

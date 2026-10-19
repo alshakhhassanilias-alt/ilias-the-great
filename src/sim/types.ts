@@ -30,6 +30,10 @@ export interface Settings {
   endYear?: number | null;
   /** the player's (fictional) name, used in Legacy */
   leaderName?: string;
+  /** Legacy: your own leadership style (two traits); the world reacts to it */
+  leaderTraits?: [string, string];
+  /** Sandbox: your national storyline on (default) or off */
+  storylines?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -478,6 +482,10 @@ export interface LegacyState {
   wars?: LegacyWar[];
   /** career promise tally */
   promises?: { kept: number; broken: number };
+  /** your leadership style (two traits) */
+  traits?: [string, string];
+  /** what you did yourself, as the world remembers it: it follows you out of office and back in */
+  rec?: Record_;
 }
 
 export type ArmyOrder = 'advance' | 'hold' | 'encircle' | 'raid' | 'defend';

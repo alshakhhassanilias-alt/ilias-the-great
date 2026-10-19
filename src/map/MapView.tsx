@@ -71,7 +71,8 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       if (r.battleVisible && store.sound && store.speed > 0 && r.view.k > r.fitK * 2.2 && Math.random() < 0.012) sfx('boom');
       r.step(t);
       if (r.dirty) { r.dirty = false; lastDraw = t; r.draw(); }
-      else if (r.animating(store.state) && t - lastDraw > (quality === 2 ? 12 : 55)) { lastDraw = t; r.draw(); } // ambient animation: every frame in Beautiful, ~18 fps otherwise
+      // ambient animation: every frame in Beautiful (about 30 fps while the clock runs, so the simulation gets its share), ~18 fps otherwise
+      else if (r.animating(store.state) && t - lastDraw > (quality === 2 ? (store.speed > 0 ? 30 : 12) : 55)) { lastDraw = t; r.draw(); }
     };
     raf = requestAnimationFrame(loop);
     (window as unknown as { __map?: MapRenderer }).__map = r;

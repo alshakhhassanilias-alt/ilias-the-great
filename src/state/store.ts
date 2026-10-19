@@ -146,7 +146,9 @@ class Store {
   newGame(settings: Settings, player: CountryId) {
     this.pending = null;
     // every new game is its own world: a fresh seed (unless one was chosen on purpose)
-    if (settings.seed === DEFAULT_SETTINGS.seed) settings = { ...settings, seed: (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0 };
+    // (a world can be replayed or shared by its seed: ?seed=12345 in the address)
+    const fixed = typeof location !== 'undefined' ? Number(new URLSearchParams(location.search).get('seed')) : NaN;
+    if (settings.seed === DEFAULT_SETTINGS.seed) settings = { ...settings, seed: Number.isFinite(fixed) && fixed > 0 ? fixed : (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0 };
     this.state = createGame(this.geo, settings, player);
     this.preview = false;
     this.afterLoad(player);
@@ -449,8 +451,10 @@ export function useStoreThrottled(ms: number) {
     let last = 0, timer = 0;
     const fn = () => {
       const now = performance.now();
-      if (store.lastUser || now - last >= ms) { last = now; if (timer) { clearTimeout(timer); timer = 0; } force(); }
-      else if (!timer) timer = window.setTimeout(() => { timer = 0; last = performance.now(); force(); }, ms - (now - last));
+      // at the fastest speeds the panels refresh a little less often (the numbers change faster than anyone reads them)
+      const gap = store.speed >= 3 ? ms * 1.6 : ms;
+      if (store.lastUser || now - last >= gap) { last = now; if (timer) { clearTimeout(timer); timer = 0; } force(); }
+      else if (!timer) timer = window.setTimeout(() => { timer = 0; last = performance.now(); force(); }, gap - (now - last));
     };
     const un = store.subscribe(fn);
     return () => { un(); if (timer) clearTimeout(timer); };

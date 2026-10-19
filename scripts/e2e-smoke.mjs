@@ -103,7 +103,9 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('walking away closes the table', (await pg.locator('.modal.nego').count()) === 0);
   await pg.click('button:has-text("Declare war")'); await pg.click('.btnrow button:has-text("Declare war")');
   check('declaring war takes effect immediately', (await S(pg)).wars >= 1);
-  await pg.click('button[aria-label="Very fast"]'); await sleep(2500);
+  await pg.click('button[aria-label="Very fast"]');
+  // wait for the moment itself (how many weeks pass per second depends on the machine)
+  for (let i = 0; i < 32 && (await S(pg)).speed !== 0; i++) await sleep(250);
   // an urgent decision about to lapse stops the clock and says so; answer it and carry on
   const lastChance = (await S(pg)).speed === 0 && (await pg.locator('.toast:has-text("Last chance")').count()) > 0;
   if (!(await pg.locator('.inbox .event-opt').count())) await pg.locator('.inbox-row').first().click().catch(() => {});

@@ -1,4 +1,5 @@
 /** Treaty proposals, sanctions and how other countries respond. */
+import { isMajor } from './drama';
 import { cable } from './cables';
 import { addGrudge } from './leaders';
 import { mods } from './doctrines';
@@ -106,8 +107,12 @@ export function applyTreaty(s: GameState, a: CountryId, b: CountryId, kind: Prop
   logEvent(s, `${s.countries[a].name} and ${s.countries[b].name} signed a ${PROPOSAL_LABEL[kind].toLowerCase()}.`, 'diplo', [a, b], a === s.player || b === s.player);
   // the rest of the world reacts (always for the player's deals; for AI deals only when notable)
   if (a === s.player || b === s.player) s.stats.deals = (s.stats.deals ?? 0) + 1;
+  // the world reacts to deals that matter: the player's, the big powers', and every military pact. A trade deal between
+  // two small countries passes without a world-wide stir (and without the cost of computing one)
+  const player = a === s.player || b === s.player;
+  if (!player && kind === 'trade' && !isMajor(s, a) && !isMajor(s, b)) return;
   const reactions = rippleTreaty(s, a, b, kind);
-  if (!silent || a === s.player || b === s.player) recordRipple(s, a, b, kind, reactions);
+  if (!silent || player) recordRipple(s, a, b, kind, reactions);
 }
 
 /** Propose a treaty. AI recipients answer immediately. */

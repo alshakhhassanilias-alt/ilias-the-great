@@ -218,3 +218,29 @@ AI-only worlds, 20 years each. The baseline is 16 worlds before this round; "now
 | #1 economy | US in 49 of 50 worlds; China in 1 |
 
 China's growth in the base economic model is the main reason it rarely overtakes in 20 years. Who leads both countries now moves the gap by about ±15%.
+
+## Round 21: smoothness, and the two modes
+
+**Lag.** Browser measured at "Very fast" in the first months of a game, desktop 1440×900, CPU slowed 4× (a modest laptop), several fixed-seed worlds.
+
+| | frames per second | worst frame (p99) |
+|---|---|---|
+| Before this round | 14 | 0.83 s |
+| Round 17 (before the minds) | 22–31 | 0.2–0.75 s |
+| Now | 23–32 | 0.13–0.35 s |
+| Now, phone screen, 4× slower | 38 (round 17: 34) | 0.13 s |
+| Now, normal CPU | 59 | 0.03 s |
+
+What fixed it:
+- The simulated week is cut into about 40 small slices instead of a dozen, with the same order of work and the same results. AI countries 3 at a time, economies 10, governments 20, alignment reviews 4, one organisation at a time. The largest slice fell from 20 ms to under 10 ms (Node; about 4× that on a slow laptop).
+- A trade deal between two small AI countries no longer triggers a world-wide reaction calculation.
+- Membership sums run every two months, with each organisation's totals computed once.
+- The monthly public mood reuses the threat level the AI already computes.
+- Lost-territory counts are cached per week, and plan scoring skips countries with a clean record.
+- Interface: numbers jump instead of counting up while the clock runs fast, so the panels no longer repaint on every frame. The panels refresh a little less often at the top speeds. Busy regions paint on their own, and side-panel sections out of view are skipped. Map ambient animation runs at 30 fps while the clock runs (60 fps when paused).
+
+**Modes.**
+- In Sandbox you are the nation itself, and your storyline can be switched off.
+- In Legacy you pick your style; leaders react to it as they do to each other.
+- In Legacy, your personal record follows you. Losing power halves the country's record abroad (a fresh start for the new government). Your own record stays with you, fades half as fast, and comes back in full when you return.
+- Your storyline chapters follow your terms.

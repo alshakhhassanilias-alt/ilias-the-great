@@ -87,6 +87,7 @@ export function manageEconomy(s: GameState, geo: Geo, c: Country, eco = true, mi
   const debtRatio = e.debt / e.gdp;
   const target = debtRatio < 0.6 ? 0.03 : debtRatio < 1 ? 0.015 : debtRatio < 1.5 ? 0 : -0.01;
   const th = threatLevel(s, geo, c);
+  if (!c.isPlayer) s.stats[`th:${c.id}`] = +th.toFixed(3); // the public mood reads it (minds.ts)
   const ag = c.isPlayer ? null : agendaOf(s, c);
   const desiredMil = clamp((e.prev.mil0 ?? b.military) * (1 + 0.4 * Math.min(1, th)) * (0.92 + 0.16 * s.settings.aggression * c.ai.aggression) * (atWar ? 1.6 : 1) * (ag ? (1 + 0.3 * (ag.security + ag.expansion - 0.42)) * planMilBias(c) : 1), 0, 0.2);
   const step = 0.001;
@@ -309,7 +310,7 @@ export function* stepAIGen(s: GameState, geo: Geo): Generator<void> {
     if (!c.alive || c.isPlayer) continue;
     const phase = (s.tick + c.id) % 4;
     if (phase !== 0) continue;
-    if (++n % 12 === 0) yield;
+    if (++n % 3 === 0) yield;
     if ((s.tick + c.id) % 8 === 0) manageEconomy(s, geo, c);
     if ((s.tick + c.id * 3) % 8 === 4) manageDiplomacy(s, geo, c);
     if ((s.tick + c.id) % 12 === 0) considerWar(s, geo, c);

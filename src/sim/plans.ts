@@ -34,10 +34,22 @@ interface Cand { kind: PlanKind; target: number; ref?: number; text: string; u: 
 const name = (s: GameState, id: number) => s.countries[id]?.name ?? '?';
 const cooling = (s: GameState, c: Country, kind: string, target: number) => s.tick - (s.stats[`planCd:${c.id}:${kind}:${target}`] ?? -9999) < 260;
 
+/** Who holds whose land, worked out once per week for everyone (provinces held by someone other than their core owner). */
+let lostCache: { st: GameState; tick: number; by: Map<number, Map<number, number>> } | null = null;
 function lostLand(s: GameState, c: Country): [number, number] | null {
-  const lost = new Map<number, number>();
-  for (let p = 0; p < s.owner.length; p++) if (s.core[p] === c.id && s.owner[p] !== c.id && s.countries[s.owner[p]]?.alive) lost.set(s.owner[p], (lost.get(s.owner[p]) ?? 0) + 1);
-  return lost.size ? [...lost.entries()].sort((a, b) => b[1] - a[1])[0] : null;
+  if (!lostCache || lostCache.st !== s || lostCache.tick !== s.tick) {
+    const by = new Map<number, Map<number, number>>();
+    for (let p = 0; p < s.owner.length; p++) {
+      const core = s.core[p], own = s.owner[p];
+      if (core === own || !s.countries[own]?.alive) continue;
+      const m = by.get(core) ?? new Map<number, number>();
+      m.set(own, (m.get(own) ?? 0) + 1);
+      by.set(core, m);
+    }
+    lostCache = { st: s, tick: s.tick, by };
+  }
+  const lost = lostCache.by.get(c.id);
+  return lost?.size ? [...lost.entries()].sort((a, b) => b[1] - a[1])[0] : null;
 }
 const odds = (s: GameState, geo: Geo, c: Country, t: number) => clamp(assessAttack(s, geo, c, s.countries[t]).ratio / 1.6, 0, 1);
 function regionShare(s: GameState, c: Country) {
@@ -110,6 +122,8 @@ export function choosePlan(s: GameState, geo: Geo, c: Country, fresh = false): N
     if (!x.alive || x.id === c.id || hasAlliance(s, c.id, x.id)) continue;
     const near = s.stats[`nb:${c.id}:${x.id}`] === 1;
     if (!near && !(isMajor(s, c.id) && isMajor(s, x.id))) continue;
+    // a country with a clean record and no aggression alarms nobody: skip the judgement
+    if (!s.rec?.[x.id] && aggOf(s, x.id) < 5 && !isMajor(s, x.id)) continue;
     const op = opinionOf(s, c.id, x.id).v;
     const v = clamp(aggOf(s, x.id) / 60 + Math.max(0, -op - 10) / 40, 0, 1) * (near ? 1 : 0.4) * clamp(strength(x) / Math.max(1, strength(c)), 0.2, 1.5);
     if (v > alarm) { alarm = v; who = x.id; }

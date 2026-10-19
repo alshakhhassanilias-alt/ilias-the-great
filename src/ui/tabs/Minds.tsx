@@ -5,6 +5,7 @@ import { Section } from '../widgets';
 import { dateLabel } from '../../sim/tick';
 import { DRIVE_ICON, DRIVE_LABEL, agendaOf, asYou, commitLabel, leanLabel, moodOf, opinionOf, recOf, topDrives } from '../../sim/minds';
 import { PLAN_ICON, type PlanKind } from '../../sim/plans';
+import { traitById } from '../../sim/leaders';
 import { memberValue } from '../../sim/membership';
 import { threatLevel } from '../../sim/ai';
 import { isMajor } from '../../sim/drama';
@@ -88,6 +89,7 @@ export function WorldJudgement() {
   return (
     <Section title="How the world sees you" hint="leaders judge your record through their own agendas">
       <div className="card judge-card">
+        {s.settings.mode === 'legacy' && s.legacy && <LegacyStyle />}
         <div className="judge-rec">{rec.length ? rec.map(([k, l]) => <span key={k} className="chip-mini">{l}: {r[k] >= 1 ? r[k].toFixed(1) : 'some'}</span>) : <span className="faint">A clean slate: the world has nothing on you yet.</span>}</div>
         {aims.length > 0 && <div className="judge-aims">{aims.map((c) => <div key={c.id}>⚠ <b>{c.name}</b>{c.leader ? ` (${c.leader.name})` : ''} has made you its aim: {c.goal!.text.charAt(0).toLowerCase() + c.goal!.text.slice(1)}</div>)}</div>}
         {critics.length > 0 && <><div className="why-title">Condemn you</div>{critics.map(row)}</>}
@@ -96,6 +98,22 @@ export function WorldJudgement() {
         <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>Wars, conquests and broken promises are remembered for about a decade; so are loyalty, reforms and aid. The bomb is never forgotten. A democrat ideologue condemns a crackdown that a strongman respects; a security hawk next door fears a warmonger; a mercantilist hates sanctions and defaults.</div>
       </div>
     </Section>
+  );
+}
+
+/** Legacy: you are a person to the world. Your style, and the record that follows you in and out of office. */
+function LegacyStyle() {
+  const s = store.state!;
+  const L = s.legacy!;
+  const mine = L.rec;
+  const items = mine ? REC_LABEL.filter(([k]) => mine[k] >= 0.1) : [];
+  const style = watchers(s).map((c) => ({ c, r: opinionOf(s, c.id, s.player).reasons.find((x) => x.key === 'style') })).filter((x) => x.r).sort((a, b) => Math.abs(b.r!.v) - Math.abs(a.r!.v)).slice(0, 4);
+  return (
+    <div className="judge-style">
+      <div><b>{L.title} {L.leader}</b> <span className="faint">· your style: {(L.traits ?? []).map((t) => traitById(t)?.title ?? t).join(' & ')}{L.status !== 'office' ? ' · out of office' : ''}</span></div>
+      {style.length > 0 && <div className="faint" style={{ fontSize: 12 }}>{style.map((x) => `${x.c.name} ${x.r!.v > 0 ? 'likes' : 'dislikes'} it (${x.r!.v > 0 ? '+' : ''}${x.r!.v})`).join(' · ')}</div>}
+      <div className="judge-rec">{items.length ? items.map(([k, l]) => <span key={k} className="chip-mini">Yours: {l} {mine![k] >= 1 ? mine![k].toFixed(1) : ''}</span>) : <span className="faint" style={{ fontSize: 12 }}>Your personal record is clean so far. It follows you out of office, and back in.</span>}</div>
+    </div>
   );
 }
 

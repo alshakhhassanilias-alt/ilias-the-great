@@ -382,6 +382,8 @@ function choose(s: GameState, c: Country, act: number, idx: number, fx: Fx, d: D
   if (act === 4) {
     st.ending = endingOf(c, st);
     st.next = s.tick + CHAPTER_GAP + Math.floor(hash01('chapter', c.id, st.ch ?? 1, s.settings.seed) * 80); // the next chapter opens years later
+    // in Legacy your chapters follow your terms: the next one opens when the next term begins
+    if (c.isPlayer && s.settings.mode === 'legacy' && s.legacy) st.next = Math.max(s.tick + 26, s.legacy.nextVote + 2);
     const road = st.path[3] !== undefined && st.path[3] >= 0 && st.path[3] < 4 ? `leads ${['West', 'East', 'between the camps', 'to regional leadership'][st.path[3]]}` : 'keeps its place in the world';
     if (c.isPlayer) logEvent(s, `📖 CHAPTER ${roman(st.ch ?? 1)} OF YOUR STORY IS WRITTEN: ${st.ending}. ${cap(ARCH_LABEL[st.arch ?? 'pragmatic'])}'s road ${road}. A new chapter will open in a few years.`, 'info', [c.id], true, { big: true });
     else if (isMajor(s, c.id)) logEvent(s, `📖 ${c.name}'s chapter ${roman(st.ch ?? 1)} closes: ${st.ending}.`, 'info', [c.id], false);
@@ -391,8 +393,15 @@ function choose(s: GameState, c: Country, act: number, idx: number, fx: Fx, d: D
 
 /** Weekly: the next act arrives when its time comes; AI countries answer their own acts by character. */
 export function stepStories(s: GameState, geo: Geo) {
+  for (const _ of stepStoriesGen(s, geo)) { /* run to completion */ }
+}
+/** The same, in slices. */
+export function* stepStoriesGen(s: GameState, geo: Geo): Generator<void> {
+  let n = 0;
   for (const c of s.countries) {
     if (!c.alive) continue;
+    if (++n % 30 === 0) yield;
+    if (c.isPlayer && s.settings.storylines === false) continue; // a pure sandbox: no storyline for you (the world keeps its own)
     const st = (c.story ??= { act: 1, next: 8, due: 16 + Math.floor(hash01('story0', c.id, s.settings.seed) * 40), path: [] });
     if (s.tick < st.next) continue;
     if (st.act > 4) { newChapter(s, c, geo); continue; }

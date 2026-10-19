@@ -1092,7 +1092,7 @@ describe('round 9: smooth weeks, generals, special operations, war history', () 
 });
 
 import { ctl, setControl, CONTROL_PRESETS } from '../src/sim/modes';
-import { actChooseAgenda, actOpposition, actRetire, continueAsSandbox, grade, voteShare } from '../src/sim/legacy';
+import { actChooseAgenda, actOpposition, actRetire, continueAsSandbox, grade, voteShare, overthrow } from '../src/sim/legacy';
 import { AGENDA, agendaById, dealHand } from '../src/sim/agenda';
 import { actArmyOrder, actArmyTarget, ensureArmies, holdBonus } from '../src/sim/armies';
 
@@ -2143,5 +2143,57 @@ describe('round 20: turning points and leaders who run their economies', () => {
     expect(good).toBeGreaterThan(0.003);
     expect(bad).toBeLessThanOrEqual(-0.004 + 1e-9);
     expect(policyTfp(s.countries[s.player])).toBe(0); // the player runs their own economy
+  });
+});
+
+describe('round 21: sandbox and legacy, each with its own sense', () => {
+  it('a pure sandbox can switch the national storyline off (the world keeps its own)', () => {
+    const s = fresh('Turkey', { storylines: false, randomEvents: false });
+    run(s, 52 * 2);
+    expect(s.inbox.some((x) => x.id.startsWith('story'))).toBe(false);
+    expect(s.log.some((e) => e.countries.includes(s.player) && /📖/.test(e.text))).toBe(false);
+    expect(s.countries.filter((c) => !c.isPlayer && (c.story?.act ?? 1) > 1).length).toBeGreaterThan(50);
+  });
+  it('in Legacy you are a person: leaders react to your style', () => {
+    const s = fresh('Poland', { mode: 'legacy', leaderTraits: ['hawk', 'strongman'], randomEvents: false });
+    expect(s.legacy!.traits).toEqual(['hawk', 'strongman']);
+    const de = s.countries[id('Germany')];
+    de.leader!.traits = ['dove', 'ideologue'];
+    const op = opinionOf(s, de.id, s.player);
+    const style = op.reasons.find((r) => r.key === 'style');
+    expect(style?.v).toBeLessThan(0);
+    expect(style?.label).toMatch(/Hawk & Strongman/);
+    de.leader!.traits = ['hawk', 'strongman'];
+    expect(opinionOf(s, de.id, s.player).reasons.find((r) => r.key === 'style')!.v).toBeGreaterThan(0);
+  });
+  it('your record follows you: the country gets a fresh start when you fall, and your record returns with you', () => {
+    const s = fresh('Poland', { mode: 'legacy', randomEvents: false });
+    addRec(s, s.player, 'aggr', 3);
+    expect(s.legacy!.rec!.aggr).toBeCloseTo(3);
+    overthrow(s, 'a test coup');
+    expect(s.legacy!.status).toBe('opposition');
+    expect(s.rec![s.player].aggr).toBeCloseTo(1.5); // the new government is not blamed for all of it
+    expect(s.legacy!.rec!.aggr).toBeCloseTo(3); // you are
+    addRec(s, s.player, 'aggr', 1); // what the successor does is not yours
+    expect(s.legacy!.rec!.aggr).toBeCloseTo(3);
+    const L = s.legacy!;
+    L.opposition!.support = 99; L.nextVote = s.tick + 1;
+    run(s, 3);
+    expect(L.status).toBe('office');
+    expect(s.rec![s.player].aggr).toBeGreaterThan(2.9); // the world remembers you
+    expect(s.log.some((e) => /The world remembers/.test(e.text))).toBe(true);
+  });
+  it('in Legacy the next chapter of your story opens with your next term', () => {
+    const s = fresh('Japan', { mode: 'legacy', randomEvents: false });
+    run(s, 1);
+    const c = s.countries[s.player];
+    c.story = { act: 4, next: s.tick, path: [0, 0, 0], arch: 'reform', rival: id('China'), ch: 1, why: 'test', due: s.tick };
+    s.inbox = [];
+    run(s, 1);
+    const it = s.inbox.find((x) => x.id === 'story4');
+    expect(it).toBeDefined();
+    resolveEvent(s, geo, 4, it!.uid);
+    expect(c.story!.act).toBe(5);
+    expect(c.story!.next).toBeGreaterThanOrEqual(s.legacy!.nextVote);
   });
 });

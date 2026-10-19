@@ -7,6 +7,7 @@
  * while a rival government runs the country, and you can win your way back. Two failed comebacks, being
  * conquered, retiring or reaching the end of the era close the book: a history page sums up your rule.
  */
+import { rememberCables } from './minds';
 import type { Geo } from './geo';
 import type { AgendaPick, Country, GameState, LegacyState, TermRecord, WarRecord } from './types';
 import { START_YEAR, TICKS_PER_YEAR } from './types';
@@ -42,6 +43,7 @@ export function initLegacy(s: GameState) {
     agenda: [], hand: dealHand(s, c, 1), score: 0, parts: {}, terms: [],
     start: { gdppc: gdppc(c), rank: powerRank(s, c), provinces: c.provinces.length, pop: c.eco.pop, stability: c.eco.stability, tick: 0, power: strength(c), rep: c.reputation, allies: alliesOf(s, c.id).length },
     maxYear: START_YEAR + 40,
+    traits: s.settings.leaderTraits ?? ['pragmatist', 'reformer'],
     chronicle: [{ tick: 0, text: `${s.settings.leaderName || personName(c, 'me', 1)} takes office as ${titleFor(c.gov)} of ${c.name}.` }],
   };
   delete s.stats.nextVote; // the legacy calendar replaces the generic one
@@ -240,6 +242,28 @@ function goIntoOpposition(s: GameState, share: number) {
     logEvent(s, `🕊 The new government of ${L.opposition.gov} signs ceasefires on every front.`, 'peace', [c.id], true);
   }
   s.inbox = s.inbox.filter((x) => !x.urgent);
+  freshStart(s);
+}
+
+/** A new government at home: abroad, the country gets a partial fresh start (your own record stays with you). */
+function freshStart(s: GameState) {
+  const r = s.rec?.[s.player];
+  if (!r) return;
+  for (const k of Object.keys(r) as (keyof typeof r)[]) if (k !== 'nuke') r[k] *= 0.5;
+  logEvent(s, `🌍 Abroad, the new government gets a fresh start: much of what ${s.legacy!.leader} did is laid at ${s.legacy!.leader}'s door, not the country's.`, 'diplo', [s.player], true);
+}
+/** Back in power: the world remembers what you did, and says so. */
+function remembered(s: GameState) {
+  const L = s.legacy!, mine = L.rec;
+  if (!mine) return;
+  const r = ((s.rec ??= {})[s.player] ??= { aggr: 0, conquest: 0, betray: 0, loyal: 0, sanction: 0, repress: 0, reform: 0, aid: 0, defaulted: 0, nuke: 0 });
+  for (const k of Object.keys(mine) as (keyof typeof mine)[]) r[k] = Math.max(r[k], mine[k]);
+  const worst = (Object.entries(mine) as [string, number][]).filter(([k]) => ['aggr', 'conquest', 'betray', 'repress', 'defaulted'].includes(k)).sort((a, b) => b[1] - a[1])[0];
+  const best = (Object.entries(mine) as [string, number][]).filter(([k]) => ['loyal', 'reform', 'aid'].includes(k)).sort((a, b) => b[1] - a[1])[0];
+  const LABEL: Record<string, string> = { aggr: 'the wars', conquest: 'the land taken', betray: 'the broken promises', repress: 'the crackdowns', defaulted: 'the default', loyal: 'standing by allies', reform: 'the reforms', aid: 'the aid' };
+  const what = [worst && worst[1] > 0.3 ? LABEL[worst[0]] : '', best && best[1] > 0.3 ? LABEL[best[0]] : ''].filter(Boolean);
+  if (what.length) logEvent(s, `🌍 The world remembers ${L.leader}: ${what.join(' and ')} are back on every foreign minister's desk.`, 'diplo', [s.player], true);
+  rememberCables(s);
 }
 
 function comebackVote(s: GameState) {
@@ -257,6 +281,7 @@ function comebackVote(s: GameState) {
     L.chronicle.push({ tick: s.tick, text: free ? `The comeback: ${L.leader} wins back power (${share.toFixed(0)}%).` : `${L.leader} returns from exile and seizes power.` });
     logEvent(s, `🔥 ${free ? 'THE COMEBACK' : 'RETURN FROM EXILE'}: ${L.leader} is back in power${free ? ` with ${share.toFixed(1)}% of the vote` : ''}!`, 'info', [s.player], true, { big: true, prov: c.capital });
     L.opposition = undefined;
+    remembered(s);
   } else {
     o.attempts++;
     if (o.attempts >= 2) {

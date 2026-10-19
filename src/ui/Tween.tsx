@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { store } from '../state/store';
 
 /** A number that glides to its new value instead of jumping (desktop polish; instant when motion is reduced). */
 export function useTween(value: number, ms = 650): number {
@@ -6,7 +7,10 @@ export function useTween(value: number, ms = 650): number {
   const from = useRef(value), to = useRef(value), t0 = useRef(0), raf = useRef(0), cur = useRef(value);
   useEffect(() => {
     const reduce = typeof matchMedia !== 'undefined' && (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width: 900px)').matches);
-    if (reduce || !Number.isFinite(value) || Math.abs(value - cur.current) < 1e-9) { cur.current = value; setShown(value); return; }
+    // while the clock runs fast the numbers change several times a second: counting animations would keep the
+    // whole interface repainting on every frame, so the numbers simply jump (they still glide when paused or slow)
+    const busy = store.speed >= 2 && !store.lastUser;
+    if (reduce || busy || !Number.isFinite(value) || Math.abs(value - cur.current) < 1e-9) { cur.current = value; setShown(value); return; }
     from.current = cur.current; to.current = value; t0.current = performance.now();
     cancelAnimationFrame(raf.current);
     const step = (now: number) => {

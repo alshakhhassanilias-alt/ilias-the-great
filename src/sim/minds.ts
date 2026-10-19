@@ -31,10 +31,16 @@ export function addRec(s: GameState, id: CountryId, k: RecKey, v: number) {
   if (id < 0) return;
   const r = ((s.rec ??= {})[id] ??= { ...EMPTY });
   r[k] = clamp(r[k] + v, 0, 12);
+  // in Legacy, what you do in office is also yours personally: it follows you out of office and back in
+  const L = s.legacy;
+  if (id === s.player && L && s.settings.mode === 'legacy' && L.status === 'office') { const p = (L.rec ??= { ...EMPTY }); p[k] = clamp(p[k] + v, 0, 12); }
 }
 /** Monthly: the world slowly forgets (half-life about nine years); the bomb is never forgotten. */
 function decayRecords(s: GameState) {
   for (const r of Object.values(s.rec ?? {})) for (const k of Object.keys(r) as RecKey[]) if (k !== 'nuke') { r[k] *= 0.9936; if (r[k] < 0.02) r[k] = 0; }
+  // people are remembered longer than governments
+  const p = s.legacy?.rec;
+  if (p) for (const k of Object.keys(p) as RecKey[]) if (k !== 'nuke') { p[k] *= 0.9968; if (p[k] < 0.02) p[k] = 0; }
 }
 
 // ------------------------------------------------------------------ the mood of AI countries
@@ -189,6 +195,13 @@ export function opinionOf(s: GameState, J: CountryId, X: CountryId): { v: number
     if (r.defaulted > 0.05) add('default', 'defaulted on its debts', -r.defaulted * (4 + 14 * a.wealth));
     if (r.nuke > 0.05 && xc.mil.nuclear) add('nuke', 'built the bomb', -r.nuke * (4 + 12 * a.security) * (jc.mil.nuclear ? 0.5 : 1) * (near ? 1.6 : 1));
   }
+  // in Legacy the player is a person too: leaders react to your style as they react to each other's
+  const style = X === s.player && s.settings.mode === 'legacy' && s.legacy?.status === 'office' ? s.legacy.traits : undefined;
+  if (style && jc.leader) {
+    let v = 0;
+    for (const a2 of jc.leader.traits) for (const b of style) v += STYLE[`${a2}>${b}`] ?? (a2 === 'ideologue' && b === 'strongman' && free ? -6 : 0);
+    if (Math.abs(v) >= 1) add('style', `is led by a ${style.map((t) => TRAIT_TITLE[t] ?? t).join(' & ')}`, clamp(v, -10, 10));
+  }
   // allies who will not pay for their own defence
   if (hasAlliance(s, J, X) && xc.budget.military < Math.min(0.015, jc.budget.military * 0.6) && xc.eco.gdp > jc.eco.gdp * 0.02) add('freeride', 'free-rides on our defence', -(3 + 8 * a.security) * (commitOf(jc) < 0 ? 1.6 : 1));
   // switching sides is judged by both camps
@@ -200,6 +213,25 @@ export function opinionOf(s: GameState, J: CountryId, X: CountryId): { v: number
   out.sort((x, y) => Math.abs(y.v) - Math.abs(x.v));
   const v = clamp(out.reduce((t, x) => t + x.v, 0), -45, 35);
   return { v, reasons: out.slice(0, 5) };
+}
+
+/** How one leader's style strikes another (judge trait > subject trait). */
+const STYLE: Record<string, number> = {
+  'hawk>hawk': 3, 'dove>hawk': -5, 'hawk>dove': -3, 'dove>dove': 4, 'strongman>strongman': 4, 'strongman>reformer': -2, 'reformer>strongman': -3,
+  'mercantilist>mercantilist': 4, 'mercantilist>nationalist': -3, 'pragmatist>pragmatist': 3, 'internationalist>isolationist': -5, 'isolationist>internationalist': -2,
+  'internationalist>internationalist': 4, 'nationalist>nationalist': 2, 'paranoid>hawk': -3, 'reformer>reformer': 3, 'ideologue>ideologue': 2,
+};
+const TRAIT_TITLE: Record<string, string> = { hawk: 'Hawk', dove: 'Dove', pragmatist: 'Pragmatist', nationalist: 'Nationalist', mercantilist: 'Mercantilist', ideologue: 'Ideologue', paranoid: 'Paranoid', reformer: 'Reformer', strongman: 'Strongman', isolationist: 'Country First', internationalist: 'Internationalist' };
+
+/** On your return to power, the leaders who feel most strongly about your record say so. */
+export function rememberCables(s: GameState) {
+  const L = s.legacy;
+  if (!L) return;
+  const you = s.countries[s.player];
+  const list = s.countries.filter((c) => c.alive && !c.isPlayer && c.leader && isMajor(s, c.id)).map((c) => ({ c, v: opinionOf(s, c.id, s.player).v })).sort((a, b) => a.v - b.v);
+  const critic = list[0], fan = list[list.length - 1];
+  if (critic && critic.v <= -10) cableText(s, critic.c.id, `So ${L.leader} is back. ${critic.c.name} has not forgotten what ${you.name} did under your rule.`, 'cold');
+  if (fan && fan.v >= 10) cableText(s, fan.c.id, `Welcome back, ${L.leader}. ${fan.c.name} remembers a partner it could count on.`, 'warm');
 }
 
 // ------------------------------------------------------------------ judgement in words: leaders tell the player
@@ -216,6 +248,7 @@ const JUDGE_LINES: Record<string, { bad: string[]; good: string[] }> = {
   nuke: { bad: ['{you} now has the bomb. {me} has had to redraw every plan we had.'], good: [] },
   camp: { bad: ['{you} has turned its back on old friends. {me} takes note.'], good: ['{me} welcomes {you} to our side of the table.'] },
   rise: { bad: ['{you} grows fast. Some in {me} say too fast.'], good: [] },
+  style: { bad: ['{me} does not care for the way {you} is led these days.'], good: ['{me} likes the way {you} is led. We speak the same language.'] },
   freeride: { bad: ['{me} spends on its army so that {you} does not have to. That has to change.', 'Our taxpayers ask why they pay for the defence of {you}. I have no good answer.'], good: [] },
 };
 export function judgeLine(key: string, good: boolean, me: string, you: string, salt: number): string | null {

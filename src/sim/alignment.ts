@@ -214,7 +214,12 @@ export function orientTarget(s: GameState, c: Country, share = westShare(s)): { 
 }
 
 export function stepAlignment(s: GameState, geo: Geo) {
+  for (const _ of stepAlignmentGen(s, geo)) { /* run to completion */ }
+}
+/** The same, in slices (a few countries or one organisation at a time) so the browser can draw in between. */
+export function* stepAlignmentGen(s: GameState, geo: Geo): Generator<void> {
   ensureAlignment(s);
+  let n = 0;
   void geo;
   // orientation and hostility, a quarter of the world each week (each country monthly)
   const share = s.tick % 4 === 0 || !s.stats.westShare ? westShare(s) : s.stats.westShare;
@@ -229,6 +234,7 @@ export function stepAlignment(s: GameState, geo: Geo) {
   // each country is reviewed once a quarter (a thirteenth of the world each week)
   for (const c of s.countries) {
     if (!c.alive || (s.tick + c.id) % 13 !== 0) continue;
+    if (++n % 4 === 0) yield;
     const o = c.orient ?? 0;
     const { target } = orientTarget(s, c, share);
     // a dead zone keeps settled countries where they are; outside it they move about 15% of the gap a year
@@ -243,8 +249,9 @@ export function stepAlignment(s: GameState, geo: Geo) {
     if (fightsWest.has(c.id) && (c.orient ?? 0) < 0.5) c.hostile = Math.min(1, h + 0.12);
     else if ((c.orient ?? 0) > 0.1 && h > 0) c.hostile = Math.max(0, h * 0.88 - 0.006);
   }
-  if (s.tick % 4 === 3) { stepRegimes(s); updatePeaks(s); }
-  if (s.tick % 13 === 7) stepOrgs(s);
+  yield;
+  if (s.tick % 4 === 3) { stepRegimes(s); updatePeaks(s); yield; }
+  if (s.tick % 13 === 7) yield* stepOrgs(s);
   if (s.tick % 26 === 20) maybeFoundPact(s);
 }
 
@@ -265,9 +272,10 @@ function stepRegimes(s: GameState) {
   }
 }
 
-function stepOrgs(s: GameState) {
+function* stepOrgs(s: GameState): Generator<void> {
   for (const o of [...(s.orgs ?? [])]) {
     if (!s.orgs?.includes(o)) continue;
+    yield;
     o.members = o.members.filter((m) => s.countries[m]?.alive);
     // departures: a member that no longer belongs (the player decides for itself)
     for (const m of [...o.members]) {

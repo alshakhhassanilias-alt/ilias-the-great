@@ -23,6 +23,7 @@ export function StorylinePanel() {
   const waiting = s.inbox.some((x) => x.id.startsWith('story'));
   const titles = actTitles(c);
   const ends = possibleEndings(c);
+  if (s.settings.storylines === false) return null; // a pure sandbox
   return (
     <Section title={`📖 ${c.name}: ${seed.ambition}`} hint={`national storyline · ${storyChip(c) || 'chapter I · act I of IV'}`}>
       <div className="card story-card">

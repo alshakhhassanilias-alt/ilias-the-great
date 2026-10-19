@@ -111,9 +111,15 @@ export function initLeaders(s: GameState, geo: Geo) {
 
 // ------------------------------------------------------------------ the weekly step
 export function stepLeaders(s: GameState, geo: Geo) {
+  for (const _ of stepLeadersGen(s, geo)) { /* run to completion */ }
+}
+/** The same, in slices (a few dozen governments at a time) so the browser can draw in between. */
+export function* stepLeadersGen(s: GameState, geo: Geo): Generator<void> {
+  let n = 0;
   if (s.tick % 4 === 3) decayGrudges(s);
   for (const c of s.countries) {
     if (!c.alive || c.id === s.player) continue;
+    if (++n % 20 === 0) yield;
     if (!c.leader) { crownLeader(s, c, Math.round(hash01('gen0', c.id, s.settings.seed) * 1e6)); c.goal = choosePlan(s, geo, c); }
     // a long-term plan, worked on every month and reconsidered twice a year
     if ((s.tick + c.id) % 4 === 2) { pursuePlan(s, geo, c); stepDebtCrisis(s, c); if (backlashDue(s, c)) backlash(s, geo, c); }

@@ -40,7 +40,9 @@ export function memberValue(s: GameState, o: Org, m: CountryId, threat?: number)
   const others = o.members.filter((x) => x !== m && s.countries[x]?.alive);
   if (!others.length) return { v: -1, parts };
   const t = threat ?? moodOf(c).threat;
-  const mine = str(s, m), theirs = others.reduce((x, y) => x + str(s, y), 0);
+  const T = totals(s, o);
+  const self = o.members.includes(m) && c.alive;
+  const mine = str(s, m), theirs = T.str - (self ? mine : 0);
   const add = (label: string, v: number) => { if (Math.abs(v) >= 0.01) parts.push({ label, v: +v.toFixed(2) }); };
   if (o.kind === 'defence') {
     const P = clamp(t, 0, 1) * clamp((theirs / Math.max(1, mine)) * 0.4, 0, 1.2) * credibility(s, o);
@@ -54,21 +56,41 @@ export function memberValue(s: GameState, o: Org, m: CountryId, threat?: number)
   const fit = (o.camp ? (c.orient ?? 0) * o.camp * 0.25 : 0) + clamp(avgRel / 200, -0.25, 0.25);
   // to a "country first" leader, friends are friends only if they pay their way
   add(fit >= 0 ? 'Among friends and its own camp' : 'Out of place among the members', fit * (0.5 + a.ideology * 2) * (fit > 0 && c.leader?.traits.includes('isolationist') ? 0.5 : 1));
-  const strongest = [m, ...others].sort((x, y) => str(s, y) - str(s, x))[0];
   // leading a bloc is a sphere of influence: clients, bases, a say in their affairs (worth less to a "country first" leader)
-  if (strongest === m && others.length >= 2) add('A sphere of influence: it leads the bloc', (0.12 + 0.5 * a.prestige + 0.3 * a.expansion) * Math.min(1, others.length / 3) * (c.leader?.traits.includes('isolationist') ? 0.3 : 1));
+  if (T.top === m && others.length >= 2) add('A sphere of influence: it leads the bloc', (0.12 + 0.5 * a.prestige + 0.3 * a.expansion) * Math.min(1, others.length / 3) * (c.leader?.traits.includes('isolationist') ? 0.3 : 1));
   if (o.kind === 'defence') {
     const share = mine / Math.max(1, mine + theirs);
-    const avgMil = others.reduce((x, y) => x + s.countries[y].budget.military * s.countries[y].eco.gdp, 0) / Math.max(1, others.reduce((x, y) => x + s.countries[y].eco.gdp, 0));
+    const othersGdp = T.gdp - (self ? c.eco.gdp : 0);
+    const avgMil = (T.milGdp - (self ? c.budget.military * c.eco.gdp : 0)) / Math.max(1, othersGdp);
     // what grates is carrying allies who could pay for themselves: nobody expects a poor ally to match a great power
-    const rich = clamp(others.reduce((x, y) => x + s.countries[y].eco.gdp, 0) / Math.max(1, c.eco.gdp), 0, 1);
+    const rich = clamp(othersGdp / Math.max(1, c.eco.gdp), 0, 1);
     const B = (clamp((share - 0.3) * 0.6, 0, 0.3) + clamp((c.budget.military - avgMil) * 10, 0, 0.3)) * rich;
     add(c.budget.military > avgMil + 0.006 && rich > 0.5 ? 'Pays more than its rich partners for their defence' : 'The cost of the commitment', -B * (1 - 0.6 * commit));
-    const atWar = others.filter((x) => isAtWar(s, x) && !isAtWar(s, m)).length;
+    const atWar = isAtWar(s, m) ? 0 : T.atWar;
     if (atWar) add('Risk of being dragged into members\' wars', -Math.min(0.4, (atWar / others.length) * 1.5) * (1.1 - a.security));
   }
   add(commit >= 0 ? 'Its leader believes in alliances' : 'Its leader puts the country first', commit * 0.2);
   return { v: +parts.reduce((x, y) => x + y.v, 0).toFixed(2), parts: parts.sort((x, y) => Math.abs(y.v) - Math.abs(x.v)) };
+}
+/** An organisation's sums (strength, GDP, defence spending, its strongest member, members at war), once per week. */
+const totalsCache = new Map<string, { str: number; gdp: number; milGdp: number; top: CountryId; atWar: number }>();
+function totals(s: GameState, o: Org) {
+  const key = `${o.id}:${o.members.length}:${s.tick}`;
+  const hit = totalsCache.get(key);
+  if (hit) return hit;
+  if (totalsCache.size > 400) totalsCache.clear();
+  let str = 0, gdp = 0, milGdp = 0, top = -1, best = -1, atWar = 0;
+  for (const x of o.members) {
+    const X = s.countries[x];
+    if (!X?.alive) continue;
+    const v = strength(X);
+    str += v; gdp += X.eco.gdp; milGdp += X.budget.military * X.eco.gdp;
+    if (v > best) { best = v; top = x; }
+    if (isAtWar(s, x)) atWar++;
+  }
+  const out = { str, gdp, milGdp, top, atWar };
+  totalsCache.set(key, out);
+  return out;
 }
 export const smoothedValue = (s: GameState, o: Org, m: CountryId) => s.stats[`mv:${o.id}:${m}`];
 
@@ -91,12 +113,12 @@ export function issueUltimatum(s: GameState, o: Org, m: CountryId) {
 /** Monthly, a few organisations at a time: members weigh what membership is worth, and act on it. */
 export function stepMembership(s: GameState) {
   for (const o of [...(s.orgs ?? [])]) {
-    if ((s.tick + o.id) % 4 !== 0 || !s.orgs?.includes(o)) continue;
+    if ((s.tick + o.id) % 8 !== 0 || !s.orgs?.includes(o)) continue;
     for (const m of [...o.members]) {
       if (!s.countries[m]?.alive) continue;
       const k = `mv:${o.id}:${m}`;
       const v = memberValue(s, o, m).v;
-      s.stats[k] = s.stats[k] === undefined ? v : s.stats[k] * 0.8 + v * 0.2;
+      s.stats[k] = s.stats[k] === undefined ? v : s.stats[k] * 0.65 + v * 0.35;
     }
     // during an ultimatum the partners who value the alliance spend more; at the deadline the threatener decides
     const u = o.ultimatum;
@@ -107,7 +129,7 @@ export function stepMembership(s: GameState) {
         if (m === u.by || m === s.player) continue;
         const M = s.countries[m];
         // only partners who value the alliance, believe in it and can afford it answer the call
-        if ((s.stats[`mv:${o.id}:${m}`] ?? 0) > 0.1 && commitOf(M) > -0.2 && moodOf(M).pain < 0.5 && M.budget.military < 0.025 && nextRand(s) < 0.7) { M.budget.military = Math.min(0.025, M.budget.military + 0.0015); M.eco.prev.mil0 = Math.max(M.eco.prev.mil0 ?? 0, M.budget.military); addRelation(s, m, u.by, 1); }
+        if ((s.stats[`mv:${o.id}:${m}`] ?? 0) > 0.1 && commitOf(M) > -0.2 && moodOf(M).pain < 0.5 && M.budget.military < 0.025 && nextRand(s) < 0.7) { M.budget.military = Math.min(0.025, M.budget.military + 0.003); /* (every two months) */ M.eco.prev.mil0 = Math.max(M.eco.prev.mil0 ?? 0, M.budget.military); addRelation(s, m, u.by, 1); }
       }
       if (s.tick >= u.until) {
         delete o.ultimatum;

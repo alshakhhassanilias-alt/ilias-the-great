@@ -600,3 +600,7 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .org-worth { margin: 6px 0; display: grid; gap: 3px; }
 .org-ultimatum { color: var(--amber, #d9a441); font-size: 12.5px; }
 .mind-turn { padding: 6px 8px; border-left: 3px solid var(--teal); background: var(--panel-2); border-radius: 4px; font-size: 12.5px; }
+.style-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 4px; }
+.style-chip { cursor: pointer; }
+.style-chip.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+.judge-style { padding: 6px 8px; border-left: 3px solid var(--blue); background: var(--panel-2); border-radius: 4px; margin-bottom: 8px; display: grid; gap: 4px; font-size: 12.5px; }

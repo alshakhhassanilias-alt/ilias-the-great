@@ -350,7 +350,7 @@ export function* stepEconomiesGen(s: GameState, geo: Geo): Generator<void> {
     if (!c.alive) continue;
     stepCountryEconomy(c, s, geo, w);
     tradeFlows(c, s);
-    if (++n % 40 === 0) yield;
+    if (++n % 10 === 0) yield;
   }
   if (s.tick % HIST_EVERY === 0) {
     for (const c of s.countries) if (c.alive) recordHistory(c);
