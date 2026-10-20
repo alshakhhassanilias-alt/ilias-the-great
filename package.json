@@ -11,7 +11,10 @@
     "build:map": "tsx scripts/build-map.ts",
     "simulate": "tsx scripts/headless-sim.ts",
     "e2e": "node scripts/e2e-smoke.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "desktop:web": "vite build --outDir desktop/web --emptyOutDir",
+    "desktop": "npm run desktop:web && cd desktop && npm run start",
+    "desktop:dist": "npm run desktop:web && cd desktop && npx electron-builder"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

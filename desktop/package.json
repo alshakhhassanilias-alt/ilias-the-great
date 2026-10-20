@@ -23,11 +23,56 @@
     "appId": "com.worldorder.game",
     "productName": "World Order",
     "executableName": "WorldOrder",
-    "directories": { "output": "release", "buildResources": "build" },
-    "files": ["main.cjs", "preload.cjs", "steam.cjs", "web/**", "package.json"],
-    "asarUnpack": ["**/node_modules/steamworks.js/**"],
-    "win": { "target": [{ "target": "dir" }, { "target": "zip" }], "icon": "build/icon.png" },
-    "mac": { "target": [{ "target": "dir" }, { "target": "zip" }], "category": "public.app-category.strategy-games", "icon": "build/icon.png" },
-    "linux": { "target": [{ "target": "dir" }, { "target": "tar.gz" }], "category": "Game", "icon": "build/icon.png" }
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "steam.cjs",
+      "web/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/steamworks.js/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "dir"
+        },
+        {
+          "target": "zip"
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dir"
+        },
+        {
+          "target": "zip"
+        }
+      ],
+      "category": "public.app-category.strategy-games",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "dir"
+        },
+        {
+          "target": "tar.gz"
+        }
+      ],
+      "category": "Game",
+      "icon": "build/icon.png"
+    },
+    "extraFiles": []
   }
 }
