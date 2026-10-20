@@ -287,3 +287,38 @@ test('grade: look-alike, wrong size, forgotten offer, side, extra', () => {
   assert.ok(rows[4].extra);
   assert.ok(rows.every((r) => !r.ok));
 });
+
+// ---- smart search ------------------------------------------------------------
+test('smart search: shortcuts, word forms, typos, latin, learned picks', () => {
+  const items = L.allItems(menuState);
+  const top = (q, o) => L.search(items, q, o)[0].id;
+  // first-letter shortcuts and run-together word starts
+  assert.equal(top('пс'), 'pl_sib');
+  assert.equal(top('псг'), 'pl_sibmush');
+  assert.equal(top('зсп'), 'pl_bakedsmet');
+  assert.equal(top('вк'), 'v_potato');
+  assert.equal(top('жкл'), 'mn_friedpot');
+  assert.equal(top('цк'), 'sl_caesar');
+  assert.equal(top('пелсиб'), 'pl_sib');
+  assert.equal(top('сибпел'), 'pl_sib');
+  // other word forms, not shortcuts
+  assert.equal(top('пельменей'), 'pl_sib');
+  assert.equal(top('сало'), 'sn_salo');
+  assert.equal(top('шуба'), 'sl_shuba');
+  assert.equal(top('киевскую'), 'mn_kiev');
+  // typos and spelling mix-ups
+  assert.equal(top('пильмени'), 'pl_sib');
+  assert.equal(top('борш'), 'sp_borsch');
+  assert.equal(top('капучинно'), 'cf_capp');
+  assert.equal(top('глинтвеин'), 'hc_classic');
+  // Latin transliteration and wrong keyboard layout
+  assert.equal(top('pelmeni'), 'pl_sib');
+  assert.equal(top('kapuchino'), 'cf_capp');
+  assert.equal(top('gc'), 'pl_sib');
+  // real dish beats a sauce with the same start
+  assert.equal(top('вар').startsWith('x_'), false);
+  // learned: after picking Ural for “пс” a few times, it comes first
+  assert.equal(top('пс', { learned: { pl_ural: 2 } }), 'pl_ural');
+  // weak leftovers are dropped
+  assert.ok(L.search(items, 'солянка').length <= 3);
+});

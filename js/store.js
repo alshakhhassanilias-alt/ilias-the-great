@@ -26,6 +26,7 @@
       favorites: [],
       usage: {},           // itemId -> times added (for “frequent”)
       recent: [],          // last added itemIds
+      searchLearn: {},     // query -> {itemId: times picked} (learned shortcuts)
       training: { box: {}, hard: {}, stats: { right: 0, wrong: 0 } },
       settings: { seats: true },
       savedAt: 0,

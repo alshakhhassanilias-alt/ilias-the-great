@@ -1147,80 +1147,199 @@ textarea.field { min-height: 70px; }
     }
 
     // ---- Search ----------------------------------------------------------------
+    // Offline “smart” matching, scored per item. Layers, strongest first:
+    //   learned shortcut (what you picked before for this exact query)
+    //   initials / run-together word starts  (“пс”, “вкг”, “пелсиб”)
+    //   exact word, word start, other word form (“пельменей”, “шуба”)
+    //   inside a word, typo (1–2 letters), loose spelling (о/а, е/и, ь, doubles)
+    // Every query is also tried as typed on the wrong keyboard layout and as
+    // Latin transliteration (“pelmeni”).
     var EN_RU = { q: 'й', w: 'ц', e: 'у', r: 'к', t: 'е', y: 'н', u: 'г', i: 'ш', o: 'щ', p: 'з', '[': 'х', ']': 'ъ',
       a: 'ф', s: 'ы', d: 'в', f: 'а', g: 'п', h: 'р', j: 'о', k: 'л', l: 'д', ';': 'ж', "'": 'э',
       z: 'я', x: 'ч', c: 'с', v: 'м', b: 'и', n: 'т', m: 'ь', ',': 'б', '.': 'ю', '`': 'ё' };
+    var TRANSLIT = [['shch', 'щ'], ['sch', 'щ'], ['sh', 'ш'], ['ch', 'ч'], ['zh', 'ж'], ['kh', 'х'], ['ts', 'ц'],
+      ['ya', 'я'], ['yu', 'ю'], ['yo', 'е'], ['ye', 'е'], ['ja', 'я'], ['ju', 'ю'],
+      ['a', 'а'], ['b', 'б'], ['v', 'в'], ['w', 'в'], ['g', 'г'], ['d', 'д'], ['e', 'е'], ['z', 'з'], ['i', 'и'], ['j', 'й'],
+      ['y', 'ы'], ['k', 'к'], ['l', 'л'], ['m', 'м'], ['n', 'н'], ['o', 'о'], ['p', 'п'], ['r', 'р'], ['s', 'с'], ['t', 'т'],
+      ['u', 'у'], ['f', 'ф'], ['h', 'х'], ['c', 'к'], ['x', 'кс'], ['q', 'к']];
+    var STOP = { 'с': 1, 'со': 1, 'и': 1, 'в': 1, 'во': 1, 'по': 1, 'на': 1, 'из': 1, 'под': 1, 'для': 1, 'к': 1, 'а': 1, 'от': 1,
+      'with': 1, 'and': 1, 'in': 1, 'of': 1, 'the': 1, 'a': 1, 'on': 1 };
 
     function norm(s) {
-      return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"“”'’().,:;!?\-–—\/]/g, ' ').replace(/\s+/g, ' ').trim();
+      return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"“”'’().,:;!?\-–—\/+*№]/g, ' ').replace(/\s+/g, ' ').trim();
     }
     function layoutFix(q) {
       // “gtkmvtyb” typed on the English layout → “пельмени”
       return String(q || '').toLowerCase().split('').map(function (ch) { return EN_RU[ch] || ch; }).join('');
     }
-    function lev1(a, b) {
-      // true if edit distance <= 1 (cheap check, used for tokens >= 4 chars)
-      if (a === b) return true;
-      var la = a.length, lb = b.length;
-      if (Math.abs(la - lb) > 1) return false;
-      var i = 0, j = 0, edits = 0;
-      while (i < la && j < lb) {
-        if (a[i] === b[j]) { i++; j++; continue; }
-        if (++edits > 1) return false;
-        if (la > lb) i++; else if (lb > la) j++; else { i++; j++; }
+    function translit(q) {
+      var s = String(q || '').toLowerCase(), out = '';
+      for (var i = 0; i < s.length;) {
+        var hit = null;
+        for (var k = 0; k < TRANSLIT.length; k++) {
+          if (s.substr(i, TRANSLIT[k][0].length) === TRANSLIT[k][0]) { hit = TRANSLIT[k]; break; }
+        }
+        if (hit) { out += hit[1]; i += hit[0].length; } else { out += s[i]; i++; }
       }
-      return edits + (la - i) + (lb - j) <= 1;
+      return out;
     }
+    // Spelling-insensitive key: drops ь/ъ, merges vowels people confuse when
+    // unstressed, collapses doubled letters (“пелмени”, “пильмени”, “суфле”).
+    function loose(w) {
+      return w.replace(/[ьъ]/g, '').replace(/[ао]/g, 'а').replace(/[еэиыяй]/g, 'и').replace(/щ/g, 'ш')
+        .replace(/(.)\1+/g, '$1');
+    }
+    // Optimal-string-alignment distance with an early cut-off.
+    function dist(a, b, max) {
+      if (Math.abs(a.length - b.length) > max) return max + 1;
+      var prev2 = null, prev = [], cur, i, j;
+      for (j = 0; j <= b.length; j++) prev[j] = j;
+      for (i = 1; i <= a.length; i++) {
+        cur = [i];
+        var best = i;
+        for (j = 1; j <= b.length; j++) {
+          var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          var v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+          if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+          cur[j] = v;
+          if (v < best) best = v;
+        }
+        if (best > max) return max + 1;
+        prev2 = prev; prev = cur;
+      }
+      return prev[b.length];
+    }
+    var ENDING = /^(|а|я|о|е|ы|и|у|ю|ь|й|ой|ей|ий|ый|ая|яя|ое|ее|ые|ие|ую|юю|ом|ем|ам|ям|ах|ях|ов|ев|ами|ями|ого|его|ому|ему|ых|их|ым|им|ки|ка|ку|ке|ков)$/;
+    function commonPrefix(a, b) {
+      var n = Math.min(a.length, b.length), i = 0;
+      while (i < n && a[i] === b[i]) i++;
+      return i;
+    }
+
     function haystack(it) {
       var h = it._hay;
       if (!h) {
+        var nameWords = norm(it.ru).split(' ').filter(Boolean);
+        var main = norm(it.ru).split(' ').filter(function (w) { return w && !STOP[w]; });
         h = {
-          name: norm((it.pre || '') + ' ' + it.ru).split(' '),
-          en: norm(it.en).split(' '),
-          rest: norm((it.desc || '') + ' ' + (it.descEn || '') + ' ' + (it.alias || []).join(' ') + ' ' + (it.form || '') + ' ' + (catIndex[it.cat] ? catIndex[it.cat].ru + ' ' + catIndex[it.cat].en : '')).split(' '),
+          name: nameWords,
+          pre: norm(it.pre || '').split(' ').filter(Boolean),
+          en: norm(it.en).split(' ').filter(Boolean),
+          rest: norm((it.desc || '') + ' ' + (it.descEn || '') + ' ' + (it.alias || []).join(' ') + ' ' + (it.form || '') + ' ' +
+            (catIndex[it.cat] ? catIndex[it.cat].ru + ' ' + catIndex[it.cat].en : '')).split(' ').filter(Boolean),
+          main: main,                                   // significant words of the printed name
+          en2: norm(it.en).split(' ').filter(function (w) { return w && !STOP[w]; }),
         };
+        h.looseName = h.name.map(loose);
         try { Object.defineProperty(it, '_hay', { value: h, enumerable: false }); } catch (e) { /* frozen */ }
       }
       return h;
     }
-    function tokenScore(tok, words, weight) {
-      var best = 0;
-      for (var i = 0; i < words.length; i++) {
-        var w = words[i];
-        if (!w) continue;
-        if (w === tok) return weight * 3;
-        if (w.indexOf(tok) === 0) best = Math.max(best, weight * 2);
-        else if (tok.length >= 3 && w.indexOf(tok) > 0) best = Math.max(best, weight);
-        else if (tok.length >= 4 && (lev1(tok, w) || lev1(tok, w.slice(0, tok.length)) || lev1(tok, w.slice(0, tok.length + 1)))) {
-          best = Math.max(best, weight * 0.8);
+
+    function wordScore(tok, w, lw) {
+      if (w === tok) return 3;
+      if (w.indexOf(tok) === 0) return tok.length === 1 ? 0.6 : 2 + 0.3 * tok.length / w.length;
+      // other word form: “пельменей” ~ “пельмени”, “шуба” ~ “шубой”, “сало” ~ “сала”
+      if (tok.length >= 4) {
+        var cp = commonPrefix(tok, w);
+        if (cp >= 3 && tok.length - cp <= 3 && w.length - cp <= 3) {
+          if (ENDING.test(tok.slice(cp)) && ENDING.test(w.slice(cp))) return 1.9;
+          if (cp >= 5) return 1.4;
         }
       }
-      return best;
+      if (tok.length >= 3 && w.indexOf(tok) > 0) return 1;
+      if (tok.length >= 4 && lw) {
+        var lt0 = loose(tok);
+        if (lt0 === lw) return 1.6;                        // борш = борщ, пелмени = пельмени
+        if (lt0.length >= 3 && lw.indexOf(lt0) === 0) return 0.9;
+      }
+      if (tok.length >= 4) {
+        var max = tok.length >= 7 ? 2 : 1;
+        if (dist(tok, w, max) <= max || dist(tok, w.slice(0, tok.length), max) <= max) return 0.8;
+      }
+      return 0;
     }
-    function scoreItem(it, tokens) {
-      var h = haystack(it), total = 0;
+    function tokenScore(tok, words, weight, looseWords) {
+      var best = 0;
+      for (var i = 0; i < words.length; i++) {
+        var s = wordScore(tok, words[i], looseWords && looseWords[i]);
+        if (s > best) { best = s; if (s === 3) break; }
+      }
+      return best * weight;
+    }
+
+    // “пс”, “вкг”, “пелсиб”, “сибпел” → split the query into word starts of
+    // the name’s significant words, in order (words may be skipped).
+    function segScore(q, words) {
+      if (q.length < 2 || q.length > 14 || !words.length) return 0;
+      var best = -1;
+      // Pieces must be all first letters (“вкг”) or all 2+ letters (“пел”+“сиб”);
+      // mixing them would read real words as shortcuts (“сал”+“о” ≠ “сало”).
+      (function walk(qi, wi, segs, skipped, minLen, maxLen0) {
+        if (qi === q.length) {
+          var tail = words.length - wi;
+          var s = 10 + segs - skipped * 0.6 - tail * 0.3;
+          if (segs >= 2 && (maxLen0 === 1 || minLen >= 2) && s > best) best = s;
+          return;
+        }
+        for (var j = wi; j < words.length && j - wi <= 2; j++) {
+          var w = words[j];
+          var maxLen = Math.min(w.length, q.length - qi);
+          for (var len = maxLen; len >= 1; len--) {
+            if (q.substr(qi, len) === w.slice(0, len)) walk(qi + len, j + 1, segs + 1, skipped + (j - wi), Math.min(minLen, len), Math.max(maxLen0, len));
+          }
+        }
+      })(0, 0, 0, 0, 99, 0);
+      return Math.max(best, 0);
+    }
+
+    function scoreItem(it, q) {
+      var h = haystack(it);
+      var tokens = q.split(' ').filter(Boolean);
+      var total = 0;
       for (var i = 0; i < tokens.length; i++) {
         var t = tokens[i];
-        var s = Math.max(tokenScore(t, h.name, 5), tokenScore(t, h.en, 4), tokenScore(t, h.rest, 1));
-        if (!s) return 0;
+        var s = Math.max(tokenScore(t, h.name, 5, h.looseName), tokenScore(t, h.pre, 3.5), tokenScore(t, h.en, 4), tokenScore(t, h.rest, 1));
+        if (!s) { total = 0; break; }
         total += s;
       }
-      return total;
+      var compact = q.replace(/ /g, '');
+      var seg = Math.max(segScore(compact, h.main), segScore(compact, h.en2) - 1);
+      if (tokens.length === 1 && h.main.length === 2) seg = Math.max(seg, segScore(compact, [h.main[1], h.main[0]]) - 0.5);
+      if (tokens.length === 2) {
+        seg = Math.max(seg, segScore(tokens[1] + tokens[0], h.main) - 1);
+        if (tokens[0].length >= 3 && tokens[1].length >= 3) seg = Math.max(seg, segScore(compact, h.main.slice().reverse()) - 2);
+      }
+      return Math.max(total, seg);
     }
-    function search(items, query) {
+
+    // opts: { learned: {itemId: count} for this exact query, usage: {itemId: count} }
+    function search(items, query, opts) {
+      opts = opts || {};
       var q = norm(query);
       if (!q) return [];
       var variants = [q];
-      var fixed = norm(layoutFix(query));
-      if (fixed !== q && /[a-z]/.test(q)) variants.push(fixed);
+      if (/[a-z]/.test(q)) {
+        var lf = norm(layoutFix(query)), tr = norm(translit(q));
+        if (variants.indexOf(lf) < 0) variants.push(lf);
+        if (variants.indexOf(tr) < 0) variants.push(tr);
+      }
+      var learned = opts.learned || {}, usage = opts.usage || {};
       var results = [];
       items.forEach(function (it) {
         var best = 0;
-        variants.forEach(function (v) { best = Math.max(best, scoreItem(it, v.split(' '))); });
-        if (best > 0) results.push({ it: it, s: best });
+        variants.forEach(function (v, vi) { best = Math.max(best, scoreItem(it, v) * (vi === 0 ? 1 : 0.95)); });
+        if (learned[it.id]) best += 15 + Math.min(5, learned[it.id]);  // your own shortcut wins
+        if (best > 0) {
+          best += Math.min(1, (usage[it.id] || 0) / 20); // tie-break by how often you order it
+          if (it.isExtra) best -= 1;                    // sauces usually go on a line, not alone
+          results.push({ it: it, s: best });
+        }
       });
       results.sort(function (a, b) { return b.s - a.s || a.it.ru.length - b.it.ru.length; });
-      return results.map(function (r) { return r.it; });
+      // Drop weak leftovers far below the best match so the list stays clean.
+      var top = results.length ? results[0].s : 0;
+      return results.filter(function (r) { return r.s >= top * 0.3; }).map(function (r) { return r.it; });
     }
 
     return {
@@ -1266,6 +1385,7 @@ textarea.field { min-height: 70px; }
       favorites: [],
       usage: {},           // itemId -> times added (for “frequent”)
       recent: [],          // last added itemIds
+      searchLearn: {},     // query -> {itemId: times picked} (learned shortcuts)
       training: { box: {}, hard: {}, stats: { right: 0, wrong: 0 } },
       settings: { seats: true },
       savedAt: 0,
@@ -1995,7 +2115,7 @@ textarea.field { min-height: 70px; }
     var all = L.allItems(S.menu);
     var h = '';
     if (p.q) {
-      var res = L.search(all, p.q).slice(0, 60);
+      var res = L.search(all, p.q, { learned: (S.searchLearn || {})[L.norm(p.q)], usage: S.usage }).slice(0, 60);
       if (!res.length) h += '<div class="empty">Nothing for “' + esc(p.q) + '”.<br><span class="small">Try Russian, English, or part of a word.</span></div>';
       h += res.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
       return h;
@@ -2040,7 +2160,7 @@ textarea.field { min-height: 70px; }
       el = document.createElement('div');
       el.id = 'picker'; el.className = 'picker';
       el.innerHTML = '<div class="head"><div class="searchrow">' +
-        '<input id="psearch" class="search" type="search" placeholder="Search: пельм, borsch, gtkm…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
+        '<input id="psearch" class="search" type="search" placeholder="Search: пс, пельм, borsch…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
         '<button class="iconbtn" data-a="pClear" aria-label="clear">✕</button></div><div id="pchips"></div></div>' +
         '<div class="list" id="plist"></div>' +
         '<div class="foot"><button class="btn primary" data-a="closePicker" id="pdone"></button></div>';
@@ -2554,6 +2674,15 @@ textarea.field { min-height: 70px; }
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
     if (isPractice()) return;
+    // Learn shortcuts: what you pick after typing a query ranks first next time.
+    var q = ui.picker && L.norm(ui.picker.q);
+    if (q) {
+      var sl = S.searchLearn = S.searchLearn || {};
+      sl[q] = sl[q] || {};
+      sl[q][id] = Math.min(20, (sl[q][id] || 0) + 1);
+      var keys = Object.keys(sl);
+      if (keys.length > 400) delete sl[keys[0]];
+    }
     S.usage[id] = (S.usage[id] || 0) + 1;
     S.recent = [id].concat(S.recent.filter(function (x) { return x !== id; })).slice(0, 20);
   }

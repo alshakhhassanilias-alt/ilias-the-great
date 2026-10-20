@@ -1,5 +1,5 @@
 /* Offline cache for the app shell. Bump VERSION when any file changes. */
-var VERSION = 'waiter-v2';
+var VERSION = 'waiter-v3';
 var FILES = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
   './js/menu-data.js', './js/logic.js', './js/store.js', './js/training.js', './js/app.js',

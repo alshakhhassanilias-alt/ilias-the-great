@@ -75,6 +75,22 @@ test('waiter flow on iPhone viewport', async (t) => {
     assert.equal(s.tables[0].lines[0].itemId, 'pl_sib');
   });
 
+  await t.test('shortcut search learns what you pick', async () => {
+    await page.fill('#psearch', 'пс');
+    await page.waitForSelector('#plist .irow');
+    assert.match(await page.locator('#plist .irow').first().innerText(), /Пельмени сибирские/);
+    // pick the 2nd result twice → it should come first next time
+    const second = page.locator('#plist [data-a="pick"]').nth(1);
+    const name = (await second.innerText()).split('\n').find((x) => /[а-я]/i.test(x) && x.length > 4);
+    await second.tap();
+    await page.fill('#psearch', '');
+    await page.fill('#psearch', 'пс');
+    await page.locator('#plist [data-a="pick"]').first().innerText().then((txt) => assert.ok(txt.includes(name.replace(/^(варёные|NEW|STOP|⚠ check|★)\s*/, '').slice(0, 10)), txt + ' vs ' + name));
+    // undo the extra line so later checks see the same order as before
+    await page.tap('[data-a="undo"]');
+    await page.tap('[data-a="pClear"]');
+  });
+
   await t.test('wrong keyboard layout search works', async () => {
     await page.fill('#psearch', ',jhom');   // “борщ” typed on EN layout
     await page.waitForSelector('#plist .irow');

@@ -39,8 +39,15 @@ Data lives only on this phone (localStorage). Export a backup now and then:
    the same line. Items that need a choice (juice 200 мл / 1 л, beer 330/500,
    wine glass/bottle, soda flavour, shot flavour…) open a sheet and cannot be
    added until the choice is made.
-3. Search understands Russian, English, small typos (`пелмени`) and text typed
-   on the wrong keyboard layout (`gtkmvtyb` → пельмени).
+3. Search is forgiving and fast, and works offline:
+   - **first letters**: `пс` → Пельмени сибирские, `вк` → Вареники с картофелем,
+     `псг` → Пельмени сибирские в грибном соусе, `цк` → Цезарь с курицей
+   - **word starts run together**: `пелсиб`, `сибпел`
+   - **any word form**: `пельменей`, `шуба`, `сало`, `киевскую`
+   - **typos and spelling**: `пильмени`, `борш`, `капучинно`, `глинтвеин`
+   - **Latin or wrong keyboard**: `pelmeni`, `kapuchino`, `gc` (= пс)
+   - **it learns from you**: whatever you pick after typing something comes
+     first the next time you type it. Use that to make your own shortcuts.
 4. Back on the table, each line shows what still needs attention:
    - **red**: must fix (size not chosen, stop-list item)
    - **amber**: confirm with the guest (side dish, second order of the same dish)
@@ -123,8 +130,8 @@ and you can fix prices there.
 ## Development
 
 ```
-npm test          # 27 unit tests: menu data, order logic, storage, practice grading
-npm run test:e2e  # 21 browser checks at iPhone size (needs Playwright + Chromium)
+npm test          # 28 unit tests: menu data, order logic, storage, practice grading
+npm run test:e2e  # 22 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 

@@ -345,7 +345,7 @@
     var all = L.allItems(S.menu);
     var h = '';
     if (p.q) {
-      var res = L.search(all, p.q).slice(0, 60);
+      var res = L.search(all, p.q, { learned: (S.searchLearn || {})[L.norm(p.q)], usage: S.usage }).slice(0, 60);
       if (!res.length) h += '<div class="empty">Nothing for “' + esc(p.q) + '”.<br><span class="small">Try Russian, English, or part of a word.</span></div>';
       h += res.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
       return h;
@@ -390,7 +390,7 @@
       el = document.createElement('div');
       el.id = 'picker'; el.className = 'picker';
       el.innerHTML = '<div class="head"><div class="searchrow">' +
-        '<input id="psearch" class="search" type="search" placeholder="Search: пельм, borsch, gtkm…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
+        '<input id="psearch" class="search" type="search" placeholder="Search: пс, пельм, borsch…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
         '<button class="iconbtn" data-a="pClear" aria-label="clear">✕</button></div><div id="pchips"></div></div>' +
         '<div class="list" id="plist"></div>' +
         '<div class="foot"><button class="btn primary" data-a="closePicker" id="pdone"></button></div>';
@@ -904,6 +904,15 @@
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
     if (isPractice()) return;
+    // Learn shortcuts: what you pick after typing a query ranks first next time.
+    var q = ui.picker && L.norm(ui.picker.q);
+    if (q) {
+      var sl = S.searchLearn = S.searchLearn || {};
+      sl[q] = sl[q] || {};
+      sl[q][id] = Math.min(20, (sl[q][id] || 0) + 1);
+      var keys = Object.keys(sl);
+      if (keys.length > 400) delete sl[keys[0]];
+    }
     S.usage[id] = (S.usage[id] || 0) + 1;
     S.recent = [id].concat(S.recent.filter(function (x) { return x !== id; })).slice(0, 20);
   }
