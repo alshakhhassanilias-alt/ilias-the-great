@@ -26,7 +26,8 @@ import { spendPC, sway } from './domestic';
 import type { Country, CountryId, GameState } from './types';
 
 export type Goal = Proposal | 'aid' | 'relief';
-export const GOAL_LABEL: Record<Goal, string> = { ...PROPOSAL_LABEL, aid: 'Financial aid for you', relief: 'Lift their sanctions on you' };
+// written out (not spread from PROPOSAL_LABEL) so the labels exist whatever order the modules load in
+export const GOAL_LABEL: Record<Goal, string> = { trade: 'Trade agreement', nap: 'Non-aggression pact', alliance: 'Defensive alliance', coop: 'Military cooperation', aid: 'Financial aid for you', relief: 'Lift their sanctions on you' };
 export const GOAL_DESC: Record<Goal, string> = {
   trade: 'Both economies gain exports and cheaper imports; relations improve over time.',
   nap: 'Neither side may attack the other without a heavy reputation penalty.',
@@ -37,13 +38,15 @@ export const GOAL_DESC: Record<Goal, string> = {
 };
 
 /** Terms you can put on the table. */
-export type Term = 'cash1' | 'cash3' | 'cash6' | 'lift' | 'tech' | 'guarantee' | 'cut' | 'visit' | 'apology' | 'withdraw' | 'arms';
+export type Term = 'cash1' | 'cash3' | 'cash6' | 'lift' | 'tech' | 'guarantee' | 'cut' | 'visit' | 'apology' | 'withdraw' | 'arms' | 'loan' | 'energy' | 'backing';
 export interface Terms { goal: Goal; give: Term[] }
 export const TERM_LABEL: Record<Term, string> = {
   cash1: 'Investment package (0.1% of your GDP)', cash3: 'Investment package (0.3% of your GDP)', cash6: 'Investment package (0.6% of your GDP)',
   lift: 'Lift your sanctions on them', tech: 'Share technology', guarantee: 'Guarantee their security', cut: 'Cut your ties with their rival',
   visit: 'A state visit with full honours (6 political capital)', apology: 'A formal apology for past wrongs (8 political capital)',
   withdraw: 'Pull your troops back from the border', arms: 'Sell them modern weapons at a discount (0.1% of your GDP)',
+  loan: 'A cheap loan (0.5% of your GDP at 2%, repaid over 5 years)', energy: 'Guaranteed energy supplies at a discount (you export energy)',
+  backing: 'Back their cause against their rival (relations with the rival −12)',
 };
 
 // ------------------------------------------------------------------ negotiating styles
@@ -54,7 +57,7 @@ export const TERM_LABEL: Record<Term, string> = {
  * personal attention; a parliamentary democracy answers to its voters. The style changes what each term is worth,
  * how much patience they have, and how they talk.
  */
-export type StyleId = 'merchant' | 'proud' | 'cautious' | 'ideologue' | 'strongman' | 'parliament' | 'pragmatic';
+export type StyleId = 'merchant' | 'proud' | 'cautious' | 'ideologue' | 'strongman' | 'parliament' | 'pragmatic' | 'court' | 'swing' | 'wounded';
 export interface Style { id: StyleId; name: string; icon: string; desc: string; patience: number; mult: Partial<Record<Term | 'cash', number>> }
 export const STYLES: Record<StyleId, Style> = {
   merchant: { id: 'merchant', name: 'The Merchant', icon: '💱', desc: 'Haggles over everything and always comes back with a price. Money and trade talk; promises do not.', patience: 4, mult: { cash: 1.4, tech: 1.1, visit: 0.6, apology: 0.6, guarantee: 0.8 } },
@@ -64,15 +67,22 @@ export const STYLES: Record<StyleId, Style> = {
   strongman: { id: 'strongman', name: 'The Strongman', icon: '🥊', desc: 'Respects strength and personal attention. A state visit and weapons impress; weakness invites contempt.', patience: 3, mult: { visit: 1.6, arms: 1.5, cash: 1.1, apology: 0.6 } },
   parliament: { id: 'parliament', name: 'Answers to Voters', icon: '🗳', desc: 'Any deal must survive its parliament and press. Your reputation and record weigh heavily; so does technology and trade.', patience: 4, mult: { tech: 1.3, cash: 0.9, visit: 1.1, arms: 0.8 } },
   pragmatic: { id: 'pragmatic', name: 'The Pragmatist', icon: '🧮', desc: 'Weighs costs and benefits without drama. Every term counts at face value.', patience: 3, mult: {} },
+  court: { id: 'court', name: 'The Royal Court', icon: '👑', desc: 'A monarchy in no hurry. Royal honours and personal ties count most; lectures about democracy do not.', patience: 5, mult: { visit: 2, arms: 1.2, apology: 1.2, energy: 1.1, backing: 1.2 } },
+  swing: { id: 'swing', name: 'The Swing State', icon: '⚖', desc: 'Plays the great camps against each other. Others are bidding too: pay well, never ask it to pick a side.', patience: 4, mult: { cash: 1.3, loan: 1.4, energy: 1.3, tech: 1.2, cut: 0.4, guarantee: 0.6, backing: 0.6 } },
+  wounded: { id: 'wounded', name: 'The Wounded Nation', icon: '🩹', desc: 'It has not forgotten what you did to it. Nothing moves without an apology and soldiers pulled back.', patience: 2, mult: { apology: 2.2, withdraw: 1.6, cash: 0.5, loan: 0.6, visit: 0.8 } },
 };
-export function styleOf(T: Country): Style {
+export function styleOf(T: Country, s?: GameState): Style {
   const tr: string[] = T.leader?.traits ?? [];
+  // a country you have hurt negotiates from its wounds, whatever its leader is like
+  if (s && T.id !== s.player && (grudgeScore(s, T.id, s.player) > 20 || (s.warHistory ?? []).some((w) => s.tick - w.end < 520 && ((w.a === T.id && w.b === s.player && w.provsA < 0) || (w.b === T.id && w.a === s.player && w.provsB < 0))))) return STYLES.wounded;
   if (tr.includes('mercantilist') || (tr.includes('pragmatist') && T.ai.trade > 0.6)) return STYLES.merchant;
   if (tr.includes('nationalist')) return STYLES.proud;
   if (tr.includes('strongman') || (T.gov === 'A' && tr.includes('hawk'))) return STYLES.strongman;
   if (tr.includes('ideologue')) return STYLES.ideologue;
   if (tr.includes('paranoid') || tr.includes('isolationist')) return STYLES.cautious;
+  if (T.gov === 'M') return STYLES.court;
   if (T.gov === 'D' || T.gov === 'F') return STYLES.parliament;
+  if (Math.abs(T.orient ?? 0) < 0.25) return STYLES.swing;
   return STYLES.pragmatic;
 }
 /** What the leader says when you sit down: in their style, about what they want most. */
@@ -87,6 +97,9 @@ export function openingLine(s: GameState, T: Country, st: { interests: Interest[
     case 'ideologue': return cold ? 'Your system and ours have nothing in common. Why should we trust you?' : `We judge partners by what they stand for. Convince us yours is a partnership of principle.`;
     case 'strongman': return cold ? 'You are either brave or foolish to come here. Impress me.' : `I deal with leaders, not clerks. Come in person, bring something worth my time.`;
     case 'parliament': return cold ? 'Our parliament would never approve a deal with you as things stand. Your record would have to change.' : `Whatever we agree must pass our parliament. Give us something we can sell to our voters: ${want}.`;
+    case 'court': return cold ? 'His Majesty has a long memory. So does the court. Begin with respect.' : 'The court is in no hurry. Come yourself, honour the crown, and we can speak of the future.';
+    case 'swing': return cold ? 'We have other friends, and they pay better. Convince us.' : `Washington and Beijing both call us every week. What does ${s.countries[s.player].name} offer?`;
+    case 'wounded': return 'You expect to sit at our table after what you did? Say the words first. Then pull your soldiers back.';
     default: return cold ? 'Relations are bad, but we are realists. Make it worth our while.' : `We are open to a sensible deal. ${want.charAt(0).toUpperCase() + want.slice(1)} is what matters to us.`;
   }
 }
@@ -117,10 +130,10 @@ export interface Stance {
   detente: boolean;
 }
 
-interface NegoMemo { patience: number; until: number; counter?: { goal: Goal; give: Term[]; tick: number } }
+interface NegoMemo { patience: number; until: number; counter?: { goal: Goal; give: Term[]; tick: number }; loan?: number }
 function memo(s: GameState, them: CountryId): NegoMemo {
   const m = (s.nego ??= {}) as Record<number, NegoMemo>;
-  const full = styleOf(s.countries[them]).patience;
+  const full = styleOf(s.countries[them], s).patience;
   const x = (m[them] ??= { patience: full, until: -1 });
   // patience recovers over time
   if (x.patience < full && s.tick - x.until > 26) { x.patience = full; }
@@ -208,7 +221,7 @@ export function stanceOf(s: GameState, geo: Geo, them: CountryId, t: Terms): Sta
   // ---- the base case for the goal, using the existing treaty model where it applies ----
   const factors: Factor[] = [];
   factors.push({ label: `Relations ${rel >= 0 ? '+' : ''}${rel.toFixed(0)}`, pts: mine(rel * 0.45) });
-  const style = styleOf(T);
+  const style = styleOf(T, s);
   const detente = (s.nego?.[them]?.track?.detenteUntil ?? -1) > s.tick;
   if (detente) factors.push({ label: 'The détente: you are reconciling', pts: 15 });
   else if (rel < -50) factors.push({ label: 'Bitter rivals: a deal looks like surrender at home (try the reconciliation process)', pts: -15 });
@@ -216,6 +229,9 @@ export function stanceOf(s: GameState, geo: Geo, them: CountryId, t: Terms): Sta
   if (style.id === 'strongman' && power < 0.7) factors.push({ label: 'A strongman despises weakness', pts: -8 });
   if (style.id === 'ideologue') factors.push({ label: T.gov === P.gov ? 'Same political system' : 'A different political system', pts: T.gov === P.gov ? 10 : -6 });
   if (style.id === 'cautious' && t.goal === 'alliance' && !tr?.coop && !tr?.nap) factors.push({ label: 'One step at a time: a pact or cooperation first', pts: -15 });
+  if (style.id === 'court' && P.gov === 'D') factors.push({ label: 'The court distrusts republics that lecture monarchs', pts: -5 });
+  if (style.id === 'swing') factors.push({ label: 'Other powers are bidding for it too', pts: -8 });
+  if (style.id === 'wounded' && !t.give.includes('apology')) factors.push({ label: 'Old wounds: it wants an apology first', pts: -12 });
   const g = grudgeScore(s, them, me);
   if (g > 2) factors.push({ label: 'Grudges against you', pts: -mine(Math.min(30, g)) });
   if (T.leader) {
@@ -267,6 +283,9 @@ export function stanceOf(s: GameState, geo: Geo, them: CountryId, t: Terms): Sta
   const nb = neighborsOf(s, geo, me).includes(them);
   if (nb) available.push('withdraw');
   if (P.mil.milTech > T.mil.milTech + 3 && rel > -40) available.push('arms');
+  available.push('loan');
+  if (P.eco.energyCap > P.eco.energyDemand * 1.1 && T.eco.energyCap < T.eco.energyDemand) available.push('energy');
+  if (rival >= 0 && rival !== me) available.push('backing');
   const moneyW = 0.4 + want('money');
   const termValue: Partial<Record<Term, number>> = {};
   for (const k of available) {
@@ -282,6 +301,9 @@ export function stanceOf(s: GameState, geo: Geo, them: CountryId, t: Terms): Sta
       : k === 'apology' ? mine(Math.min(30, 6 + g * 0.8))
       : k === 'withdraw' ? mine(Math.min(28, 6 + (sec.who === me ? 30 * sec.v : 0) + 8 * want('security')))
       : k === 'arms' ? mine(trust * Math.min(24, 6 + 22 * want('security') + (hasTrait(T, 'hawk') ? 4 : 0)))
+      : k === 'loan' ? mine(trust * Math.min(24, Math.sqrt((0.005 * P.eco.gdp / Math.max(1, T.eco.gdp)) * 100) * 6 * moneyW))
+      : k === 'energy' ? mine(Math.min(26, 8 + 40 * clamp(1 - T.eco.energyCap / Math.max(1, T.eco.energyDemand), 0, 0.5)))
+      : k === 'backing' ? mine(Math.min(26, 6 + 28 * want('rival') + clamp(-getRelation(s, them, rival) / 10, 0, 8)))
       : mine(trust * Math.min(30, 10 + 30 * want('rival')));
     const mult = style.mult[CASH[k] ? 'cash' : k] ?? 1;
     termValue[k] = mine((termValue[k] ?? 0) * mult);
@@ -311,6 +333,9 @@ export function stanceOf(s: GameState, geo: Geo, them: CountryId, t: Terms): Sta
   if (t.give.includes('apology')) costs.push('8 political capital · nationalists at home are angry');
   if (t.give.includes('withdraw')) costs.push('Your army readiness −5%');
   if (t.give.includes('arms')) costs.push(`${fmtMoney(0.001 * P.eco.gdp)} and their army gets stronger`);
+  if (t.give.includes('loan')) costs.push(`${fmtMoney(0.005 * P.eco.gdp)} lent now; it comes back with 2% interest over five years`);
+  if (t.give.includes('energy')) costs.push(`${fmtMoney(0.001 * P.eco.gdp)} of discounted energy`);
+  if (t.give.includes('backing') && rival >= 0) costs.push(`${s.countries[rival].name} will not forgive you quickly (relations −12)`);
   const pcNeed = (t.give.includes('visit') ? 6 : 0) + (t.give.includes('apology') ? 8 : 0);
   if (pcNeed > (P.politics?.pc ?? 0)) blocked ??= `You need ${pcNeed} political capital for these terms`;
   const p2 = blocked ? 0 : p;
@@ -348,6 +373,9 @@ export function negotiate(s: GameState, geo: Geo, them: CountryId, t: Terms, acc
     if (t.give.includes('apology')) { spendPC(P, 8); sway(P, 'nationalists', -6); for (const gr of s.grudges?.[`${them}>${s.player}`] ?? []) gr.w *= 0.5; }
     if (t.give.includes('withdraw')) P.mil.readiness = clamp(P.mil.readiness - 0.05, 0.2, 1);
     if (t.give.includes('arms')) { const f = fund(s, s.player, 0.001 * P.eco.gdp, `Arms sale to ${T.name}`); if (f.ok) { T.mil.milTech += 1; T.mil.equipArmy += 0.002 * T.eco.gdp; } }
+    if (t.give.includes('loan')) { const amt = 0.005 * P.eco.gdp, f = fund(s, s.player, amt, `Loan to ${T.name}`); if (f.ok) { T.eco.cash += amt; T.eco.debt += amt; M.loan = (M.loan ?? 0) + amt * 1.1; } }
+    if (t.give.includes('energy')) { const f = fund(s, s.player, 0.001 * P.eco.gdp, `Energy deal with ${T.name}`); if (f.ok) T.eco.energyCap += 0.04 * T.eco.energyDemand; }
+    if (t.give.includes('backing') && st.rival >= 0) { addRelation(s, s.player, st.rival, -12); addRelation(s, them, s.player, 4); }
     switch (t.goal) {
       case 'aid': { const amt = 0.005 * T.eco.gdp; T.eco.cash -= amt; P.eco.cash += amt; addRelation(s, them, s.player, 3); logEvent(s, `${T.name} sends ${fmtMoney(amt)} in aid to ${P.name}.`, 'diplo', [them, s.player], true); break; }
       case 'relief': liftSanction(s, them, s.player); break;
@@ -380,7 +408,7 @@ export function negotiate(s: GameState, geo: Geo, them: CountryId, t: Terms, acc
   if (M.patience <= 0) addGrudge(s, them, s.player, 'pressed it too hard at the table', 3);
   return { ok: false, outcome: 'refused', message: `${T.name} refuses (the odds were ${(st.p * 100).toFixed(0)}%).${M.patience <= 0 ? ' Its patience is exhausted for half a year.' : ` Patience left: ${M.patience}.`}`, why: top };
 }
-const costRank = (k: Term) => ({ lift: 0, visit: 1, tech: 1, withdraw: 2, cash1: 2, apology: 3, cut: 3, arms: 3, cash3: 4, guarantee: 5, cash6: 6 } as Record<Term, number>)[k];
+const costRank = (k: Term) => ({ lift: 0, visit: 1, tech: 1, withdraw: 2, cash1: 2, energy: 2, apology: 3, cut: 3, arms: 3, loan: 3, backing: 3, cash3: 4, guarantee: 5, cash6: 6 } as Record<Term, number>)[k];
 
 /** Walk away from a counteroffer (no cost). */
 export function walkAway(s: GameState, them: CountryId) { const M = memo(s, them); M.counter = undefined; }

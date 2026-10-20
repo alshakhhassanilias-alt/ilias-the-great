@@ -406,7 +406,15 @@ class Store {
     try { localStorage.setItem(SAVE_KEY, serialize(this.state)); this.toast('Game saved.', 'info'); return true; }
     catch { this.toast('Could not save in this browser (storage full or blocked). Use Export instead.', 'danger'); return false; }
   }
-  private autosave() { if (!this.state) return; try { localStorage.setItem(AUTO_KEY, serialize(this.state)); } catch { /* ignore */ } }
+  /** The snapshot is taken at the week boundary (so it is consistent); writing 2+ MB to storage waits for an idle moment. */
+  private autosave() {
+    if (!this.state) return;
+    let text: string;
+    try { text = serialize(this.state); } catch { return; }
+    const write = () => { try { localStorage.setItem(AUTO_KEY, text); } catch { /* storage full or unavailable */ } };
+    const ric = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(write, { timeout: 2000 }); else setTimeout(write, 0);
+  }
   load(auto = false): boolean {
     try {
       const txt = localStorage.getItem(auto ? AUTO_KEY : SAVE_KEY);

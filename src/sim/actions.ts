@@ -108,6 +108,7 @@ export function repayDebt(s: GameState, cid: number, pctGdp: number): ActionResu
   return ok(`Repaid ${fmtMoney(amt)} of debt`);
 }
 export function printMoney(s: GameState, cid: number, pctGdp: number): ActionResult {
+  if (s.countries[cid].politics?.laws.some((l) => l.id === 'central_bank')) return fail('The central bank is independent: it will not print money for you');
   const e = s.countries[cid].eco;
   e.cash += pctGdp * e.gdp;
   e.monetary += pctGdp * 2.2;

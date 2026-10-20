@@ -319,7 +319,11 @@ export interface NatGoal {
  * normalisation (a détente that lasts while it is kept up).
  */
 export interface Track {
-  stage: 1 | 2 | 3 | 4;
+  stage: 1 | 2 | 3 | 4 | 5;
+  /** a gesture they have asked for, and until when (doing it counts double) */
+  ask?: string; askUntil?: number;
+  /** when the summit succeeded (a friendship treaty needs a year of détente) */
+  summitAt?: number;
   /** 0..100: built by gestures, broken by incidents */
   trust: number;
   /** the next step is possible from this tick */
@@ -434,7 +438,7 @@ export interface GameState {
   /** the player's main rival (country id) or -1 */
   rival: number;
   /** negotiating-table memory per country: patience left and any standing counteroffer */
-  nego?: Record<number, { patience: number; until: number; counter?: { goal: string; give: string[]; tick: number }; track?: Track }>;
+  nego?: Record<number, { patience: number; until: number; counter?: { goal: string; give: string[]; tick: number }; track?: Track; loan?: number }>;
   /** the current world-wide crisis (recession, pandemic, cold war ...) and when the next one may start */
   crisis: { id: string; start: number; end: number } | null;
   nextCrisis: number;

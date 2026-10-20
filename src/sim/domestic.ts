@@ -48,7 +48,7 @@ export const moodColor = (m: number) => (m >= 66 ? 'var(--green)' : m >= 45 ? '#
 
 // ------------------------------------------------------------------ laws
 export interface Law {
-  id: string; cat: 'Economy' | 'Labour & welfare' | 'Security' | 'Society' | 'Foreign & trade';
+  id: string; cat: 'Economy' | 'Labour & welfare' | 'Security' | 'Society' | 'Foreign & trade' | 'Constitution';
   icon: string; title: string; desc: string; pc: number;
   /** how each faction feels about it while it is in force (mood points) */
   lean: Partial<Record<FactionId, number>>;
@@ -57,6 +57,8 @@ export interface Law {
   budget?: Partial<Record<keyof Budget, number>>;
   once?: (s: GameState, c: Country) => void;
   excl?: string;
+  /** why it cannot be passed in this country right now (e.g. term limits need elections), or null */
+  req?: (c: Country) => string | null;
 }
 export const LAWS: Law[] = [
   { id: 'min_wage', cat: 'Labour & welfare', icon: '💵', title: 'Minimum Wage Rise', desc: 'Lift the minimum wage by a fifth over two years.', pc: 18, lean: { labour: 18, business: -14, liberals: 4 }, eff: { stab: 2, tfp: -0.001 }, pros: ['Stability +2'], cons: ['Productivity −0.1%/yr'] },
@@ -79,8 +81,17 @@ export const LAWS: Law[] = [
   { id: 'migration', cat: 'Society', icon: '🧳', title: 'Open Labour Migration', desc: 'Fast work visas for doctors, engineers and builders.', pc: 20, lean: { business: 12, liberals: 10, nationalists: -20, labour: -4 }, eff: { tfp: 0.001 }, once: (_s, c) => { c.eco.laborForce *= 1.015; c.eco.pop *= 1.01; }, pros: ['Workforce +1.5%', 'Productivity +0.1%/yr'], cons: [] },
   { id: 'free_trade', cat: 'Foreign & trade', icon: '🚢', title: 'Free Trade Act', desc: 'Scrap tariffs and quotas unilaterally.', pc: 20, lean: { business: 15, liberals: 5, regions: -8, labour: -6 }, eff: { tfp: 0.0015, accept: 0.03 }, pros: ['Productivity +0.15%/yr', 'Treaties easier (+3 pts)'], cons: [] },
   { id: 'foreign_aid', cat: 'Foreign & trade', icon: '🤲', title: 'Foreign Aid Programme', desc: 'Give 0.3% of GDP a year to poorer countries.', pc: 14, lean: { liberals: 12, nationalists: -10 }, eff: { rep: 3, accept: 0.04 }, budget: { social: 0.003 }, pros: ['Reputation +3/yr', 'Treaties easier (+4 pts)'], cons: ['Spending +0.3% of GDP'] },
+  // ------------------------------------------------ the constitution: how the country is governed
+  { id: 'federal', cat: 'Constitution', icon: '🗺', title: 'Federal Constitution', desc: 'States with their own governments, and a senate of the regions in the capital.', pc: 28, lean: { regions: 16, liberals: 4, nationalists: -10 }, eff: { stab: 2 }, pros: ['Stability +2', 'Separatist and divided-country troubles lose their edge'], cons: ['Every other law costs 10% more capital (more veto players)'] },
+  { id: 'central_bank', cat: 'Constitution', icon: '🏛', title: 'Independent Central Bank', desc: 'Interest rates and the money supply are taken out of the government\'s hands.', pc: 20, lean: { business: 12, labour: -4, nationalists: -2 }, eff: {}, pros: ['Inflation pressures fade twice as fast', 'Borrowing costs −0.5 points'], cons: ['You can no longer print money'] },
+  { id: 'term_limits', cat: 'Constitution', icon: '⏳', title: 'Term Limits', desc: 'No head of government may serve more than two terms.', pc: 18, lean: { liberals: 12, nationalists: -4 }, eff: { rep: 1 }, pros: ['Reputation +1 a year', 'The wear of power on approval is cut by a third'], cons: ['Political capital −0.05 a week'], req: (c) => (free(c) ? null : 'Needs elections (a democracy or flawed democracy)') },
+  { id: 'presidential', cat: 'Constitution', icon: '🦅', title: 'Presidential System', desc: 'A directly elected executive with wide powers; parliament checks it, but less.', pc: 26, lean: { nationalists: 6, business: 3, liberals: -8 }, eff: { rep: -0.5 }, pros: ['Laws cost 15% less capital', 'Political capital +0.08 a week'], cons: ['Reputation −0.5 a year', 'Liberals uneasy'] },
+  { id: 'crown', cat: 'Constitution', icon: '👑', title: 'A Ceremonial Crown', desc: 'A monarch who reigns but does not rule: a symbol above party politics.', pc: 22, lean: { nationalists: 8, regions: 3, liberals: -4 }, eff: { stab: 3 }, pros: ['Stability +3'], cons: ['Liberals grumble'], req: (c) => (c.gov === 'M' ? 'You already have a crown that rules' : null) },
+  { id: 'clerics', cat: 'Constitution', icon: '🕌', title: 'Council of Guardians', desc: 'A council of clerics vets every law and every candidate: the country becomes a theocracy.', pc: 30, lean: { nationalists: 8, military: 2, liberals: -18, business: -4 }, eff: { stab: 4, rep: -1.5, tfp: -0.001 }, pros: ['Stability +4: the faithful rally to the state'], cons: ['Reputation −1.5 a year', 'Productivity −0.1%/yr', 'Democracies distrust you'], req: (c) => (free(c) ? 'A free parliament would never pass it: change the system first (Politics → The system)' : null) },
 ];
 export const lawById = (id: string) => LAWS.find((l) => l.id === id);
+/** The name of a country's system, including what its constitution has made of it. */
+export const govName = (c: Country, fallback: Record<string, string>) => (hasLaw(c, 'clerics') ? 'theocracy' : hasLaw(c, 'crown') && (c.gov === 'D' || c.gov === 'F') ? 'constitutional monarchy' : hasLaw(c, 'federal') && c.gov === 'D' ? 'federal democracy' : fallback[c.gov] ?? c.gov);
 export const hasLaw = (c: Country, id: string) => !!c.politics?.laws.some((l) => l.id === id);
 
 /** Laws in force plus perks from happy factions, as doctrine-style modifiers. */
@@ -256,6 +267,8 @@ export function pcIncome(s: GameState, c: Country, appr: number): { v: number; p
   const L = s.legacy;
   if (L?.status === 'office' && s.tick - L.termStart < 26) parts.push({ label: 'Honeymoon after the vote', v: 0.3 });
   if (c.gov !== 'D') parts.push({ label: 'Unchecked power', v: 0.1 });
+  if (hasLaw(c, 'presidential')) parts.push({ label: 'Presidential powers', v: 0.08 });
+  if (hasLaw(c, 'term_limits')) parts.push({ label: 'Term limits', v: -0.05 });
   return { v: parts.reduce((t, p) => t + p.v, 0), parts };
 }
 
@@ -271,7 +284,8 @@ export function forecast(c: Country, law: Law, whip: number): Forecast {
   });
   let yes = by.reduce((t, x) => t + (x.seats / 100) * x.p, 0) + whip * 0.008 + (mode === 'rigged' ? 0.1 : 0);
   if (mode === 'decree') yes = 1;
-  return { yes: clamp(yes, 0, 1), by, mode, cost: Math.round(law.pc * (mode === 'decree' ? 1.3 : 1)) };
+  const cmult = (hasLaw(c, 'federal') && law.id !== 'federal' ? 1.1 : 1) * (hasLaw(c, 'presidential') && law.id !== 'presidential' ? 0.85 : 1);
+  return { yes: clamp(yes, 0, 1), by, mode, cost: Math.round(law.pc * (mode === 'decree' ? 1.3 : 1) * cmult) };
 }
 
 function applyBudget(s: GameState, c: Country, law: Law, sign: 1 | -1) {
@@ -286,6 +300,8 @@ export function actPassLaw(s: GameState, id: string, whip = 0) {
   if (!law) return { ok: false, message: 'No such law' };
   if (hasLaw(c, id)) return { ok: false, message: 'Already in force' };
   if (law.excl && hasLaw(c, law.excl)) return { ok: false, message: `Repeal the ${lawById(law.excl)!.title} first` };
+  const why = law.req?.(c);
+  if (why) return { ok: false, message: why };
   if (s.tick - (s.stats[`lawTry:${id}`] ?? -999) < 12) return { ok: false, message: 'Parliament rejected it recently: wait a few weeks' };
   const fc = forecast(c, law, whip);
   if (!spendPC(c, fc.cost + whip)) return { ok: false, message: `Needs ${fc.cost + whip} political capital (you have ${Math.floor(P.pc)})` };

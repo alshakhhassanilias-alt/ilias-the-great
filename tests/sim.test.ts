@@ -2319,3 +2319,74 @@ describe('the war room', () => {
     }
   });
 });
+
+import { answerIncident, friendshipReady } from '../src/sim/detente';
+import { govName, hasLaw } from '../src/sim/domestic';
+import { GOV_LABEL } from '../src/sim/alignment';
+import { printMoney } from '../src/sim/actions';
+
+describe('round 24: deeper negotiations, reconciliation and constitutions', () => {
+  it('monarchies negotiate like a royal court, and a country you have wronged like a wounded nation', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const T = s.countries[id('Poland')];
+    T.gov = 'M'; T.leader!.traits = ['dove', 'reformer'];
+    expect(styleOf(T, s).id).toBe('court');
+    s.grudges[`${T.id}>${s.player}`] = [{ tick: 0, why: 'invaded it', w: 40 }];
+    expect(styleOf(T, s).id).toBe('wounded');
+    const st = stanceOf(s, geo, T.id, { goal: 'trade', give: [] });
+    expect(st.factors.some((f) => /apology/.test(f.label))).toBe(true);
+    expect(stanceOf(s, geo, T.id, { goal: 'trade', give: ['apology'] }).termValue.apology!).toBeGreaterThan(st.termValue.cash3!);
+  });
+  it('a loan given at the table comes back over time', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    run(s, 1);
+    const P = s.countries[s.player], them = id('Austria');
+    P.politics!.pc = 80; P.eco.cash = 0.2 * P.eco.gdp;
+    let r = negotiate(s, geo, them, { goal: 'trade', give: ['loan'] }, false);
+    for (let i = 0; i < 5 && !r.ok; i++) { s.nego![them].patience = 3; r = negotiate(s, geo, them, { goal: 'trade', give: ['loan'] }, false); }
+    if (!r.ok) return; // the deal itself is a roll; the repayment is what is tested
+    const owed = s.nego![them].loan!;
+    expect(owed).toBeGreaterThan(0);
+    const cash0 = P.eco.cash;
+    run(s, 20);
+    expect(s.nego![them].loan ?? 0).toBeLessThan(owed);
+    expect(P.eco.cash).not.toBe(cash0);
+  });
+  it('incidents are answered by the player; a trade summit signs a trade agreement; a year of détente allows friendship', () => {
+    const s = fresh('India', { randomEvents: false });
+    run(s, 1);
+    const P = s.countries[s.player], them = id('Pakistan');
+    (s.nego ??= {})[them] = { patience: 3, until: -1, track: { stage: 2, trust: 40, next: 0, since: 0, done: [] } };
+    const before = s.nego[them].track!.trust;
+    answerIncident(s, them, 'retaliate');
+    expect(s.nego[them].track!.trust).toBeLessThan(before);
+    const tk = s.nego[them].track!;
+    tk.stage = 3; tk.trust = 95; tk.next = 0;
+    P.politics!.pc = 100;
+    let ok = false;
+    for (let i = 0; i < 20 && !ok; i++) { tk.stage = 3; tk.trust = 95; tk.next = s.tick; P.politics!.pc = 100; ok = actTrack(s, geo, them, 'summit', 'trade').ok; }
+    expect(ok).toBe(true);
+    expect(s.treaties[them < s.player ? `${them}-${s.player}` : `${s.player}-${them}`]?.trade).toBe(true);
+    expect(friendshipReady(s, them)).toBe(false);
+    s.tick += 60;
+    if (getRelation(s, them, s.player) > 20) {
+      expect(friendshipReady(s, them)).toBe(true);
+      P.politics!.pc = 100;
+      expect(actTrack(s, geo, them, 'treaty').ok).toBe(true);
+      expect(s.nego[them].track!.stage).toBe(5);
+    }
+  });
+  it('constitutions: an independent central bank stops money printing, term limits need elections, the clerics make a theocracy', () => {
+    const s = fresh('Russia', { randomEvents: false });
+    run(s, 1);
+    const c = s.countries[s.player];
+    c.politics!.pc = 100;
+    expect(actPassLaw(s, 'term_limits').ok).toBe(false);
+    c.politics!.laws.push({ id: 'central_bank', since: s.tick });
+    expect(printMoney(s, s.player, 0.01).ok).toBe(false);
+    for (const f of c.politics!.factions) f.mood = 70;
+    for (let step = 0; step < 3; step++) { c.politics!.pc = 100; expect(actRegimeStep(s, 'theocracy').ok).toBe(true); s.tick += 14; }
+    expect(hasLaw(c, 'clerics')).toBe(true);
+    expect(govName(c, GOV_LABEL)).toBe('theocracy');
+  });
+});

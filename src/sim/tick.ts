@@ -1,5 +1,5 @@
 import { stepFiscalRule } from './levers';
-import { stepTracks } from './detente';
+import { stepLoans, stepTracks } from './detente';
 import { stepCoalitions } from './coalitions';
 import { stepMinds } from './minds';
 import { stepMembership } from './membership';
@@ -122,6 +122,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepDomestic(s, approval(s, s.countries[s.player]));
   stepFiscalRule(s);
   stepTracks(s);
+  stepLoans(s);
   stepArcs(s, geo);
   mark('stepArcs'); yield;
   stepNations(s, geo);

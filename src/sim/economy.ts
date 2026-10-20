@@ -232,7 +232,8 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.growth += (g - e.growth) * 0.1;
 
   // ---- inflation & prices ----
-  e.monetary = Math.max(0, e.monetary * (1 - 0.3 * DT));
+  const cb = !!c.politics?.laws.some((l) => l.id === 'central_bank'); // an independent central bank (player law)
+  e.monetary = Math.max(0, e.monetary * (1 - (cb ? 0.6 : 0.3) * DT));
   const balance = e.exports - e.imports;
   const fxStress = clamp((-(balance / e.gdp - e.prev.bal0) - 0.03) * 4 + Math.max(0, -e.reserves / e.gdp - 0.1) * 1.5, 0, 1);
   const overheating = Math.max(0, e.uNat - e.unemployment) * 0.6;
@@ -269,7 +270,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
 
   // ---- fiscal ----
   const revenue = e.gdp * e.collection * diffTax * taxBurden(b);
-  const mkt = marketRate(e);
+  const mkt = marketRate(e) - (cb ? 0.005 : 0);
   e.avgRate += (mkt - e.avgRate) * 0.2 * DT * 5;
   e.interest = e.debt * e.avgRate;
   const upkeep = stepMilitary(c, s, geo);

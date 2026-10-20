@@ -119,7 +119,7 @@ export function PoliticsTab() {
         <div className="chips law-cats">{cats.map((k) => <button key={k} className={`pill ${cat === k ? 'gold' : ''}`} onClick={() => setCat(k)}>{k === 'all' ? 'All' : k}</button>)}</div>
         <div className="laws">
           {LAWS.filter((l) => !hasLaw(c, l.id) && (cat === 'all' || l.cat === cat)).map((l) => {
-            const blocked = l.excl && hasLaw(c, l.excl) ? `Repeal the ${lawById(l.excl)!.title} first` : null;
+            const blocked = l.excl && hasLaw(c, l.excl) ? `Repeal the ${lawById(l.excl)!.title} first` : l.req?.(c) ?? null;
             const isSel = sel === l.id;
             const f = isSel ? fc! : forecast(c, l, 0);
             const total = f.cost + (isSel ? whip : 0);

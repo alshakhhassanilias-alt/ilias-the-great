@@ -2,6 +2,7 @@
 import { store } from '../../state/store';
 import { Section } from '../widgets';
 import { GOV_LABEL } from '../../sim/alignment';
+import { govName } from '../../sim/domestic';
 import { GOV_MEANS, actAbandonReform, actRegimeStep, pathById, pathsFor } from '../../sim/regime';
 
 export function RegimeSection() {
@@ -15,8 +16,8 @@ export function RegimeSection() {
   return (
     <Section title="The system" hint="change it if you dare: three steps, each a gamble">
       <div className="card regime-now">
-        <b>🏛 {c.name}: {GOV_LABEL[c.gov] ?? c.gov}</b>
-        <div className="hint">{GOV_MEANS[c.gov] ?? ''}</div>
+        <b>🏛 {c.name}: {govName(c, GOV_LABEL)}</b>
+        <div className="hint">{GOV_MEANS[c.gov] ?? ''}{c.politics?.laws.some((l) => ['federal', 'central_bank', 'term_limits', 'presidential', 'crown', 'clerics'].includes(l.id)) ? ` Constitution: ${c.politics.laws.filter((l) => ['federal', 'central_bank', 'term_limits', 'presidential', 'crown', 'clerics'].includes(l.id)).map((l) => l.id.replace('_', ' ')).join(', ')}.` : ' Constitutional features (federalism, an independent central bank, term limits, a presidential system, a crown, a council of clerics) are laws: see Laws → Constitution.'}</div>
       </div>
       {paths.map((p) => {
         const stage = R?.path === p.id ? R.stage : 0;
@@ -25,7 +26,7 @@ export function RegimeSection() {
         const risk = st.risk(s, c);
         return (
           <div className={`card regime-path ${R?.path === p.id ? 'on' : ''}`} key={p.id}>
-            <div className="regime-head"><span className="regime-ic">{p.icon}</span><div className="grow"><b>{p.title}</b> <span className="faint">→ {GOV_LABEL[p.to]}</span><div className="hint">{p.pitch}</div></div></div>
+            <div className="regime-head"><span className="regime-ic">{p.icon}</span><div className="grow"><b>{p.title}</b> <span className="faint">→ {p.id === 'theocracy' ? 'theocracy' : GOV_LABEL[p.to]}</span><div className="hint">{p.pitch}</div></div></div>
             <div className="regime-steps">{p.stages.map((x, i) => <span key={i} className={i < stage ? 'done' : i === stage ? 'now' : ''} title={x.desc}>{i + 1}. {x.title}</span>)}</div>
             <div className="hint"><b>Next: {st.title}.</b> {st.desc}</div>
             <div className="hint">Costs {st.pc} political capital{st.wait ? ` · then ${st.wait} weeks before the next step` : ''}{risk ? <> · <b className="bad">risk {Math.round(risk.p * 100)}%: {risk.what}</b></> : ' · no particular risk right now'}</div>

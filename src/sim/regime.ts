@@ -13,7 +13,7 @@ import { clamp } from './util';
 import { nextRand } from './rng';
 import { logEvent } from './log';
 import { changeGov, GOV_LABEL } from './alignment';
-import { sway, spendPC, factionOf } from './domestic';
+import { sway, spendPC, factionOf, govName } from './domestic';
 import { approval } from './approval';
 import { addRec } from './minds';
 import type { Country, GameState } from './types';
@@ -74,6 +74,16 @@ export const PATHS: RegimePath[] = [
     ],
   },
   {
+    id: 'theocracy', to: 'A', from: ['A', 'M', 'F', 'C'], icon: '🕌', title: 'Rule of the clerics', pitch: 'Put the clergy above the state: religious courts, a council of guardians, a supreme guide. A theocracy.',
+    stages: [
+      { title: 'Empower the clergy', desc: 'Clerics sit on every board, school curriculum and broadcasting council.', pc: 10, wait: 13, risk: () => null, apply: (_s, c) => { sway(c, 'nationalists', 6); sway(c, 'liberals', -10); } },
+      { title: 'Religious courts', desc: 'Family, morality and blasphemy cases go to clerical judges. The educated classes may revolt.', pc: 14, wait: 13,
+        risk: (s, c) => (mood(c, 'liberals') < 30 && approval(s, c) < 45 ? { p: 0.3, what: 'students and the middle class take to the streets and the courts are suspended' } : null), apply: (_s, c) => { sway(c, 'liberals', -8); sway(c, 'business', -4); } },
+      { title: 'A supreme guide and his council', desc: 'A council of guardians vets every law and candidate from now on.', pc: 14, wait: 0, risk: () => null,
+        apply: (s, c) => { const P = c.politics!; if (!P.laws.some((l) => l.id === 'clerics')) P.laws.push({ id: 'clerics', since: s.tick }); addRec(s, c.id, 'repress', 0.5); c.reputation = clamp(c.reputation - 5, 0, 100); } },
+    ],
+  },
+  {
     id: 'party', to: 'C', from: ['A', 'F'], icon: '☭', title: 'One-party state', pitch: 'The party above all: a vanguard, the state running industry, one list on the ballot.',
     stages: [
       { title: 'Found the vanguard party', desc: 'One party absorbs the others. Workers are promised everything.', pc: 10, wait: 13, risk: () => null, apply: (_s, c) => { sway(c, 'labour', 8); sway(c, 'business', -10); } },
@@ -84,7 +94,7 @@ export const PATHS: RegimePath[] = [
   },
 ];
 export const pathById = (id: string) => PATHS.find((p) => p.id === id);
-export const pathsFor = (c: Country) => PATHS.filter((p) => p.from.includes(c.gov as Gov));
+export const pathsFor = (c: Country) => PATHS.filter((p) => p.from.includes(c.gov as Gov) && !(p.id === 'theocracy' && c.politics?.laws.some((l) => l.id === 'clerics')));
 
 /** Take the next step of a path (starting it if needed). */
 export function actRegimeStep(s: GameState, id: string): { ok: boolean; message: string } {
@@ -101,7 +111,7 @@ export function actRegimeStep(s: GameState, id: string): { ok: boolean; message:
   P.reform = R;
   const risk = st.risk(s, c);
   if (risk && nextRand(s) < risk.p) {
-    P.reform = undefined;
+    delete P.reform;
     s.stats.reformFail = s.tick;
     stab(c, -8);
     logEvent(s, `💥 ${path.title.toUpperCase()} FAILS: ${risk.what}. The attempt is over; it can be tried again in a year.`, 'danger', [c.id], true, { big: true, prov: c.capital });
@@ -111,9 +121,10 @@ export function actRegimeStep(s: GameState, id: string): { ok: boolean; message:
   R.stage++;
   R.next = s.tick + st.wait;
   if (R.stage >= path.stages.length) {
-    P.reform = undefined;
+    delete P.reform;
+    if (c.gov === path.to) logEvent(s, `🏛 ${c.name.toUpperCase()}: ${st.title.toLowerCase()} completes the ${path.title.toLowerCase()}.`, 'danger', [c.id], true, { big: true, prov: c.capital });
     changeGov(s, c, path.to, `${st.title.toLowerCase()} completes the ${path.title.toLowerCase()}`);
-    return { ok: true, message: `${c.name} is now a ${GOV_LABEL[path.to]}.` };
+    return { ok: true, message: `${c.name} is now a ${govName(c, GOV_LABEL)}.` };
   }
   R.note = `${st.title}: done. Next: ${path.stages[R.stage].title.toLowerCase()} (from week ${R.next - s.tick > 0 ? `+${R.next - s.tick}` : 'now'}).`;
   logEvent(s, `🏛 ${path.icon} ${path.title}, step ${R.stage} of ${path.stages.length}: ${st.title.toLowerCase()}.`, 'info', [c.id], true);
@@ -123,7 +134,7 @@ export function actAbandonReform(s: GameState) {
   const P = s.countries[s.player].politics;
   if (!P?.reform) return { ok: false, message: 'Nothing under way' };
   const t = pathById(P.reform.path)?.title ?? 'the change';
-  P.reform = undefined;
+  delete P.reform;
   logEvent(s, `🏛 The ${t.toLowerCase()} is abandoned.`, 'info', [s.player], true);
   return { ok: true, message: `${t} abandoned.` };
 }

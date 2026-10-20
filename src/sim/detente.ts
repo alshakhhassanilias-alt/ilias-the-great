@@ -15,12 +15,13 @@
 import { clamp, fmtMoney } from './util';
 import { nextRand } from './rng';
 import { logEvent } from './log';
-import { addRelation, areAtWar, getRelation, sanctionLevel } from './relations';
-import { neighborsOf, liftSanction } from './diplomacy';
+import { addRelation, areAtWar, getRelation, getTreaty, sanctionLevel } from './relations';
+import { neighborsOf, liftSanction, applyTreaty } from './diplomacy';
 import { fund } from './actions';
 import { spendPC, sway } from './domestic';
 import { crisisOf } from './turns';
-import { cable } from './cables';
+import { cable, cableText } from './cables';
+import { geoRefGet } from './geoRef';
 import type { Geo } from './geo';
 import type { Country, CountryId, GameState, Track } from './types';
 
@@ -70,6 +71,9 @@ export function gestures(s: GameState, geo: Geo, them: CountryId): Gesture[] {
     { id: 'aid', icon: '📦', title: 'Humanitarian aid', trust: 10, price: `${fmtMoney(0.001 * P.eco.gdp)}`, reply: 'Their state media, for once, reports it without sneering.', ok: true },
   ];
   if (neighborsOf(s, geo, s.player).includes(them)) list.push({ id: 'border', icon: '🪖', title: 'Pull troops back from the border', trust: 15, price: 'Army readiness −5% · the generals object', reply: 'They thin out their own border garrisons.', ok: true });
+  list.push({ id: 'students', icon: '🎓', title: 'Scholarships for their students', trust: 6, price: `${fmtMoney(0.0003 * P.eco.gdp)} · a slow, lasting goodwill`, reply: 'Their best students arrive on your campuses.', ok: true });
+  const fought = (s.warHistory ?? []).find((w) => (w.a === them && w.b === s.player) || (w.b === them && w.a === s.player));
+  if (fought) list.push({ id: 'memorial', icon: '🕯', title: `A joint memorial for the dead of the ${fought.name}`, trust: 16, price: '5 political capital · nationalists object', reply: 'Both leaders lay wreaths side by side. The photo goes round the world.', ok: pc >= 5, why: 'needs 5 political capital' });
   if (sanctionLevel(s, s.player, them)) list.push({ id: 'sanction', icon: '🔗', title: 'Lift your sanctions', trust: 20, price: 'Your sanctions end', reply: 'Their markets rally; their foreign minister calls it "a first step".', ok: true });
   return list.map((g) => (done.includes(g.id) ? { ...g, ok: false, why: 'already done' } : g));
 }
@@ -77,7 +81,16 @@ export function gestures(s: GameState, geo: Geo, them: CountryId): Gesture[] {
 const note = (tk: Track, text: string) => { tk.note = text; };
 
 /** The player's next step in the process. */
-export function actTrack(s: GameState, geo: Geo, them: CountryId, step: 'open' | 'gesture' | 'summit' | 'renew', gid?: string): { ok: boolean; message: string } {
+export type Agenda = 'peace' | 'trade' | 'border';
+export const AGENDA: Record<Agenda, { title: string; desc: string; odds: number }> = {
+  peace: { title: 'A peace pact', desc: 'Sign a non-aggression pact at the summit.', odds: 0 },
+  trade: { title: 'Normal trade', desc: 'Sign a trade agreement at the summit; business on both sides pushes for it.', odds: 0.05 },
+  border: { title: 'Settle the old quarrel', desc: 'Harder to agree: grudges are wiped out and they drop any aim against you.', odds: -0.1 },
+};
+/** A friendship treaty is possible after a year of détente with relations above +20. */
+export const friendshipReady = (s: GameState, them: CountryId) => { const tk = trackOf(s, them); return !!tk && tk.stage === 4 && s.tick - (tk.summitAt ?? s.tick) >= 52 && getRelation(s, them, s.player) > 20; };
+
+export function actTrack(s: GameState, geo: Geo, them: CountryId, step: 'open' | 'gesture' | 'summit' | 'treaty', gid?: string): { ok: boolean; message: string } {
   const T = s.countries[them], P = s.countries[s.player];
   if (areAtWar(s, them, s.player) && step !== 'open') return { ok: false, message: 'Not while you are at war: make peace first' };
   const M = memo(s, them);
@@ -112,12 +125,17 @@ export function actTrack(s: GameState, geo: Geo, them: CountryId, step: 'open' |
       case 'aid': { const f = fund(s, s.player, 0.001 * P.eco.gdp, `Aid to ${T.name}`); if (!f.ok) return f; T.eco.cash += 0.001 * P.eco.gdp; break; }
       case 'border': P.mil.readiness = clamp(P.mil.readiness - 0.05, 0.2, 1); sway(P, 'military', -3); break;
       case 'sanction': liftSanction(s, s.player, them); break;
+      case 'students': { const f = fund(s, s.player, 0.0003 * P.eco.gdp, `Scholarships for ${T.name}`); if (!f.ok) return f; break; }
+      case 'memorial': spendPC(P, 5); sway(P, 'nationalists', -4); break;
     }
+    // they asked for exactly this: it counts double
+    let asked = false;
+    if (tk.ask === g.id && tk.askUntil !== undefined && s.tick <= tk.askUntil) { asked = true; tk.trust = clamp(tk.trust + 8, 0, 100); delete tk.ask; delete tk.askUntil; }
     tk.done.push(g.id);
     tk.trust = clamp(tk.trust + g.trust, 0, 100);
     tk.next = s.tick + 4;
     addRelation(s, them, s.player, 4);
-    note(tk, `${g.title}: ${g.reply} Trust ${Math.round(tk.trust)}/100.`);
+    note(tk, `${g.title}: ${g.reply}${asked ? ' They asked for it, and you delivered: it counts double.' : ''} Trust ${Math.round(tk.trust)}/100.`);
     if (tk.stage === 2 && tk.trust >= 50) { tk.stage = 3; note(tk, `${tk.note} There is enough trust now for a summit.`); }
     if (tk.stage === 4 && tk.detenteUntil !== undefined) tk.detenteUntil = Math.max(tk.detenteUntil, s.tick + 52);
     logEvent(s, `🕊 ${T.name}: ${tk.note}`, 'diplo', [s.player, them], true);
@@ -127,8 +145,12 @@ export function actTrack(s: GameState, geo: Geo, them: CountryId, step: 'open' |
     if (tk.stage !== 3) return { ok: false, message: 'Build more trust first (50 needed)' };
     if (!spendPC(P, 10)) return { ok: false, message: 'Needs 10 political capital' };
     const city = NEUTRAL[(them + s.player + s.tick) % NEUTRAL.length];
-    if (nextRand(s) < summitOdds(s, them)) {
-      tk.stage = 4; tk.trust = Math.max(tk.trust, 75); tk.next = s.tick + 4; tk.detenteUntil = s.tick + 104;
+    const ag: Agenda = (gid as Agenda) in AGENDA ? (gid as Agenda) : 'peace';
+    if (nextRand(s) < summitOdds(s, them) + AGENDA[ag].odds) {
+      tk.stage = 4; tk.trust = Math.max(tk.trust, 75); tk.next = s.tick + 4; tk.detenteUntil = s.tick + 104; tk.summitAt = s.tick;
+      if (ag === 'peace' && !getTreaty(s, them, s.player)?.nap) applyTreaty(s, s.player, them, 'nap');
+      if (ag === 'trade' && !getTreaty(s, them, s.player)?.trade) applyTreaty(s, s.player, them, 'trade');
+      if (ag === 'border') { delete s.grudges?.[`${them}>${s.player}`]; if (T.goal?.target === s.player) delete T.goal; addRelation(s, them, s.player, 10); }
       addRelation(s, them, s.player, 25);
       const H = (s.relHist ??= {}), k = them < s.player ? `${them}-${s.player}` : `${s.player}-${them}`;
       H[k] = clamp((H[k] ?? 0) + 10, -40, 40);
@@ -137,7 +159,7 @@ export function actTrack(s: GameState, geo: Geo, them: CountryId, step: 'open' |
       if (T.hostile && (P.orient ?? 0) > 0.3) T.hostile = Math.max(0, T.hostile - 0.15);
       if (P.hostile && (T.orient ?? 0) > 0.3) P.hostile = Math.max(0, P.hostile - 0.15);
       cable(s, them, 'treaty_yes');
-      note(tk, `The ${city} summit is a success. Handshakes, a joint statement, and a détente for two years.`);
+      note(tk, `The ${city} summit is a success: ${ag === 'peace' ? 'a non-aggression pact is signed' : ag === 'trade' ? 'trade is normalised' : 'the old quarrel is settled, and they drop their aim against you'}, and a détente begins for two years.`);
       logEvent(s, `🤝 THE ${city.toUpperCase()} SUMMIT: you and ${T.leader?.name ?? T.name} agree a détente. Relations +25, old grudges fade.`, 'diplo', [s.player, them], true, { big: true, prov: T.capital });
       return { ok: true, message: tk.note! };
     }
@@ -147,10 +169,43 @@ export function actTrack(s: GameState, geo: Geo, them: CountryId, step: 'open' |
     logEvent(s, `💢 ${tk.note}`, 'diplo', [s.player, them], true);
     return { ok: false, message: tk.note! };
   }
+  if (step === 'treaty') {
+    if (!friendshipReady(s, them)) return { ok: false, message: 'A friendship treaty needs a year of détente and relations above +20' };
+    if (!spendPC(P, 8)) return { ok: false, message: 'Needs 8 political capital' };
+    tk.stage = 5; tk.detenteUntil = s.tick + 100000; tk.next = s.tick;
+    const H = (s.relHist ??= {}), k = them < s.player ? `${them}-${s.player}` : `${s.player}-${them}`;
+    H[k] = clamp((H[k] ?? 0) + 15, -40, 40);
+    addRelation(s, them, s.player, 10);
+    if (s.rival === them) s.rival = -1; // a new rival will be found elsewhere
+    note(tk, `A treaty of friendship is signed. What were enemies are now partners; the détente is permanent.`);
+    logEvent(s, `🕊 TREATY OF FRIENDSHIP: ${s.countries[s.player].name} and ${T.name} end an old enmity for good.`, 'diplo', [s.player, them], true, { big: true, prov: T.capital });
+    return { ok: true, message: tk.note! };
+  }
   return { ok: false, message: 'Nothing to do' };
 }
 
-const INCIDENTS = [
+/** How the player answers an incident (from the decision in the inbox). */
+export function answerIncident(s: GameState, them: CountryId, choice: 'talk' | 'retaliate' | 'apology'): string {
+  const tk = trackOf(s, them), T = s.countries[them], P = s.countries[s.player];
+  if (!tk) return 'The talks are already over.';
+  let txt = '';
+  if (choice === 'talk') { tk.trust = clamp(tk.trust - 4, 0, 100); sway(P, 'nationalists', -4); txt = 'You condemn it, and the talks go on. Your hardliners call you weak.'; }
+  if (choice === 'retaliate') { tk.trust = clamp(tk.trust - 20, 0, 100); P.eco.stability = clamp(P.eco.stability + 1, 0, 100); sway(P, 'nationalists', 6); addRelation(s, them, s.player, -6); txt = 'You hit back. It plays well at home; the talks may not survive it.'; }
+  if (choice === 'apology') {
+    const p = 0.45 + (has(T, 'dove') ? 0.2 : 0) + (has(T, 'pragmatist') ? 0.1 : 0) - (has(T, 'nationalist') || has(T, 'hawk') ? 0.2 : 0) + tk.trust / 400;
+    if (nextRand(s) < p) { tk.trust = clamp(tk.trust + 6, 0, 100); txt = `${T.leader?.name ?? T.name} apologises in public and blames rogue elements. Trust rises.`; }
+    else { tk.trust = clamp(tk.trust - 12, 0, 100); addRelation(s, them, s.player, -3); txt = `${T.name} refuses to apologise and accuses you of provocation.`; }
+  }
+  if (tk.stage === 3 && tk.trust < 50) tk.stage = 2;
+  note(tk, `${txt} Trust ${Math.round(tk.trust)}/100.`);
+  if (tk.trust <= 0) { delete s.nego![them].track; logEvent(s, `💢 The talks with ${T.name} have collapsed.`, 'danger', [s.player, them], true); return `${txt} The talks have collapsed.`; }
+  return tk.note!;
+}
+
+/** If they asked for a gesture you can make, what it is (for the UI). */
+export const askOf = (s: GameState, them: CountryId) => { const tk = trackOf(s, them); return tk?.ask && tk.askUntil !== undefined && s.tick <= tk.askUntil ? { id: tk.ask, until: tk.askUntil } : null; };
+
+export const INCIDENTS = [
   'a border patrol opens fire and a soldier is killed', 'state TV airs a vicious documentary about you', 'a spy ring working for them is uncovered in your capital',
   'hardline generals stage provocative exercises on your border', 'a fishing boat is seized in disputed waters', 'their parliament votes to condemn the talks',
 ];
@@ -171,12 +226,27 @@ export function stepTracks(s: GameState) {
         if (P.hostile && (T.orient ?? 0) > 0.3) P.hostile = Math.max(0, P.hostile - 0.002);
         if (T.hostile && (P.orient ?? 0) > 0.3) T.hostile = Math.max(0, T.hostile - 0.002);
       }
-      else if (tk.stage === 4) { tk.stage = 2; tk.trust = 40; tk.done = []; tk.detenteUntil = undefined; note(tk, 'The détente has lapsed without new gestures. Trust 40/100: a new round of gestures can revive it.'); logEvent(s, `🕊 The détente with ${T.name} has lapsed.`, 'diplo', [s.player, them]); }
+      else if (tk.stage === 4) { tk.stage = 2; tk.trust = 40; tk.done = []; delete tk.detenteUntil; note(tk, 'The détente has lapsed without new gestures. Trust 40/100: a new round of gestures can revive it.'); logEvent(s, `🕊 The détente with ${T.name} has lapsed.`, 'diplo', [s.player, them]); }
+    }
+    // they ask for a specific gesture once in a while; ignoring it costs trust
+    if (tk.ask && tk.askUntil !== undefined && s.tick > tk.askUntil) { tk.trust = clamp(tk.trust - 6, 0, 100); note(tk, `You ignored their request. Trust ${Math.round(tk.trust)}/100.`); delete tk.ask; delete tk.askUntil; }
+    if (tk.stage === 2 && !tk.ask && tk.done.length >= 1 && s.tick % 4 === (them + 2) % 4 && nextRand(s) < 0.12) {
+      const geo = geoRefGet();
+      const g = geo ? gestures(s, geo, them).find((x) => x.ok && x.id !== 'aid') : undefined;
+      if (g) { tk.ask = g.id; tk.askUntil = s.tick + 12; note(tk, `Their request: ${g.title.toLowerCase()}. Do it within 12 weeks and it counts double.`); cableText(s, them, `If you are serious, show it: ${g.title.toLowerCase()}. We will be watching.`, 'neutral'); }
     }
     if ((tk.stage === 2 || tk.stage === 3) && s.tick % 4 === them % 4) {
       const p = 0.035 * (has(T, 'hawk') || has(T, 'nationalist') ? 1.6 : 1) * (tk.done.includes('hotline') ? 0.5 : 1);
       if (nextRand(s) < p) {
-        const what = INCIDENTS[Math.floor(nextRand(s) * INCIDENTS.length)];
+        const ki = Math.floor(nextRand(s) * INCIDENTS.length), what = INCIDENTS[ki];
+        // the player answers it (keep talking, retaliate, demand an apology) when there is room in the inbox
+        if (s.inbox.length < 4 && !s.inbox.some((x) => x.id === 'detente_incident')) {
+          const it = { uid: s.nextInbox++, id: 'detente_incident', tick: s.tick, expires: s.tick + 8, urgent: false, data: { them, k: ki } };
+          s.inbox.push(it);
+          tk.trust = clamp(tk.trust - 6, 0, 100);
+          note(tk, `Hardliners strike: ${what}. How you answer decides what is left of the talks.`);
+          continue;
+        }
         tk.trust = clamp(tk.trust - 12, 0, 100);
         if (tk.stage === 3 && tk.trust < 50) tk.stage = 2;
         note(tk, `Hardliners strike: ${what}. Trust falls to ${Math.round(tk.trust)}/100.${tk.done.includes('hotline') ? '' : ' A military hotline would have helped.'}`);
@@ -186,3 +256,15 @@ export function stepTracks(s: GameState) {
     }
   }
 }
+
+/** Weekly: loans made at the negotiating table come back, about 1% of what is outstanding (interest included) each week. */
+export function stepLoans(s: GameState) {
+  for (const [k, m] of Object.entries(s.nego ?? {})) {
+    if (!m.loan) continue;
+    const T = s.countries[Number(k)], P = s.countries[s.player];
+    if (!T?.alive || m.loan < 1) { delete m.loan; continue; }
+    const pay = Math.min(m.loan, Math.max(m.loan / 100, 0.00002 * P.eco.gdp));
+    T.eco.cash -= pay; P.eco.cash += pay; m.loan -= pay;
+  }
+}
+

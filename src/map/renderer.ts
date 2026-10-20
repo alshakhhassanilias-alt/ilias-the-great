@@ -397,6 +397,7 @@ export class MapRenderer {
         const prev = this.ownerSnap[p];
         this.ownerSnap[p] = state.owner[p];
         changed = true;
+        this.dirtyProvs.add(p);
         if (this.geomVisible(p)) {
           // the new colour sweeps in from the side the attack came from
           const geo = this.geom.geo;
@@ -408,8 +409,8 @@ export class MapRenderer {
       }
       if (state.owner[p] !== state.core[p]) {
         const b = Math.floor(state.integ[p] * 6);
-        if (this.integSnap[p] !== b + 1) { this.integSnap[p] = b + 1; changed = true; }
-      } else if (this.integSnap[p] !== 0) { this.integSnap[p] = 0; changed = true; }
+        if (this.integSnap[p] !== b + 1) { this.integSnap[p] = b + 1; changed = true; this.dirtyProvs.add(p); }
+      } else if (this.integSnap[p] !== 0) { this.integSnap[p] = 0; changed = true; this.dirtyProvs.add(p); }
     }
     if (changed) { this.baseHardDirty = true; this.ownersVersion++; }
     let colorChanged = this.colorSnap.length !== state.countries.length;
@@ -458,7 +459,7 @@ export class MapRenderer {
     else if (this.baseHardDirty) {
       // territory changed: batch redraws (at most ~3 a second) unless the view also needs one
       if (refill) render = true;
-      else if (covered && t0 - this.lastBase > 320) { render = true; ownersOnly = true; } else this.dirty = true;
+      else if (covered && t0 - this.lastBase > 320) { if (!this.repaintDirty(state)) { render = true; ownersOnly = true; } } else this.dirty = true;
     }
     else if (refill || (farScale && t0 - this.lastBase > 90)) render = true;
     else if (idle && moved) render = true;
@@ -532,6 +533,7 @@ export class MapRenderer {
     this.labelsStale = false;
     this.lastLabels = performance.now();
     this.stats.labelMs = this.lastLabels - tl;
+    this.stats.labelRenders = (this.stats.labelRenders ?? 0) + 1;
   }
 
   private renderBase(state: GameState, withLabels = true) {
@@ -616,21 +618,58 @@ export class MapRenderer {
       }
       this.coastPath = coastP; this.landBorderPath = landP; this.innerPath = innerP;
     }
+    const provs: number[] = [];
+    for (let p = 0; p < nP; p++) if (vis(p)) provs.push(p);
+    const P = state.player;
+    const showSides = !this.plain && this.mode === 'political';
+    const sp = showSides ? this.sidePaths(state) : null;
+    this.paintMap(ctx, state, k, zoomIn, provs, {
+      inner: this.innerPath, coast: this.coastPath, land: this.landBorderPath, ally: sp?.ally ?? null, enemy: sp?.enemy ?? null,
+      player: (!this.plain || this.selected === P) && state.countries[P]?.alive ? this.outlinePath(state, P) : null,
+      front: state.wars.length ? this.frontlinePath(state) : null,
+    });
+    this.dirtyProvs.clear();
+    this.baseSideKey = this.sideKey(state);
+    this.baseTerrainOff = [sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc];
+    this.baseSel = this.selected;
+    this.baseMode = this.mode;
 
+    // 8. labels (country names, seas, cities): on their own layer when there is one, otherwise into the base
+    if (this.lctx) {
+      if (withLabels) this.renderLabels(state); else this.labelsStale = true;
+    } else {
+      const tl = performance.now();
+      ctx.setTransform(dpr, 0, 0, dpr, dpr * m, dpr * m);
+      this.drawLabels(ctx, state);
+      this.stats.labelMs = performance.now() - tl;
+    }
+
+    this.baseValid = true;
+    this.baseHardDirty = false;
+    this.baseSoftDirty = false;
+    this.lastBase = performance.now();
+    this.stats.baseMs = this.lastBase - t0;
+    this.stats.baseRenders++;
+  }
+
+  /**
+   * Steps 2–7b of the base layer, shared by the full redraw and the dirty-rectangle repaint: country colours,
+   * occupation hatching, lakes and rivers, region lines, coasts, borders, allies/enemies, your realm, frontlines.
+   */
+  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null }) {
     // 2. translucent country colours over the terrain (data map modes are more opaque so they read clearly)
     const colors = this.colorSnap;
     const political = this.mode === 'political';
     ctx.globalAlpha = political ? (this.terrain ? 0.64 : 0.9) : 0.84;
-    for (let p = 0; p < nP; p++) {
-      if (!vis(p)) continue;
+    for (const p of provs) {
       ctx.fillStyle = colors[state.owner[p]] || '#555';
       ctx.fill(this.geom.provPaths[p], 'evenodd');
     }
     ctx.globalAlpha = 1;
 
     // 3. occupied land: hatched with the original owner's colour until it is integrated
-    for (let p = 0; p < nP; p++) {
-      if (state.owner[p] === state.core[p] || !vis(p)) continue;
+    for (const p of provs) {
+      if (state.owner[p] === state.core[p]) continue;
       const core = state.core[p];
       if (!state.countries[core].alive) continue;
       const pat = this.stripeFor(this.plain ? colors[core] : (core === state.player ? 'rgba(40,210,180,0.95)' : colors[core]));
@@ -657,60 +696,110 @@ export class MapRenderer {
     const innerA = clamp(0.1 + (zoomIn - 1) * 0.08, 0.1, 0.42);
     ctx.strokeStyle = `rgba(28,20,12,${innerA})`; ctx.lineWidth = 0.75 / k;
     ctx.setLineDash([2.2 / k, 1.6 / k]);
-    ctx.stroke(this.innerPath);
+    ctx.stroke(paths.inner);
     ctx.setLineDash([]);
 
     // 6. coastlines: soft light rim, then a crisp dark edge
-    ctx.strokeStyle = 'rgba(190,225,240,0.16)'; ctx.lineWidth = 3.4 / k; ctx.stroke(this.coastPath);
-    ctx.strokeStyle = 'rgba(14,20,26,0.85)'; ctx.lineWidth = 1 / k; ctx.stroke(this.coastPath);
+    ctx.strokeStyle = 'rgba(190,225,240,0.16)'; ctx.lineWidth = 3.4 / k; ctx.stroke(paths.coast);
+    ctx.strokeStyle = 'rgba(14,20,26,0.85)'; ctx.lineWidth = 1 / k; ctx.stroke(paths.coast);
 
     // 7. national borders: a heavy dark band with a pale stitch, like a printed atlas
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(12,8,4,0.35)'; ctx.lineWidth = 4.2 / k; ctx.stroke(this.landBorderPath);
-    ctx.strokeStyle = 'rgba(18,12,8,0.92)'; ctx.lineWidth = 1.8 / k; ctx.stroke(this.landBorderPath);
+    ctx.strokeStyle = 'rgba(12,8,4,0.35)'; ctx.lineWidth = 4.2 / k; ctx.stroke(paths.land);
+    ctx.strokeStyle = 'rgba(18,12,8,0.92)'; ctx.lineWidth = 1.8 / k; ctx.stroke(paths.land);
     ctx.strokeStyle = 'rgba(255,238,210,0.42)'; ctx.lineWidth = 0.6 / k;
-    ctx.setLineDash([3 / k, 2.4 / k]); ctx.stroke(this.landBorderPath); ctx.setLineDash([]);
+    ctx.setLineDash([3 / k, 2.4 / k]); ctx.stroke(paths.land); ctx.setLineDash([]);
 
-    // 7b. outlines: allies (blue) and enemies (red) of the player, the player's realm (gold), the selected country (white),
-    //     and frontlines where warring sides meet; all static, so they live in the cached layer (no per-frame cost)
+    // 7b. outlines: allies (blue) and enemies (red) of the player, the player's realm (gold), and frontlines where
+    //     warring sides meet; all static, so they live in the cached layer (no per-frame cost)
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    if (!this.plain && this.mode === 'political') {
-      const sp = this.sidePaths(state);
-      ctx.strokeStyle = 'rgba(110,180,255,0.6)'; ctx.lineWidth = 1 / k; ctx.stroke(sp.ally);
-      ctx.strokeStyle = 'rgba(255,70,50,0.85)'; ctx.lineWidth = 1.5 / k; ctx.stroke(sp.enemy);
+    if (paths.ally) { ctx.strokeStyle = 'rgba(110,180,255,0.6)'; ctx.lineWidth = 1 / k; ctx.stroke(paths.ally); }
+    if (paths.enemy) { ctx.strokeStyle = 'rgba(255,70,50,0.85)'; ctx.lineWidth = 1.5 / k; ctx.stroke(paths.enemy); }
+    if (paths.player) {
+      ctx.strokeStyle = 'rgba(255,200,80,0.28)'; ctx.lineWidth = 5 / k; ctx.stroke(paths.player);
+      ctx.strokeStyle = 'rgba(255,214,120,0.95)'; ctx.lineWidth = 1.7 / k; ctx.stroke(paths.player);
     }
-    const P = state.player;
-    if ((!this.plain || this.selected === P) && state.countries[P]?.alive) {
-      const op = this.outlinePath(state, P);
-      ctx.strokeStyle = 'rgba(255,200,80,0.28)'; ctx.lineWidth = 5 / k; ctx.stroke(op);
-      ctx.strokeStyle = 'rgba(255,214,120,0.95)'; ctx.lineWidth = 1.7 / k; ctx.stroke(op);
-    }
-    if (state.wars.length) {
-      const fl = this.frontlinePath(state);
-      ctx.strokeStyle = 'rgba(255,60,40,0.3)'; ctx.lineWidth = 6 / k; ctx.stroke(fl);
-      ctx.strokeStyle = 'rgba(205,30,24,0.95)'; ctx.lineWidth = 2.2 / k; ctx.stroke(fl);
+    if (paths.front) {
+      ctx.strokeStyle = 'rgba(255,60,40,0.3)'; ctx.lineWidth = 6 / k; ctx.stroke(paths.front);
+      ctx.strokeStyle = 'rgba(205,30,24,0.95)'; ctx.lineWidth = 2.2 / k; ctx.stroke(paths.front);
       ctx.strokeStyle = 'rgba(255,230,200,0.85)'; ctx.lineWidth = 0.7 / k;
-      ctx.setLineDash([1.5 / k, 2.5 / k]); ctx.stroke(fl); ctx.setLineDash([]);
+      ctx.setLineDash([1.5 / k, 2.5 / k]); ctx.stroke(paths.front); ctx.setLineDash([]);
     }
-    this.baseSel = this.selected;
-    this.baseMode = this.mode;
+  }
 
-    // 8. labels (country names, seas, cities): on their own layer when there is one, otherwise into the base
-    if (this.lctx) {
-      if (withLabels) this.renderLabels(state); else this.labelsStale = true;
-    } else {
-      const tl = performance.now();
-      ctx.setTransform(dpr, 0, 0, dpr, dpr * m, dpr * m);
-      this.drawLabels(ctx, state);
-      this.stats.labelMs = performance.now() - tl;
+  /** Who the player is at war with and allied to (if this changes, every outline on the map changes: full redraw). */
+  private sideKey(state: GameState) {
+    const P = state.player, en: number[] = [], al: number[] = [];
+    for (const c of state.countries) {
+      if (!c.alive || c.id === P) continue;
+      if (areAtWar(state, c.id, P)) en.push(c.id); else if (hasAlliance(state, c.id, P)) al.push(c.id);
     }
+    return `${en.join(',')}|${al.join(',')}|${state.wars.map((w) => `${w.id}:${w.attackers.join(',')}/${w.defenders.join(',')}`).join(';')}`;
+  }
+  private dirtyProvs = new Set<number>();
+  private baseSideKey = '';
+  private baseTerrainOff: [number, number, number, number] = [0, 0, 0, 0];
 
-    this.baseValid = true;
+  /**
+   * Land changed hands: repaint only the rectangle around the changed regions (in the coordinates the base layer was
+   * drawn in), with border paths built just for that patch. Returns false when a full redraw is needed instead
+   * (a change of alliances or wars recolours outlines everywhere; a patch bigger than half the map is not worth it).
+   */
+  private repaintDirty(state: GameState): boolean {
+    if (!this.dirtyProvs.size || this.sideKey(state) !== this.baseSideKey || !this.baseValid) return false;
+    const geo = this.geom.geo, bv = this.baseView, k = bv.k, dpr = this.dpr;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const grow = (p: number) => { const b = geo.provinces[p].bbox; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); };
+    // every border run of a changed region lies on its own outline, so its own box (plus line widths) is enough
+    for (const p of this.dirtyProvs) grow(p);
+    const padW = 7 / k; x0 -= padW; y0 -= padW; x1 += padW; y1 += padW;
+    // to canvas pixels
+    const W = this.base.width, H = this.base.height;
+    const px0 = Math.max(0, Math.floor(dpr * (x0 * k + bv.x))), py0 = Math.max(0, Math.floor(dpr * (y0 * k + bv.y)));
+    const px1 = Math.min(W, Math.ceil(dpr * (x1 * k + bv.x))), py1 = Math.min(H, Math.ceil(dpr * (y1 * k + bv.y)));
+    this.dirtyProvs.clear();
+    if (px1 <= px0 || py1 <= py0) { this.baseHardDirty = false; this.lastBase = performance.now(); return true; } // off-screen: nothing to repaint
+    if ((px1 - px0) * (py1 - py0) > 0.5 * W * H) return false;
+    const t0 = performance.now();
+    const ctx = this.bctx;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath(); ctx.rect(px0, py0, px1 - px0, py1 - py0); ctx.clip();
+    ctx.fillStyle = '#03070c'; ctx.fillRect(px0, py0, px1 - px0, py1 - py0);
+    const [sx, sy, sw, sh] = this.baseTerrainOff;
+    ctx.imageSmoothingEnabled = true;
+    if (sw > 0) ctx.drawImage(this.terrainCache, sx, sy, sw, sh, 0, 0, W, H);
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * bv.x, dpr * bv.y);
+    // the provinces under the patch, and their border runs classified with today's owners
+    const wx0 = (px0 / dpr - bv.x) / k, wy0 = (py0 / dpr - bv.y) / k, wx1 = (px1 / dpr - bv.x) / k, wy1 = (py1 / dpr - bv.y) / k;
+    const provs: number[] = [];
+    for (let p = 0; p < geo.provinces.length; p++) { const b = geo.provinces[p].bbox; if (!(b[2] < wx0 || b[0] > wx1 || b[3] < wy0 || b[1] > wy1)) provs.push(p); }
+    const own = state.owner, P = state.player;
+    const inner = new Path2D(), coast = new Path2D(), land = new Path2D(), ally = new Path2D(), enemy = new Path2D(), player = new Path2D(), front = new Path2D();
+    const showSides = !this.plain && this.mode === 'political';
+    const en = new Set<number>(), al = new Set<number>();
+    if (showSides) for (const c of state.countries) { if (!c.alive || c.id === P) continue; if (areAtWar(state, c.id, P)) en.add(c.id); else if (hasAlliance(state, c.id, P)) al.add(c.id); }
+    const sides = state.wars.map((w) => [new Set(w.attackers), new Set(w.defenders)] as const);
+    const showPlayer = (!this.plain || this.selected === P) && state.countries[P]?.alive;
+    const outlineOf = (S: Set<number> | number, a: number, b: number) => { const has = (c: number) => (typeof S === 'number' ? c === S : S.has(c)); return (has(a) && (b < 0 || own[b] !== a)) || (b >= 0 && has(own[b]) && own[b] !== a); };
+    for (const p of provs) {
+      const a = own[p];
+      for (const e of this.geom.edgePaths[p]) {
+        if (e.n < 0) coast.addPath(e.path); else if (own[e.n] === a) inner.addPath(e.path); else land.addPath(e.path);
+        if (showSides && outlineOf(al, a, e.n)) ally.addPath(e.path);
+        if (showSides && outlineOf(en, a, e.n)) enemy.addPath(e.path);
+        if (showPlayer && outlineOf(P, a, e.n)) player.addPath(e.path);
+        if (e.n >= 0 && own[e.n] !== a) { const b = own[e.n]; if (sides.some(([A, D]) => (A.has(a) && D.has(b)) || (D.has(a) && A.has(b)))) front.addPath(e.path); }
+      }
+    }
+    this.paintMap(ctx, state, k, k / this.fitK, provs, { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null });
+    ctx.restore();
+    this.labelsStale = true;
     this.baseHardDirty = false;
-    this.baseSoftDirty = false;
     this.lastBase = performance.now();
-    this.stats.baseMs = this.lastBase - t0;
-    this.stats.baseRenders++;
+    this.stats.patchMs = this.lastBase - t0;
+    this.stats.patches = (this.stats.patches ?? 0) + 1;
+    return true;
   }
 
   // ------------------------------------------------------------------ overlays
