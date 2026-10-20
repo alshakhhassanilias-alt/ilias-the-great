@@ -109,6 +109,20 @@ export function MilitaryTab({ id }: { id: number }) {
         </>
       )}
 
+      {mine && (s.peaceDeals ?? []).some((d) => d.a === id || d.b === id) && (
+        <Section title="Peace treaty obligations">
+          <div className="card" style={{ fontSize: 12.5, display: 'grid', gap: 6 }}>
+            {(s.peaceDeals ?? []).filter((d) => d.a === id || d.b === id).map((d, i) => {
+              const other = s.countries[d.a === id ? d.b : d.a].name;
+              const yrs = ((d.until - s.tick) / 52).toFixed(1);
+              const text = d.kind === 'rep'
+                ? (d.a === id ? `💰 ${other} pays you reparations: about ${fmtMoney((d.share ?? 0.02) * s.countries[d.b].eco.gdp)} a year (${fmtMoney(d.paid ?? 0)} so far)` : `💰 You pay reparations to ${other}: about ${fmtMoney((d.share ?? 0.02) * e.gdp)} a year`)
+                : (d.a === id ? `🚫 ${other} is demilitarised: its defence budget is capped and it cannot attack you` : `🚫 You are demilitarised by ${other}: defence budget capped at 1.2% of GDP, and you cannot attack them`);
+              return <div key={i} className="row" style={{ padding: 0, border: 'none' }}><div className="grow">{text}</div><span className="faint num">{yrs} yrs left</span></div>;
+            })}
+          </div>
+        </Section>
+      )}
       {mine && wars.length > 0 && <HomeFront id={id} />}
       {mine && wars.length > 0 && <SupplyLines id={id} />}
       {mine && <ArmyGroups />}

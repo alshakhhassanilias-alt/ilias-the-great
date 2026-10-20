@@ -8,6 +8,7 @@ import { warScore } from '../sim/war';
 import { dateLabel } from '../sim/tick';
 import { Emblem } from './art/Emblem';
 import { Tween } from './Tween';
+import { WarCommand } from './WarCommand';
 import type { CountryId, GameState, War, WarRecord } from '../sim/types';
 
 const big = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1e4 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
@@ -107,6 +108,7 @@ export function WarRoom() {
             <SideCol s={s} ids={atk} label="Attackers" cls="atk" w={w} />
             <SideCol s={s} ids={def} label="Defenders" cls="def" w={w} />
           </div>
+          {w && (atk.includes(s.player) || def.includes(s.player)) && <WarCommand s={s} foe={(atk.includes(s.player) ? def : atk)[0]} />}
           {!w && rec && <div className="faint" style={{ fontSize: 12 }}>Military losses: {A.name} {big(rec.casA)}, {D.name} {big(rec.casB)} · regions {rec.provsA >= 0 ? '+' : ''}{rec.provsA} / {rec.provsB >= 0 ? '+' : ''}{rec.provsB}</div>}
           {fronts.length > 0 && (
             <>

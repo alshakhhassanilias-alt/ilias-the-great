@@ -9,6 +9,7 @@ import { clamp } from './util';
 import { logEvent } from './log';
 import { addRelation } from './relations';
 import type { Country, GameState } from './types';
+import { recessionDue, recessionRisk } from './trade';
 
 export interface CrisisDef {
   id: string; icon: string; title: string; weeks: number; start: string; end: string; blurb: string;
@@ -73,10 +74,14 @@ export function stepCrisis(s: GameState, _geo: Geo) {
     }
     return;
   }
-  if (s.tick < s.nextCrisis) return;
+  const early = recessionDue(s);
+  if (s.tick < s.nextCrisis && !early) return;
   const last = s.stats.lastCrisis ?? -1;
   const pool = CRISES.filter((d, i) => i !== last && (!d.ok || d.ok(s)));
-  const d = pool[Math.floor(nextRand(s) * pool.length)];
+  // the warning signs decide how likely the next crisis is to be a recession
+  const risk = recessionRisk(s).risk;
+  const d = early ? crisisById('recession') : nextRand(s) < risk * 0.8 && last !== CRISES.findIndex((x) => x.id === 'recession') ? crisisById('recession') : pool[Math.floor(nextRand(s) * pool.length)];
+  if (d.id === 'recession') s.stats.lastRecession = s.tick;
   s.stats.lastCrisis = CRISES.indexOf(d);
   s.crisis = { id: d.id, start: s.tick, end: s.tick + d.weeks };
   s.scheduled.push({ tick: s.tick + 2, id: d.id === 'boom' ? 'boom_response' : 'crisis_response', data: {} });

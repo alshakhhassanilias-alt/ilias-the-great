@@ -1,3 +1,4 @@
+import { WorldEconomy } from './TradeWar';
 import { useState } from 'react';
 import { store } from '../../state/store';
 import { AutopilotBanner } from '../Autopilot';
@@ -164,6 +165,8 @@ export function EconomyTab({ id }: { id: number }) {
           <div className="faint" style={{ fontSize: 12, marginTop: 4 }}>Sanctioned by: {s.countries.filter((o) => o.alive && sanctionLevel(s, o.id, id) > 0).slice(0, 8).map((o) => o.name).join(', ')}</div>
         )}
       </Section>
+
+      {mine && <WorldEconomy c={c} />}
 
       <Section title="Trends">
         <div className="card">

@@ -25,6 +25,7 @@ import { acceptOffer, cancelTreaty, declineOffer, imposeSanction, liftSanction, 
 import { warBetween } from './relations';
 import type { Budget, GameState, ProvId } from './types';
 import { DEBT_CEILING, record } from './treasury';
+import { demilitarised } from './peaceterms';
 
 export interface ActionResult { ok: boolean; message: string }
 const ok = (message: string): ActionResult => ({ ok: true, message });
@@ -38,8 +39,8 @@ export const BUDGET_LIMITS: Record<keyof Budget, [number, number]> = {
 export function setBudget(s: GameState, cid: number, key: keyof Budget, value: number): ActionResult {
   const c = s.countries[cid];
   const [lo, hi] = BUDGET_LIMITS[key];
-  c.budget[key] = clamp(value, lo, hi);
-  return ok('Policy updated');
+  c.budget[key] = clamp(value, lo, key === 'military' && demilitarised(s, cid) ? Math.min(hi, 0.012) : hi);
+  return ok(key === 'military' && demilitarised(s, cid) && value > 0.012 ? 'The peace treaty caps your defence budget at 1.2% of GDP' : 'Policy updated');
 }
 
 /** Pay from cash, borrowing the shortfall if the country can still access credit. `what` names it in the ledger. */

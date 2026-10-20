@@ -18,6 +18,7 @@ import { guideLevel } from '../guides';
 import { SituationSection } from './Situation';
 import { DoctrinesSection } from './Doctrines';
 import { ProvincePanel } from './ProvincePanel';
+import { CharacterSection } from './Character';
 
 const TIP = {
   gdp: 'Gross domestic product: the total value of everything the economy produces in a year (nominal US dollars).',
@@ -123,6 +124,8 @@ export function OverviewTab({ id }: { id: number }) {
           <Stat label="Reputation" tip="How trustworthy the world thinks this country is. Broken treaties and aggression lower it; honoured deals, aid and mediation raise it." value={c.reputation.toFixed(0)} sub={GOV[c.gov] ?? c.gov} />
         </div>
       </Section>
+
+      <CharacterSection c={c} />
 
       <Section title="Economy by sector" hint="game estimate">
         <div className="card">

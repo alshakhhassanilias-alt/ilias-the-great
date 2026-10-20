@@ -181,6 +181,8 @@ export interface Military {
   pocket?: number;
   /** special operations under way (naval invasions, airborne assaults) */
   ops?: { prov: number; kind: 'naval' | 'airborne'; until: number }[];
+  /** war campaigns under way: strategic bombing, blockade, general offensive, defence in depth (see campaigns.ts) */
+  camps?: { kind: 'bombing' | 'blockade' | 'offensive' | 'dig_in'; target: number; aim?: 'industry' | 'energy' | 'cities'; start: number; until: number; taken0?: number }[];
 }
 
 export interface Personality {
@@ -241,6 +243,8 @@ export interface Country {
     due?: number; why?: string; snap?: { t: number; rel: number; troops: number; ws: number; gdp: number; nb: string; ml: string } };
   /** courses completed, for the record */
   coursesDone?: string[];
+  /** national challenges (see character.ts): severity 0..100 and any response still working */
+  chal?: Record<string, { sev: number; drift?: number; until?: number }>;
   /** the player's weapons programmes */
   progs?: { id: string; until: number; done: boolean }[];
 }
@@ -385,13 +389,13 @@ export interface WarRecord {
 }
 
 export type OfferKind = 'trade' | 'nap' | 'alliance' | 'coop' | 'peace';
-export interface Offer { id: number; from: CountryId; kind: OfferKind; terms?: { kind: string; share?: number }; tick: number }
+export interface Offer { id: number; from: CountryId; kind: OfferKind; terms?: { kind: string; share?: number; extras?: ('reparations' | 'demilitarise' | 'leave_alliances' | 'friendly_gov' | 'apology')[] }; tick: number }
 
 export type LogKind = 'info' | 'war' | 'peace' | 'diplo' | 'econ' | 'danger' | 'territory';
 /** `big` entries get a full-width BREAKING banner, a sound and a ring on the map at `prov` */
 export interface LogEntry { seq: number; tick: number; text: string; kind: LogKind; countries: CountryId[]; important?: boolean; big?: boolean; prov?: number }
 
-export interface Market { priceE: number; priceF: number; scarcityE: number; scarcityF: number }
+export interface Market { priceE: number; priceF: number; scarcityE: number; scarcityF: number; /** chips and critical minerals (1 = normal; see trade.ts) */ priceC?: number; priceM?: number }
 
 export interface GameState {
   version: number;
@@ -473,9 +477,21 @@ export interface GameState {
   armies?: Army[];
   /** quotes from foreign leaders to the player, newest last */
   cables?: Cable[];
+  /** export bans: a producer stops selling a good to a country (see trade.ts) */
+  bans?: { from: CountryId; to: CountryId; good: 'chips' | 'minerals' | 'energy' | 'food'; since: number }[];
+  /** tariffs: "from>to" → tick imposed */
+  tariffs?: Record<string, number>;
+  /** obligations from peace treaties: reparations being paid, demilitarised countries */
+  peaceDeals?: PeaceDeal[];
+  /** occupied regions: resistance 0..1 (sparse: only regions held by a foreign power) */
+  resist?: Record<number, number>;
+  /** occupied regions: resentment built up by reprisals (pushes resistance back up later) */
+  resent?: Record<number, number>;
   /** coalitions formed against aggressors */
   coalitions?: { target: CountryId; members: CountryId[]; since: number }[];
 }
+/** a peace obligation: `b` pays reparations to `a`, or `b` is demilitarised by `a`, until a tick */
+export interface PeaceDeal { kind: 'rep' | 'demil'; a: CountryId; b: CountryId; until: number; share?: number; paid?: number }
 export interface Reaction { id: CountryId; delta: number; text: string }
 export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string; reactions: Reaction[]; summary: string }
 export interface Scheduled { tick: number; id: string; data: Record<string, number> }

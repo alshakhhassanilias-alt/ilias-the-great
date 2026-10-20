@@ -7,6 +7,7 @@ import { dateLabel } from '../../sim/tick';
 import { BDEF, BTYPES, MAX_LEVEL, canBuild, costOfBuilding, levelOf, type BType } from '../../sim/buildings';
 import { actAirstrike, actBuild, toggleFocus } from '../../sim/actions';
 import { activeOp, actLaunchOp, canLaunch, opCost } from '../../sim/specops';
+import { OCC_POLICIES, occPolicy, resistanceAt, resistanceParts } from '../../sim/occupation';
 
 export function ProvincePanel({ p }: { p: number }) {
   const s = store.state!;
@@ -39,6 +40,16 @@ export function ProvincePanel({ p }: { p: number }) {
           <div><label>Changed hands</label><b>{s.stats[`flips:${p}`] ?? 0}×</b></div>
         </div>
         {s.stats[`held:${p}`] !== undefined && <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>Held by {owner.name} since {dateLabel(s.stats[`held:${p}`])}.</div>}
+        {core.id !== owner.id && s.integ[p] < 1 && (() => {
+          const r = resistanceAt(s, p);
+          return (
+            <div className="prov-res">
+              <div className="row" style={{ border: 'none', padding: '6px 0 2px' }}><div className="grow"><b>Resistance</b> <span className="faint">({OCC_POLICIES[occPolicy(s, owner)].label.toLowerCase()})</span></div><b className={r > 0.6 ? 'bad' : r < 0.3 ? 'good' : 'warn'}>{Math.round(r * 100)}%</b></div>
+              <div className="wc-bar res"><i style={{ width: `${Math.round(r * 100)}%` }} /></div>
+              <div className="hint" style={{ marginTop: 4 }}>{resistanceParts(s, p).map((x) => `${x.label} ${x.v > 0 ? '+' : '−'}${Math.round(Math.abs(x.v) * 100)}`).join(' · ')}</div>
+            </div>
+          );
+        })()}
         <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
           {BTYPES.map((t) => {
             const l = lvl(t), d = BDEF[t];

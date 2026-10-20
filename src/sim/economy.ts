@@ -8,6 +8,7 @@
  * policy; A grows with a country trend plus education/R&D spending; L follows population and
  * mobilisation. Unemployment, inflation, stability, debt, interest and trade are all derived from this.
  */
+import { charFragile, charInfl, charLabour, charLocked, charRate, charRevenue, charShock, charStab, charTfp } from './character';
 import { policyTfp } from './turns';
 import { mods } from './doctrines';
 import { DT } from './types';
@@ -92,7 +93,7 @@ export function popGrowthRate(c: Country): number {
 }
 
 export function revenueAnnual(c: Country): number {
-  return c.eco.gdp * c.eco.collection * taxBurden(c.budget);
+  return c.eco.gdp * c.eco.collection * taxBurden(c.budget) * (c.eco.prev.revMult ?? 1);
 }
 export const diffTaxMult = (s: GameState, c: Country) => (c.isPlayer ? (s.settings.difficulty === 'hard' ? 0.95 : s.settings.difficulty === 'easy' ? 1.05 : 1) : 1);
 /** Fiscal position implied by the *current* policy settings (updates the instant a lever moves). */
@@ -184,15 +185,16 @@ export function updateTradeAndResources(c: Country, s: GameState, w: WorldAgg) {
   const e = c.eco;
   e.sanctionShare = Math.min(0.95, w.sanctionedBy[c.id]);
   const warLoad = Math.min(3, warsOf(s, c.id).length);
-  const raw = 1 + 0.01 * c.mil.bld.port + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad;
+  const raw = 1 + 0.01 * c.mil.bld.port + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad * (1 + charLocked(c)) - (e.prev.tariff ?? 0);
   e.tradeIndex = clamp(raw / e.tradeBase, 0.15, 1.5);
   // energy & food balances
   e.energyDemand = e.prev.eInt * e.realGdp;
   e.foodDemand = e.prev.fPc * e.pop * (1 + 0.1 * Math.log(Math.max(e.realGdp / Math.max(e.pop, 1) / e.prev.gdppc0, 0.2)));
   const access = clamp(1 - 0.7 * e.sanctionShare - e.blockade, 0, 1);
+  const accE = access * (1 - (e.prev.banE ?? 0)), accF = access * (1 - (e.prev.banF ?? 0));
   const shortE = Math.max(0, e.energyDemand - e.energyCap), shortF = Math.max(0, e.foodDemand - e.foodCap);
-  const unE = (shortE * (1 - access * w.availE)) / Math.max(e.energyDemand, 1);
-  const unF = (shortF * (1 - access * w.availF)) / Math.max(e.foodDemand, 1);
+  const unE = (shortE * (1 - accE * w.availE)) / Math.max(e.energyDemand, 1);
+  const unF = (shortF * (1 - accF * w.availF)) / Math.max(e.foodDemand, 1);
   e.energyUnmet += (unE - e.energyUnmet) * 0.25;
   e.foodUnmet += (unF - e.foodUnmet) * 0.25;
 }
@@ -213,6 +215,10 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
 
   updateTradeAndResources(c, s, w);
   e.occupation = occupationOf(c, s, geo);
+  // national traits and challenges, measured against where the country started (the baseline is real 2024 data)
+  if (e.prev.chT0 === undefined) { e.prev.chT0 = charTfp(c) + (1 - ALPHA) * charLabour(c); e.prev.chS0 = charStab(c); e.prev.chR0 = charRate(c); e.prev.chV0 = charRevenue(c, 1); }
+  e.prev.revMult = charRevenue(c, priceE) / Math.max(0.5, e.prev.chV0 ?? 1);
+  e.lfShare = clamp(e.lfShare * (1 + charLabour(c) * DT), 0.25, 0.75);
 
   // ---- labour ----
   e.pop *= 1 + popGrowthRate(c) * DT;
@@ -238,7 +244,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   const fxStress = clamp((-(balance / e.gdp - e.prev.bal0) - 0.03) * 4 + Math.max(0, -e.reserves / e.gdp - 0.1) * 1.5, 0, 1);
   const overheating = Math.max(0, e.uNat - e.unemployment) * 0.6;
   const energyShock = 0.025 * Math.max(0, priceE - 1) * Math.min(1, Math.max(0, e.energyDemand - e.energyCap) / Math.max(e.energyDemand, 1) * 4);
-  const piTarget = 0.02 + 1.2 * e.monetary + overheating + energyShock + 0.12 * fxStress + 0.04 * (e.stability < 25 ? (25 - e.stability) / 25 : 0);
+  const piTarget = 0.02 + 1.2 * e.monetary + overheating + energyShock * charShock(c) + charInfl(c) + 0.12 * fxStress + 0.04 * (e.stability < 25 ? (25 - e.stability) / 25 : 0);
   e.inflation += (piTarget - e.inflation) * (1 - Math.exp(-DT * 2.5));
   e.price *= 1 + e.inflation * DT;
   e.gdp = e.realGdp * e.price;
@@ -252,7 +258,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.capital = Math.max(1, e.capital * (1 - DELTA * DT * (1 + 2 * e.damage)) + (privInv + stateInv) * DT);
 
   // ---- productivity ----
-  const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage;
+  const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage;
   e.tfp *= 1 + gTfp * DT;
   e.tech = clamp(e.tech + DT * (0.25 + 40 * Math.max(-0.02, b.education - 0.02)) * (1 - e.tech / 110), 5, 100);
 
@@ -269,8 +275,8 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.damage = Math.max(0, e.damage - 0.012 * DT * 52 * 0.25);
 
   // ---- fiscal ----
-  const revenue = e.gdp * e.collection * diffTax * taxBurden(b);
-  const mkt = marketRate(e) - (cb ? 0.005 : 0);
+  const revenue = e.gdp * e.collection * diffTax * taxBurden(b) * (e.prev.revMult ?? 1);
+  const mkt = marketRate(e) - (cb ? 0.005 : 0) + charRate(c) - (e.prev.chR0 ?? 0);
   e.avgRate += (mkt - e.avgRate) * 0.2 * DT * 5;
   e.interest = e.debt * e.avgRate;
   const upkeep = stepMilitary(c, s, geo);
@@ -315,6 +321,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     // doctrines, laws, ministers and national projects: bonuses stack with diminishing returns (at most about +9)
     doctrine: (() => { const v = mods(c).stab; return v > 0 ? 9 * (1 - Math.exp(-v / 9)) : v; })(),
     factions: c.politics?.stab ?? 0,
+    national: charStab(c) - (e.prev.chS0 ?? 0),
   };
   e.stabParts = parts;
   const target = Object.values(parts).reduce((t, v) => t + v, 0);

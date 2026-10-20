@@ -2390,3 +2390,105 @@ describe('round 24: deeper negotiations, reconciliation and constitutions', () =
     expect(govName(c, GOV_LABEL)).toBe('theocracy');
   });
 });
+
+import { actOccPolicy, occupiedBy, resistanceAt, stepOccupation } from '../src/sim/occupation';
+import { activeCamp, campBlocked, campOff, cancelCampaign, launchCampaign } from '../src/sim/campaigns';
+import { demilitarised, extraBlocked } from '../src/sim/peaceterms';
+import { actChallenge, challengesOf, charStab, traitsOf } from '../src/sim/character';
+import { actBan, actTariff, banBite, hasBan, hasTariff, recessionRisk, stepTrade } from '../src/sim/trade';
+
+describe('deeper war, national character and trade', () => {
+  it('occupied land resists: resistance rises while the homeland fights, harsh rule suppresses it then breeds resentment, lenient rule integrates faster', () => {
+    const s = fresh('Russia', { randomEvents: false });
+    const ua = id('Ukraine');
+    declareWar(s, geo, s.player, ua);
+    const p = s.countries[ua].provinces.find((q) => q !== s.countries[ua].capital && geo.adj[q].some((n) => s.owner[n] === s.player))!;
+    transferProvince(s, geo, p, s.player);
+    expect(occupiedBy(s, s.player)).toContain(p);
+    for (let i = 0; i < 20; i++) stepOccupation(s, geo);
+    const firm = resistanceAt(s, p);
+    expect(firm).toBeGreaterThan(0.3);
+    expect(actOccPolicy(s, 'harsh').ok).toBe(true);
+    for (let i = 0; i < 10; i++) stepOccupation(s, geo);
+    expect(resistanceAt(s, p)).toBeLessThan(firm);
+    expect(s.resent?.[p] ?? 0).toBeGreaterThan(0.02);
+    const integHarsh = s.integ[p];
+    actOccPolicy(s, 'lenient');
+    for (let i = 0; i < 20; i++) stepOccupation(s, geo);
+    expect(s.integ[p]).toBeGreaterThan(integHarsh);
+  });
+  it('campaigns: an offensive raises attack against its target, digging in blocks it, a blockade needs a navy and a coast', () => {
+    const s = fresh('France', { randomEvents: false });
+    const de = id('Germany');
+    declareWar(s, geo, s.player, de);
+    const me = s.countries[s.player];
+    expect(launchCampaign(s, geo, s.player, 'offensive', de).ok).toBe(true);
+    expect(campOff(s, me, de)).toBeCloseTo(1.25);
+    expect(campBlocked(s, geo, s.player, 'dig_in', de)).toMatch(/offensive/);
+    expect(launchCampaign(s, geo, s.player, 'bombing', de, 'industry').ok).toBe(true);
+    const cap = s.countries[de].eco.capital;
+    run(s, 4);
+    expect(s.countries[de].eco.capital).toBeLessThan(cap);
+    expect(cancelCampaign(s, s.player, 'bombing', de).ok).toBe(true);
+    expect(activeCamp(s, me, 'bombing', de)).toBeUndefined();
+    const s2 = fresh('Austria', { randomEvents: false });
+    declareWar(s2, geo, s2.player, id('Italy'));
+    expect(campBlocked(s2, geo, s2.player, 'blockade', id('Italy'))).toBeTruthy();
+  });
+  it('peace terms: reparations are paid monthly and demilitarisation forbids a new attack', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const pl = id('Poland');
+    declareWar(s, geo, s.player, pl);
+    const cash = s.countries[s.player].eco.cash;
+    makePeace(s, geo, s.player, pl, { kind: 'status_quo', extras: ['reparations', 'demilitarise'] });
+    expect(demilitarised(s, pl, s.player)).toBe(true);
+    expect(s.countries[pl].budget.military).toBeLessThanOrEqual(0.012);
+    run(s, 8);
+    expect(s.peaceDeals!.find((d) => d.kind === 'rep')!.paid).toBeGreaterThan(0);
+    expect(s.countries[s.player].eco.cash).toBeGreaterThan(cash * 0.5);
+    expect(declareWar(s, geo, pl, s.player).ok).toBe(false);
+    expect(extraBlocked(s, 'friendly_gov', pl, s.player)).toBeTruthy();
+  });
+  it('national character: Poland and Brazil start with different traits and challenges, and a response lowers severity', () => {
+    const s = fresh('Poland', { randomEvents: false });
+    const P = s.countries[s.player], B = s.countries[id('Brazil')];
+    expect(traitsOf(P).map((t) => t.id)).toContain('frontline');
+    expect(traitsOf(B).map((t) => t.id)).toContain('bread');
+    expect(Object.keys(challengesOf(P))).toContain('coal');
+    expect(Object.keys(challengesOf(B))).toContain('cartels');
+    expect(Object.keys(challengesOf(P))).not.toEqual(Object.keys(challengesOf(B)));
+    run(s, 1);
+    P.politics!.pc = 100;
+    const before = challengesOf(P).coal.sev;
+    expect(actChallenge(s, 'coal', 'renew').ok).toBe(true);
+    expect(challengesOf(P).coal.sev).toBeLessThan(before);
+    expect(actChallenge(s, 'coal', 'renew').ok).toBe(false); // cooldown
+    expect(Number.isFinite(charStab(P))).toBe(true);
+  });
+  it('trade: an export ban by the main chip maker leaves the target short, tariffs work both ways and feed recession risk', () => {
+    const s = fresh('Taiwan', { randomEvents: false });
+    const cn = id('China'), jp = id('Japan');
+    expect(banBite(s, s.player, jp, 'chips')).toBeGreaterThan(0.2);
+    expect(actBan(s, jp, 'chips', true).ok).toBe(true);
+    expect(hasBan(s, s.player, jp, 'chips')).toBe(true);
+    s.tick = 4; stepTrade(s);
+    expect(s.countries[jp].eco.prev.shC ?? 0).toBeGreaterThan(0.05);
+    expect(actTariff(s, cn, true).ok).toBe(true);
+    expect(hasTariff(s, s.player, cn)).toBe(true);
+    const r = recessionRisk(s);
+    expect(r.risk).toBeGreaterThan(0);
+    expect(r.signs.length).toBeGreaterThan(3);
+    expect(actBan(s, jp, 'chips', false).ok).toBe(true);
+    expect(hasBan(s, s.player, jp, 'chips')).toBe(false);
+  });
+  it('a long game with all the new systems stays sane', () => {
+    const s = fresh('Nigeria', { aggression: 1.4 });
+    run(s, 52 * 4);
+    for (const c of s.countries) if (c.alive) {
+      expect(Number.isFinite(c.eco.gdp) && c.eco.gdp > 0).toBe(true);
+      expect(Number.isFinite(c.eco.stability)).toBe(true);
+      expect(c.eco.inflation).toBeGreaterThan(-0.05);
+    }
+    for (const v of Object.values(s.resist ?? {})) expect(v >= 0 && v <= 1).toBe(true);
+  });
+});

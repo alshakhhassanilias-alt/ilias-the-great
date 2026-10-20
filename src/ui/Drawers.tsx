@@ -7,6 +7,7 @@ import { fmtMoney, fmtNum, pct } from './format';
 import { Segmented, Slider } from './widgets';
 import { actPeace } from '../sim/actions';
 import { evaluatePeace, termProvinces, warScore, type PeaceKind } from '../sim/war';
+import { EXTRA_ORDER, PEACE_EXTRAS, extraBlocked, extraCost, type PeaceExtra } from '../sim/peaceterms';
 import { strength } from '../sim/military';
 import { dateLabel } from '../sim/tick';
 import { areAtWar, warBetween } from '../sim/relations';
@@ -255,41 +256,62 @@ function PeaceDrawer({ onClose }: { onClose: () => void }) {
   const s = store.state!;
   const geo = store.geo;
   const target = store.peaceTarget;
+  const [kind, setKind] = useState<PeaceKind>('status_quo');
   const [share, setShare] = useState(0.25);
+  const [extras, setExtras] = useState<PeaceExtra[]>([]);
   const [result, setResult] = useState<string | null>(null);
   if (target === null || !areAtWar(s, s.player, target)) return <Modal title="Peace talks" onClose={onClose} narrow><p className="muted">You are no longer at war with this country.</p></Modal>;
   const T = s.countries[target];
   const w = warBetween(s, s.player, target)!;
   const score = warScore(s, w, s.player);
+  const canDemand = kind !== 'concede';
+  const terms = { kind, share: kind === 'demand' || kind === 'concede' ? share : undefined, extras: canDemand ? extras : [] };
+  const ev = evaluatePeace(s, geo, s.player, target, terms);
+  const tp = termProvinces(s, geo, s.player, target, terms);
+  const likely = ev.willingness >= ev.required;
+  const scale = Math.max(1.2, ev.required + 0.2, ev.willingness + 0.2);
+  const toggle = (x: PeaceExtra) => setExtras((xs) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]));
   return (
-    <Modal title={`Peace talks with ${T.name}`} onClose={onClose} narrow>
-      <div className="card" style={{ marginBottom: 12, fontSize: 13 }}>
-        <div className="row" style={{ border: 'none' }}><div className="grow">Your war score</div><div className={`val ${score > 0 ? 'good' : 'bad'}`}>{score >= 0 ? '+' : ''}{(score * 100).toFixed(0)}</div></div>
-        <div className="row"><div className="grow">Their exhaustion</div><div className="val">{(T.mil.exhaustion * 100).toFixed(0)}%</div></div>
-        <div className="row"><div className="grow">Your exhaustion</div><div className="val">{(s.countries[s.player].mil.exhaustion * 100).toFixed(0)}%</div></div>
+    <Modal title={`Peace conference with ${T.name}`} onClose={onClose} narrow>
+      <div className="pc-stats">
+        <div><span>Your war score</span><b className={score > 0 ? 'good' : 'bad'}>{score >= 0 ? '+' : ''}{(score * 100).toFixed(0)}</b></div>
+        <div><span>Their exhaustion</span><b>{(T.mil.exhaustion * 100).toFixed(0)}%</b></div>
+        <div><span>Your exhaustion</span><b>{(s.countries[s.player].mil.exhaustion * 100).toFixed(0)}%</b></div>
       </div>
-      {result && <div className="note warn" style={{ marginBottom: 10 }}>{result}</div>}
-      <div style={{ display: 'grid', gap: 8 }}>
-        {OPTIONS.map((o) => {
-          const terms = { kind: o.kind, share: o.kind === 'demand' || o.kind === 'concede' ? share : undefined };
-          const ev = evaluatePeace(s, geo, s.player, target, terms);
-          const tp = termProvinces(s, geo, s.player, target, terms);
-          const likely = ev.willingness >= ev.required;
+      <h4 className="pc-h">Borders</h4>
+      <div className="pc-kinds" role="radiogroup" aria-label="Territorial settlement">
+        {OPTIONS.map((o) => (
+          <button key={o.kind} type="button" role="radio" aria-checked={kind === o.kind} className={`pc-kind${kind === o.kind ? ' on' : ''}`} onClick={() => setKind(o.kind)}>
+            <b>{o.label}</b><small>{o.desc}</small>
+          </button>
+        ))}
+      </div>
+      {(kind === 'demand' || kind === 'concede') && <Slider label="How much" value={share} min={0.1} max={0.6} step={0.05} format={(v) => `${Math.round(v * 100)}% of provinces${tp ? ` (${tp.provs.length})` : ''}`} onChange={setShare} />}
+      <h4 className="pc-h">Further demands</h4>
+      <div className="pc-extras">
+        {EXTRA_ORDER.map((x) => {
+          const X = PEACE_EXTRAS[x];
+          const why = canDemand ? extraBlocked(s, x, s.player, target) : 'Not when you are the one conceding';
+          const on = extras.includes(x) && !why;
           return (
-            <div className="card" key={o.kind}>
-              <div className="row" style={{ border: 'none', padding: 0 }}>
-                <div className="grow"><b>{o.label}</b><div className="hint">{o.desc}{tp ? ` (${tp.provs.length} province${tp.provs.length === 1 ? '' : 's'})` : ''}</div></div>
-                <button className="btn primary" onClick={() => {
-                  const r = store.act((g) => actPeace(g, geo, g.player, target, terms));
-                  if (r.ok) onClose(); else setResult(r.message);
-                }}>Propose</button>
-              </div>
-              {(o.kind === 'demand' || o.kind === 'concede') && <Slider label="Size" value={share} min={0.1} max={0.6} step={0.05} format={(v) => `${Math.round(v * 100)}% of provinces`} onChange={setShare} />}
-              <div className="hint" style={{ marginTop: 4 }}>They are <b className={likely ? 'good' : 'bad'}>{likely ? 'likely to accept' : 'unlikely to accept'}</b> · {ev.reasons.slice(0, 3).join(' · ')}</div>
-            </div>
+            <label key={x} className={`pc-extra${on ? ' on' : ''}${why ? ' off' : ''}`} title={why ?? undefined}>
+              <input type="checkbox" checked={on} disabled={!!why} onChange={() => toggle(x)} />
+              <span><b><span aria-hidden>{X.icon}</span> {X.label}</b><small>{why ?? X.desc}</small></span>
+              {!why && <em>+{Math.round(extraCost(s, x, target) * 100)}</em>}
+            </label>
           );
         })}
       </div>
+      <div className="pc-meter" aria-label="Their willingness against what you ask">
+        <div className="pc-meter-row"><span>Their willingness</span><div className="pc-track"><i className="will" style={{ width: `${Math.max(0, Math.min(100, (ev.willingness / scale) * 100))}%` }} /></div><b>{Math.round(ev.willingness * 100)}</b></div>
+        <div className="pc-meter-row"><span>What you ask</span><div className="pc-track"><i className="req" style={{ width: `${Math.max(0, Math.min(100, (ev.required / scale) * 100))}%` }} /></div><b>{Number.isFinite(ev.required) ? Math.round(ev.required * 100) : '∞'}</b></div>
+        <p className="hint">They are <b className={likely ? 'good' : 'bad'}>{likely ? 'likely to accept' : 'likely to refuse'}</b>. {ev.reasons.slice(0, 5).join(' · ')}</p>
+      </div>
+      {result && <div className="note warn" style={{ margin: '8px 0' }}>{result}</div>}
+      <button className="btn primary" style={{ width: '100%' }} onClick={() => {
+        const r = store.act((g) => actPeace(g, geo, g.player, target, terms));
+        if (r.ok) onClose(); else setResult(r.message);
+      }}>Propose these terms</button>
     </Modal>
   );
 }

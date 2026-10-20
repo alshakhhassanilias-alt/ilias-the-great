@@ -19,6 +19,11 @@ import type { Geo } from './geo';
 import { stepEconomiesGen } from './economy';
 import { stepWars, sampleWars, forcePeaceAll, logEvent } from './war';
 import { stepPartisans } from './specops';
+import { setTransfer, stepOccupation } from './occupation';
+import { stepCampaigns } from './campaigns';
+import { stepPeaceDeals } from './peaceterms';
+import { stepCharacter } from './character';
+import { stepTrade, stepTradeAI, stepTradeEffects } from './trade';
 import { stepAutopilot } from './modes';
 import { stepLegacy } from './legacy';
 import { stepCabinet } from './cabinet';
@@ -38,6 +43,9 @@ import { stepPolitics } from './politics';
 import { stepGoals } from './goals';
 import { alliesOf } from './relations';
 import { START_YEAR, TICKS_PER_YEAR, type GameState } from './types';
+import { transferProvince } from './war';
+
+setTransfer(transferProvince);
 
 export function dateOf(tick: number): Date {
   return new Date(Date.UTC(START_YEAR, 0, 1) + tick * 7 * 86400000);
@@ -109,11 +117,14 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepEconomiesGen(s, geo);
   mark('stepEconomiesGen'); yield;
   stepWars(s, geo);
+  stepCampaigns(s, geo);
+  stepPeaceDeals(s);
   sampleWars(s);
   mark('stepWars'); yield;
   stepArmies(s, geo);
   mark('stepArmies'); yield;
   stepPartisans(s);
+  stepOccupation(s, geo);
   mark('stepPartisans'); yield;
   yield* stepAIGen(s, geo);
   mark('stepAIGen'); yield;
@@ -126,6 +137,12 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepArcs(s, geo);
   mark('stepArcs'); yield;
   stepNations(s, geo);
+  stepCharacter(s);
+  mark('stepCharacter'); yield;
+  stepTrade(s);
+  stepTradeEffects(s);
+  stepTradeAI(s);
+  mark('stepTrade'); yield;
   stepCoalitions(s, geo);
   mark('stepCoalitions'); yield;
   stepMinds(s, geo, (c) => s.stats[`th:${c.id}`] ?? threatLevel(s, geo, c));

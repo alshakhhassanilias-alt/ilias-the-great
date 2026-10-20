@@ -35,6 +35,9 @@ import { bumpSupply, landSupply, neighbours, supplyNet, supplyReach } from './su
 import { opsOf } from './specops';
 import { armiesActive, armyStrikes, holdBonus } from './armies';
 import { bumpSupport, morale, onEnterWar, stepWarSupport, warSupport } from './warsupport';
+import { campDef, campLoss, campOff } from './campaigns';
+import { charDef } from './character';
+import { applyExtras, demilitarised, extraCost, PEACE_EXTRAS, type PeaceExtra } from './peaceterms';
 import { assignGenerals, attackBonus, defenceBonus, ensureGenerals, generalAfterBattle, generalAt, homeCommander, supplyBonus } from './generals';
 export { logEvent };
 
@@ -127,6 +130,7 @@ export function canDeclareWar(s: GameState, a: CountryId, d: CountryId): Declare
   if (a === d) return { ok: false, reason: 'Cannot target yourself' };
   if (areAtWar(s, a, d)) return { ok: false, reason: 'Already at war' };
   if (A.mil.troops < 20) return { ok: false, reason: 'You have no army to fight with' };
+  if (demilitarised(s, a, d)) return { ok: false, reason: `The peace treaty forbids you to attack ${D.name}` };
   return { ok: true };
 }
 
@@ -245,7 +249,7 @@ export function warScore(s: GameState, w: War, c: CountryId): number {
 }
 
 export type PeaceKind = 'status_quo' | 'restore' | 'demand' | 'concede' | 'surrender';
-export interface PeaceTerms { kind: PeaceKind; share?: number }
+export interface PeaceTerms { kind: PeaceKind; share?: number; /** demands beyond borders (see peaceterms.ts) */ extras?: PeaceExtra[] }
 
 /** Provinces transferred under demand (from b to a) / concede (from a to b) terms. */
 export function termProvinces(s: GameState, geo: Geo, a: CountryId, b: CountryId, t: PeaceTerms): { from: CountryId; to: CountryId; provs: ProvId[] } | null {
@@ -305,6 +309,7 @@ export function evaluatePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId
     case 'concede': required = 0.4 - 1.2 * share - 0.1; break;
     case 'surrender': required = 1.9; break;
   }
+  if (t.kind !== 'concede') for (const x of t.extras ?? []) { required += extraCost(s, x, b); reasons.push(`${PEACE_EXTRAS[x].label}: +${Math.round(extraCost(s, x, b) * 100)} needed`); }
   if (b === s.player) required = Infinity;
   return { accept: will >= required, willingness: will, required, reasons };
 }
@@ -331,7 +336,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
     const provsA = (w.taken?.[a] ?? 0) + (tp && tp.to === a ? moved : 0) - (tp && tp.from === a ? moved : 0);
     const provsB = (w.taken?.[b] ?? 0) + (tp && tp.to === b ? moved : 0) - (tp && tp.from === b ? moved : 0);
     const edge = provsA - provsB + 3 * scoreA;
-    const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
+    const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) || (t.kind !== 'concede' && (t.extras?.length ?? 0) > 0) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
     const hist = s.warHistory ?? (s.warHistory = []);
     if (winner !== 'draw') s.stats[`lostWar:${winner === 'a' ? b : a}`] = s.tick;
     hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind, civ: Math.round(Object.values(w.civ ?? {}).reduce((x, y) => x + y, 0)), displaced: Math.round(w.displaced ?? 0), hist: w.hist?.slice(-60), atk: [...w.attackers], def: [...w.defenders] });
@@ -339,6 +344,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
     settleGoal(s, hist[hist.length - 1]);
     if (hist.length > 40) hist.splice(0, hist.length - 40);
   }
+  if (t.extras?.length && t.kind !== 'concede') applyExtras(s, a, b, t.extras);
   if (tp && tp.provs.length && tp.to === s.player) s.stats.warWins = (s.stats.warWins ?? 0) + 1;
   const lbl = ({ status_quo: 'ceasefire on current lines', restore: 'a return to pre-war borders', demand: 'territorial concessions', concede: 'concessions by the sender', surrender: 'total surrender' } as const)[t.kind];
   logEvent(s, `${A.name} and ${B.name} signed peace (${lbl}).`, 'peace', [a, b], a === s.player || b === s.player);
@@ -533,7 +539,7 @@ export function stepWars(s: GameState, geo: Geo) {
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
       const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) : 1));
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) : 1) * campDef(s, E) * charDef(E));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
@@ -542,7 +548,7 @@ export function stepWars(s: GameState, geo: Geo) {
         const intel = 1 + 0.2 * (C.mil.intel - E.mil.intel);
         const gen = generalAt(C, p);
         st.supply = Math.min(1, st.supply * supplyBonus(gen));
-        const pa = (st.order === 'encircle' && pocket ? 1.25 : 1) * attackBonus(gen, pocket) * landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C);
+        const pa = (st.order === 'encircle' && pocket ? 1.25 : 1) * attackBonus(gen, pocket) * landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C) * campOff(s, C, e);
         contrib.push({ st, pa, air });
         Pa += pa;
       }
@@ -564,7 +570,7 @@ export function stepWars(s: GameState, geo: Geo) {
       for (const { st, pa } of contrib) {
         const frac = pa / Pa;
         const atkLossFrac = 0.0075 * Math.pow(clamp(1 / ratio, 0.3, 3), 0.5) * (0.7 + 0.6 * terrain);
-        const al = Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac) * (st.order === 'raid' ? 0.5 : 1);
+        const al = Math.min(st.c.mil.troops * 0.5, st.share * atkLossFrac) * (st.order === 'raid' ? 0.5 : 1) * campLoss(s, st.c, e);
         if (st.order === 'raid') E.eco.damage = Math.min(1, E.eco.damage + 0.0015);
         applyLosses(s, st.c, al, w, 1);
         atkLossBy.set(st.c.id, al);
@@ -670,8 +676,7 @@ export function stepWars(s: GameState, geo: Geo) {
     }
   }
   stepWarSupport(s, geo);
-  // integration of conquered land
-  for (let p = 0; p < s.owner.length; p++) if (s.integ[p] < 1) s.integ[p] = Math.min(1, s.integ[p] + 0.004);
+  // integration of conquered land: see occupation.ts
 }
 
 /** Encirclements: regions cut off from every supply hub bleed troops; new pockets make the news. */

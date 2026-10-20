@@ -20,6 +20,8 @@ import {
 } from './diplomacy';
 import { logEvent } from './log';
 import { computeBlocs } from './politics';
+import { aiExtras } from './peaceterms';
+import { charDeter } from './character';
 import { claimStrength, declareWar, evaluatePeace, makePeace, warScore, type PeaceTerms, isCoastalCountry } from './war';
 import { buildProject, demobilize, recruit } from './actions';
 import { build, levelOf } from './buildings';
@@ -238,6 +240,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     let desire = mind + revenge + goalPull + cause + coal + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
+    if (desire > 0) desire *= charDeter(T);
     if (t === s.player) desire *= mods(T).deter * (s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1);
     if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (attack odds ${ratio.toFixed(1)}×)`;
     if (desire > 0.62 && (!best || desire > best.desire)) {
@@ -278,7 +281,7 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     const support = warSupport(c);
     if (c.mil.exhaustion > 0.95 || c.provinces.length === 1 && !c.provinces.includes(c.capital)) terms = { kind: 'concede', share: 0.3 };
     else if (score < -0.35 && years > 1 && support < 0.45) terms = { kind: 'concede', share: 0.15 }; // losing and the public knows it
-    else if (score > 0.35 && years > 0.3) terms = { kind: 'demand', share: clamp(score * 0.5, 0.05, 0.6) };
+    else if (score > 0.35 && years > 0.3) terms = { kind: 'demand', share: clamp(score * 0.5, 0.05, 0.6), extras: aiExtras(s, c.id, e, score, w.defenders.includes(c.id)) };
     else if (myWill > 0.45 || support < 0.25) terms = { kind: 'status_quo' };
     else if (Math.abs(score) < 0.12 && years > 2.5 && rand(s) < 0.3) terms = { kind: 'status_quo' }; // a long stalemate
     if (!terms) continue;
@@ -292,6 +295,7 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
       if (ev.accept || E.mil.exhaustion > 0.3 || rand(s) < 0.2) makePeace(s, geo, c.id, e, terms);
     } else if (ev.accept) makePeace(s, geo, c.id, e, terms);
     else if (terms.kind === 'status_quo' && years > 3 && Math.abs(score) < 0.15 && warSupport(E) < 0.4 && rand(s) < 0.25) makePeace(s, geo, c.id, e, terms); // both sides are worn out
+    else if (terms.kind === 'demand' && terms.extras?.length && evaluatePeace(s, geo, c.id, e, { ...terms, extras: [] }).accept) makePeace(s, geo, c.id, e, { ...terms, extras: terms.extras.filter((x) => x === 'apology') });
     else if (terms.kind === 'demand' && rand(s) < 0.2) {
       const alt = evaluatePeace(s, geo, c.id, e, { kind: 'status_quo' });
       if (alt.accept) makePeace(s, geo, c.id, e, { kind: 'status_quo' });

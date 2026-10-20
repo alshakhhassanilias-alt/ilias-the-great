@@ -17,4 +17,4 @@ export const isMajor = (s: GameState, id: CountryId) => majors(s).has(id);
 export const isBigNews = (s: GameState, a: CountryId, b: CountryId) => a === s.player || b === s.player || (isMajor(s, a) && isMajor(s, b));
 
 export const MILESTONES = [25_000, 100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000];
-export const fmtCas = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} million` : `${Math.round(n / 1000)},000`);
+export const fmtCas = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} million` : n >= 1000 ? `${Math.round(n / 1000)},000` : n >= 50 ? `${Math.round(n / 50) * 50}` : 'a few dozen');

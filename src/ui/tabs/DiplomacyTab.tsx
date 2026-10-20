@@ -1,4 +1,6 @@
+import { extrasText } from '../../sim/peaceterms';
 import { ReconcilePanel } from '../Reconcile';
+import { TradeWeapons } from './TradeWar';
 import { useState } from 'react';
 import { WorldJudgement } from './Minds';
 import { CoursesSection } from './Courses';
@@ -170,6 +172,8 @@ export function DiplomacyTab({ id }: { id: number }) {
         </div>
       </Section>
 
+      <TradeWeapons id={id} />
+
       <Section title="Covert operations" hint={`your intel ${(me.mil.intel * 100).toFixed(0)} vs ${(c.mil.intel * 100).toFixed(0)}`}>
         <div className="list">
           {(Object.keys(OPDEFS) as OpKind[]).map((k) => {
@@ -239,7 +243,7 @@ function OwnDiplomacy() {
         <Section title="Pending offers">
           {s.offers.map((o) => (
             <div className="offer" key={o.id} style={{ marginBottom: 8 }}>
-              <b>{s.countries[o.from].name}</b> proposes {o.kind === 'peace' ? `peace (${o.terms?.kind.replace('_', ' ')}${o.terms?.share ? `, ${(o.terms.share * 100).toFixed(0)}%` : ''})` : `a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}.
+              <b>{s.countries[o.from].name}</b> proposes {o.kind === 'peace' ? `peace (${o.terms?.kind.replace('_', ' ')}${o.terms?.share ? `, ${(o.terms.share * 100).toFixed(0)}%` : ''}${o.terms?.extras?.length ? `, plus ${extrasText(o.terms.extras)}` : ''})` : `a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}.
               <div className="btnrow"><button className="btn good" onClick={() => store.act((g) => actAcceptOffer(g, geo(), o.id))}>Accept</button><button className="btn" onClick={() => store.act((g) => actDeclineOffer(g, o.id), true)}>Decline</button></div>
             </div>
           ))}

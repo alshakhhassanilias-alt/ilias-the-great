@@ -1,3 +1,4 @@
+import { extrasText } from '../sim/peaceterms';
 import { previewLapse } from '../sim/events';
 import { FOLLOW_UPS } from '../sim/events7';
 import { costHint, hintCost } from '../sim/eventkit';
@@ -80,7 +81,7 @@ function OfferCard({ o }: { o: GameState['offers'][number] }) {
         {C.leader && <Portrait f={faceFor(C, C.leader.name, 'leader')} size={52} title={C.leader.name} />}
         <div className="grow">
           <small className="faint">{C.leader ? `${C.leader.name} · ${C.name}` : C.name}</small>
-          <div><b>{o.kind === 'peace' ? `Offers peace: ${({ status_quo: 'ceasefire on current lines', restore: 'pre-war borders', demand: 'they want territory', concede: 'they give concessions', surrender: 'their surrender' } as Record<string, string>)[o.terms?.kind ?? ''] ?? o.terms?.kind}` : `Proposes a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}</b></div>
+          <div><b>{o.kind === 'peace' ? `Offers peace: ${({ status_quo: 'ceasefire on current lines', restore: 'pre-war borders', demand: 'they want territory', concede: 'they give concessions', surrender: 'their surrender' } as Record<string, string>)[o.terms?.kind ?? ''] ?? o.terms?.kind}${o.terms?.extras?.length ? `, plus ${extrasText(o.terms.extras)}` : ''}` : `Proposes a ${PROPOSAL_LABEL[o.kind as Proposal].toLowerCase()}`}</b></div>
         </div>
       </div>
       {quote && s.tick - quote.tick < 30 && <div className="offer-quote">“{quote.text}”</div>}
