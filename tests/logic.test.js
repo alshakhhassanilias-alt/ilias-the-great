@@ -239,3 +239,51 @@ test('store: export/import roundtrip', () => {
   assert.equal(back.tables[0].num, '9');
   assert.throws(() => s.importJSON('{"foo":1}'));
 });
+
+// ---- practice scenarios ----------------------------------------------------
+const { createTrainer } = require('../js/training.js');
+const T = createTrainer(MENU, L);
+const freshTr = () => ({ box: {}, hard: {}, stats: { right: 0, wrong: 0 } });
+
+test('scenario: lines are valid, choices filled, phrases match', () => {
+  for (let i = 0; i < 200; i++) {
+    const sc = T.scenario(L.allItems(menuState), freshTr());
+    assert.ok(sc.lines.length >= 2 && sc.lines.length <= 4);
+    assert.equal(sc.lines.length, sc.phrases.length);
+    for (const l of sc.lines) {
+      const it = L.getItem(l.itemId);
+      assert.ok(it && !it.isExtra);
+      // a correctly entered scenario line has no red problems
+      const line = Object.assign(L.newLine(l.itemId), { opts: l.opts, mods: l.mods, sideSwap: l.sideSwap, sideOk: !l.sideSwap });
+      assert.ok(!L.lineIssues(line, it).some((x) => x.level === 'block' && x.code !== 'stop'), it.id);
+    }
+  }
+});
+
+test('grade: perfect entry is all ok', () => {
+  const sc = { lines: [{ itemId: 'jc_orange', qty: 2, opts: { size: '1000' }, mods: {}, sideSwap: null }] };
+  const rows = T.gradeScenario(sc, [Object.assign(L.newLine('jc_orange', { qty: 2, opts: { size: '1000' } }))]);
+  assert.deepEqual(rows.map((r) => r.ok), [true]);
+});
+
+test('grade: look-alike, wrong size, forgotten offer, side, extra', () => {
+  const sc = { lines: [
+    { itemId: 'lm_mojito', qty: 1, opts: {}, mods: {}, sideSwap: null },
+    { itemId: 'jc_orange', qty: 1, opts: { size: '200' }, mods: {}, sideSwap: null },
+    { itemId: 'pl_sib', qty: 1, opts: {}, mods: { r_broth: 1 }, sideSwap: null },
+    { itemId: 'mn_sudak', qty: 1, opts: {}, mods: {}, sideSwap: null },
+  ] };
+  const rows = T.gradeScenario(sc, [
+    L.newLine('ck_mojito'),
+    L.newLine('jc_orange', { opts: { size: '1000' } }),
+    L.newLine('pl_sib'),
+    L.newLine('mn_sudak'),
+    L.newLine('sp_borsch'),
+  ]);
+  assert.match(rows[0].text, /instead of/);
+  assert.match(rows[1].text, /wrong size/);
+  assert.match(rows[2].text, /forgot Куриный бульон/);
+  assert.match(rows[3].text, /side not confirmed/);
+  assert.ok(rows[4].extra);
+  assert.ok(rows.every((r) => !r.ok));
+});

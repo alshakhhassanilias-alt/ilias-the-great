@@ -256,6 +256,58 @@ test('waiter flow on iPhone viewport', async (t) => {
     assert.equal(s.training.stats.right + s.training.stats.wrong, 2);
   });
 
+  await t.test('practice order: separate from real tables, graded', async () => {
+    const before = await state();
+    await page.tap('[data-a="tab"][data-v="learn"]');
+    await page.tap('[data-a="lrMode"][data-m="drill"]');
+    await page.tap('[data-a="drillStart"]');
+    // add something through the real picker — must land on the practice table
+    await page.tap('[data-a="openPicker"]');
+    await page.fill('#psearch', 'уха');
+    await page.locator('#plist [data-a="pick"]').first().tap();
+    assert.match(await page.locator('#pdone').innerText(), /Practice · 1 new/);
+    await page.tap('[data-a="closePicker"]');
+    let s = await state();
+    assert.deepEqual(s.tables.map((x) => x.lines.length), before.tables.map((x) => x.lines.length));
+    assert.deepEqual(s.usage, before.usage);
+    // replace with a perfect answer and check
+    await page.evaluate(() => {
+      const pr = window.__waiter.ui.practice;
+      pr.table.lines = pr.sc.lines.map((l) => Object.assign(window.__waiter.L.newLine(l.itemId), JSON.parse(JSON.stringify(l)), { sideOk: !l.sideSwap }));
+    });
+    await page.tap('[data-a="lrMode"][data-m="drill"]');
+    await page.tap('[data-a="drillCheck"]');
+    await shot('14-practice-result');
+    const txt = await page.locator('#app').innerText();
+    assert.doesNotMatch(txt, /✗/);
+    s = await state();
+    assert.equal(s.training.drill.perfect, 1);
+    await page.tap('[data-a="drillStart"]');
+    await page.tap('[data-a="drillCheck"]').catch(() => {}); // disabled while empty
+    assert.match(await page.locator('#app').innerText(), /Guest says/);
+  });
+
+  await t.test('review grouped by guest', async () => {
+    await page.locator('[data-a="tab"][data-v="tables"]').tap();
+    await page.locator('.tcard').first().tap();
+    await page.tap('[data-a="openPicker"]');
+    await page.tap('[data-a="pSeat"][data-s="2"]');
+    await page.fill('#psearch', 'солянка');
+    await page.locator('#plist [data-a="pick"]').first().tap();
+    await page.tap('[data-a="pSeat"][data-s="1"]');
+    await page.fill('#psearch', 'медовик');
+    await page.locator('#plist [data-a="pick"]').first().tap();
+    await page.tap('[data-a="closePicker"]');
+    await page.tap('[data-a="review"]');
+    await page.tap('[data-a="rvGroup"][data-g="seat"]');
+    await shot('15-review-by-guest');
+    const txt = await page.locator('#app').innerText();
+    assert.ok(txt.indexOf('ГОСТЬ 1') >= 0 || txt.indexOf('Гость 1') >= 0);
+    const i1 = txt.search(/гость 1/i), i2 = txt.search(/гость 2/i);
+    assert.ok(i1 >= 0 && i2 > i1);
+    assert.ok(txt.indexOf('медовик') > i1 && txt.indexOf('медовик') < i2);
+  });
+
   await t.test('export produces a backup that imports back', async () => {
     await page.tap('[data-a="tab"][data-v="menu"]');
     await page.tap('[data-a="mFilter"][data-f="data"]');

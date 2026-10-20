@@ -142,6 +142,7 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .issue.block { background: var(--block-bg); color: var(--block); font-weight: 700; }
 .issue.warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .issue.info { background: var(--info-bg); color: var(--info); }
+.issue.ok { background: transparent; color: var(--ok); border: 1px solid var(--ok); font-weight: 600; }
 .issue.tap::after { content: " ＋"; font-weight: 800; }
 .price { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .total { display: flex; justify-content: space-between; font-weight: 700; padding: 12px 6px; font-size: 17px; }
@@ -1530,7 +1531,115 @@ textarea.field { min-height: 70px; }
       return { learned: learned, total: total };
     }
 
-    return { question: question, grade: grade, nextFlash: nextFlash, progress: progress };
+    // ---- Practice scenarios --------------------------------------------------
+    // A guest “says” an order in English; the waiter enters it with the real
+    // picker on a practice table; gradeScenario() compares line by line.
+    function scenario(items, tr, opts) {
+      opts = opts || {};
+      var list = items.filter(function (it) { return !it.isExtra && it.price != null && !it.hidden; });
+      var byId = {}; list.forEach(function (it) { byId[it.id] = it; });
+      var n = opts.size || (2 + Math.floor(rng() * 3));
+      var picked = [], used = {};
+      var guard = 0;
+      while (picked.length < n && guard++ < 200) {
+        var it;
+        if (rng() < 0.5) {
+          // half the time pick from a look-alike group, to make it realistic
+          var g = MENU.CONFUSABLES[Math.floor(rng() * MENU.CONFUSABLES.length)];
+          it = byId[g.ids[Math.floor(rng() * g.ids.length)]];
+        } else {
+          it = pickWeighted(list, tr);
+        }
+        if (!it || used[it.id]) continue;
+        used[it.id] = true;
+        picked.push(it);
+      }
+      var lines = picked.map(function (it) {
+        var line = { itemId: it.id, qty: rng() < 0.7 ? 1 : 2, opts: {}, mods: {}, sideSwap: null };
+        var words = [];
+        (it.options || []).forEach(function (o) {
+          if (!o.required) return;
+          if (o.multi) {
+            var want = o.want || 1;
+            var chosen = shuffle(o.choices.slice()).slice(0, want);
+            line.opts[o.id] = chosen.map(function (c) { return c.id; });
+            words.push(chosen.map(function (c) { return c.label; }).join(', '));
+          } else {
+            var c = o.choices[Math.floor(rng() * o.choices.length)];
+            line.opts[o.id] = c.id;
+            words.push(c.label);
+          }
+        });
+        var phrase = line.qty + ' × ' + it.en + (words.length ? ' (' + words.join(', ') + ')' : '');
+        if (it.side && it.side.swap && rng() < 0.35) {
+          var sides = MENU.ITEMS.filter(function (x) { return x.cat === 'sides' && logic.norm(x.ru) !== logic.norm(it.side.name); });
+          var sw = sides[Math.floor(rng() * sides.length)];
+          line.sideSwap = sw.id;
+          phrase += ' — with ' + sw.en.toLowerCase() + ' instead';
+        }
+        if (it.suggest && rng() < 0.4) {
+          var m = MENU.MODS[it.suggest[Math.floor(rng() * it.suggest.length)]];
+          line.mods[m.id] = 1;
+          phrase += ' + ' + m.en.toLowerCase();
+        }
+        return { line: line, phrase: phrase };
+      });
+      return { lines: lines.map(function (l) { return l.line; }), phrases: lines.map(function (l) { return l.phrase; }) };
+    }
+
+    function sameOpts(a, b) {
+      var ka = Object.keys(a || {}).filter(function (k) { return a[k] != null; });
+      var kb = Object.keys(b || {}).filter(function (k) { return b[k] != null; });
+      if (ka.length !== kb.length) return false;
+      return ka.every(function (k) {
+        var x = a[k], y = b[k];
+        if (Array.isArray(x) || Array.isArray(y)) return JSON.stringify((x || []).slice().sort()) === JSON.stringify((y || []).slice().sort());
+        return x === y;
+      });
+    }
+
+    // Returns [{ok, text, itemId}] — one row per expected line plus extras.
+    function gradeScenario(sc, actualLines) {
+      var rows = [];
+      var pool = actualLines.map(function (l) { return { l: l, used: false }; });
+      sc.lines.forEach(function (exp) {
+        var it = logic.getItem(exp.itemId);
+        var same = pool.filter(function (p) { return !p.used && p.l.itemId === exp.itemId; });
+        if (!same.length) {
+          // Did they pick a look-alike instead?
+          var groups = MENU.CONFUSABLES.filter(function (g) { return g.ids.indexOf(exp.itemId) >= 0; });
+          var wrong = pool.filter(function (p) {
+            return !p.used && groups.some(function (g) { return g.ids.indexOf(p.l.itemId) >= 0; });
+          })[0];
+          if (wrong) {
+            wrong.used = true;
+            var wi = logic.getItem(wrong.l.itemId);
+            rows.push({ ok: false, itemId: exp.itemId, text: 'Picked ' + logic.displayName(wi) + ' instead of ' + logic.displayName(it) + '. ' +
+              groups.filter(function (g) { return g.ids.indexOf(wrong.l.itemId) >= 0; })[0].diff });
+          } else {
+            rows.push({ ok: false, itemId: exp.itemId, text: 'Missing: ' + exp.qty + ' × ' + logic.displayName(it) });
+          }
+          return;
+        }
+        var qty = same.reduce(function (a, p) { return a + p.l.qty; }, 0);
+        same.forEach(function (p) { p.used = true; });
+        var problems = [];
+        if (qty !== exp.qty) problems.push('quantity ' + qty + ', guest asked ' + exp.qty);
+        if (!same.some(function (p) { return sameOpts(p.l.opts, exp.opts); })) problems.push('wrong size / choice');
+        if (exp.sideSwap && !same.some(function (p) { return p.l.sideSwap === exp.sideSwap; })) problems.push('side swap not recorded');
+        if (it.side && !exp.sideSwap && !same.some(function (p) { return p.l.sideOk || p.l.sideSwap; })) problems.push('side not confirmed');
+        Object.keys(exp.mods).forEach(function (m) {
+          if (!same.some(function (p) { return p.l.mods && p.l.mods[m]; })) problems.push('forgot ' + MENU.MODS[m].ru);
+        });
+        rows.push({ ok: !problems.length, itemId: exp.itemId, text: exp.qty + ' × ' + logic.displayName(it) + (problems.length ? ' — ' + problems.join('; ') : '') });
+      });
+      pool.filter(function (p) { return !p.used; }).forEach(function (p) {
+        rows.push({ ok: false, itemId: p.l.itemId, extra: true, text: 'Not ordered by guest: ' + p.l.qty + ' × ' + logic.displayName(logic.getItem(p.l.itemId)) });
+      });
+      return rows;
+    }
+
+    return { question: question, grade: grade, nextFlash: nextFlash, progress: progress, scenario: scenario, gradeScenario: gradeScenario };
   }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { createTrainer: createTrainer };
@@ -1576,7 +1685,10 @@ textarea.field { min-height: 70px; }
   }
   function rub(n) { return n == null ? '? ₽' : n.toLocaleString('ru-RU') + ' ₽'; }
   function findTable(id) { return S.tables.filter(function (t) { return t.id === id; })[0] || null; }
-  function cur() { return findTable(ui.tableId); }
+  // In Learn → Practice, the order screens work on a throw-away practice table
+  // that is never saved with the real tables.
+  function isPractice() { return ui.view === 'learn' && !!ui.practice; }
+  function cur() { return isPractice() ? ui.practice.table : findTable(ui.tableId); }
   function item(id) { return L.getItem(id, S.menu); }
   function catColor(catId) { var c = L.cat(catId); return 'hsl(' + (c ? c.hue : 0) + ' 62% 48%)'; }
   function ago(ts) {
@@ -1613,7 +1725,7 @@ textarea.field { min-height: 70px; }
 
   var toastTimer = null, toastUndo = null;
   function toast(text, undoJSON) {
-    toastUndo = undoJSON || null;
+    toastUndo = isPractice() ? null : (undoJSON || null);
     $toast.innerHTML = '<span>' + esc(text) + '</span>' + (toastUndo ? '<button data-a="undo">Undo</button>' : '');
     $toast.hidden = false;
     $toast.classList.toggle('inpicker', !!ui.picker);
@@ -1644,7 +1756,7 @@ textarea.field { min-height: 70px; }
   // ---------------------------------------------------------------- render
   function render() {
     document.documentElement.dataset.theme = S.settings.theme || '';
-    var t = cur();
+    var t = findTable(ui.tableId);
     var newCount = t ? t.lines.filter(function (l) { return l.status === 'new'; }).length : 0;
     $tabs.innerHTML = [
       tab('tables', '▦', 'Tables'),
@@ -1796,6 +1908,16 @@ textarea.field { min-height: 70px; }
       '<button class="iconbtn" data-a="bigText" aria-label="text size">' + (r.big ? 'A−' : 'A+') + '</button></div>';
     h += '<div class="seg" style="margin:0 0 10px"><button data-a="rvNew" class="' + (r.onlyNew ? 'on' : '') + '">New only</button>' +
       '<button data-a="rvAll" class="' + (!r.onlyNew ? 'on' : '') + '">Whole table</button></div>';
+    var hasSeats = lines.some(function (l) { return l.seat; });
+    if (hasSeats) {
+      h += '<div class="seg" style="margin:0 0 10px"><button data-a="rvGroup" data-g="menu" class="' + (!r.bySeat ? 'on' : '') + '">By menu (for POS)</button>' +
+        '<button data-a="rvGroup" data-g="seat" class="' + (r.bySeat ? 'on' : '') + '">By guest</button></div>';
+    }
+    if (hasSeats && r.bySeat) {
+      lines = lines.map(function (l, i) { return { l: l, i: i }; }).sort(function (a, b) {
+        return (a.l.seat || 99) - (b.l.seat || 99) || a.i - b.i;
+      }).map(function (x) { return x.l; });
+    }
     if (blockers.length) {
       h += '<div class="tableissues">' + blockers.map(function (b) {
         var it = item(b.l.itemId);
@@ -1806,12 +1928,14 @@ textarea.field { min-height: 70px; }
       h += '<div class="issue warn mt">' + esc(i.text) + '</div>';
     });
     if (!lines.length) h += '<div class="empty">Nothing new to enter.</div>';
-    var lastCat = null;
+    var lastHead = null;
     h += '<div class="rv mt ' + (r.big ? 'big' : '') + '">';
     lines.forEach(function (l) {
       var it = item(l.itemId);
-      if (it && it.cat !== lastCat) { lastCat = it.cat; h += '<div class="cat-h">' + esc(L.cat(it.cat).ru) + '</div>'; }
+      var head = hasSeats && r.bySeat ? (l.seat ? 'Гость ' + l.seat : 'Без гостя / на стол') : (it ? L.cat(it.cat).ru : '');
+      if (head !== lastHead) { lastHead = head; h += '<div class="cat-h">' + esc(head) + '</div>'; }
       var d = L.lineDetail(l, it);
+      if (hasSeats && r.bySeat) d = d.filter(function (x) { return !/^гость /.test(x); });
       h += '<button class="rvline ' + (r.ticked[l.id] ? 'ticked' : '') + '" data-a="tick" data-id="' + l.id + '">' +
         '<span class="box">' + (r.ticked[l.id] ? '✓' : '') + '</span><span class="q">' + l.qty + '×</span>' +
         '<span><span class="n">' + esc(it ? L.displayName(it) : l.itemId) + '</span>' +
@@ -1936,7 +2060,7 @@ textarea.field { min-height: 70px; }
     list.innerHTML = pickerListHTML();
     list.scrollTop = st;
     var n = t ? t.lines.filter(function (l) { return l.status === 'new'; }).reduce(function (a, l) { return a + l.qty; }, 0) : 0;
-    document.getElementById('pdone').textContent = 'Done · Стол ' + (t ? t.num : '') + (n ? ' · ' + n + ' new' : '');
+    document.getElementById('pdone').textContent = (isPractice() ? 'Done · Practice' : 'Done · Стол ' + (t ? t.num : '')) + (n ? ' · ' + n + ' new' : '');
   }
 
   // ---------------------------------------------------------------- sheets
@@ -2155,9 +2279,10 @@ textarea.field { min-height: 70px; }
     var items = L.allItems(S.menu);
     var pr = T.progress(items, S.training);
     var h = '<div class="top"><h1>Learn the menu</h1><span class="savedot">' + pr.learned + '/' + pr.total + ' learned</span></div>';
-    h += '<div class="seg" style="margin:0">' + [['quiz', 'Quiz'], ['flash', 'Cards'], ['confuse', 'Look-alikes'], ['hard', 'Hard 🧠']].map(function (m) {
-      return '<button data-a="lrMode" data-m="' + m[0] + '" class="' + (lr.mode === m[0] ? 'on' : '') + '">' + m[1] + '</button>';
+    h += '<div class="strip">' + [['drill', '🗣 Practice order'], ['quiz', 'Quiz'], ['flash', 'Cards'], ['confuse', 'Look-alikes'], ['hard', 'Hard 🧠']].map(function (m) {
+      return '<button class="chip ' + (lr.mode === m[0] ? 'on' : '') + '" data-a="lrMode" data-m="' + m[0] + '">' + m[1] + '</button>';
     }).join('') + '</div>';
+    if (lr.mode === 'drill') return h + viewDrill(items);
     if (lr.mode === 'quiz' || lr.mode === 'flash') {
       h += '<div class="strip mt">' + [['all', 'Everything'], ['food', 'Food'], ['drinks', 'Drinks'], ['bar', 'Bar'], ['hard', 'Only 🧠']].map(function (g) {
         return '<button class="chip ' + (lr.group === g[0] ? 'on' : '') + '" data-a="lrGroup" data-g="' + g[0] + '">' + g[1] + '</button>';
@@ -2206,6 +2331,44 @@ textarea.field { min-height: 70px; }
       h += '<div class="small muted mt">Items you marked 🧠. They appear 3× more often in quiz and cards. Mark items via ⓘ anywhere.</div>';
       h += hard.length ? '<div class="mt">' + hard.map(function (x) { return itemRow(x, null, 'learn'); }).join('') + '</div>' : '<div class="empty">None yet.</div>';
     }
+    return h;
+  }
+
+  function viewDrill(items) {
+    var pr = ui.practice;
+    var h = '';
+    if (!pr) {
+      var st = S.training.drill || { done: 0, perfect: 0 };
+      h += '<div class="card mt"><b>Practice a real order</b><div class="small muted mt">A guest orders 2–4 things in English, often look-alike dishes. ' +
+        'Enter it with the normal menu screen (search, sizes, sides, offers), then tap Check. Practice orders are never mixed with your real tables.</div>' +
+        '<div class="stat mt">' + st.done + ' practised · ' + st.perfect + ' perfect</div></div>' +
+        '<div class="actionbar"><button class="btn primary grow" data-a="drillStart">Start practice order</button></div>';
+      return h;
+    }
+    h += '<div class="card mt"><div class="small muted">Guest says:</div><ul class="list-plain">' + pr.sc.phrases.map(function (ph) {
+      return '<li style="font-size:17px;font-weight:650">“' + esc(ph) + '”</li>';
+    }).join('') + '</ul></div>';
+    if (pr.result) {
+      var ok = pr.result.filter(function (r) { return r.ok; }).length;
+      var exp = pr.sc.lines.length;
+      h += '<div class="section-h"><span>Result · ' + ok + '/' + exp + ' correct · ' + Math.round((pr.checkedAt - pr.startedAt) / 1000) + ' s</span></div>';
+      h += '<div class="tableissues">' + pr.result.map(function (r) {
+        return '<div class="issue ' + (r.ok ? 'ok' : 'block') + '">' + (r.ok ? '✓ ' : '✗ ') + esc(r.text) + '</div>';
+      }).join('') + '</div>';
+      h += '<div class="section-h"><span>Correct entry</span></div><div class="note" style="white-space:pre-line">' +
+        esc(pr.sc.lines.map(function (l) {
+          var it = item(l.itemId);
+          var d = L.lineDetail(Object.assign(L.newLine(l.itemId), l, { sideOk: !l.sideSwap }), it);
+          return l.qty + ' × ' + L.displayName(it) + (d.length ? ' — ' + d.join('; ') : '');
+        }).join('\n')) + '</div>';
+      h += '<div class="actionbar"><button class="btn" data-a="drillStop">Stop</button><button class="btn primary grow" data-a="drillStart">Next order ›</button></div>';
+      return h;
+    }
+    var t = pr.table;
+    if (!t.lines.length) h += '<div class="empty">Tap <b>+ Add</b> and enter what the guest said.</div>';
+    else h += '<div class="lines mt">' + t.lines.map(function (l) { return lineRow(l, { issues: true }); }).join('') + '</div>';
+    h += '<div class="actionbar"><button class="btn" data-a="drillCheck"' + (t.lines.length ? '' : ' disabled') + '>Check ✓</button>' +
+      '<button class="btn primary grow" data-a="openPicker">+ Add</button></div>';
     return h;
   }
 
@@ -2264,7 +2427,7 @@ textarea.field { min-height: 70px; }
   // ---------------------------------------------------------------- actions
   var A = {};
   A.tab = function (d) {
-    if (d.v === 'table' && !cur()) return nav('tables');
+    if (d.v === 'table' && !findTable(ui.tableId)) return nav('tables');
     nav(d.v);
   };
   A.undo = function () {
@@ -2390,6 +2553,7 @@ textarea.field { min-height: 70px; }
   };
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
+    if (isPractice()) return;
     S.usage[id] = (S.usage[id] || 0) + 1;
     S.recent = [id].concat(S.recent.filter(function (x) { return x !== id; })).slice(0, 20);
   }
@@ -2496,6 +2660,7 @@ textarea.field { min-height: 70px; }
   A.review = function () { ui.review.onlyNew = cur().lines.some(function (l) { return l.status === 'new'; }); nav('review'); };
   A.rvNew = function () { ui.review.onlyNew = true; render(); };
   A.rvAll = function () { ui.review.onlyNew = false; render(); };
+  A.rvGroup = function (d) { ui.review.bySeat = d.g === 'seat'; render(); };
   A.bigText = function () { ui.review.big = !ui.review.big; render(); };
   A.tick = function (d) { ui.review.ticked[d.id] = !ui.review.ticked[d.id]; render(); };
   A.markSent = function () {
@@ -2635,6 +2800,24 @@ textarea.field { min-height: 70px; }
     lr.answered = +d.i;
     var right = lr.q.choices[lr.answered].correct;
     commit(null, function () { T.grade(S.training, lr.q.itemId, right); });
+  };
+  A.drillStart = function () {
+    var sc = T.scenario(L.allItems(S.menu), S.training);
+    ui.practice = { sc: sc, table: { id: 'practice', num: 'Practice', lines: [], openedAt: Date.now() }, startedAt: Date.now(), result: null };
+    render(); window.scrollTo(0, 0);
+  };
+  A.drillStop = function () { ui.practice = null; render(); };
+  A.drillCheck = function () {
+    var pr = ui.practice;
+    pr.result = T.gradeScenario(pr.sc, pr.table.lines);
+    pr.checkedAt = Date.now();
+    var perfect = pr.result.every(function (r) { return r.ok; });
+    commit(null, function () {
+      pr.result.forEach(function (r) { if (!r.extra) T.grade(S.training, r.itemId, r.ok); });
+      var st = S.training.drill = S.training.drill || { done: 0, perfect: 0 };
+      st.done++; if (perfect) st.perfect++;
+    });
+    window.scrollTo(0, 0);
   };
   A.nextQ = function () { ui.learn.q = null; ui.learn.answered = null; render(); window.scrollTo(0, 0); };
   A.flip = function () { ui.learn.flipped = !ui.learn.flipped; render(); };
