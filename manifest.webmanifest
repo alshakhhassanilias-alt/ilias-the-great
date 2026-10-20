@@ -1,0 +1,15 @@
+{
+  "name": "Waiter Pad",
+  "short_name": "Waiter",
+  "description": "Order notepad, checklist and menu trainer for the vareniki restaurant menu.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111317",
+  "theme_color": "#14161a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,2723 @@
+<title>Waiter Pad</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Waiter">
+<meta name="theme-color" content="#14161a">
+<meta name="format-detection" content="telephone=no">
+<style>
+:root {
+  --bg: #f4f2ee;
+  --panel: #ffffff;
+  --panel-2: #ece9e3;
+  --text: #1b1c1f;
+  --muted: #6b6d73;
+  --line: #dcd8d0;
+  --accent: #c8102e;      /* menu red */
+  --accent-text: #ffffff;
+  --ok: #1f8a4c;
+  --warn: #b26a00;
+  --warn-bg: #fff2d6;
+  --block: #c62828;
+  --block-bg: #fde3e3;
+  --info: #2a5db0;
+  --info-bg: #e3ecfb;
+  --new: #e07a00;
+  --radius: 14px;
+  --tap: 48px;
+  --tabs-h: 58px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --panel: #1b1e24; --panel-2: #252931; --text: #eceef2; --muted: #9aa0ab; --line: #2e333c;
+    --accent: #e0364f; --warn: #f0b04a; --warn-bg: #3a2d14; --block: #ff6b6b; --block-bg: #3d1a1c;
+    --info: #8ab4ff; --info-bg: #1b2a44; --ok: #4cc27f; --new: #ff9f2e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --panel: #1b1e24; --panel-2: #252931; --text: #eceef2; --muted: #9aa0ab; --line: #2e333c;
+  --accent: #e0364f; --warn: #f0b04a; --warn-bg: #3a2d14; --block: #ff6b6b; --block-bg: #3d1a1c;
+  --info: #8ab4ff; --info-bg: #1b2a44; --ok: #4cc27f; --new: #ff9f2e; color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 16px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%; overscroll-behavior-y: none;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { touch-action: manipulation; cursor: pointer; -webkit-user-select: none; user-select: none; }
+input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
+
+#app { padding-block: calc(var(--safe-t) + 8px) calc(var(--tabs-h) + var(--safe-b) + 96px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 720px; margin: 0 auto; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 8px; }
+.top h1 { font-size: 22px; margin: 0; flex: 1; letter-spacing: -0.01em; }
+.top .sub { color: var(--muted); font-size: 14px; font-weight: 400; }
+.savedot { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.savedot.bad { color: var(--block); font-weight: 700; }
+
+/* ---------- buttons ---------- */
+.btn {
+  min-height: var(--tap); padding: 0 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--panel); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn.ok { background: var(--ok); color: #fff; border-color: transparent; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--block); }
+.btn.sm { min-height: 36px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+.btn.block { width: 100%; }
+.btn:disabled { opacity: .45; }
+.iconbtn { min-width: var(--tap); min-height: var(--tap); border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; font-weight: 700; }
+
+.actionbar {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--tabs-h) + var(--safe-b)); z-index: 20;
+  padding: 8px 16px; display: flex; gap: 8px; background: linear-gradient(to top, var(--bg) 70%, transparent);
+  max-width: 720px; margin: 0 auto;
+}
+.actionbar .btn { flex: 1; min-height: 56px; font-size: 17px; }
+.actionbar .btn.grow { flex: 2; }
+
+/* ---------- tabs ---------- */
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; height: calc(var(--tabs-h) + var(--safe-b));
+  padding-bottom: var(--safe-b); background: var(--panel); border-top: 1px solid var(--line);
+}
+.tabs button { flex: 1; border: 0; background: transparent; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.tabs button b { font-size: 20px; line-height: 1; }
+.tabs button.on { color: var(--accent); font-weight: 700; }
+
+/* ---------- tables grid ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tcard {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; text-align: left;
+  min-height: 108px; display: flex; flex-direction: column; gap: 4px; position: relative;
+}
+.tcard .num { font-size: 30px; font-weight: 800; line-height: 1; }
+.tcard .meta { font-size: 13px; color: var(--muted); }
+.tcard .badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }
+.pill { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--panel-2); white-space: nowrap; }
+.pill.new { background: var(--new); color: #fff; }
+.pill.block { background: var(--block); color: #fff; }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.ok { background: transparent; color: var(--ok); border: 1px solid var(--ok); }
+.empty { text-align: center; color: var(--muted); padding: 40px 12px; }
+
+/* ---------- table strip ---------- */
+.strip { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel);
+  font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.chip.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--new); }
+
+/* ---------- order lines ---------- */
+.section-h { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 4px 6px; display: flex; justify-content: space-between; align-items: center; }
+.section-h.new { color: var(--new); font-weight: 800; }
+.lines { display: flex; flex-direction: column; gap: 6px; }
+.line {
+  display: flex; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.line.sent { opacity: .72; }
+.line .stripe { width: 6px; flex: none; }
+.line .qty { flex: none; width: 44px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; }
+.line .body { flex: 1; padding: 9px 4px 9px 0; min-width: 0; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.line .name { font-weight: 650; font-size: 16px; }
+.line .pre { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+.line .detail { font-size: 14px; color: var(--muted); margin-top: 2px; }
+.line .issues { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.line .steps { display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+.line .steps button { flex: 1; width: 48px; border: 0; background: transparent; font-size: 22px; font-weight: 700; }
+.line .steps button + button { border-top: 1px solid var(--line); }
+.issue { font-size: 13px; padding: 3px 8px; border-radius: 8px; border: 0; text-align: left; line-height: 1.25; }
+.issue.block { background: var(--block-bg); color: var(--block); font-weight: 700; }
+.issue.warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.issue.info { background: var(--info-bg); color: var(--info); }
+.issue.tap::after { content: " ＋"; font-weight: 800; }
+.price { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.total { display: flex; justify-content: space-between; font-weight: 700; padding: 12px 6px; font-size: 17px; }
+.tableissues { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.tableissues .issue { font-size: 14px; padding: 8px 10px; }
+
+/* ---------- picker ---------- */
+.picker { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
+.picker .head { padding: calc(var(--safe-t) + 8px) 16px 6px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.searchrow { display: flex; gap: 8px; }
+.search {
+  flex: 1; min-height: var(--tap); border-radius: 12px; border: 1px solid var(--line); background: var(--panel); padding: 0 14px;
+}
+.seg { display: flex; background: var(--panel-2); border-radius: 12px; padding: 3px; gap: 3px; margin-top: 8px; }
+.seg button { flex: 1; min-height: 38px; border: 0; border-radius: 9px; background: transparent; font-weight: 700; font-size: 15px; color: var(--muted); }
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.picker .list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px 120px; }
+.picker .foot {
+  padding: 8px 12px calc(var(--safe-b) + 8px); display: flex; gap: 8px; border-top: 1px solid var(--line); background: var(--bg);
+}
+.picker .foot .btn { flex: 1; min-height: 56px; font-size: 17px; }
+.seatrow { display: flex; gap: 6px; align-items: center; margin-top: 8px; overflow-x: auto; }
+.seatrow .lbl { font-size: 12px; color: var(--muted); flex: none; }
+.seatrow .chip { min-height: 34px; padding: 0 12px; font-size: 14px; }
+
+.irow {
+  width: 100%; display: flex; align-items: stretch; gap: 0; text-align: left; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 12px; margin-bottom: 6px; overflow: hidden; min-height: 60px; padding: 0;
+}
+.irow.stop { opacity: .5; }
+.irow .stripe { width: 6px; flex: none; }
+.irow .ic { flex: none; width: 46px; display: flex; align-items: center; justify-content: center; font-size: 17px; letter-spacing: -3px; text-align: center; line-height: 1.05; word-break: break-all; padding: 0 2px; }
+.irow .main { flex: 1; padding: 8px 6px 8px 0; min-width: 0; }
+.irow .ru { font-weight: 650; font-size: 15.5px; }
+.irow .en { font-size: 12.5px; color: var(--muted); }
+.irow .pre { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+.irow .side { flex: none; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; padding: 6px 10px 6px 4px; gap: 3px; }
+.irow .p { font-weight: 700; font-variant-numeric: tabular-nums; }
+.irow .w { font-size: 11px; color: var(--muted); }
+.irow .inorder { background: var(--new); color: #fff; font-weight: 800; border-radius: 999px; min-width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.irow .info { flex: none; width: 40px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 18px; }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 6px; margin-right: 4px; vertical-align: 1px; background: var(--panel-2); color: var(--text); letter-spacing: .02em; }
+.tag.form { background: var(--text); color: var(--bg); }
+.tag.new { background: var(--accent); color: #fff; }
+.tag.unv { background: var(--warn-bg); color: var(--warn); }
+.tag.stop { background: var(--block); color: #fff; }
+.tag.alc { background: #6b2bd9; color: #fff; }
+.tag.noalc { background: var(--ok); color: #fff; }
+.cat-h { font-size: 13px; font-weight: 800; color: var(--muted); margin: 14px 2px 6px; text-transform: uppercase; letter-spacing: .05em; }
+
+/* ---------- sheets ---------- */
+.backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  width: 100%; max-width: 720px; max-height: 92vh; overflow-y: auto; background: var(--panel); border-radius: 18px 18px 0 0;
+  padding: 10px 16px calc(var(--safe-b) + 16px); -webkit-overflow-scrolling: touch;
+}
+.sheet.anim { animation: up .16s ease-out; }
+@keyframes up { from { transform: translateY(30px); } to { transform: none; } }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+.sheet h2 { font-size: 20px; margin: 0 0 2px; }
+.sheet .en { color: var(--muted); font-size: 14px; }
+.sheet h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 16px 0 8px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choices .chip { min-height: 44px; }
+.choices .chip.sug { border-color: var(--info); }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper .v { font-size: 26px; font-weight: 800; min-width: 44px; text-align: center; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row.wrap { flex-wrap: wrap; }
+.sheet .foot { display: flex; gap: 8px; margin-top: 18px; position: sticky; bottom: calc(-16px - var(--safe-b)); background: var(--panel); padding: 10px 0 0; }
+.sheet .foot .btn { flex: 1; min-height: 54px; font-size: 17px; }
+.field { width: 100%; min-height: var(--tap); border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 10px 12px; }
+textarea.field { min-height: 70px; }
+.desc { font-size: 14.5px; }
+.note { font-size: 13.5px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); margin-top: 8px; }
+.note.unv { background: var(--warn-bg); color: var(--warn); }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.keypad button { min-height: 58px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); font-size: 24px; font-weight: 700; }
+.display { font-size: 40px; font-weight: 800; text-align: center; min-height: 56px; letter-spacing: .04em; }
+
+/* ---------- review ---------- */
+.rv { display: flex; flex-direction: column; gap: 4px; }
+.rvline { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); text-align: left; width: 100%; }
+.rvline.ticked { opacity: .45; }
+.rvline .box { flex: none; width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--muted); display: flex; align-items: center; justify-content: center; font-weight: 900; }
+.rvline.ticked .box { background: var(--ok); border-color: var(--ok); color: #fff; }
+.rvline .q { flex: none; font-size: 22px; font-weight: 900; min-width: 34px; }
+.rvline .n { font-size: 18px; font-weight: 700; }
+.big .rvline .n { font-size: 21px; }
+.big .rvline .q { font-size: 26px; }
+.rvline .d { font-size: 15px; color: var(--muted); }
+
+/* ---------- learn ---------- */
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+}
+.flash { min-height: 260px; display: flex; flex-direction: column; justify-content: center; text-align: center; gap: 8px; }
+.flash .big { font-size: 24px; font-weight: 800; }
+.answer { width: 100%; text-align: left; min-height: 54px; margin-bottom: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); padding: 10px 14px; font-weight: 600; }
+.answer.right { background: var(--ok); color: #fff; border-color: var(--ok); }
+.answer.wrong { background: var(--block); color: #fff; border-color: var(--block); }
+.stat { font-size: 13px; color: var(--muted); }
+.list-plain { list-style: none; margin: 0; padding: 0; }
+.list-plain li { padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.kv { display: flex; justify-content: space-between; gap: 12px; }
+
+/* ---------- misc ---------- */
+.banner { position: sticky; top: 0; z-index: 60; background: var(--block); color: #fff; font-weight: 700; padding: calc(var(--safe-t) + 8px) 12px 8px; text-align: center; }
+.banner.info { background: var(--info); }
+.toast {
+  position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabs-h) + var(--safe-b) + 84px); z-index: 70; max-width: 560px; margin: 0 auto;
+  background: var(--text); color: var(--bg); border-radius: 14px; padding: 10px 10px 10px 16px; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25); font-weight: 600;
+}
+.toast.inpicker { bottom: calc(var(--safe-b) + 84px); }
+.toast span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast button { border: 0; background: transparent; color: var(--accent); font-weight: 800; min-height: 40px; padding: 0 10px; filter: brightness(1.4); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.mt { margin-top: 12px; }
+.hr { height: 1px; background: var(--line); margin: 14px 0; }
+.hidden, [hidden] { display: none !important; }
+
+</style>
+<div id="banner" class="banner" hidden></div>
+<main id="app" aria-live="polite"></main>
+<nav id="tabs" class="tabs"></nav>
+<div id="sheet-root"></div>
+<div id="toast" class="toast" hidden></div>
+<noscript>This app needs JavaScript.</noscript>
+<script>
+/*
+ * Menu data transcribed from the 22 menu photos provided (October 2026).
+ *
+ * Rules followed:
+ *  - Russian names, prices, weights and compositions are copied from the photos.
+ *  - Nothing is invented. Where a photo was cropped or ambiguous the field is
+ *    flagged with `unverified: '<reason>'` and shown in the app with a ⚠ mark.
+ *  - Items printed on two pages (творожные шарики, блины с добавками) are
+ *    stored once and listed under both categories via `alsoIn`.
+ *  - "Recommendations" printed on the menu (поджарка, бульон, сало, мороженое)
+ *    are modelled as optional extras the app *suggests*, never auto-adds.
+ *
+ * Item fields:
+ *   id, cat, ru, en, price (₽, base), w (weight/volume as printed),
+ *   desc (composition, RU as printed), descEn (EN as printed),
+ *   tags: new | pits | bones | spicy | alc | breakfast
+ *   icons: quick visual filling cue (derived from the printed name only)
+ *   form: short distinguishing label (варёные / жареные / в горшочке / ...)
+ *   options: [{id, label, required, multi, choices:[{id, label, price?}]}]
+ *            choice.price replaces the base price (sizes); otherwise base stays.
+ *   side: { name, swap } — side named in the dish title (swap = "+35 ₽" rule)
+ *   sideUnknown: true — weight suggests a garnish but the menu does not name it
+ *   mods: list of modifier-group ids that can be attached
+ *   suggest: modifier ids the menu itself recommends for this dish
+ *   ml: alcohol portion size for promo calculations
+ */
+(function (root) {
+  'use strict';
+
+  var GROUPS = [
+    { id: 'food', label: 'Food' },
+    { id: 'drinks', label: 'Drinks' },
+    { id: 'bar', label: 'Bar' },
+  ];
+
+  var CATS = [
+    { id: 'breakfast', group: 'food', ru: 'Завтраки', en: 'Breakfasts', hue: 38 },
+    { id: 'vareniki', group: 'food', ru: 'Вареники', en: 'Vareniki', hue: 48 },
+    { id: 'pot', group: 'food', ru: 'Вареники в горшочках', en: 'Vareniki in a pot', hue: 22 },
+    { id: 'sets', group: 'food', ru: 'Наборы вареников', en: 'Vareniki sets', hue: 30 },
+    { id: 'sweetvar', group: 'food', ru: 'Сладкие вареники', en: 'Sweet vareniki', hue: 330 },
+    { id: 'pelmeni', group: 'food', ru: 'Пельмени', en: 'Pelmeni', hue: 12 },
+    { id: 'salads', group: 'food', ru: 'Салаты', en: 'Salads', hue: 110 },
+    { id: 'snacks', group: 'food', ru: 'Закуски', en: 'Snacks', hue: 80 },
+    { id: 'cheese', group: 'food', ru: 'Сыр', en: 'Cheese', hue: 55 },
+    { id: 'soups', group: 'food', ru: 'Супы', en: 'Soups', hue: 0 },
+    { id: 'bread', group: 'food', ru: 'Хлеб / выпечка', en: 'Bread / pastry', hue: 34 },
+    { id: 'mains', group: 'food', ru: 'Основные блюда', en: 'Main dishes', hue: 350 },
+    { id: 'sides', group: 'food', ru: 'Гарниры', en: 'Side dishes', hue: 60 },
+    { id: 'desserts', group: 'food', ru: 'Десерты', en: 'Desserts', hue: 300 },
+    { id: 'pancakes', group: 'food', ru: 'Блины', en: 'Pancakes', hue: 42 },
+    { id: 'extras', group: 'food', ru: 'Добавки / соусы', en: 'Extras / sauces', hue: 200 },
+
+    { id: 'coffee', group: 'drinks', ru: 'Кофе', en: 'Coffee', hue: 25 },
+    { id: 'teaberry', group: 'drinks', ru: 'Чай с ягодами и травами', en: 'Tea with berries & herbs', hue: 340 },
+    { id: 'tealeaf', group: 'drinks', ru: 'Листовой чай', en: 'Leaf tea', hue: 90 },
+    { id: 'morse', group: 'drinks', ru: 'Согревающие морсы', en: 'Warming berry drinks', hue: 355 },
+    { id: 'lemonade', group: 'drinks', ru: 'Лимонады / б/а коктейли', en: 'Lemonades / non-alc', hue: 140 },
+    { id: 'juice', group: 'drinks', ru: 'Соки / фреши', en: 'Juices / freshes', hue: 30 },
+    { id: 'own', group: 'drinks', ru: 'Компоты / морс / кисель', en: 'Compote / kissel / mors', hue: 320 },
+    { id: 'soda', group: 'drinks', ru: 'Газ вода / вода', en: 'Soda / water', hue: 195 },
+    { id: 'shake', group: 'drinks', ru: 'Молочные коктейли', en: 'Milkshakes', hue: 280 },
+
+    { id: 'beer', group: 'bar', ru: 'Пиво / квас', en: 'Beer / kvass', hue: 45 },
+    { id: 'wine', group: 'bar', ru: 'Вино', en: 'Wine', hue: 345 },
+    { id: 'cocktails', group: 'bar', ru: 'Коктейли', en: 'Cocktails', hue: 300 },
+    { id: 'hotcock', group: 'bar', ru: 'Горячие коктейли', en: 'Hot cocktails', hue: 15 },
+    { id: 'shots', group: 'bar', ru: 'Шоты', en: 'Shots', hue: 330 },
+    { id: 'vodka', group: 'bar', ru: 'Водка', en: 'Vodka', hue: 210 },
+    { id: 'samogon', group: 'bar', ru: 'Самогон', en: 'Moonshine', hue: 35 },
+    { id: 'spirits', group: 'bar', ru: 'Джин / ром / виски / коньяк', en: 'Gin / rum / whisky / cognac', hue: 28 },
+    { id: 'liqueur', group: 'bar', ru: 'Настойки / ликёры / аперитивы', en: 'Nalewka / liqueur / aperitif', hue: 270 },
+  ];
+
+  // ---- Modifiers (extras attached to a dish line) -------------------------
+  var MODS = {};
+  function mod(group, id, ru, en, price, extra) {
+    MODS[id] = Object.assign({ id: id, group: group, ru: ru, en: en, price: price }, extra || {});
+  }
+  // "Добавки 40 г" — printed on the vareniki page and the salads page.
+  // The two lists are identical except: vareniki page has Квашеная капуста,
+  // salads page has Маслины. Both are kept.
+  mod('savory', 'm_mayo', 'Майонез', 'Mayonnaise', 90);
+  mod('savory', 'm_ketchup', 'Кетчуп', 'Ketchup', 80);
+  mod('savory', 'm_mustard', 'Горчица', 'Mustard', 60);
+  mod('savory', 'm_horseradish', 'Хрен 30 г', 'Horseradish 30 g', 130);
+  mod('savory', 'm_smetana', 'Сметана', 'Sour cream', 85);
+  mod('savory', 'm_honeymustard', 'Медово-горчичный соус', 'Honey-mustard sauce', 90);
+  mod('savory', 'm_tartar', 'Соус тар-тар', 'Tartar sauce', 90);
+  mod('savory', 'm_garlicmayo', 'Чесночный майонез', 'Garlic mayonnaise', 100);
+  mod('savory', 'm_adjika', 'Аджика', 'Adjika', 160, { spicy: true });
+  mod('savory', 'm_sauerkraut', 'Квашеная капуста 100 г', 'Sauerkraut 100 g', 110);
+  mod('savory', 'm_friedonion', 'Лук жареный 20 г', 'Fried onion 20 g', 95);
+  mod('savory', 'm_olives', 'Маслины', 'Olives', 110);
+  mod('savory', 'm_caesar', 'Соус «Цезарь»', '"Caesar" sauce', 100);
+  mod('savory', 'm_oliveoil', 'Масло оливковое', 'Olive oil', 110);
+  mod('savory', 'm_smetana200', 'Стакан сметаны 200 г', 'Glass of sour cream 200 g', 330);
+  // Breakfast "Добавки 50 г"
+  mod('breakfast', 'b_tomato', 'Помидоры', 'Fresh tomatoes', 130);
+  mod('breakfast', 'b_pepper', 'Перец болгарский', 'Bulgarian pepper', 150);
+  mod('breakfast', 'b_mozz', 'Сыр «Моцарелла»', 'Mozzarella', 150);
+  mod('breakfast', 'b_sausage', 'Сосиска 70 г', 'Sausage 70 g', 140);
+  mod('breakfast', 'b_chicken', 'Куриное филе жареное', 'Fried chicken fillet', 190);
+  // Sweet "Добавки 40 г" (sweet vareniki page)
+  mod('sweet', 's_condensed', 'Сгущенка', 'Condensed milk', 90);
+  mod('sweet', 's_boiledcond', 'Вареная сгущенка', 'Boiled condensed milk', 80);
+  mod('sweet', 's_smetana', 'Сметана', 'Sour cream', 85);
+  mod('sweet', 's_honey', 'Мед', 'Honey', 70);
+  mod('sweet', 's_jam', 'Домашнее варенье', 'Homemade jam', 90);
+  mod('sweet', 's_choc', 'Шоколадный соус', 'Chocolate sauce', 110);
+  mod('sweet', 's_saltcaramel', 'Соленая карамель', 'Salty caramel', 130);
+  mod('sweet', 's_smetana200', 'Стакан сметаны 200 г', 'Glass of sour cream 200 g', 330);
+  // Printed recommendations
+  mod('podzharka', 'p_meat', 'Мясная поджарка', 'Meat grilled topping', 140);
+  mod('podzharka', 'p_mush', 'Грибная поджарка', 'Mushroom grilled topping', 110);
+  mod('broth', 'r_broth', 'Куриный бульон 100 г', 'Chicken broth 100 g', 35);
+  mod('salo', 'r_salo', 'Сало 30 г', 'Lard 30 g', 110);
+  mod('icecream', 'i_straw', 'Мороженое клубничное 50 г', 'Strawberry ice cream', 190);
+  mod('icecream', 'i_van', 'Мороженое ванильное 50 г', 'Vanilla ice cream', 190);
+  mod('icecream', 'i_choc', 'Мороженое шоколадное 50 г', 'Chocolate ice cream', 190);
+  mod('icecream', 'i_pist', 'Мороженое фисташковое 50 г', 'Pistachio ice cream', 190);
+  // Tea additives
+  mod('tea', 't_ginger', 'Имбирь 10 г', 'Ginger', 50);
+  mod('tea', 't_mint', 'Мята 3 г', 'Mint', 40);
+  mod('tea', 't_lemon', 'Лимон 20 г', 'Lemon', 50);
+  mod('tea', 't_thyme', 'Тимьян 5 г', 'Thyme', 50);
+  mod('tea', 't_honey', 'Мед 30 г', 'Honey', 50);
+  // Coffee additions (coffee section)
+  mod('coffee', 'c_milk', 'Молоко 30 мл', 'Milk', 40);
+  mod('coffee', 'c_cream', 'Сливки 30 мл', 'Cream', 50);
+  mod('coffee', 'c_syr_van', 'Сироп ваниль 20 мл', 'Syrup vanilla', 45);
+  mod('coffee', 'c_syr_hazel', 'Сироп лесной орех 20 мл', 'Syrup hazelnut', 45);
+  mod('coffee', 'c_syr_alm', 'Сироп миндаль 20 мл', 'Syrup almond', 45);
+  mod('coffee', 'c_syr_coco', 'Сироп кокос 20 мл', 'Syrup coconut', 45);
+  mod('coffee', 'c_syr_salt', 'Сироп соленая карамель 20 мл', 'Syrup salted caramel', 45);
+
+  var MOD_GROUPS = [
+    { id: 'podzharka', label: 'Поджарка (menu recommends for any vareniki)' },
+    { id: 'broth', label: 'Бульон (menu recommends for Siberian & Ural pelmeni)' },
+    { id: 'salo', label: 'Сало (menu recommends next to borsch)' },
+    { id: 'icecream', label: 'Мороженое (menu: “order with any dessert”)' },
+    { id: 'savory', label: 'Sauces / extras 40 г' },
+    { id: 'breakfast', label: 'Breakfast extras 50 г' },
+    { id: 'sweet', label: 'Sweet extras 40 г' },
+    { id: 'tea', label: 'Tea additives' },
+    { id: 'coffee', label: 'Milk / cream / syrup' },
+  ];
+
+  // ---- Items ---------------------------------------------------------------
+  var ITEMS = [];
+  function I(cat, id, ru, en, price, w, extra) {
+    ITEMS.push(Object.assign({ id: id, cat: cat, ru: ru, en: en, price: price, w: w || '' }, extra || {}));
+  }
+  function sizes(list) {
+    // list: [[id, label, price], ...]
+    return { id: 'size', label: 'Size', required: true, choices: list.map(function (s) { return { id: s[0], label: s[1], price: s[2] }; }) };
+  }
+  function pick(id, label, names, extra) {
+    return Object.assign({ id: id, label: label, required: true, choices: names.map(function (n, i) {
+      return typeof n === 'string' ? { id: 'c' + i, label: n } : n;
+    }) }, extra || {});
+  }
+  var SAVORY = ['savory'];
+  var VAR_MODS = ['podzharka', 'savory'];
+  var VAR_SUGGEST = ['p_meat', 'p_mush'];
+  var SWEET = ['sweet'];
+
+  // ===== Breakfasts =====
+  I('breakfast', 'omelet', 'Омлет с помидорами и сыром', 'Omelet with tomatoes and cheese', 420, '240/35 г', { tags: ['breakfast'], icons: '🍳🍅🧀', mods: ['breakfast'] });
+  I('breakfast', 'eggs_saus', 'Глазунья с сосисками', 'Fried eggs with sausages', 490, '250 г', { tags: ['breakfast'], icons: '🍳🌭', mods: ['breakfast'] });
+  I('breakfast', 'oatmeal', 'Овсяная каша', 'Oatmeal porridge', 290, '230 г', { tags: ['breakfast', 'new'], icons: '🥣', mods: ['breakfast'] });
+  I('breakfast', 'curdballs', 'Жареные творожные шарики с соусом дюшес', 'Fried curd balls with duchess sauce', 520, '160/30 г', { tags: ['breakfast'], icons: '🧆', alsoIn: ['desserts'], mods: SWEET,
+    note: 'Same dish is printed on the Breakfast page and the Dessert page.' });
+  I('breakfast', 'blini', 'Блины с добавками на выбор', 'Pancakes with toppings to choose', 390, '90/40 г', { tags: ['breakfast'], icons: '🥞', alsoIn: ['pancakes'], mods: SWEET,
+    options: [pick('top', 'Topping', ['Мед', 'Сгущенка', 'Вареная сгущенка', 'Шоколадный соус', 'Ванильный соус', 'Карамельный соус', 'Домашнее варенье', 'Сметана'], { multi: true })],
+    unverified: 'Menu does not say how many toppings are included in 390 ₽ — ask the kitchen/manager.' });
+
+  // ===== Vareniki (plate) =====
+  I('vareniki', 'v_lamb', 'Вареники с томлёной бараниной и запеченным картофелем', 'Vareniki with slow-cooked lamb and roasted potatoes', 690, '210 г', { tags: ['new'], icons: '🐑🥔', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_spinach', 'Вареники со шпинатом и домашним сыром сулугуни', 'Vareniki with spinach and homemade suluguni cheese', 540, '200 г', { icons: '🌿🧀', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_belarus', 'Вареники по-белорусски', 'Belarusian vareniki', 460, '200/15 г', { icons: '🥔🧄', form: 'тарелка', desc: 'с картофелем, чесноком и жареным луком', descEn: 'with potatoes, garlic and fried onions', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_chickmush', 'Вареники с курицей и грибами', 'Vareniki with chicken and mushrooms', 560, '200/15 г', { icons: '🍗🍄', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_cabchick', 'Вареники с капустой и жареной курицей', 'Vareniki with cabbage and fried chicken', 490, '200/15 г', { icons: '🥬🍗', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_potmush', 'Вареники с картофелем и грибами', 'Vareniki with potato and mushrooms', 460, '200/15 г', { icons: '🥔🍄', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_pike', 'Вареники с щукой, подаются с соусом тар-тар', 'Pike vareniki with tartar sauce', 650, '200/40 г', { icons: '🐟', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST,
+    note: 'Tartar sauce is already included (printed in the name).' });
+  I('vareniki', 'v_friedpotcheese', 'Жареные вареники с картофелем и сыром', 'Fried vareniki with potatoes and cheese', 490, '200/15 г', { icons: '🔥🥔🧀', form: 'ЖАРЕНЫЕ', mods: VAR_MODS, suggest: VAR_SUGGEST });
+  I('vareniki', 'v_potato', 'Вареники с картофелем', 'Vareniki with potato', 420, '200/15 г', { icons: '🥔', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
+
+  // ===== Vareniki in pots (поджарка already inside) =====
+  I('pot', 'pot_cabchick', 'Вареники с капустой, жареной курицей и грибной поджаркой', 'Vareniki with cabbage, fried chicken and mushroom grilled', 550, '200/30 г', { icons: '🍯🥬🍗🍄', form: 'ГОРШОЧЕК', mods: SAVORY });
+  I('pot', 'pot_lamb', 'Вареники с томлёной бараниной, запеченным картофелем и грибной поджаркой', 'Vareniki with slow-cooked lamb, roasted potatoes and sautéed mushrooms', 750, '230 г', { tags: ['new'], icons: '🍯🐑🍄', form: 'ГОРШОЧЕК', mods: SAVORY });
+  I('pot', 'pot_potmeat', 'Вареники с картофелем и мясной поджаркой', 'Vareniki with potato and meat grilled', 495, '200/30 г', { icons: '🍯🥔🥩', form: 'ГОРШОЧЕК', mods: SAVORY });
+  I('pot', 'pot_belarus', 'Вареники по-белорусски с грибной поджаркой', 'Belarusian vareniki with mushroom grilled', 510, '200/30 г', { icons: '🍯🥔🧄🍄', form: 'ГОРШОЧЕК', desc: 'с картофелем, чесноком и жареным луком', descEn: 'with potatoes, garlic and fried onions', mods: SAVORY });
+  I('pot', 'pot_chickmeat', 'Вареники с курицей, грибами и мясной поджаркой', 'Vareniki with chicken, mushrooms and meat grilled', 640, '200/30 г', { icons: '🍯🍗🍄🥩', form: 'ГОРШОЧЕК', mods: SAVORY });
+  I('pot', 'pot_potmushmeat', 'Вареники с картофелем, грибами и мясной поджаркой', 'Vareniki with potato, mushrooms and meat grilled', 510, '200/30 г', { icons: '🍯🥔🍄🥩', form: 'ГОРШОЧЕК', mods: SAVORY });
+
+  // ===== Sets =====
+  I('sets', 'set_veg', 'Овощной', 'Vegetable set', 680, '410/20 г', { icons: '🥔🍄🥬', form: 'НАБОР',
+    desc: 'Вареники с картофелем, вареники с картофелем и грибами, вареники с капустой и грибами',
+    descEn: 'Vareniki with potato, with potato & mushrooms, with cabbage & mushroom', mods: VAR_MODS,
+    note: '“с капустой и грибами” exists only inside this set — the single plate is “с капустой и жареной курицей”.' });
+  I('sets', 'set_sweet', 'Сладкоежка', 'Sweet tooth set', 740, '420 г', { tags: ['pits'], icons: '🍒🍇', form: 'НАБОР',
+    desc: 'Вареники с творогом и изюмом, вареники с вишней, вареники маковые с творогом и курагой',
+    descEn: 'Vareniki with cottage cheese & raisins, with cherry, poppy seed with dried apricots & cottage cheese', mods: SWEET });
+  I('sets', 'set_meat', 'Мясной', 'Meat set', 890, '360/20 г', { icons: '🥩🍗🐑', form: 'НАБОР',
+    desc: 'Пельмени сибирские, вареники с курицей и грибами, вареники с томленой бараниной и запеченным картофелем',
+    descEn: 'Siberian pelmeni, vareniki with chicken & mushrooms, vareniki with slow-cooked lamb & roasted potatoes', mods: VAR_MODS });
+
+  // ===== Sweet vareniki =====
+  I('sweetvar', 'sv_poppy', 'Вареники маковые с творогом и курагой', 'Poppy vareniki with cottage cheese and dried apricots', 440, '200 г', { icons: '⚫🧡', form: 'сладкие', mods: SWEET });
+  I('sweetvar', 'sv_raisin', 'Вареники с творогом и изюмом', 'Vareniki with cottage cheese and raisins', 420, '200 г', { icons: '🍇', form: 'сладкие', mods: SWEET });
+  I('sweetvar', 'sv_cherry', 'Вареники с вишней', 'Vareniki with cherry', 540, '200 г', { tags: ['pits'], icons: '🍒', form: 'сладкие', mods: SWEET });
+  I('sweetvar', 'sv_posik', 'Посикунчики с вишней', 'Posikunchiki with cherries', 450, '160 г', { tags: ['pits'], icons: '🍒⚫', form: 'посикунчики', mods: SWEET });
+
+  // ===== Pelmeni =====
+  I('pelmeni', 'pl_shrimp', 'Пельмени с креветками в соусе Том Ям', 'Dumplings with shrimps in Tom Yam sauce', 660, '240 г', { icons: '🦐🌶', form: 'том ям', mods: SAVORY });
+  I('pelmeni', 'pl_sib', 'Пельмени сибирские', 'Siberian pelmeni', 640, '200 г', { icons: '🐖🐄🍗', form: 'варёные', desc: 'свинина, говядина, курица', descEn: 'pork, veal, chicken', mods: ['broth', 'savory'], suggest: ['r_broth'] });
+  I('pelmeni', 'pl_ural', 'Пельмени уральские с укропом', 'Ural pelmeni', 640, '200 г', { icons: '🐄🐑🍗🌿', form: 'варёные', desc: 'говядина, баранина и курица', descEn: 'veal, lamb and chicken', mods: ['broth', 'savory'], suggest: ['r_broth'] });
+  I('pelmeni', 'pl_sibmush', 'Пельмени сибирские в грибном соусе', 'Siberian pelmeni in mushroom sauce', 660, '200/30 г', { icons: '🐖🍄', form: 'грибной соус', desc: 'свинина, говядина, курица', descEn: 'pork, veal, chicken', mods: SAVORY,
+    note: 'Bouillon recommendation on the menu is for Siberian & Ural pelmeni — check if it applies to this version too.' });
+  I('pelmeni', 'pl_bakedsmet', 'Запеченные сибирские пельмени со сметаной', 'Baked Siberian dumplings with sour cream', 660, '220/40 г', { icons: '🔥🐖🥛', form: 'ЗАПЕЧЁННЫЕ', desc: 'свинина, говядина, курица', descEn: 'pork, veal, chicken', mods: SAVORY,
+    note: 'Sour cream is included (printed in the name).' });
+  I('pelmeni', 'pl_bakedpepper', 'Запеченные пельмени в перечном соусе', 'Baked pelmeni in pepper sauce', 695, '275 г', { icons: '🔥🐖🌶', form: 'ЗАПЕЧЁННЫЕ', desc: 'свинина, говядина, курица', descEn: 'pork, veal, chicken', mods: SAVORY });
+
+  // ===== Salads =====
+  I('salads', 'sl_adyghe', 'Салат с жареным адыгейским сыром и свеклой', 'Salad with grilled Adyghe cheese and beetroot', 670, '210 г', { icons: '🧀🟣', mods: SAVORY });
+  I('salads', 'sl_olivier', 'Салат «Оливье советский» с колбасой', 'Salad “Olivier Soviet-style” with sausage', 490, '230 г', { icons: '🥗', mods: SAVORY });
+  I('salads', 'sl_mimosa', 'Салат «Мимоза» со скумбрией', 'Salad “Mimosa” with mackerel', 495, '225 г', { icons: '🐟', mods: SAVORY });
+  I('salads', 'sl_dacha', 'Дачный салат с маслинами', 'Rustic salad with olives', 480, '160 г', { icons: '🥒🍅', mods: SAVORY });
+  I('salads', 'sl_vinegret', 'Салат «Винегрет»', 'Russian salad “Vinegret”', 395, '200/45 г', { icons: '🟣', mods: SAVORY,
+    unverified: 'Photo shows herring on bread next to it and weight is 200/45 г — confirm what the 45 г is.' });
+  I('salads', 'sl_eggplant', 'Салат с жареными баклажанами и пикантным соусом', 'Fried eggplant salad with spicy sauce', 650, '220 г', { icons: '🍆', mods: SAVORY });
+  I('salads', 'sl_shuba', 'Салат «Сельдь под шубой»', 'Salad “Herring under vegetable”', 510, '210 г', { icons: '🐟🟣', mods: SAVORY });
+  I('salads', 'sl_caesar', 'Салат «Цезарь» с курицей', '“Caesar” salad with chicken', 660, '250 г', { icons: '🍗🥬', mods: SAVORY });
+
+  // ===== Snacks =====
+  I('snacks', 'sn_croutons', 'Чесночные гренки', 'Garlic croutons with sauce', 355, '145/40 г', { icons: '🍞🧄', mods: SAVORY });
+  I('snacks', 'sn_pickles', 'Домашние соленья', 'Homemade pickles', 690, '425 г', { icons: '🥒🍅', desc: 'Помидоры, капуста, огурцы, черемша', descEn: 'Tomatoes, cabbage, cucumbers, wild garlic', mods: SAVORY });
+  I('snacks', 'sn_beer', 'Пивная тарелка', 'Beer dish', 1390, '470 г', { icons: '🍺', desc: 'Жареные сибирские пельмени, сырные палочки, луковые кольца в кляре, чесночные гренки и чесночный соус', descEn: 'Fried Siberian dumplings, cheese sticks, onion rings, garlic croutons and garlic sauce', mods: SAVORY });
+  I('snacks', 'sn_cheesefries', 'Сырные ломтики фри, подаются с медовым соусом и кунжутом', 'Cheese fries served with honey sauce and sesame seeds', 520, '145/40 г', { icons: '🧀🍯', mods: SAVORY });
+  I('snacks', 'sn_salo', 'Ассорти из домашнего сала с чесноком и гренками', 'Assorted homemade lard with garlic and croutons', 810, '300 г', { icons: '🥓🧄', mods: SAVORY,
+    unverified: 'English line also mentions “squash, cucumbers, wild garlic”, Russian line does not.' });
+  I('snacks', 'sn_cheb_cheese', 'Чебуреки с сыром сулугуни и помидорами', 'Cheburek with suluguni cheese', 485, '210/40 г', { icons: '🥟🧀🍅', mods: SAVORY });
+  I('snacks', 'sn_cheb_beef', 'Чебуреки с говядиной', 'Cheburek with beef', 595, '200/40 г', { icons: '🥟🐄', mods: SAVORY });
+  I('snacks', 'sn_borodino', 'Гренки из бородинского хлеба с сельдью и отварным яйцом', 'Borodino bread croutons with herring and boiled egg', 520, '265 г', { icons: '🍞🐟🥚', mods: SAVORY });
+
+  // ===== Cheese portions =====
+  I('cheese', 'ch_parm', 'Пармезан', 'Parmesan', 190, '50 г', { icons: '🧀' });
+  I('cheese', 'ch_mozz', 'Моцарелла', 'Mozzarella', 150, '50 г', { icons: '🧀' });
+  I('cheese', 'ch_soviet', 'Советский', 'Soviet cheese', 160, '50 г', { icons: '🧀' });
+
+  // ===== Soups =====
+  I('soups', 'sp_uha', 'Уха из судака и окуня', 'Pike perch and river perch ear (fish soup)', 640, '385/40 г', { tags: ['bones'], icons: '🐟', mods: SAVORY });
+  I('soups', 'sp_solyanka', 'Солянка мясная', 'Solyanka', 560, '310 г', { icons: '🥩🍋', mods: SAVORY });
+  I('soups', 'sp_broth', 'Куриный бульон с домашней лапшой', 'Chicken bouillon with homemade noodles', 490, '300 г', { icons: '🍗🍜', mods: SAVORY });
+  I('soups', 'sp_borsch', 'Традиционный борщ с пампушками', 'Traditional borsch with pampushki', 595, '350/80/20 г', { icons: '🟥🥖', mods: ['salo', 'savory'], suggest: ['r_salo'] });
+
+  // ===== Bread / pastry =====
+  I('bread', 'br_pie_cab', 'Пирожки с капустой (2 шт.)', 'Pies with cabbage (2 pieces)', 165, '100 г', { icons: '🥟🥬' });
+  I('bread', 'br_pie_meat', 'Пирожки с мясом (2 шт.)', 'Pies with meat (2 pieces)', 250, '100 г', { icons: '🥟🥩' });
+  I('bread', 'br_pampushki', 'Пампушки с чесночным соусом', 'Pampushki with garlic sauce', 145, '80/20 г', { icons: '🥖🧄' });
+  I('bread', 'br_basket', 'Хлебная корзина (4 куска)', 'Bread basket (4 pieces)', 95, '', { icons: '🍞',
+    options: [sizes([['std', 'Стандарт 70 г', 95], ['black', 'Черная 90 г', 140], ['white', 'Белая 70 г', 95]])] });
+
+  // ===== Main dishes =====
+  var SWAP = true;
+  I('mains', 'mn_fillet', 'Куриное филе под нежной сырной шубкой', 'Chicken fillet under a delicate cheese coat', 660, '320 г', { icons: '🍗🧀', mods: SAVORY });
+  I('mains', 'mn_legs', 'Жареные куриные ножки с картофелем под сыром', 'Fried chicken legs with potatoes and cheese', 670, '350 г', { icons: '🍗🥔', mods: SAVORY, side: { name: 'картофель под сыром', swap: SWAP } });
+  I('mains', 'mn_sudak', 'Жареный судак с картофельным пюре', 'Fried pike perch with mashed potatoes', 890, '250 г', { icons: '🐟🥔', mods: SAVORY, side: { name: 'картофельное пюре', swap: SWAP } });
+  I('mains', 'mn_pork', 'Жареная свиная вырезка с картофелем по-деревенски', 'Roast pork tenderloin with potato wedges', 820, '330 г', { icons: '🐖🥔', mods: SAVORY, side: { name: 'картофель по-деревенски', swap: SWAP } });
+  I('mains', 'mn_perlovka', 'Перловка с томлёной говядиной', 'Pearl barley with slow-cooked beef', 850, '300 г', { tags: ['new'], icons: '🍯🐄', mods: SAVORY });
+  I('mains', 'mn_cutlets', 'Котлеты по-домашнему с макаронами в укропе', 'Homemade cutlets with pasta in dill', 595, '230 г', { icons: '🥩🍝', mods: SAVORY, side: { name: 'макароны в укропе', swap: SWAP } });
+  I('mains', 'mn_kiev', 'Котлета по-киевски', 'Chicken Kiev', 690, '150/120/20/20 г', { icons: '🍗🧈', mods: SAVORY, sideUnknown: true });
+  I('mains', 'mn_friedpot', 'Жареный картофель с луком и грибами', 'Fried potatoes with onions and mushrooms', 465, '220 г', { icons: '🥔🍄', mods: SAVORY });
+  I('mains', 'mn_pikecut', 'Щучьи котлеты с овощным пюре «Оливье»', 'Pike cutlets with vegetable puree', 685, '300 г', { icons: '🐟', mods: SAVORY, side: { name: 'овощное пюре «Оливье»', swap: SWAP } });
+  I('mains', 'mn_friedpotpork', 'Жареный картофель со свиной вырезкой и грибами', 'Fried potatoes with pork tenderloin and mushrooms', 640, '220 г', { icons: '🥔🐖🍄', mods: SAVORY });
+  I('mains', 'mn_liver', 'Запеканка из куриной печени', 'Chicken liver casserole', 750, '255 г', { tags: ['new'], icons: '🍗', mods: SAVORY });
+  I('mains', 'mn_chickcut', 'Котлеты куриные с сыром', 'Chicken cutlets with cheese', 570, '110/120/20 г', { icons: '🍗🧀', mods: SAVORY, sideUnknown: true });
+  I('mains', 'mn_zucchini', 'Драники из кабачков с куриным филе и соусом из шампиньонов', 'Zucchini pancakes with chicken fillet and champignon sauce', 740, '260 г', { icons: '🥒🍗🍄', mods: SAVORY });
+  I('mains', 'mn_draniki', 'Картофельные драники', 'Potato draniki', 390, '185 г', { tags: ['new'], icons: '🥔', mods: SAVORY });
+
+  // ===== Sides (ordered separately) =====
+  I('sides', 'sd_rice', 'Рис с овощами', 'Rice with vegetables', 230, '150 г', { icons: '🍚' });
+  I('sides', 'sd_mash', 'Картофельное пюре', 'Mashed potatoes', 210, '150 г', { icons: '🥔' });
+  I('sides', 'sd_wedges', 'Картофель по-деревенски', 'Potatoes in a rustic style', 220, '150 г', { icons: '🥔' });
+  I('sides', 'sd_buckwheat', 'Каша гречневая с грибами', 'Buckwheat porridge with mushrooms', 230, '150 г', { icons: '🌾🍄' });
+
+  // ===== Desserts =====
+  I('desserts', 'ds_medovik', 'Настоящий медовик', 'Traditional honey cake', 480, '110 г', { tags: ['new'], icons: '🍯🍰', mods: ['icecream'], suggest: ['i_van'] });
+  I('desserts', 'ds_horn', 'Слоеные трубочки со сливочным кремом', 'Cream horn', 375, '100 г', { icons: '🥐', mods: ['icecream'], unverified: 'Weight hard to read on photo (looks like 100 г).' });
+  I('desserts', 'ds_ptichka', 'Торт суфле «Птичка»', 'Birdie soufflé cake', 520, '110 г', { tags: ['new'], icons: '🍫🍰', mods: ['icecream'] });
+  I('desserts', 'ds_smetannik', 'Бабушкин сметанник с вишней', 'Grandma’s sour cream cake with cherry', 530, '180 г', { icons: '🍒🍰', mods: ['icecream'] });
+  I('desserts', 'ds_cheesecake', 'Маковый чизкейк', 'Poppy seed cheesecake', 495, '160 г', { icons: '⚫🍰', mods: ['icecream'] });
+  I('desserts', 'ds_icecream', 'Мороженое на выбор', 'Ice cream of your choice', 190, '50 г', { icons: '🍨',
+    options: [pick('flavor', 'Flavor', ['Клубничное', 'Ванильное', 'Шоколадное', 'Фисташковое'])] });
+
+  // ===== Pancakes =====
+  I('pancakes', 'pc_cherry', 'Блины с творогом, вишней и соленой карамелью', 'Pancakes with cottage cheese, cherries and salted caramel', 450, '180 г', { icons: '🥞🍒', mods: SWEET });
+
+  // ===== Extras as standalone lines (sauce for the table etc.) =====
+  Object.keys(MODS).forEach(function (k) {
+    var m = MODS[k];
+    if (m.group === 'savory' || m.group === 'sweet' || m.group === 'breakfast') {
+      I('extras', 'x_' + m.id, m.ru, m.en + ' (separate)', m.price, m.group === 'breakfast' ? '50 г' : '40 г',
+        { icons: m.group === 'sweet' ? '🍯' : '🥫', tags: m.spicy ? ['spicy'] : undefined, isExtra: true,
+          note: m.group === 'breakfast' ? 'Printed as breakfast additive.' : undefined });
+    }
+  });
+
+  // ===== Coffee =====
+  var COFFEE = ['coffee'];
+  I('coffee', 'cf_espresso', 'Эспрессо', 'Espresso', 195, '30 мл', { icons: '☕', mods: COFFEE });
+  I('coffee', 'cf_doubleesp', 'Двойной эспрессо', 'Double espresso', 295, '60 мл', { icons: '☕☕', mods: COFFEE });
+  I('coffee', 'cf_americano', 'Американо', 'Americano', 215, '150 мл', { icons: '☕', mods: COFFEE });
+  I('coffee', 'cf_capp', 'Капучино', 'Cappuccino', 275, '200 мл', { icons: '☕🥛', mods: COFFEE });
+  I('coffee', 'cf_doublecapp', 'Двойной капучино', 'Double cappuccino', 490, '400 мл', { icons: '☕🥛', mods: COFFEE,
+    unverified: 'Price column on photo is not aligned with names — 400 мл/490 ₽ is the best reading.' });
+  var COFFEE_ALIGN = 'Price column on the coffee photo is misaligned; this pairing is the best reading — check once.';
+  I('coffee', 'cf_latte', 'Латте', 'Latte', 280, '200 мл', { icons: '☕🥛', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_hotchoc', 'Горячий шоколад', 'Hot chocolate', 310, '125 мл', { icons: '🍫', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_mishka', 'Мишка на севере', 'Mishka in the north', 350, '200 мл', { icons: '🐻☕', desc: 'Эспрессо, сливки, молоко, шоколад, топпинг карамель', descEn: 'Espresso, cream, milk, chocolate, topping caramel', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_snickers', 'Сникерс', 'Snickers', 350, '200 мл', { icons: '🥜☕', desc: 'Эспрессо, сливки, молоко, арахисовая паста, сироп соленая карамель', descEn: 'Espresso, cream, milk, peanut butter, salted caramel syrup', mods: COFFEE });
+  I('coffee', 'cf_drummer', 'Сырный ударник', 'Cheese drummer', 350, '200 мл', { icons: '🧀☕', desc: 'Эспрессо, сливки, молоко, сырная основа, мед', descEn: 'Espresso, cream, milk, cheese base, honey', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_cacao', 'Какао', 'Cacao', 280, '200 мл', { icons: '🍫🥛', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_coco_capp', 'Капучино', 'Cappuccino on coconut milk', 330, '200 мл', { icons: '🥥☕', mods: COFFEE });
+  I('coffee', 'cf_coco_latte', 'Латте', 'Latte on coconut milk', 330, '200 мл', { icons: '🥥☕', mods: COFFEE });
+
+  // ===== Tea with berries & herbs (400 мл) =====
+  var TEA = ['tea'];
+  function TB(id, ru, en, desc, descEn) { I('teaberry', id, ru, en, 420, '400 мл', { icons: '🫖', desc: desc, descEn: descEn, mods: TEA }); }
+  TB('tb_grandma', 'Бабушкин чай', 'Grandma’s tea', 'Черный чай, земляничное и малиновое пюре, лимон, апельсин, малиновый сироп', 'Black tea, strawberry and raspberry puree, lemon, orange, raspberry syrup');
+  TB('tb_ginger', 'Имбирно-облепиховый', 'Ginger-sea-buckthorn', 'Облепиховое пюре, имбирь, черный чай', 'Sea-buckthorn puree, ginger, black tea');
+  TB('tb_bergamot', 'Бергамот с малиной и мятой', 'Bergamot with raspberries and mint', 'Эрл Грей, малиновое пюре собственного приготовления, сироп из ежевики, мята, цедра апельсина', 'Earl Grey, home-made raspberry puree, blackberry syrup, mint, orange zest');
+  TB('tb_strawberry', 'Земляничный с красной смородиной', 'Strawberry and red currant', 'Пюре из ягод земляники и красной смородины, апельсин, ассам', 'Puree of strawberries and red currants, orange, assam');
+  TB('tb_lingon', 'Брусничный с травами', 'Lingonberry with herbs', 'Бруснично-медовое пюре, тимьян, иван чай, бадьян', 'Lingonberry honey puree, thyme, ivan tea, badyan');
+  TB('tb_mulled', 'Безалкогольный глинтвейн', 'Non-alcoholic mulled wine', 'Каркаде, яблоко, лимон, апельсин, мед, специи, вишневый сок', 'Hibiscus, apple, lemon, orange, honey, spices, cherry juice');
+  TB('tb_lavender', 'Лаванда - Черная смородина', 'Lavender - Black currant', 'Сушеная лаванда, пюре из черной смородины, сироп', 'Dried lavender, blackcurrant puree, syrup');
+  TB('tb_altai', 'Алтайский успокаивающий', 'Altai soothing', 'Шиповник сушеный, тимьян, мята, листья смородины, сироп из крапивы, цедра апельсина, травяной сбор', 'Dried rosehip, thyme, mint, currant leaves, nettle syrup, orange peel, herbal collection');
+
+  // ===== Leaf tea (400 мл, 299) =====
+  [['Ассам', 'Assam'], ['Сенча', 'Sencha'], ['С бергамотом', 'With bergamot'], ['Жасминовый', 'Jasmine'], ['Травяной', 'Herbal'],
+    ['Ромашка', 'Chamomile'], ['Липа', 'Lipa (linden)'], ['Лесные ягоды', 'Berries'], ['Мятный', 'Minty'], ['Молочный Улун', 'Milk Oolong'],
+    ['Каркаде', 'Karkade (hibiscus)'], ['Иван-чай', 'Ivan-tea']].forEach(function (t, i) {
+    I('tealeaf', 'tl_' + i, t[0], 'Leaf tea ' + t[1], 299, '400 мл', { icons: '🍵', mods: TEA, short: t[0] });
+  });
+
+  // ===== Warming berry drinks (200 мл, 260) =====
+  I('morse', 'mr_mandarin', 'Мандариновый с корицей', 'Mandarin orange with cinnamon (warm)', 260, '200 мл', { icons: '🍊🔥', desc: 'Пюре из плодов мандарина, апельсин, корица', descEn: 'Puree of mandarin oranges, orange, cinnamon' });
+  I('morse', 'mr_currant', 'Смородина-мята-лимон', 'Currant-mint-lemon (warm)', 260, '200 мл', { icons: '⚫🌿🔥', desc: 'Пюре из черной смородины, лимон, мята', descEn: 'Mashed black currant, lemon, mint' });
+  I('morse', 'mr_lingon', 'Брусника-черника', 'Lingonberry-blueberry (warm)', 260, '200 мл', { icons: '🫐🔥', desc: 'Брусничное пюре, сироп из ягод черники, апельсин, тимьян', descEn: 'Lingonberry puree, blueberry syrup, orange, thyme' });
+
+  // ===== Lemonades / non-alc cocktails =====
+  var LEM = sizes([['350', '350 мл', 295], ['1000', '1 л', 795]]);
+  I('lemonade', 'lm_rasp', 'Малина-мандарин', 'Raspberry-tangerine lemonade', 295, '350/1000 мл', { icons: '🍋🍊', options: [LEM], desc: 'Пюре из плодов мандаринов и малины, газ вода, сироп, лимон', descEn: 'Tangerines & raspberries puree, sparkling water, syrup, lemon' });
+  I('lemonade', 'lm_tarragon', 'Яблочный тархун', 'Apple tarragon lemonade', 295, '350/1000 мл', { icons: '🍋🍏', options: [LEM], desc: 'Тархун, яблочное пюре, лимон, газ вода', descEn: 'Homemade tarragon syrup, sour apple syrup, lemon juice, sparkling water, ice' });
+  I('lemonade', 'lm_peach', 'Персик-клубника', 'Peach-strawberry lemonade', 295, '350/1000 мл', { icons: '🍋🍑🍓', options: [LEM], desc: 'Клубничное пюре, персиковый конфитюр, сок лимона, сироп клубника, газ вода, лед', descEn: 'Strawberry puree, peach jam, lemon juice, strawberry syrup, sparkling water, ice' });
+  I('lemonade', 'lm_passion', 'Маракуйя-груша', 'Passion fruit-pear lemonade', 295, '350/1000 мл', { icons: '🍋🍐', options: [LEM], desc: 'Пюре из плодов маракуйи, дюшес, лимон', descEn: 'Passion fruit puree, duchess, lemon' });
+  I('lemonade', 'lm_mojito', 'Мохито', 'Mojito (NON-alcoholic)', 360, '350 мл', { icons: '🌿🚫🍸', form: 'БЕЗ АЛКОГОЛЯ', desc: 'Лайм, мята, сахарный сироп, содовая, лед', descEn: 'Lime, mint, soda, sugar syrup, ice', alias: ['мохито'] });
+  I('lemonade', 'lm_mojito_rasp', 'Мохито малиновый', 'Raspberry mojito (non-alc)', 395, '350 мл', { icons: '🌿🍓🚫', form: 'БЕЗ АЛКОГОЛЯ', desc: 'Лайм, мята, сироп и пюре из малины, газ вода, лед', descEn: 'Lime, mint, raspberry syrup and puree, sparkling water, ice' });
+  I('lemonade', 'lm_mojito_cur', 'Мохито на черной смородине', 'Black currant mojito (non-alc)', 395, '350 мл', { icons: '🌿⚫🚫', form: 'БЕЗ АЛКОГОЛЯ', desc: 'Лайм, мята, пюре черной смородины, сироп, газ вода, лед', descEn: 'Lime, mint, blackcurrant puree, syrup, sparkling water, ice' });
+
+  // ===== Juices / freshes =====
+  var JUICE = sizes([['200', '200 мл', 195], ['1000', '1 л', 820]]);
+  [['orange', 'Апельсиновый', 'Orange', '🍊'], ['pine', 'Ананасовый', 'Pineapple', '🍍'], ['cherry', 'Вишневый', 'Cherry', '🍒'],
+    ['tomato', 'Томатный', 'Tomato', '🍅'], ['apple', 'Яблочный', 'Apple', '🍏']].forEach(function (j) {
+    I('juice', 'jc_' + j[0], 'Сок ' + j[1], j[2] + ' juice', 195, '200/1000 мл', { icons: '🧃' + j[3], options: [JUICE] });
+  });
+  I('juice', 'jc_3l', 'Сок 3 л (трехлитровая банка)', 'Juice 3 L (three-litre jar)', 990, '3000 мл', { icons: '🫙', options: [pick('kind', 'Kind', ['Яблочный', 'Томатный'])] });
+  I('juice', 'fr_apple', 'Фреш яблочный', 'Apple fresh', 430, '200 мл', { icons: '🍏✨' });
+  I('juice', 'fr_carrot', 'Фреш морковный', 'Carrot fresh', 330, '200 мл', { icons: '🥕✨' });
+  I('juice', 'fr_orange', 'Фреш апельсиновый', 'Orange fresh', 430, '200 мл', { icons: '🍊✨' });
+  I('juice', 'fr_grapefruit', 'Фреш грейпфрутовый', 'Grapefruit fresh', 430, '200 мл', { icons: '🍊✨' });
+
+  // ===== Own production =====
+  I('own', 'ow_dried', 'Компот из сухофруктов', 'Dried fruits compote', 195, '200/1000 мл', { icons: '🍑', options: [sizes([['200', '200 мл', 195], ['1000', '1 л', 695]])] });
+  I('own', 'ow_kissel', 'Кисель вишневый', 'Cherry kissel', 195, '200 мл', { icons: '🍒' });
+  I('own', 'ow_berry', 'Компот ягодный', 'Berry compote', 195, '200/1000 мл', { icons: '🫐', options: [sizes([['200', '200 мл', 195], ['1000', '1 л', 695]])] });
+  I('own', 'ow_cranberry', 'Морс клюквенный', 'Cranberry mors', 220, '200/1000 мл', { icons: '🔴', options: [sizes([['200', '200 мл', 220], ['1000', '1 л', 895]])] });
+
+  // ===== Soda / water =====
+  I('soda', 'so_machine', 'Газ вода из аппарата', 'Soda water from the machine', 195, '200/350/1000 мл', { icons: '🥤',
+    options: [pick('flavor', 'Flavor', ['Дюшес', 'Тархун', 'Кола']), sizes([['200', '200 мл', 195], ['350', '350 мл', 280], ['1000', '1 л', 695]])] });
+  I('soda', 'wt_narzan', 'Нарзан', 'Narzan', 350, '450 мл', { icons: '💧', options: [pick('gas', 'Gas', ['Газированный', 'Природной газации'])] });
+  I('soda', 'wt_volzh', 'Волжанка', 'Volzhanka', 295, '330 мл', { icons: '💧', options: [pick('gas', 'Gas', ['С газом', 'Без газа'])] });
+  I('soda', 'wt_baikal', 'Легенда Байкала', 'The Legend of Baikal', 390, '330/750 мл', { icons: '💧',
+    options: [pick('gas', 'Gas', ['С газом', 'Без газа']), sizes([['330', '330 мл', 390], ['750', '750 мл', 690]])] });
+
+  // ===== Milkshakes =====
+  I('shake', 'sh_soviet', '«Советские традиции» с крем-брюле', '“Soviet traditions” with crème brûlée', 470, '350 мл', { icons: '🥛🍮', desc: 'Ванильное мороженое, молоко, сироп крем-брюле, черная смородина, зефир', descEn: 'Vanilla ice cream, milk, crème brûlée syrup, blackcurrant, marshmallow' });
+  I('shake', 'sh_13', 'Молочный коктейль «13 копеек»', '“13 cents” milkshake', 370, '300 мл', { icons: '🥛', desc: 'Молоко, мороженое и сироп на выбор', descEn: 'Milk, ice cream and syrup',
+    options: [sizes([['classic', 'Классический', 370], ['straw', 'Клубничный', 380]])] });
+  I('shake', 'sh_key', '«Золотой ключик»', '“The Golden Key” milkshake', 390, '300 мл', { icons: '🥛🔑', desc: 'Ванильное мороженое, молоко, сироп ириска', descEn: 'Vanilla ice cream, milk, toffee syrup' });
+
+  // ===== Beer / kvass =====
+  function BEER(id, ru, en, small, big, extra) {
+    I('beer', id, ru, en, small[1], small[0] + '/' + big[0] + ' мл', Object.assign({ icons: '🍺', tags: ['alc'],
+      options: [sizes([[String(small[0]), small[0] + ' мл', small[1]], [String(big[0]), big[0] + ' мл', big[1]]])] }, extra || {}));
+  }
+  BEER('br_kvass', 'Квас домашний пьяный', 'Kvass homemade drunk (alcoholic)', [350, 250], [1000, 650], { icons: '🍺🍞' });
+  I('beer', 'br_honey', 'Медовое пиво (собственного приготовления)', 'Honey beer (own production)', 550, '500 мл', { icons: '🍺🍯', tags: ['alc'] });
+  BEER('br_lowdunkel', 'Ловенбрау Дункель', 'Löwenbräu Dunkel (dark)', [330, 360], [500, 560], { icons: '🍺🟤' });
+  BEER('br_lowlight', 'Ловенбрау Светлое', 'Löwenbräu Light', [330, 360], [500, 560], { icons: '🍺🟡' });
+  BEER('br_sibunf', 'Сибирская корона нефильтрованное', 'Siberian Crown non-filtered', [300, 350], [500, 550], { icons: '🍺🌫' });
+  BEER('br_siblight', 'Сибирская корона светлое', 'Siberian Crown light', [300, 340], [500, 540], { icons: '🍺🟡' });
+  I('beer', 'br_stella0', 'Стелла Артуа б/а (бутылка)', 'Stella Artois NON-alcoholic (bottle)', 520, '440 мл', { icons: '🍾🚫', form: 'БЕЗ АЛКОГОЛЯ' });
+  I('beer', 'br_bud', 'Bud (бутылка)', 'Bud (bottle)', 390, '330 мл', { icons: '🍾', tags: ['alc'] });
+
+  // ===== Wine =====
+  function WINE(id, ru, en, glass, bottle, icons, extra) {
+    I('wine', id, ru, en, glass, '125/750 мл', Object.assign({ icons: icons, tags: ['alc'],
+      options: [sizes([['125', 'Бокал 125 мл', glass], ['750', 'Бутылка 750 мл', bottle]])] }, extra || {}));
+  }
+  WINE('wn_rosebrut', 'Шато Тамань Розе Брют (Россия) сухое', 'Chateau Tamagne Rose Brut (sparkling)', 440, 2640, '🍾🌸',
+    { unverified: 'Russian says “сухое”, English says “demi sweet”.' });
+  WINE('wn_blancbrut', 'Шато Тамань Селект Блан Брют (Россия) сухое', 'Chateau Tamagne Select Blanc Brut (sparkling, dry)', 440, 2640, '🍾⚪');
+  I('wine', 'wn_mezhbrut', 'Междуморье Брют (Россия)', 'Mezhdumorie Brut (sparkling)', 2990, '750 мл', { icons: '🍾', tags: ['alc'], form: 'только бутылка' });
+  WINE('wn_chardbianca', 'Макитра Шардоне-Бианка (Россия) сухое', 'Macitre Chardonnay-Bianca (white, dry)', 390, 2340, '🍷⚪');
+  WINE('wn_riesling', 'Междуморье Рислинг (Россия) сухое', 'Mezhdumorie Riesling (white, dry)', 490, 2940, '🍷⚪');
+  WINE('wn_selblanc', 'Шато Тамань Селект Блан (Россия) сухое', 'Chateau Tamagne Select Blanc (white, dry)', 440, 2640, '🍷⚪');
+  WINE('wn_sauv', 'Коно Сур Совиньон Блан (Чили) полусухое', 'Cono Sur Sauvignon Blanc (white, Chile)', 550, 3300, '🍷⚪',
+    { unverified: 'Russian says “полусухое”, English says “dry”.' });
+  WINE('wn_pinot', 'Пино Гриджио Анима (Россия) сухое', 'Pinot Grigio Anima (white, dry)', 550, 3300, '🍷⚪');
+  WINE('wn_selrose', 'Шато Тамань Селект Розе (Россия) сухое', 'Chateau Tamagne Select Rose (rosé, dry)', 440, 2640, '🍷🌸');
+  WINE('wn_cabernet', 'Макитра Каберне Совиньон (Россия) сухое', 'Macitre Cabernet Sauvignon (red, dry)', 390, 2340, '🍷🔴');
+  WINE('wn_kindz', 'Киндзмараули Дугладзе (Грузия) полусладкое', 'Kindzmarauli Dugladze (red, semi-sweet)', 550, 3300, '🍷🔴');
+  WINE('wn_saperavi', 'Саперави Дугладзе (Грузия) сухое', 'Saperavi Dugladze (red, dry)', 520, 3120, '🍷🔴');
+  WINE('wn_selrouge', 'Шато Тамань Селект Руж (Россия) сухое', 'Chateau Tamagne Select Rouge (red, dry)', 440, 2640, '🍷🔴');
+  WINE('wn_carmenere', 'Коно Сур Карменер (Чили) полусухое', 'Cono Sur Carmenere (red, semi-dry)', 490, 2940, '🍷🔴');
+  I('wine', 'wn_house', 'Домашнее вино', 'Homemade wine', 350, '125/500 мл', { icons: '🍷🏠', tags: ['alc'],
+    options: [pick('color', 'Color', ['Белое', 'Красное']), sizes([['125', '125 мл', 350], ['500', '500 мл', 1350]])] });
+  I('wine', 'wn_fruit', 'Плодовое вино (Армения) полусладкое', 'Fruit wine semi-sweet (Armenia)', 450, '125/750 мл', { icons: '🍷🫐', tags: ['alc'],
+    options: [pick('kind', 'Kind', ['Ежевичное', 'Гранатовое']), sizes([['125', 'Бокал 125 мл', 450], ['750', 'Бутылка 750 мл', 2700]])] });
+  I('wine', 'wn_port', 'Массандра. Портвейн красный Ливадия', 'Massandra red port wine Livadia', 450, '75 мл', { icons: '🍷', tags: ['alc'] });
+
+  // ===== Cocktails =====
+  function CK(id, ru, en, price, vol, desc, extra) { I('cocktails', id, ru, en, price, vol, Object.assign({ icons: '🍸', tags: ['alc'], desc: desc }, extra || {})); }
+  CK('ck_var1', '«Вареничная №1»', '“Varenichnaya №1”', 580, '300 мл', 'Аперетив из дикой малины, Белуга ботаникалс, мандариновое пюре, игристое вино, газ вода, апельсин');
+  CK('ck_artek', 'Артек', 'Artek', 550, '300 мл', 'Ежевичное вино, малиновый аперетив, сироп из ягод черники, лимон, апельсин, корица');
+  CK('ck_passion', 'Лонг Пэшн Фрут', 'Long Passion fruit', 495, '350 мл', 'Джин, дынный ликер, пюре маракуйи, сок лимона, имбирь, сироп, газ вода');
+  CK('ck_mimino', 'Мимино', 'Mimino', 495, '300 мл', 'Аперитив на основе фейхоа и эстрагона, джин, тархун, лимон');
+  CK('ck_spritz', 'Аперитиво Спритц', 'Aperitivo Spritz', 550, '300 мл', 'Лигаре аперитиво, игристое вино, газ вода, апельсин');
+  CK('ck_negroni', 'Город Горький (Негрони)', 'Negroni', 550, '200 мл', 'Джин, красный вермут, кампари, цедра апельсина');
+  CK('ck_mojito', 'Мохито', 'Mojito (WITH rum)', 550, '400 мл', 'Светлый ром, лайм, мята, сироп, содовая', { icons: '🌿🍸🥃', form: 'С РОМОМ', alias: ['мохито'] });
+  CK('ck_spiv', 'Мечта фарцовщика', 'Spivs dream', 550, '300 мл', 'Виски, аперитив на основе манго и хурмы, дюшес, лимон');
+  CK('ck_longisland', 'Лонг Айленд', 'Long Island', 650, '400 мл', 'Водка, светлый ром, текила, апельсиновый ликер, джин, кола, лимон');
+  CK('ck_evmoscow', 'Вечерняя Москва', 'Evening Moscow', 520, '300 мл', 'Ром, миндальный ликер, вишневый сок, сиропы из корицы и яблока, сок лимона');
+  CK('ck_rumcola', 'Ром-кола / Виски-кола', 'Rum-Cola / Whiskey-Cola', 440, '200 мл', '', { options: [pick('base', 'Base', ['Ром-кола', 'Виски-кола'])] });
+
+  // ===== Hot cocktails (200 мл) =====
+  function HC(id, ru, en, price, desc) { I('hotcock', id, ru, en, price, '200 мл', { icons: '🔥🍷', tags: ['alc'], desc: desc }); }
+  HC('hc_seabuck', 'Облепиховый глинтвейн', 'Sea buckthorn mulled wine', 450, 'Белое вино, апельсиновый ликер, облепиховое пюре, сироп манго, апельсин, корица, гвоздика, цедра лимона');
+  HC('hc_hunter', 'Глинтвейн Охотничий', 'Mulled Hunters Wine', 490, 'Ликер Белуга Ягодный, красное вино, мед, чернослив, апельсин, корица');
+  HC('hc_tangerine', 'Мандариновый глинтвейн', 'Tangerine mulled wine', 490, 'Белое вино, мандариновое пюре, аперетив на основе хурмы и манго, специи, апельсин');
+  HC('hc_peach', 'Горячее персиковое вино', 'Hot peach wine', 490, 'Персиковый конфитюр, белое вино, специи, апельсин, лимон');
+  HC('hc_pomegranate', 'Гранатовый глинтвейн', 'Pomegranate mulled wine', 490, 'Гранатовое вино, апельсин, специи');
+  HC('hc_classic', 'Глинтвейн', 'Mulled wine (classic, red)', 450, 'Красное вино, цедра апельсина, курага, мед, корица, гвоздика');
+
+  // ===== Shots =====
+  I('shots', 'st_berry', 'С ягодой / фруктом на выбор', 'Cocktail shot (berry/fruit)', 255, '40 мл', { icons: '🥃', tags: ['alc'],
+    options: [pick('flavor', 'Flavor', ['Брусника', 'Облепиха', 'Малина', 'Смородина', 'Клюква', 'Вишня', 'Персик', 'Мандарин'])] });
+  I('shots', 'st_horse', 'С ароматным хреном', 'Shot with horseradish', 275, '40 мл', { icons: '🥃🌶', tags: ['alc'] });
+  I('shots', 'st_set', 'Дегустационный сет — 5 любых шотов', 'Tasting set — 5 any shots', 1100, '5×40 мл', { icons: '🥃×5', tags: ['alc'],
+    options: [pick('flavor', 'Choose 5', ['Брусника', 'Облепиха', 'Малина', 'Смородина', 'Клюква', 'Вишня', 'Персик', 'Мандарин', 'Хрен'], { multi: true, want: 5 })],
+    unverified: 'Menu has a “**” footnote on this set that is not legible on the photo.' });
+
+  // ===== Vodka (40 мл) =====
+  function VD(id, ru, en, price) { I('vodka', id, ru, en, price, '40 мл', { icons: '🥃', tags: ['alc'], ml: 40, vodka: true }); }
+  VD('vd_myagkov', 'Мягков', 'Myagkov', 245);
+  VD('vd_arkh', 'Архангельская Северная выдержка', 'Arkhangelsk Northern excerpt', 265);
+  VD('vd_orthodox', 'Ортодокс', 'Orthodox', 295);
+  VD('vd_belnoble', 'Белуга Нобл', 'Beluga Noble', 365);
+  VD('vd_beltrans', 'Белуга Трансатлантик', 'Beluga Transatlantic', 405);
+
+  // ===== Moonshine (40 мл, 295) =====
+  [['apricot', 'Абрикосовый', 'with apricot'], ['mulberry', 'Тутовый', 'with mulberry'], ['no3', '№3', '№3'],
+    ['no2', '№2 (Пшеница)', 'No. 2 (Wheat)'], ['grape', 'Виноградный', 'Grape']].forEach(function (s) {
+    I('samogon', 'sm_' + s[0], 'Косогоров самогон ' + s[1], 'Kosogorov samogon ' + s[2], 295, '40 мл', { icons: '🥃', tags: ['alc'] });
+  });
+  I('samogon', 'sm_kit', 'Набор Самогонщика', 'Moonshiner’s Kit', 1295, '200 мл', { icons: '🥃×', tags: ['alc'], unverified: 'Composition of the kit is not printed.' });
+
+  // ===== Gin / rum / tequila / whisky / cognac =====
+  function SP(id, ru, en, price, extra) { I('spirits', id, ru, en, price, '40 мл', Object.assign({ icons: '🥃', tags: ['alc'] }, extra || {})); }
+  SP('gn_baboon', 'Грин Бабун', 'Gin GreenBaboon', 250);
+  SP('gn_ginster', 'Джинстер пломбир', 'Ginger sundae (gin)', 330);
+  SP('rm_puntacana', 'Пунтакана Клаб Сильвер/Вьехо', 'Punta Cana Club rum', 470, { options: [pick('kind', 'Kind', ['Сильвер', 'Вьехо'])] });
+  SP('rm_devils', 'Девилс Айленд Спайсед', 'Devils Island Spiced rum', 390);
+  var TEQ = 'Price is cut off on the photo — fill it in (Menu tab → edit).';
+  SP('tq_silver', 'Де Лос Дорадос Сильвер', 'Tequila De Los Dorados Silver', null, { unverified: TEQ });
+  SP('tq_gold', 'Де Лос Дорадос Голд', 'Tequila De Los Dorados Gold', null, { unverified: TEQ });
+  var WSK = 'Price partly cut off on both photos — best reading, please confirm.';
+  SP('wk_jack', 'Джек Дэниелс', 'Jack Daniels', 550, { unverified: WSK });
+  SP('wk_jameson', 'Джемесон', 'Jameson', 560, { unverified: WSK });
+  SP('wk_chivas', 'Чивас Ригал 12', 'Chivas Regal 12', 850, { unverified: WSK });
+  SP('wk_glen', 'Гленфиддик 12', 'Glenfiddich 12', 990, { unverified: WSK });
+  SP('cg_noah', 'Ной 3*', 'Cognac Noah 3*', 420);
+  SP('cg_tiflis', 'Сокровище Тифлиса 7 лет', 'Treasure of Tiflis 7', 400);
+  SP('cg_batumi', 'Батуми 12 лет', 'Batumi 12', 620);
+
+  // ===== Nalewka / liqueur / aperitif =====
+  function LQ(id, ru, en, price, w) { I('liqueur', id, ru, en, price, w || '40 мл', { icons: '🥃', tags: ['alc'] }); }
+  LQ('lq_7veg', 'Настойка 7 овощей', 'Nalewka 7 vegetables', 330);
+  LQ('lq_baileys', 'Бейлис', 'Baileys', 490);
+  LQ('lq_jager', 'Ягермейстер ледяной шот', 'Jagermeister ice shot', 420);
+  LQ('lq_belberry', 'Белуга Хантинг Ягодный', 'Beluga Hunting Berry', 350);
+  LQ('lq_belpear', 'Белуга Ботаникалс Груша&Липа', 'Beluga Botanicals Pear&Linden', 440);
+  LQ('lq_limoncello', 'Лимончелло', 'Limoncello', 250);
+  LQ('ap_bianco', 'Бьянко', 'Garrone Bianco', 450, '80 мл');
+  LQ('ap_extradry', 'Экстра Драй', 'Garrone Extra Dry', 450, '80 мл');
+
+  // ---- Section prefixes ----------------------------------------------------
+  // `ru` stays exactly as printed; `pre` is the section it is printed under,
+  // shown small above the name so “Мохито” (lemonade) ≠ “Мохито” (cocktail).
+  var PRE = {
+    lm_rasp: 'Лимонад', lm_tarragon: 'Лимонад', lm_peach: 'Лимонад', lm_passion: 'Лимонад',
+    lm_mojito: 'Б/а коктейль', lm_mojito_rasp: 'Б/а коктейль', lm_mojito_cur: 'Б/а коктейль',
+    mr_mandarin: 'Морс согревающий', mr_currant: 'Морс согревающий', mr_lingon: 'Морс согревающий',
+    sh_soviet: 'Молочный коктейль', sh_key: 'Молочный коктейль',
+    ck_mojito: 'Алк. коктейль',
+    gn_baboon: 'Джин', gn_ginster: 'Джин', rm_puntacana: 'Ром', rm_devils: 'Ром',
+    tq_silver: 'Текила', tq_gold: 'Текила', wk_jack: 'Виски', wk_jameson: 'Виски', wk_chivas: 'Виски', wk_glen: 'Виски',
+    cg_noah: 'Коньяк', cg_tiflis: 'Коньяк', cg_batumi: 'Коньяк', ap_bianco: 'Аперитив', ap_extradry: 'Аперитив',
+    set_veg: 'Набор вареников', set_sweet: 'Набор вареников', set_meat: 'Набор вареников',
+    cf_coco_capp: 'На кокосовом молоке', cf_coco_latte: 'На кокосовом молоке',
+    st_berry: 'Шот', st_horse: 'Шот', ch_parm: 'Сыр', ch_mozz: 'Сыр', ch_soviet: 'Сыр',
+  };
+  ITEMS.forEach(function (it) {
+    if (PRE[it.id]) it.pre = PRE[it.id];
+    else if (it.cat === 'tealeaf') it.pre = 'Листовой чай';
+    else if (it.cat === 'extras') it.pre = 'Добавка';
+    else if (it.cat === 'pot') it.pre = 'В горшочке';
+  });
+
+  // ---- Printed restaurant rules / promos ----------------------------------
+  var RULES = {
+    breakfastGift: 'Every day until 12:00 — espresso, americano or tea as a gift with any breakfast dish (printed on menu).',
+    vodkaPromo: 'Order 1 L of any vodka → 3 L juice as a gift (apple or tomato) (printed on menu).',
+    sideSwap: '“Заменить гарнир +35₽” is printed on the Main dishes page.',
+    sideSwapPrice: 35,
+  };
+
+  // ---- Easily confused groups (differences stated from menu text) ---------
+  var CONFUSABLES = [
+    { title: 'Мохито: with rum or without?', ids: ['ck_mojito', 'lm_mojito'], diff: 'Cocktail = светлый ром, 400 мл, 550 ₽. Lemonade = no alcohol, 350 мл, 360 ₽. Always ask “с алкоголем?”.' },
+    { title: 'Глинтвейн: alcoholic vs non-alcoholic', ids: ['hc_classic', 'tb_mulled', 'hc_hunter'], diff: 'Глинтвейн (red wine) 200 мл 450 ₽ · Безалкогольный глинтвейн is in the TEA section, 400 мл 420 ₽ · Охотничий 490 ₽.' },
+    { title: 'Siberian pelmeni — four versions', ids: ['pl_sib', 'pl_sibmush', 'pl_bakedsmet', 'pl_bakedpepper'], diff: 'Plain 640 · in mushroom sauce 660 · baked with sour cream 660 · baked in pepper sauce 695 (all pork/veal/chicken).' },
+    { title: 'Siberian vs Ural pelmeni', ids: ['pl_sib', 'pl_ural'], diff: 'Siberian = свинина, говядина, курица. Ural = говядина, баранина, курица + укроп. Both 640 ₽, both can take bouillon +35.' },
+    { title: 'Belarusian vareniki: plate vs pot', ids: ['v_belarus', 'pot_belarus'], diff: 'Plate 460 ₽ (200/15 г). Pot with mushroom поджарка 510 ₽ (200/30 г). The pot is its own item — not “plate + поджарка”.' },
+    { title: 'Lamb dishes', ids: ['v_lamb', 'pot_lamb', 'mn_perlovka'], diff: 'Vareniki with lamb 690 ₽ · lamb vareniki in pot with mushroom поджарка 750 ₽ · Перловка is BEEF (говядина), 850 ₽.' },
+    { title: 'Cabbage vareniki', ids: ['v_cabchick', 'pot_cabchick', 'set_veg'], diff: 'Plate “с капустой и жареной курицей” 490 · pot with mushroom поджарка 550 · “с капустой и грибами” exists only in the Овощной set.' },
+    { title: 'Potato vareniki', ids: ['v_potato', 'v_potmush', 'v_friedpotcheese', 'pot_potmeat', 'pot_potmushmeat'], diff: 'Potato 420 · potato+mushroom 460 · FRIED potato+cheese 490 · pot potato+meat поджарка 495 · pot potato+mushroom+meat поджарка 510.' },
+    { title: 'Chicken & mushroom vareniki', ids: ['v_chickmush', 'pot_chickmeat'], diff: 'Plate 560 ₽ · pot with MEAT поджарка 640 ₽.' },
+    { title: 'Sweet vareniki with cottage cheese', ids: ['sv_raisin', 'sv_poppy'], diff: 'Raisins 420 ₽ · poppy-seed dough with dried apricots 440 ₽.' },
+    { title: 'Cherry: vareniki vs posikunchiki', ids: ['sv_cherry', 'sv_posik'], diff: 'Vareniki with cherry 540 ₽, 200 г · Посикунчики 450 ₽, 160 г. Both: warn about pits (косточки).' },
+    { title: 'Pancakes', ids: ['blini', 'pc_cherry'], diff: 'With toppings of choice 390 ₽ (ask which topping) · with cottage cheese, cherry & salted caramel 450 ₽.' },
+    { title: 'Fried potatoes vs pork', ids: ['mn_friedpot', 'mn_friedpotpork', 'mn_pork'], diff: 'Potatoes+onion+mushroom 465 · potatoes+pork+mushroom 640 · pork tenderloin with wedges 820.' },
+    { title: 'Draniki', ids: ['mn_draniki', 'mn_zucchini'], diff: 'Potato draniki 390 ₽ · Zucchini draniki with chicken fillet & champignon sauce 740 ₽.' },
+    { title: 'Cutlets', ids: ['mn_cutlets', 'mn_chickcut', 'mn_kiev', 'mn_pikecut'], diff: 'Homemade cutlets + pasta in dill 595 · chicken cutlets with cheese 570 · Chicken Kiev 690 · pike cutlets + vegetable puree 685.' },
+    { title: 'Croutons / garlic bread', ids: ['sn_croutons', 'sn_borodino', 'br_pampushki'], diff: 'Garlic croutons 355 · Borodino croutons with herring & egg 520 · Pampushki with garlic sauce 145.' },
+    { title: 'Cheese snacks', ids: ['sn_cheesefries', 'sn_beer'], diff: 'Cheese fries with honey sauce 520 · Beer platter 1390 (pelmeni, cheese sticks, onion rings, croutons, garlic sauce).' },
+    { title: 'Coffee on regular vs coconut milk', ids: ['cf_capp', 'cf_coco_capp', 'cf_latte', 'cf_coco_latte'], diff: 'Cappuccino 275 / coconut 330 · Latte 280 / coconut 330.' },
+    { title: 'Juice vs fresh', ids: ['jc_orange', 'fr_orange', 'jc_apple', 'fr_apple'], diff: 'Juice 200 мл 195 ₽ (or 1 л 820) · Fresh 200 мл 430 ₽ (carrot 330).' },
+    { title: 'Berry drinks', ids: ['ow_cranberry', 'ow_berry', 'mr_lingon', 'tb_lingon'], diff: 'Cranberry mors 220/895 · berry compote 195/695 · WARM lingonberry-blueberry 260 · lingonberry TEA 420.' },
+    { title: 'Tarragon', ids: ['so_machine', 'lm_tarragon', 'ck_mimino'], diff: 'Soda machine Тархун 195 · Apple-tarragon lemonade 295 · Mimino cocktail (alcohol) 495.' },
+    { title: 'Same-price lookalike beers', ids: ['br_lowdunkel', 'br_lowlight', 'br_sibunf', 'br_siblight'], diff: 'Löwenbräu Dunkel = dark, Light = light (both 360/560). Сибирская корона нефильтрованное 350/550 vs светлое 340/540.' },
+    { title: 'Tea: berry vs leaf', ids: ['tb_grandma', 'tl_0'], diff: 'Berry & herb teas 420 ₽ · leaf tea 299 ₽ (both 400 мл).' },
+  ];
+
+  var MENU = { GROUPS: GROUPS, CATS: CATS, ITEMS: ITEMS, MODS: MODS, MOD_GROUPS: MOD_GROUPS, RULES: RULES, CONFUSABLES: CONFUSABLES, VERSION: '2026-10-20' };
+  if (typeof module !== 'undefined' && module.exports) module.exports = MENU;
+  else root.MENU = MENU;
+})(this);
+
+</script>
+<script>
+/*
+ * Pure order logic — no DOM, no storage. Unit-tested in tests/logic.test.js.
+ */
+(function (root) {
+  'use strict';
+
+  function uid(prefix) {
+    return (prefix || '') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function createLogic(MENU) {
+    var itemIndex = {};
+    MENU.ITEMS.forEach(function (it) { itemIndex[it.id] = it; });
+    var catIndex = {};
+    MENU.CATS.forEach(function (c, i) { catIndex[c.id] = Object.assign({ order: i }, c); });
+    var DRINK_GROUPS = { drinks: true, bar: true };
+
+    // Menu = base data + user overrides (price fixes, stop-list, renames) + custom items.
+    function getItem(id, menuState) {
+      var base = itemIndex[id];
+      var custom = null;
+      if (!base && menuState && menuState.custom) {
+        custom = menuState.custom.filter(function (c) { return c.id === id; })[0] || null;
+      }
+      var it = base || custom;
+      if (!it) return null;
+      var ov = menuState && menuState.overrides && menuState.overrides[id];
+      if (!ov) return it;
+      var merged = Object.assign({}, it, ov);
+      if (ov.price != null && it.price !== ov.price) merged.priceEdited = true;
+      if (ov.price != null && it.unverified && /price/i.test(it.unverified)) merged.unverified = null;
+      return merged;
+    }
+
+    function allItems(menuState) {
+      var list = MENU.ITEMS.map(function (it) { return getItem(it.id, menuState); });
+      if (menuState && menuState.custom) {
+        menuState.custom.forEach(function (c) { list.push(getItem(c.id, menuState)); });
+      }
+      return list.filter(function (it) { return it && !it.hidden; });
+    }
+
+    function isDrink(item) {
+      var c = item && catIndex[item.cat];
+      return !!(c && DRINK_GROUPS[c.group]);
+    }
+
+    function displayName(item) {
+      if (!item) return '?';
+      return (item.pre ? item.pre + ': ' : '') + item.ru;
+    }
+
+    // ---- Pricing -------------------------------------------------------------
+    function unitPrice(line, item) {
+      if (!item) return null;
+      if (line.free) return 0;
+      var price = item.price;
+      (item.options || []).forEach(function (opt) {
+        var sel = line.opts && line.opts[opt.id];
+        if (sel == null || opt.multi) return;
+        var ch = opt.choices.filter(function (c) { return c.id === sel; })[0];
+        if (ch && ch.price != null) price = ch.price;
+      });
+      if (price == null) return null;
+      Object.keys(line.mods || {}).forEach(function (mid) {
+        var m = MENU.MODS[mid];
+        if (m) price += m.price * (line.mods[mid] || 0);
+      });
+      if (line.sideSwap) price += MENU.RULES.sideSwapPrice;
+      return price;
+    }
+
+    function lineTotal(line, item) {
+      var u = unitPrice(line, item);
+      return u == null ? null : u * line.qty;
+    }
+
+    function tableTotal(table, menuState) {
+      var sum = 0, unknown = 0, count = 0;
+      table.lines.forEach(function (l) {
+        var t = lineTotal(l, getItem(l.itemId, menuState) || l.snap);
+        count += l.qty;
+        if (t == null) unknown++; else sum += t;
+      });
+      return { sum: sum, unknown: unknown, count: count };
+    }
+
+    // ---- Lines ---------------------------------------------------------------
+    function newLine(itemId, init) {
+      init = init || {};
+      return {
+        id: uid('l'),
+        itemId: itemId,
+        qty: init.qty || 1,
+        opts: Object.assign({}, init.opts || {}),
+        mods: Object.assign({}, init.mods || {}),
+        seat: init.seat || null,
+        note: init.note || '',
+        sideOk: false,
+        sideSwap: null,
+        free: !!init.free,
+        dismissed: [],
+        status: 'new',
+        addedAt: init.now || Date.now(),
+        sentAt: null,
+        snap: null,
+      };
+    }
+
+    function sameConfig(a, b) {
+      return a.itemId === b.itemId &&
+        JSON.stringify(a.opts || {}) === JSON.stringify(b.opts || {}) &&
+        JSON.stringify(a.mods || {}) === JSON.stringify(b.mods || {}) &&
+        (a.seat || null) === (b.seat || null) &&
+        (a.note || '') === (b.note || '') &&
+        (a.sideSwap || null) === (b.sideSwap || null) &&
+        !!a.free === !!b.free;
+    }
+
+    // Adds an item to a table. If an identical NEW (not yet entered) line exists,
+    // its quantity is increased instead of creating a near-duplicate line.
+    // Returns { line, merged }.
+    function addItem(table, itemId, init, menuState) {
+      var item = getItem(itemId, menuState);
+      var candidate = newLine(itemId, init);
+      if (item) candidate.snap = { ru: displayName(item), en: item.en, price: item.price, cat: item.cat };
+      for (var i = table.lines.length - 1; i >= 0; i--) {
+        var l = table.lines[i];
+        if (l.status === 'new' && sameConfig(l, candidate)) {
+          l.qty += candidate.qty;
+          table.updatedAt = Date.now();
+          return { line: l, merged: true };
+        }
+      }
+      table.lines.push(candidate);
+      table.updatedAt = Date.now();
+      return { line: candidate, merged: false };
+    }
+
+    // ---- Checks ----------------------------------------------------------------
+    // level: 'block' = must fix before entering into the POS
+    //        'warn'  = confirm with guest
+    //        'info'  = reminder / offer, never required
+    function lineIssues(line, item) {
+      var out = [];
+      if (!item) {
+        out.push({ level: 'warn', code: 'missing', text: 'Item no longer in menu data — check name in POS' });
+        return out;
+      }
+      if (item.stop) out.push({ level: 'block', code: 'stop', text: 'STOP-LIST: marked unavailable' });
+      (item.options || []).forEach(function (opt) {
+        var sel = line.opts && line.opts[opt.id];
+        var empty = sel == null || (Array.isArray(sel) && sel.length === 0);
+        if (opt.required && empty) out.push({ level: 'block', code: 'opt:' + opt.id, text: 'Choose ' + opt.label.toLowerCase() });
+        if (opt.want && Array.isArray(sel) && sel.length && sel.length !== opt.want) {
+          out.push({ level: 'warn', code: 'want:' + opt.id, text: sel.length + ' of ' + opt.want + ' chosen' });
+        }
+      });
+      if (!line.free && item.price == null && unitPrice(line, item) == null) out.push({ level: 'warn', code: 'price', text: 'Price unknown — check POS' });
+      if (item.side && !line.sideOk && !line.sideSwap) {
+        out.push({ level: 'warn', code: 'side', text: 'Side: ' + item.side.name + ' — confirm or swap' });
+      }
+      if (item.sideUnknown && !line.sideOk) {
+        out.push({ level: 'info', code: 'sideunk', text: 'Side not named on menu — ask what comes with it' });
+      }
+      (item.suggest || []).forEach(function (mid) {
+        if ((line.mods && line.mods[mid]) || (line.dismissed || []).indexOf(mid) >= 0) return;
+        var anyFromGroup = Object.keys(line.mods || {}).some(function (k) {
+          return MENU.MODS[k] && MENU.MODS[mid] && MENU.MODS[k].group === MENU.MODS[mid].group;
+        });
+        if (anyFromGroup) return;
+        var m = MENU.MODS[mid];
+        if (m) out.push({ level: 'info', code: 'offer:' + mid, mod: mid, text: 'Offer ' + m.ru + ' +' + m.price + ' ₽' });
+      });
+      var tags = item.tags || [];
+      if (tags.indexOf('pits') >= 0) out.push({ level: 'info', code: 'pits', text: 'Tell guest: may contain pits (косточки)' });
+      if (tags.indexOf('bones') >= 0) out.push({ level: 'info', code: 'bones', text: 'Tell guest: careful, bones (кости)' });
+      if (item.unverified) out.push({ level: 'info', code: 'unverified', text: '⚠ ' + item.unverified });
+      return out;
+    }
+
+    function hasHour(ts, before) {
+      return new Date(ts).getHours() < before;
+    }
+
+    function tableIssues(table, menuState, now) {
+      now = now || Date.now();
+      var out = [];
+      var breakfast = 0, food = 0, drinks = 0, vodkaMl = 0, freebies = 0;
+      var byItem = {};
+      table.lines.forEach(function (l) {
+        var it = getItem(l.itemId, menuState);
+        if (!it) return;
+        if ((it.tags || []).indexOf('breakfast') >= 0 && hasHour(l.addedAt, 12)) breakfast += l.qty;
+        if (isDrink(it)) drinks += l.qty; else if (!it.isExtra) food += l.qty;
+        if (it.vodka) vodkaMl += (it.ml || 0) * l.qty;
+        if (l.free) freebies += l.qty;
+        (byItem[l.itemId] = byItem[l.itemId] || []).push(l);
+      });
+      if (breakfast > 0) {
+        out.push({ level: 'warn', code: 'bfgift', text: 'Breakfast before 12:00 ×' + breakfast + ' → free espresso / americano / tea. Asked the guest? (' + freebies + ' gift line' + (freebies === 1 ? '' : 's') + ' so far)' });
+      }
+      if (vodkaMl >= 1000) {
+        out.push({ level: 'warn', code: 'vodka', text: 'Vodka ' + vodkaMl + ' мл ≥ 1 L → 3 L juice gift (apple or tomato) per menu' });
+      }
+      if (food > 0 && drinks === 0) out.push({ level: 'info', code: 'nodrinks', text: 'No drinks yet — ask about drinks' });
+      Object.keys(byItem).forEach(function (id) {
+        var ls = byItem[id];
+        var news = ls.filter(function (l) { return l.status === 'new'; });
+        var sent = ls.filter(function (l) { return l.status === 'sent'; });
+        var it = getItem(id, menuState);
+        if (news.length && sent.length) {
+          out.push({ level: 'warn', code: 'repeat:' + id, text: displayName(it) + ' was already entered ×' + sum(sent) + ' — new ×' + sum(news) + ' is a second order?' });
+        } else if (news.length > 1) {
+          var plain = news.filter(function (l) { return !l.seat && !l.note && !Object.keys(l.mods || {}).length; });
+          if (plain.length > 1) out.push({ level: 'info', code: 'dup:' + id, text: displayName(it) + ' appears on ' + plain.length + ' lines — merge?', merge: id });
+        }
+      });
+      return out;
+    }
+
+    function sum(lines) { return lines.reduce(function (a, l) { return a + l.qty; }, 0); }
+
+    function optionText(line, item) {
+      var parts = [];
+      (item && item.options || []).forEach(function (opt) {
+        var sel = line.opts && line.opts[opt.id];
+        if (sel == null) return;
+        var ids = Array.isArray(sel) ? sel : [sel];
+        var labels = ids.map(function (id) {
+          var ch = opt.choices.filter(function (c) { return c.id === id; })[0];
+          return ch ? ch.label : id;
+        });
+        if (labels.length) parts.push(labels.join(', '));
+      });
+      return parts;
+    }
+
+    function lineDetail(line, item) {
+      var parts = optionText(line, item);
+      Object.keys(line.mods || {}).forEach(function (mid) {
+        var m = MENU.MODS[mid];
+        if (m && line.mods[mid]) parts.push('+ ' + m.ru + (line.mods[mid] > 1 ? ' ×' + line.mods[mid] : ''));
+      });
+      if (item && item.side) {
+        if (line.sideSwap) {
+          var sw = getItem(line.sideSwap);
+          parts.push('гарнир → ' + (sw ? sw.ru : line.sideSwap) + ' (+' + MENU.RULES.sideSwapPrice + ')');
+        } else if (line.sideOk) parts.push('гарнир: ' + item.side.name);
+      }
+      if (line.free) parts.push('🎁 ПОДАРОК');
+      if (line.seat) parts.push('гость ' + line.seat);
+      if (line.note) parts.push('«' + line.note + '»');
+      return parts;
+    }
+
+    // Lines sorted the way they are printed on the menu — handy for POS entry.
+    function sortedLines(table, menuState) {
+      return table.lines.slice().sort(function (a, b) {
+        var ia = getItem(a.itemId, menuState), ib = getItem(b.itemId, menuState);
+        var ca = ia && catIndex[ia.cat] ? catIndex[ia.cat].order : 999;
+        var cb = ib && catIndex[ib.cat] ? catIndex[ib.cat].order : 999;
+        return ca - cb || a.addedAt - b.addedAt;
+      });
+    }
+
+    function summaryText(table, menuState, onlyNew) {
+      var lines = sortedLines(table, menuState).filter(function (l) { return !onlyNew || l.status === 'new'; });
+      var head = 'Стол ' + table.num + (table.guests ? ' (' + table.guests + ' гост.)' : '');
+      var rows = lines.map(function (l) {
+        var it = getItem(l.itemId, menuState);
+        var d = lineDetail(l, it);
+        return l.qty + ' × ' + (it ? displayName(it) : (l.snap && l.snap.ru) || l.itemId) + (d.length ? ' — ' + d.join('; ') : '');
+      });
+      return [head].concat(rows).join('\n');
+    }
+
+    function markSent(table, lineIds, now) {
+      now = now || Date.now();
+      table.lines.forEach(function (l) {
+        if (l.status === 'new' && (!lineIds || lineIds.indexOf(l.id) >= 0)) { l.status = 'sent'; l.sentAt = now; }
+      });
+      table.updatedAt = now;
+    }
+
+    function mergeDuplicates(table, itemId) {
+      var keep = null;
+      table.lines = table.lines.filter(function (l) {
+        if (l.itemId !== itemId || l.status !== 'new' || l.seat || l.note || Object.keys(l.mods || {}).length) return true;
+        if (!keep) { keep = l; return true; }
+        if (JSON.stringify(l.opts) !== JSON.stringify(keep.opts) || l.sideSwap !== keep.sideSwap) return true;
+        keep.qty += l.qty;
+        keep.sideOk = keep.sideOk || l.sideOk;
+        return false;
+      });
+    }
+
+    // ---- Search ----------------------------------------------------------------
+    var EN_RU = { q: 'й', w: 'ц', e: 'у', r: 'к', t: 'е', y: 'н', u: 'г', i: 'ш', o: 'щ', p: 'з', '[': 'х', ']': 'ъ',
+      a: 'ф', s: 'ы', d: 'в', f: 'а', g: 'п', h: 'р', j: 'о', k: 'л', l: 'д', ';': 'ж', "'": 'э',
+      z: 'я', x: 'ч', c: 'с', v: 'м', b: 'и', n: 'т', m: 'ь', ',': 'б', '.': 'ю', '`': 'ё' };
+
+    function norm(s) {
+      return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"“”'’().,:;!?\-–—\/]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function layoutFix(q) {
+      // “gtkmvtyb” typed on the English layout → “пельмени”
+      return String(q || '').toLowerCase().split('').map(function (ch) { return EN_RU[ch] || ch; }).join('');
+    }
+    function lev1(a, b) {
+      // true if edit distance <= 1 (cheap check, used for tokens >= 4 chars)
+      if (a === b) return true;
+      var la = a.length, lb = b.length;
+      if (Math.abs(la - lb) > 1) return false;
+      var i = 0, j = 0, edits = 0;
+      while (i < la && j < lb) {
+        if (a[i] === b[j]) { i++; j++; continue; }
+        if (++edits > 1) return false;
+        if (la > lb) i++; else if (lb > la) j++; else { i++; j++; }
+      }
+      return edits + (la - i) + (lb - j) <= 1;
+    }
+    function haystack(it) {
+      var h = it._hay;
+      if (!h) {
+        h = {
+          name: norm((it.pre || '') + ' ' + it.ru).split(' '),
+          en: norm(it.en).split(' '),
+          rest: norm((it.desc || '') + ' ' + (it.descEn || '') + ' ' + (it.alias || []).join(' ') + ' ' + (it.form || '') + ' ' + (catIndex[it.cat] ? catIndex[it.cat].ru + ' ' + catIndex[it.cat].en : '')).split(' '),
+        };
+        try { Object.defineProperty(it, '_hay', { value: h, enumerable: false }); } catch (e) { /* frozen */ }
+      }
+      return h;
+    }
+    function tokenScore(tok, words, weight) {
+      var best = 0;
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        if (!w) continue;
+        if (w === tok) return weight * 3;
+        if (w.indexOf(tok) === 0) best = Math.max(best, weight * 2);
+        else if (tok.length >= 3 && w.indexOf(tok) > 0) best = Math.max(best, weight);
+        else if (tok.length >= 4 && (lev1(tok, w) || lev1(tok, w.slice(0, tok.length)) || lev1(tok, w.slice(0, tok.length + 1)))) {
+          best = Math.max(best, weight * 0.8);
+        }
+      }
+      return best;
+    }
+    function scoreItem(it, tokens) {
+      var h = haystack(it), total = 0;
+      for (var i = 0; i < tokens.length; i++) {
+        var t = tokens[i];
+        var s = Math.max(tokenScore(t, h.name, 5), tokenScore(t, h.en, 4), tokenScore(t, h.rest, 1));
+        if (!s) return 0;
+        total += s;
+      }
+      return total;
+    }
+    function search(items, query) {
+      var q = norm(query);
+      if (!q) return [];
+      var variants = [q];
+      var fixed = norm(layoutFix(query));
+      if (fixed !== q && /[a-z]/.test(q)) variants.push(fixed);
+      var results = [];
+      items.forEach(function (it) {
+        var best = 0;
+        variants.forEach(function (v) { best = Math.max(best, scoreItem(it, v.split(' '))); });
+        if (best > 0) results.push({ it: it, s: best });
+      });
+      results.sort(function (a, b) { return b.s - a.s || a.it.ru.length - b.it.ru.length; });
+      return results.map(function (r) { return r.it; });
+    }
+
+    return {
+      uid: uid, getItem: getItem, allItems: allItems, isDrink: isDrink, displayName: displayName,
+      unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
+      newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
+      lineDetail: lineDetail, sortedLines: sortedLines, summaryText: summaryText, markSent: markSent,
+      mergeDuplicates: mergeDuplicates, search: search, norm: norm, layoutFix: layoutFix, cat: function (id) { return catIndex[id]; },
+    };
+  }
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = { createLogic: createLogic };
+  else root.createLogic = createLogic;
+})(this);
+
+</script>
+<script>
+/*
+ * Persistence. Strategy:
+ *  - Whole state is written to localStorage synchronously after EVERY change
+ *    (state is small; a busy shift is well under 1 MB).
+ *  - A rolling set of snapshots (every 2 min while changing, and on every
+ *    table close/delete) lives in separate keys, so a corrupted main record or
+ *    a mistaken “end shift” can be undone from Settings → Restore.
+ *  - Writes are verified by reading back; a failed write raises a visible
+ *    “NOT SAVED” banner instead of failing silently.
+ *  - Manual JSON export/import for off-device backup.
+ */
+(function (root) {
+  'use strict';
+
+  var KEY = 'waiter.state.v1';
+  var SNAP_PREFIX = 'waiter.snap.';
+  var SNAP_MAX = 12;
+  var SNAP_EVERY_MS = 2 * 60 * 1000;
+
+  function emptyState() {
+    return {
+      v: 1,
+      tables: [],          // active tables (array keeps the user’s order)
+      history: [],         // closed tables (kept 7 days)
+      menu: { overrides: {}, custom: [] },
+      favorites: [],
+      usage: {},           // itemId -> times added (for “frequent”)
+      recent: [],          // last added itemIds
+      training: { box: {}, hard: {}, stats: { right: 0, wrong: 0 } },
+      settings: { seats: true },
+      savedAt: 0,
+    };
+  }
+
+  function migrate(s) {
+    var base = emptyState();
+    if (!s || typeof s !== 'object') return base;
+    Object.keys(base).forEach(function (k) { if (s[k] == null) s[k] = base[k]; });
+    s.menu.overrides = s.menu.overrides || {};
+    s.menu.custom = s.menu.custom || [];
+    s.training.box = s.training.box || {};
+    s.training.hard = s.training.hard || {};
+    s.training.stats = s.training.stats || { right: 0, wrong: 0 };
+    s.tables.forEach(function (t) { t.lines = t.lines || []; });
+    return s;
+  }
+
+  function createStore(storage, opts) {
+    opts = opts || {};
+    var now = opts.now || function () { return Date.now(); };
+    var lastSnap = 0;
+    var listeners = [];
+    var status = { ok: true, error: null, savedAt: 0 };
+
+    function readJSON(key) {
+      try {
+        var raw = storage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
+    function snapshotKeys() {
+      var keys = [];
+      for (var i = 0; i < storage.length; i++) {
+        var k = storage.key(i);
+        if (k && k.indexOf(SNAP_PREFIX) === 0) keys.push(k);
+      }
+      return keys.sort();
+    }
+
+    function listSnapshots() {
+      return snapshotKeys().reverse().map(function (k) {
+        var s = readJSON(k);
+        return s ? { key: k, at: Number(k.slice(SNAP_PREFIX.length)), tables: (s.tables || []).length,
+          lines: (s.tables || []).reduce(function (a, t) { return a + (t.lines || []).length; }, 0) } : null;
+      }).filter(Boolean);
+    }
+
+    function load() {
+      var s = readJSON(KEY);
+      var recovered = false;
+      if (!s) {
+        // Main record missing or corrupt → newest readable snapshot.
+        var keys = snapshotKeys().reverse();
+        for (var i = 0; i < keys.length && !s; i++) s = readJSON(keys[i]);
+        recovered = !!s;
+      }
+      var state = migrate(s);
+      // Drop history older than 7 days.
+      var cutoff = now() - 7 * 24 * 3600 * 1000;
+      state.history = state.history.filter(function (t) { return (t.closedAt || 0) > cutoff; });
+      return { state: state, recovered: recovered && (state.tables.length > 0) };
+    }
+
+    function snapshot(state, force) {
+      var t = now();
+      if (!force && t - lastSnap < SNAP_EVERY_MS) return;
+      lastSnap = t;
+      try {
+        storage.setItem(SNAP_PREFIX + String(t).padStart(15, '0'), JSON.stringify(state));
+      } catch (e) { /* quota: main save matters more */ }
+      var keys = snapshotKeys();
+      while (keys.length > SNAP_MAX) storage.removeItem(keys.shift());
+    }
+
+    function save(state, opts2) {
+      state.savedAt = now();
+      var json = JSON.stringify(state);
+      try {
+        storage.setItem(KEY, json);
+        if (storage.getItem(KEY) !== json) throw new Error('read-back mismatch');
+        status = { ok: true, error: null, savedAt: state.savedAt };
+      } catch (e) {
+        // Free space by dropping the oldest snapshots, then retry once.
+        try {
+          snapshotKeys().slice(0, 6).forEach(function (k) { storage.removeItem(k); });
+          storage.setItem(KEY, json);
+          status = { ok: true, error: null, savedAt: state.savedAt };
+        } catch (e2) {
+          status = { ok: false, error: String(e2 && e2.message || e2), savedAt: status.savedAt };
+        }
+      }
+      snapshot(state, opts2 && opts2.snapshot);
+      listeners.forEach(function (fn) { fn(status); });
+      return status.ok;
+    }
+
+    function restore(key) {
+      var s = readJSON(key);
+      return s ? migrate(s) : null;
+    }
+
+    function exportJSON(state) {
+      return JSON.stringify({ app: 'waiter-assistant', exportedAt: new Date(now()).toISOString(), state: state }, null, 1);
+    }
+
+    function importJSON(text) {
+      var data = JSON.parse(text);
+      var s = data && data.state ? data.state : data;
+      if (!s || !Array.isArray(s.tables)) throw new Error('Not a waiter-assistant backup');
+      return migrate(s);
+    }
+
+    return {
+      load: load, save: save, snapshot: snapshot, listSnapshots: listSnapshots, restore: restore,
+      exportJSON: exportJSON, importJSON: importJSON,
+      onStatus: function (fn) { listeners.push(fn); },
+      status: function () { return status; },
+      KEY: KEY,
+    };
+  }
+
+  var api = { createStore: createStore, emptyState: emptyState, migrate: migrate };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.WaiterStore = api;
+})(this);
+
+</script>
+<script>
+/*
+ * Training: questions are generated only from verified menu fields.
+ * Items with an `unverified` flag are excluded from price questions.
+ * Leitner boxes (0–4): wrong answer → box 0, right → box+1. Low boxes and
+ * items marked “hard” are picked more often.
+ */
+(function (root) {
+  'use strict';
+
+  function createTrainer(MENU, logic) {
+    function rng() { return Math.random(); }
+    function shuffle(a) {
+      for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+      return a;
+    }
+    function name(it) { return logic.displayName(it); }
+
+    function pool(items, group) {
+      return items.filter(function (it) {
+        if (it.isExtra) return false;
+        if (!group || group === 'all') return true;
+        if (group === 'hard') return false;
+        var c = logic.cat(it.cat);
+        return c && c.group === group;
+      });
+    }
+
+    function weightOf(it, tr) {
+      var box = tr.box[it.id] || 0;
+      return (5 - box) * (tr.hard[it.id] ? 3 : 1);
+    }
+
+    function pickWeighted(list, tr) {
+      var total = 0;
+      list.forEach(function (it) { total += weightOf(it, tr); });
+      var r = rng() * total;
+      for (var i = 0; i < list.length; i++) { r -= weightOf(list[i], tr); if (r <= 0) return list[i]; }
+      return list[list.length - 1];
+    }
+
+    function distractors(target, list, key, n) {
+      var seen = {}; seen[key(target)] = true;
+      var out = [];
+      var same = shuffle(list.filter(function (x) { return x.cat === target.cat; }));
+      var other = shuffle(list.filter(function (x) { return x.cat !== target.cat; }));
+      same.concat(other).forEach(function (x) {
+        var k = key(x);
+        if (out.length < n && k != null && !seen[k]) { seen[k] = true; out.push(x); }
+      });
+      return out;
+    }
+
+    // Returns {prompt, sub, choices:[{label, correct}], itemId, explain}
+    function question(items, tr, opts) {
+      opts = opts || {};
+      var list = pool(items, opts.group);
+      if (opts.group === 'hard') list = items.filter(function (it) { return tr.hard[it.id]; });
+      if (list.length < 4) return null;
+      var kinds = opts.kind && opts.kind !== 'mix' ? [opts.kind] : ['price', 'name', 'ru2en', 'ingredients', 'confuse'];
+      for (var attempt = 0; attempt < 20; attempt++) {
+        var kind = kinds[Math.floor(rng() * kinds.length)];
+        var q = build(kind, list, items, tr);
+        if (q) return q;
+      }
+      return null;
+    }
+
+    function build(kind, list, all, tr) {
+      var it, ds, priceOf = function (x) { return x.unverified || x.price == null ? null : x.price; };
+      if (kind === 'price') {
+        var priced = list.filter(function (x) { return priceOf(x) != null; });
+        if (priced.length < 4) return null;
+        it = pickWeighted(priced, tr);
+        ds = distractors(it, priced, priceOf, 3);
+        if (ds.length < 3) return null;
+        return mk('How much is it?', name(it), [it].concat(ds).map(function (x) { return { label: x.price + ' ₽', correct: x === it }; }), it,
+          it.ru + ' — ' + it.price + ' ₽' + (it.w ? ' · ' + it.w : ''));
+      }
+      if (kind === 'name') {
+        it = pickWeighted(list, tr);
+        ds = distractors(it, list, function (x) { return name(x); }, 3);
+        return mk('Guest asks for:', it.en, [it].concat(ds).map(function (x) { return { label: name(x), correct: x === it }; }), it, name(it));
+      }
+      if (kind === 'ru2en') {
+        it = pickWeighted(list, tr);
+        ds = distractors(it, list, function (x) { return x.en; }, 3);
+        return mk('What is this in English?', name(it), [it].concat(ds).map(function (x) { return { label: x.en, correct: x === it }; }), it, it.en);
+      }
+      if (kind === 'ingredients') {
+        var withDesc = list.filter(function (x) { return x.desc; });
+        if (withDesc.length < 4) return null;
+        it = pickWeighted(withDesc, tr);
+        ds = distractors(it, withDesc, function (x) { return name(x); }, 3);
+        if (ds.length < 3) return null;
+        return mk('Which dish / drink contains:', it.desc, [it].concat(ds).map(function (x) { return { label: name(x), correct: x === it }; }), it, name(it) + ': ' + it.desc);
+      }
+      if (kind === 'confuse') {
+        var ids = {}; list.forEach(function (x) { ids[x.id] = x; });
+        var groups = MENU.CONFUSABLES.filter(function (g) { return g.ids.filter(function (id) { return ids[id]; }).length >= 2; });
+        if (!groups.length) return null;
+        var g = groups[Math.floor(rng() * groups.length)];
+        var members = g.ids.map(function (id) { return logic.getItem(id); }).filter(Boolean);
+        var prices = members.map(priceOf);
+        var unique = prices.every(function (p, i) { return p != null && prices.indexOf(p) === i; });
+        it = members[Math.floor(rng() * members.length)];
+        if (unique) {
+          return mk(g.title, 'Which one costs ' + it.price + ' ₽?', shuffle(members.map(function (x) { return { label: name(x), correct: x === it }; })), it, g.diff, true);
+        }
+        return mk(g.title, it.en, shuffle(members.map(function (x) { return { label: name(x), correct: x === it }; })), it, g.diff, true);
+      }
+      return null;
+    }
+
+    function mk(prompt, sub, choices, it, explain, keepOrder) {
+      return { prompt: prompt, sub: sub, choices: keepOrder ? choices : shuffle(choices), itemId: it.id, explain: explain };
+    }
+
+    function grade(tr, itemId, right) {
+      var b = tr.box[itemId] || 0;
+      tr.box[itemId] = right ? Math.min(4, b + 1) : 0;
+      if (right) tr.stats.right++; else tr.stats.wrong++;
+    }
+
+    function nextFlash(items, tr, group) {
+      var list = group === 'hard' ? items.filter(function (it) { return tr.hard[it.id]; }) : pool(items, group);
+      return list.length ? pickWeighted(list, tr) : null;
+    }
+
+    function progress(items, tr) {
+      var learned = 0, total = 0;
+      items.forEach(function (it) { if (it.isExtra) return; total++; if ((tr.box[it.id] || 0) >= 3) learned++; });
+      return { learned: learned, total: total };
+    }
+
+    return { question: question, grade: grade, nextFlash: nextFlash, progress: progress };
+  }
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = { createTrainer: createTrainer };
+  else root.createTrainer = createTrainer;
+})(this);
+
+</script>
+<script>
+/* Waiter Pad — UI. Plain JS, no framework, no network. */
+(function () {
+  'use strict';
+
+  var MENU = window.MENU;
+  var L = window.createLogic(MENU);
+  var T = window.createTrainer(MENU, L);
+  var store = window.WaiterStore.createStore(window.localStorage);
+
+  var loaded = store.load();
+  var S = loaded.state;
+  var ui = {
+    view: (S.ui && S.ui.view) || 'tables',
+    tableId: S.ui && S.ui.tableId,
+    picker: null,           // {q, group, cat, seat}
+    sheet: null,
+    review: { ticked: {}, onlyNew: true, big: false },
+    learn: { mode: 'quiz', group: 'all', q: null, answered: null, flash: null, flipped: false },
+    menu: { q: '', filter: 'all' },
+    lastCat: 'breakfast',
+  };
+  if (!findTable(ui.tableId)) { ui.tableId = null; if (ui.view === 'table' || ui.view === 'review') ui.view = 'tables'; }
+
+  var $app = document.getElementById('app');
+  var $tabs = document.getElementById('tabs');
+  var $sheet = document.getElementById('sheet-root');
+  var $toast = document.getElementById('toast');
+  var $banner = document.getElementById('banner');
+
+  // ---------------------------------------------------------------- helpers
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function rub(n) { return n == null ? '? ₽' : n.toLocaleString('ru-RU') + ' ₽'; }
+  function findTable(id) { return S.tables.filter(function (t) { return t.id === id; })[0] || null; }
+  function cur() { return findTable(ui.tableId); }
+  function item(id) { return L.getItem(id, S.menu); }
+  function catColor(catId) { var c = L.cat(catId); return 'hsl(' + (c ? c.hue : 0) + ' 62% 48%)'; }
+  function ago(ts) {
+    var m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' m';
+  }
+  function timeStr(ts) { var d = new Date(ts); return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
+  function numSort(a, b) {
+    var na = parseFloat(a.num), nb = parseFloat(b.num);
+    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+    return String(a.num).localeCompare(String(b.num));
+  }
+  function persistUi() { S.ui = { view: ui.view, tableId: ui.tableId }; }
+
+  // Every state change goes through commit(): save immediately, offer undo.
+  function commit(label, fn, opts) {
+    opts = opts || {};
+    var prev = JSON.stringify(S);
+    fn();
+    persistUi();
+    store.save(S, { snapshot: !!opts.snapshot });
+    if (label) toast(label, opts.undo === false ? null : prev);
+    render();
+  }
+  function nav(view, tableId) {
+    ui.view = view;
+    if (tableId !== undefined) ui.tableId = tableId;
+    if (view !== 'review') ui.review.ticked = {};
+    persistUi();
+    store.save(S);
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  var toastTimer = null, toastUndo = null;
+  function toast(text, undoJSON) {
+    toastUndo = undoJSON || null;
+    $toast.innerHTML = '<span>' + esc(text) + '</span>' + (toastUndo ? '<button data-a="undo">Undo</button>' : '');
+    $toast.hidden = false;
+    $toast.classList.toggle('inpicker', !!ui.picker);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $toast.hidden = true; toastUndo = null; }, toastUndo ? 5000 : 2200);
+  }
+
+  store.onStatus(function (st) {
+    if (!st.ok) {
+      $banner.hidden = false; $banner.className = 'banner';
+      $banner.textContent = '⚠ NOT SAVED (' + st.error + '). Free space or export a backup now.';
+    } else if (!$banner.classList.contains('info')) {
+      $banner.hidden = true;
+    }
+  });
+  if (loaded.recovered) {
+    $banner.hidden = false; $banner.className = 'banner info';
+    $banner.textContent = 'Main save was damaged — restored from the latest snapshot. Check your tables.';
+    setTimeout(function () { $banner.hidden = true; $banner.className = 'banner'; }, 9000);
+  }
+
+  function saveDot() {
+    var st = store.status();
+    if (!st.ok) return '<span class="savedot bad">● not saved</span>';
+    return '<span class="savedot">✓ saved ' + (st.savedAt ? timeStr(st.savedAt) : '') + '</span>';
+  }
+
+  // ---------------------------------------------------------------- render
+  function render() {
+    document.documentElement.dataset.theme = S.settings.theme || '';
+    var t = cur();
+    var newCount = t ? t.lines.filter(function (l) { return l.status === 'new'; }).length : 0;
+    $tabs.innerHTML = [
+      tab('tables', '▦', 'Tables'),
+      tab(t ? 'table' : 'tables', t ? esc(String(t.num)).slice(0, 4) : '–', t ? 'Order' + (newCount ? ' •' + newCount : '') : 'Order', ui.view === 'table' || ui.view === 'review'),
+      tab('learn', '🎓', 'Learn'),
+      tab('menu', '☰', 'Menu & data'),
+    ].join('');
+    var html = '';
+    if (ui.view === 'tables') html = viewTables();
+    else if (ui.view === 'table') html = viewTable();
+    else if (ui.view === 'review') html = viewReview();
+    else if (ui.view === 'learn') html = viewLearn();
+    else if (ui.view === 'menu') html = viewMenu();
+    $app.innerHTML = html;
+    renderPicker();
+    renderSheet();
+  }
+  function tab(view, icon, label, on) {
+    var active = on != null ? on : ui.view === view;
+    return '<button data-a="tab" data-v="' + view + '" class="' + (active ? 'on' : '') + '"><b>' + icon + '</b>' + label + '</button>';
+  }
+
+  // ---------------------------------------------------------------- tables
+  function tableBadges(t) {
+    var n = t.lines.filter(function (l) { return l.status === 'new'; }).reduce(function (a, l) { return a + l.qty; }, 0);
+    var blocks = 0;
+    t.lines.forEach(function (l) { blocks += L.lineIssues(l, item(l.itemId)).filter(function (i) { return i.level === 'block'; }).length; });
+    var tot = L.tableTotal(t, S.menu);
+    var out = '';
+    if (n) out += '<span class="pill new">' + n + ' new</span>';
+    if (blocks) out += '<span class="pill block">! ' + blocks + '</span>';
+    if (!n && t.lines.length) out += '<span class="pill ok">✓ entered</span>';
+    if (tot.count) out += '<span class="pill">' + rub(tot.sum) + '</span>';
+    return out;
+  }
+
+  function viewTables() {
+    var tables = S.tables.slice().sort(numSort);
+    var h = '<div class="top"><h1>Tables <span class="sub">' + tables.length + ' open</span></h1>' + saveDot() + '</div>';
+    if (!tables.length) {
+      h += '<div class="empty">No open tables.<br>Tap <b>+ New table</b> below.</div>';
+    } else {
+      h += '<div class="grid">' + tables.map(function (t) {
+        return '<button class="tcard" data-a="open" data-id="' + t.id + '">' +
+          '<span class="num">' + esc(t.num) + '</span>' +
+          '<span class="meta">' + (t.guests ? t.guests + ' guests · ' : '') + ago(t.openedAt) + '</span>' +
+          (t.note ? '<span class="meta">📝 ' + esc(t.note) + '</span>' : '') +
+          '<span class="badges">' + tableBadges(t) + '</span></button>';
+      }).join('') + '</div>';
+    }
+    var today = S.history.filter(function (t) { return Date.now() - t.closedAt < 18 * 3600 * 1000; });
+    if (S.history.length) {
+      h += '<div class="section-h">Closed (last 7 days, ' + S.history.length + ')</div><ul class="list-plain">' +
+        S.history.slice(0, today.length > 15 ? today.length : 15).map(function (t) {
+          var tot = L.tableTotal(t, S.menu);
+          return '<li><button class="btn ghost block" style="justify-content:space-between" data-a="histOpen" data-id="' + t.id + '">' +
+            '<span>Стол ' + esc(t.num) + ' · ' + new Date(t.closedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>' +
+            '<span class="muted">' + tot.count + ' items · ' + rub(tot.sum) + '</span></button></li>';
+        }).join('') + '</ul>';
+    }
+    h += '<div class="actionbar"><button class="btn primary grow" data-a="newTable">+ New table</button></div>';
+    return h;
+  }
+
+  // ---------------------------------------------------------------- table
+  function issueChips(l, it, withInfo) {
+    return L.lineIssues(l, it).filter(function (i) {
+      if (i.level !== 'info') return true;
+      if (!withInfo) return false;
+      return i.code !== 'unverified';
+    }).map(function (i) {
+      if (i.mod) return '<button class="issue info tap" data-a="addMod" data-line="' + l.id + '" data-mod="' + i.mod + '">' + esc(i.text) + '</button>';
+      return '<span class="issue ' + i.level + '">' + esc(i.text) + '</span>';
+    }).join('');
+  }
+
+  function lineRow(l, opts) {
+    var it = item(l.itemId);
+    var name = it ? it.ru : (l.snap ? l.snap.ru : l.itemId);
+    var pre = it && it.pre ? '<span class="pre">' + esc(it.pre) + '</span>' : '';
+    var det = L.lineDetail(l, it);
+    var tot = L.lineTotal(l, it);
+    return '<div class="line ' + l.status + '">' +
+      '<span class="stripe" style="background:' + catColor(it ? it.cat : '') + '"></span>' +
+      '<span class="qty">' + l.qty + '</span>' +
+      '<div class="body" role="button" tabindex="0" data-a="editLine" data-id="' + l.id + '">' + pre +
+        '<span class="name">' + esc(name) + '</span> <span class="price muted small">' + rub(tot) + '</span>' +
+        (det.length ? '<div class="detail">' + esc(det.join(' · ')) + '</div>' : '') +
+        (opts.issues ? '<div class="issues">' + issueChips(l, it, l.status === 'new') + '</div>' : '') +
+      '</div>' +
+      (l.status === 'new' ? '<span class="steps"><button data-a="inc" data-id="' + l.id + '" aria-label="plus">+</button><button data-a="dec" data-id="' + l.id + '" aria-label="minus">−</button></span>' : '') +
+      '</div>';
+  }
+
+  function viewTable() {
+    var t = cur();
+    if (!t) return viewTables();
+    var others = S.tables.slice().sort(numSort);
+    var h = '<div class="top"><h1>Стол ' + esc(t.num) + ' <span class="sub">' + (t.guests ? t.guests + ' guests · ' : '') + ago(t.openedAt) + '</span></h1>' +
+      '<button class="iconbtn" data-a="tableMenu" aria-label="table options">⋯</button></div>';
+    if (others.length > 1) {
+      h += '<div class="strip">' + others.map(function (o) {
+        var hasNew = o.lines.some(function (l) { return l.status === 'new'; });
+        return '<button class="chip ' + (o.id === t.id ? 'on' : '') + '" data-a="open" data-id="' + o.id + '">' + (hasNew ? '<span class="dot"></span>' : '') + esc(o.num) + '</button>';
+      }).join('') + '<button class="chip" data-a="newTable">+</button></div>';
+    }
+    if (t.note) h += '<div class="note">📝 ' + esc(t.note) + '</div>';
+    var ti = L.tableIssues(t, S.menu);
+    if (ti.length) {
+      h += '<div class="tableissues mt">' + ti.map(function (i) {
+        if (i.merge) return '<button class="issue ' + i.level + ' tap" data-a="merge" data-item="' + i.merge + '">' + esc(i.text) + '</button>';
+        return '<div class="issue ' + i.level + '">' + esc(i.text) + '</div>';
+      }).join('') + '</div>';
+    }
+    var news = t.lines.filter(function (l) { return l.status === 'new'; });
+    var sent = t.lines.filter(function (l) { return l.status === 'sent'; });
+    if (!t.lines.length) h += '<div class="empty">Empty order.<br>Tap <b>+ Add</b> — the menu opens with search at the top.</div>';
+    if (news.length) {
+      h += '<div class="section-h new"><span>Not in POS yet · ' + news.reduce(function (a, l) { return a + l.qty; }, 0) + '</span></div>';
+      h += '<div class="lines">' + news.map(function (l) { return lineRow(l, { issues: true }); }).join('') + '</div>';
+    }
+    if (sent.length) {
+      h += '<div class="section-h"><span>Entered in POS · ' + sent.reduce(function (a, l) { return a + l.qty; }, 0) + '</span></div>';
+      h += '<div class="lines">' + sent.map(function (l) { return lineRow(l, { issues: false }); }).join('') + '</div>';
+    }
+    if (t.lines.length) {
+      var tot = L.tableTotal(t, S.menu);
+      h += '<div class="total"><span>≈ Total' + (tot.unknown ? ' (+' + tot.unknown + ' unknown)' : '') + '</span><span class="price">' + rub(tot.sum) + '</span></div>' +
+        '<div class="small muted" style="padding:0 6px">Guide only — the POS bill is final.</div>';
+    }
+    h += '<div class="actionbar">' +
+      '<button class="btn" data-a="review"' + (t.lines.length ? '' : ' disabled') + '>Review ✓' + (news.length ? ' (' + news.length + ')' : '') + '</button>' +
+      '<button class="btn primary grow" data-a="openPicker">+ Add</button></div>';
+    return h;
+  }
+
+  // ---------------------------------------------------------------- review
+  function viewReview() {
+    var t = cur();
+    if (!t) return viewTables();
+    var r = ui.review;
+    var lines = L.sortedLines(t, S.menu).filter(function (l) { return !r.onlyNew || l.status === 'new'; });
+    var blockers = [];
+    lines.forEach(function (l) {
+      L.lineIssues(l, item(l.itemId)).forEach(function (i) { if (i.level === 'block' || i.level === 'warn') blockers.push({ l: l, i: i }); });
+    });
+    var h = '<div class="top"><button class="iconbtn" data-a="tab" data-v="table" aria-label="back">‹</button>' +
+      '<h1>Стол ' + esc(t.num) + ' <span class="sub">→ POS</span></h1>' +
+      '<button class="iconbtn" data-a="bigText" aria-label="text size">' + (r.big ? 'A−' : 'A+') + '</button></div>';
+    h += '<div class="seg" style="margin:0 0 10px"><button data-a="rvNew" class="' + (r.onlyNew ? 'on' : '') + '">New only</button>' +
+      '<button data-a="rvAll" class="' + (!r.onlyNew ? 'on' : '') + '">Whole table</button></div>';
+    if (blockers.length) {
+      h += '<div class="tableissues">' + blockers.map(function (b) {
+        var it = item(b.l.itemId);
+        return '<button class="issue ' + b.i.level + '" data-a="editLine" data-id="' + b.l.id + '">' + esc((it ? it.ru : '') + ': ' + b.i.text) + '</button>';
+      }).join('') + '</div>';
+    }
+    L.tableIssues(t, S.menu).filter(function (i) { return i.level === 'warn'; }).forEach(function (i) {
+      h += '<div class="issue warn mt">' + esc(i.text) + '</div>';
+    });
+    if (!lines.length) h += '<div class="empty">Nothing new to enter.</div>';
+    var lastCat = null;
+    h += '<div class="rv mt ' + (r.big ? 'big' : '') + '">';
+    lines.forEach(function (l) {
+      var it = item(l.itemId);
+      if (it && it.cat !== lastCat) { lastCat = it.cat; h += '<div class="cat-h">' + esc(L.cat(it.cat).ru) + '</div>'; }
+      var d = L.lineDetail(l, it);
+      h += '<button class="rvline ' + (r.ticked[l.id] ? 'ticked' : '') + '" data-a="tick" data-id="' + l.id + '">' +
+        '<span class="box">' + (r.ticked[l.id] ? '✓' : '') + '</span><span class="q">' + l.qty + '×</span>' +
+        '<span><span class="n">' + esc(it ? L.displayName(it) : l.itemId) + '</span>' +
+        (d.length ? '<div class="d">' + esc(d.join(' · ')) + '</div>' : '') +
+        (l.status === 'sent' ? '<div class="d">✓ entered ' + timeStr(l.sentAt) + '</div>' : '') + '</span></button>';
+    });
+    h += '</div>';
+    var ticked = Object.keys(r.ticked).filter(function (k) { return r.ticked[k]; }).length;
+    var newCount = t.lines.filter(function (l) { return l.status === 'new'; }).length;
+    h += '<div class="actionbar"><button class="btn" data-a="copy">Copy text</button>' +
+      '<button class="btn ok grow" data-a="markSent"' + (newCount ? '' : ' disabled') + '>' +
+      (ticked ? 'Mark ' + ticked + ' entered' : 'Mark all entered') + '</button></div>';
+    return h;
+  }
+
+  // ---------------------------------------------------------------- picker
+  function inOrderQty(t, itemId) {
+    if (!t) return 0;
+    return t.lines.filter(function (l) { return l.itemId === itemId && l.status === 'new'; }).reduce(function (a, l) { return a + l.qty; }, 0);
+  }
+
+  function itemRow(it, t, mode) {
+    var tags = '';
+    if (it.stop) tags += '<span class="tag stop">STOP</span>';
+    if (it.form && it.form !== 'тарелка') tags += '<span class="tag form">' + esc(it.form) + '</span>';
+    if ((it.tags || []).indexOf('new') >= 0) tags += '<span class="tag new">NEW</span>';
+    if ((it.tags || []).indexOf('pits') >= 0 || (it.tags || []).indexOf('bones') >= 0) tags += '<span class="tag">🦴</span>';
+    if ((it.tags || []).indexOf('spicy') >= 0) tags += '<span class="tag">🌶</span>';
+    if (it.unverified) tags += '<span class="tag unv">⚠ check</span>';
+    if (S.favorites.indexOf(it.id) >= 0) tags += '<span class="tag">★</span>';
+    var q = mode === 'pick' ? inOrderQty(t, it.id) : 0;
+    var price = it.price == null ? '?' : (it.options && it.options.some(function (o) { return o.choices.some(function (c) { return c.price != null; }); }) ? 'от ' : '') + it.price.toLocaleString('ru-RU');
+    var action = mode === 'pick' ? 'pick' : 'editItem';
+    return '<div class="irow ' + (it.stop ? 'stop' : '') + '">' +
+      '<span class="stripe" style="background:' + catColor(it.cat) + '"></span>' +
+      '<button class="irow-hit" data-a="' + action + '" data-id="' + it.id + '" style="all:unset;display:flex;flex:1;min-width:0;cursor:pointer">' +
+        '<span class="ic">' + esc(it.icons || '') + '</span>' +
+        '<span class="main">' + (it.pre ? '<span class="pre">' + esc(it.pre) + '</span>' : '') +
+          '<span class="ru">' + tags + esc(it.ru) + '</span><div class="en">' + esc(it.en) + '</div></span>' +
+        '<span class="side">' + (q ? '<span class="inorder">' + q + '</span>' : '<span class="p">' + price + '</span>') +
+          '<span class="w">' + esc(it.w) + '</span></span>' +
+      '</button>' +
+      '<button class="info" data-a="info" data-id="' + it.id + '" aria-label="details">ⓘ</button></div>';
+  }
+
+  function quickList() {
+    var all = L.allItems(S.menu);
+    var byId = {}; all.forEach(function (it) { byId[it.id] = it; });
+    var fav = S.favorites.map(function (id) { return byId[id]; }).filter(Boolean);
+    var freq = Object.keys(S.usage).sort(function (a, b) { return S.usage[b] - S.usage[a]; })
+      .filter(function (id) { return byId[id] && S.favorites.indexOf(id) < 0; }).slice(0, 14).map(function (id) { return byId[id]; });
+    return { fav: fav, freq: freq };
+  }
+
+  function pickerListHTML() {
+    var p = ui.picker, t = cur();
+    var all = L.allItems(S.menu);
+    var h = '';
+    if (p.q) {
+      var res = L.search(all, p.q).slice(0, 60);
+      if (!res.length) h += '<div class="empty">Nothing for “' + esc(p.q) + '”.<br><span class="small">Try Russian, English, or part of a word.</span></div>';
+      h += res.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
+      return h;
+    }
+    if (p.cat === '★') {
+      var ql = quickList();
+      if (!ql.fav.length && !ql.freq.length) h += '<div class="empty">Favourites and your most-ordered items appear here.<br><span class="small">Star an item via ⓘ.</span></div>';
+      if (ql.fav.length) h += '<div class="cat-h">★ Favourites</div>' + ql.fav.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
+      if (ql.freq.length) h += '<div class="cat-h">Most ordered</div>' + ql.freq.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
+      return h;
+    }
+    var list = all.filter(function (it) { return it.cat === p.cat || (it.alsoIn || []).indexOf(p.cat) >= 0; });
+    var c = L.cat(p.cat);
+    h += '<div class="cat-h">' + esc(c ? c.ru + ' · ' + c.en : '') + '</div>';
+    if (p.cat === 'vareniki') h += '<div class="note">Menu recommends with any vareniki: Мясная поджарка +140 / Грибная +110 (offered on the line).</div><div class="mt"></div>';
+    if (p.cat === 'pot') h += '<div class="note">Pots already include поджарка — they are separate items, not “plate + поджарка”.</div><div class="mt"></div>';
+    if (p.cat === 'pelmeni') h += '<div class="note">Menu recommends chicken broth 100 г +35 ₽ for Siberian & Ural pelmeni.</div><div class="mt"></div>';
+    if (p.cat === 'mains') h += '<div class="note">“Заменить гарнир +35₽” — side swap is in the line editor.</div><div class="mt"></div>';
+    h += list.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
+    return h;
+  }
+
+  function pickerChipsHTML() {
+    var p = ui.picker;
+    var cats = MENU.CATS.filter(function (c) { return c.group === p.group; });
+    return '<div class="seg">' + MENU.GROUPS.map(function (g) {
+        return '<button data-a="pGroup" data-g="' + g.id + '" class="' + (p.group === g.id && p.cat !== '★' ? 'on' : '') + '">' + g.label + '</button>';
+      }).join('') + '<button data-a="pCat" data-c="★" class="' + (p.cat === '★' ? 'on' : '') + '">★</button></div>' +
+      (p.cat === '★' ? '' : '<div class="strip" style="margin-top:8px">' + cats.map(function (c) {
+        return '<button class="chip ' + (p.cat === c.id && !p.q ? 'on' : '') + '" data-a="pCat" data-c="' + c.id + '">' + esc(c.ru) + '</button>';
+      }).join('') + '</div>') +
+      (S.settings.seats ? '<div class="seatrow"><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
+        return '<button class="chip ' + ((p.seat || '') === s ? 'on' : '') + '" data-a="pSeat" data-s="' + s + '">' + (s || '—') + '</button>';
+      }).join('') + '</div>' : '');
+  }
+
+  function renderPicker() {
+    var el = document.getElementById('picker');
+    if (!ui.picker) { if (el) el.remove(); return; }
+    var t = cur();
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'picker'; el.className = 'picker';
+      el.innerHTML = '<div class="head"><div class="searchrow">' +
+        '<input id="psearch" class="search" type="search" placeholder="Search: пельм, borsch, gtkm…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
+        '<button class="iconbtn" data-a="pClear" aria-label="clear">✕</button></div><div id="pchips"></div></div>' +
+        '<div class="list" id="plist"></div>' +
+        '<div class="foot"><button class="btn primary" data-a="closePicker" id="pdone"></button></div>';
+      document.body.appendChild(el);
+      var inp = el.querySelector('#psearch');
+      inp.value = ui.picker.q || '';
+      inp.addEventListener('input', function () {
+        ui.picker.q = inp.value;
+        document.getElementById('pchips').innerHTML = pickerChipsHTML();
+        document.getElementById('plist').innerHTML = pickerListHTML();
+        document.getElementById('plist').scrollTop = 0;
+      });
+    }
+    document.getElementById('pchips').innerHTML = pickerChipsHTML();
+    var list = document.getElementById('plist');
+    var st = list.scrollTop;
+    list.innerHTML = pickerListHTML();
+    list.scrollTop = st;
+    var n = t ? t.lines.filter(function (l) { return l.status === 'new'; }).reduce(function (a, l) { return a + l.qty; }, 0) : 0;
+    document.getElementById('pdone').textContent = 'Done · Стол ' + (t ? t.num : '') + (n ? ' · ' + n + ' new' : '');
+  }
+
+  // ---------------------------------------------------------------- sheets
+  function openSheet(s) { ui.sheet = s; renderSheet(); }
+  // In-app confirmation (native confirm() is blocked in some web views and is
+  // easy to tap through on iOS). `fn` runs only when the user taps OK.
+  function ask(msg, okLabel, fn) { openSheet({ type: 'confirm', msg: msg, ok: okLabel, fn: fn }); }
+  function guard(cond, msg, okLabel, fn) { if (cond) ask(msg, okLabel, fn); else fn(); }
+  function closeSheet() { ui.sheet = null; renderSheet(); }
+
+  function renderSheet() {
+    var s = ui.sheet;
+    if (!s) { $sheet.innerHTML = ''; return; }
+    var body = '';
+    if (s.type === 'line') body = sheetLine(s);
+    else if (s.type === 'info') body = sheetInfo(s);
+    else if (s.type === 'newTable') body = sheetNewTable(s);
+    else if (s.type === 'tableMenu') body = sheetTableMenu(s);
+    else if (s.type === 'editItem') body = sheetEditItem(s);
+    else if (s.type === 'custom') body = sheetCustom(s);
+    else if (s.type === 'history') body = sheetHistory(s);
+    else if (s.type === 'restore') body = sheetRestore(s);
+    else if (s.type === 'confirm') body = '<h2>' + esc(s.msg) + '</h2><div class="foot"><button class="btn" data-a="closeSheet">Cancel</button>' +
+      '<button class="btn primary" data-a="confirmOk">' + esc(s.ok) + '</button></div>';
+    else if (s.type === 'backupText') body = sheetBackupText(s);
+    var keepScroll = $sheet.querySelector('.sheet');
+    var st = keepScroll ? keepScroll.scrollTop : 0;
+    $sheet.innerHTML = '<div class="backdrop" data-a="backdrop"><div class="sheet' + (s.keepScroll ? '' : ' anim') + '" role="dialog"><div class="grab"></div>' + body + '</div></div>';
+    if (s.keepScroll) $sheet.querySelector('.sheet').scrollTop = st;
+    s.keepScroll = true;
+  }
+
+  // --- line editor / options (add + edit) ---
+  function sheetLine(s) {
+    var it = item(s.d.itemId);
+    var d = s.d;
+    var u = L.unitPrice(d, it);
+    var h = '<h2>' + (it.pre ? '<span class="small muted">' + esc(it.pre) + '</span><br>' : '') + esc(it.ru) + '</h2><div class="en">' + esc(it.en) + ' · ' + esc(it.w) + '</div>';
+    if (it.desc) h += '<div class="desc mt">' + esc(it.desc) + '</div>';
+    if (it.note) h += '<div class="note">' + esc(it.note) + '</div>';
+    if (it.unverified) h += '<div class="note unv">⚠ ' + esc(it.unverified) + '</div>';
+    if (it.stop) h += '<div class="issue block mt">STOP-LIST — marked unavailable</div>';
+
+    (it.options || []).forEach(function (opt) {
+      var sel = d.opts[opt.id];
+      h += '<h3>' + esc(opt.label) + (opt.required ? ' *' : '') + (opt.want ? ' — choose ' + opt.want + ' (' + ((sel || []).length) + ')' : '') + (opt.multi && !opt.want ? ' — one or more' : '') + '</h3><div class="choices">' +
+        opt.choices.map(function (c) {
+          var on = opt.multi ? (sel || []).indexOf(c.id) >= 0 : sel === c.id;
+          return '<button class="chip ' + (on ? 'on' : '') + '" data-a="lOpt" data-o="' + opt.id + '" data-c="' + c.id + '">' + esc(c.label) + (c.price != null ? ' · ' + c.price : '') + '</button>';
+        }).join('') + '</div>';
+    });
+
+    h += '<h3>Quantity</h3><div class="stepper"><button class="iconbtn" data-a="lQty" data-d="-1">−</button><span class="v">' + d.qty + '</span>' +
+      '<button class="iconbtn" data-a="lQty" data-d="1">+</button>' +
+      '<span class="price" style="margin-left:auto;font-weight:800;font-size:20px">' + rub(u == null ? null : u * d.qty) + '</span></div>';
+
+    if (it.side) {
+      h += '<h3>Side — printed in name: ' + esc(it.side.name) + '</h3><div class="choices">' +
+        '<button class="chip ' + (d.sideOk && !d.sideSwap ? 'on' : '') + '" data-a="lSide" data-v="ok">✓ As listed</button>' +
+        MENU.ITEMS.filter(function (x) { return x.cat === 'sides' && L.norm(x.ru) !== L.norm(it.side.name); }).map(function (x) {
+          return '<button class="chip ' + (d.sideSwap === x.id ? 'on' : '') + '" data-a="lSide" data-v="' + x.id + '">→ ' + esc(x.ru) + ' +' + MENU.RULES.sideSwapPrice + '</button>';
+        }).join('') + '</div><div class="small muted mt">' + esc(MENU.RULES.sideSwap) + ' Which dishes it applies to is not printed — check with manager.</div>';
+    } else if (it.sideUnknown) {
+      h += '<h3>Side</h3><div class="small muted">Menu weight lists several parts but does not name the side.</div><div class="choices mt">' +
+        '<button class="chip ' + (d.sideOk ? 'on' : '') + '" data-a="lSide" data-v="ok">✓ Checked with guest</button></div>';
+    }
+
+    var groups = (it.mods || []).slice();
+    var suggested = it.suggest || [];
+    if (suggested.length) {
+      h += '<h3>Menu recommends (ask the guest)</h3><div class="choices">' + suggested.map(function (mid) {
+        var m = MENU.MODS[mid];
+        return '<button class="chip sug ' + (d.mods[mid] ? 'on' : '') + '" data-a="lMod" data-m="' + mid + '">' + esc(m.ru) + ' +' + m.price + '</button>';
+      }).join('') + (suggested.some(function (m) { return d.dismissed.indexOf(m) >= 0; }) ? '' : '<button class="chip" data-a="lDecline">Guest declined</button>') + '</div>';
+    }
+    groups.forEach(function (gid) {
+      var g = MENU.MOD_GROUPS.filter(function (x) { return x.id === gid; })[0];
+      var mods = Object.keys(MENU.MODS).map(function (k) { return MENU.MODS[k]; }).filter(function (m) { return m.group === gid && suggested.indexOf(m.id) < 0; });
+      if (!mods.length) return;
+      var open = s.open && s.open[gid];
+      var count = mods.filter(function (m) { return d.mods[m.id]; }).length;
+      h += '<h3><button class="btn ghost sm" style="padding:0" data-a="lGroup" data-g="' + gid + '">' + (open || count ? '▾ ' : '▸ ') + esc(g ? g.label : gid) + (count ? ' (' + count + ')' : '') + '</button></h3>';
+      if (open || count) {
+        h += '<div class="choices">' + mods.map(function (m) {
+          return '<button class="chip ' + (d.mods[m.id] ? 'on' : '') + '" data-a="lMod" data-m="' + m.id + '">' + esc(m.ru) + ' +' + m.price + '</button>';
+        }).join('') + '</div>';
+      }
+    });
+
+    if (S.settings.seats) {
+      h += '<h3>Guest / seat</h3><div class="choices">' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (x) {
+        return '<button class="chip ' + ((d.seat || '') === x ? 'on' : '') + '" data-a="lSeat" data-s="' + x + '">' + (x || '—') + '</button>';
+      }).join('') + '</div>';
+    }
+
+    h += '<h3>Note for kitchen / bar</h3><div class="choices">' +
+      ['сначала', 'позже', 'вместе с горячим', 'соус отдельно', 'без льда', 'с собой', 'без лука'].map(function (n) {
+        return '<button class="chip ' + ((d.note || '').indexOf(n) >= 0 ? 'on' : '') + '" data-a="lNote" data-n="' + n + '">' + n + '</button>';
+      }).join('') +
+      (L.isDrink(it) ? '<button class="chip ' + (d.free ? 'on' : '') + '" data-a="lFree">🎁 gift (0 ₽)</button>' : '') +
+      '</div><input class="field mt" id="lnote" value="' + esc(d.note) + '" placeholder="Free text…" autocomplete="off">';
+
+    if (s.mode === 'edit') {
+      h += '<h3>Status</h3><div class="choices">' +
+        '<button class="chip ' + (d.status === 'new' ? 'on' : '') + '" data-a="lStatus" data-v="new">Not in POS yet</button>' +
+        '<button class="chip ' + (d.status === 'sent' ? 'on' : '') + '" data-a="lStatus" data-v="sent">Entered in POS</button></div>';
+    }
+    var blocking = L.lineIssues(d, it).filter(function (i) { return i.level === 'block' && i.code !== 'stop'; });
+    h += '<div class="foot">' + (s.mode === 'edit' ? '<button class="btn danger" data-a="lDelete">Delete</button>' : '<button class="btn" data-a="closeSheet">Cancel</button>') +
+      '<button class="btn primary" data-a="lSave"' + (blocking.length ? ' disabled' : '') + '>' +
+      (blocking.length ? esc(blocking[0].text) : (s.mode === 'edit' ? 'Save' : 'Add ' + d.qty + ' · ' + rub(u == null ? null : u * d.qty))) + '</button></div>';
+    return h;
+  }
+
+  function sheetInfo(s) {
+    var it = item(s.id);
+    var c = L.cat(it.cat);
+    var h = '<h2>' + (it.pre ? '<span class="small muted">' + esc(it.pre) + '</span><br>' : '') + esc(it.ru) + '</h2>' +
+      '<div class="en">' + esc(it.en) + '</div>' +
+      '<div class="kv mt"><span>' + esc(c.ru) + ' · ' + esc(c.en) + '</span><b class="price">' + rub(it.price) + (it.w ? ' · ' + esc(it.w) : '') + '</b></div>';
+    if (it.desc) h += '<h3>Composition (printed)</h3><div class="desc">' + esc(it.desc) + '</div>' + (it.descEn ? '<div class="small muted">' + esc(it.descEn) + '</div>' : '');
+    (it.options || []).forEach(function (o) {
+      h += '<h3>' + esc(o.label) + '</h3><div class="small">' + o.choices.map(function (x) { return esc(x.label) + (x.price != null ? ' — ' + x.price + ' ₽' : ''); }).join(' · ') + '</div>';
+    });
+    if (it.side) h += '<div class="note">Side printed in name: ' + esc(it.side.name) + '</div>';
+    if (it.note) h += '<div class="note">' + esc(it.note) + '</div>';
+    if ((it.tags || []).indexOf('pits') >= 0) h += '<div class="note">Menu: «Осторожно, могут попадаться косточки»</div>';
+    if ((it.tags || []).indexOf('bones') >= 0) h += '<div class="note">Menu: «Осторожно, кости!»</div>';
+    if (it.unverified) h += '<div class="note unv">⚠ ' + esc(it.unverified) + '</div>';
+    if (it.priceEdited) h += '<div class="note">Price edited by you (photo: ' + rub(L.getItem(it.id).price) + ')</div>';
+    var conf = MENU.CONFUSABLES.filter(function (g) { return g.ids.indexOf(it.id) >= 0; });
+    if (conf.length) {
+      h += '<h3>Don’t confuse</h3>' + conf.map(function (g) {
+        return '<div class="note"><b>' + esc(g.title) + '</b><br>' + esc(g.diff) + '</div>';
+      }).join('');
+    }
+    h += '<div class="choices mt">' +
+      '<button class="chip ' + (S.favorites.indexOf(it.id) >= 0 ? 'on' : '') + '" data-a="fav" data-id="' + it.id + '">★ Favourite</button>' +
+      '<button class="chip ' + (S.training.hard[it.id] ? 'on' : '') + '" data-a="hard" data-id="' + it.id + '">🧠 Hard to remember</button>' +
+      '<button class="chip ' + (it.stop ? 'on' : '') + '" data-a="stop" data-id="' + it.id + '">⛔ Stop-list</button></div>';
+    h += '<div class="foot"><button class="btn" data-a="closeSheet">Close</button>' +
+      (ui.picker ? '<button class="btn primary" data-a="pickFromInfo" data-id="' + it.id + '">Add</button>' : '') + '</div>';
+    return h;
+  }
+
+  function sheetNewTable(s) {
+    var exists = S.tables.filter(function (t) { return String(t.num) === String(s.num); })[0];
+    var h = '<h2>New table</h2><div class="display">' + (esc(s.num) || '<span class="muted">№</span>') + '</div>';
+    if (exists) h += '<div class="issue warn" style="text-align:center">Table ' + esc(s.num) + ' is already open — will open it</div>';
+    h += '<div class="keypad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return '<button data-a="kp" data-k="' + n + '">' + n + '</button>'; }).join('') +
+      '<button data-a="kp" data-k="C">C</button><button data-a="kp" data-k="0">0</button><button data-a="kp" data-k="⌫">⌫</button></div>';
+    h += '<h3>Guests (optional)</h3><div class="choices">' + [1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map(function (g) {
+      return '<button class="chip ' + (s.guests === g ? 'on' : '') + '" data-a="kpGuests" data-g="' + g + '">' + g + '</button>';
+    }).join('') + '</div>';
+    h += '<input class="field mt" id="tlabel" placeholder="…or a name: Бар 2, Веранда 5" value="' + esc(/^\d*$/.test(s.num) ? '' : s.num) + '" autocomplete="off">';
+    h += '<div class="foot"><button class="btn" data-a="closeSheet">Cancel</button><button class="btn primary" data-a="createTable"' + (s.num ? '' : ' disabled') + '>' + (exists ? 'Open table ' : 'Open table ') + esc(s.num) + '</button></div>';
+    return h;
+  }
+
+  function sheetTableMenu() {
+    var t = cur();
+    return '<h2>Стол ' + esc(t.num) + '</h2><div class="en">Opened ' + timeStr(t.openedAt) + '</div>' +
+      '<h3>Table number / name</h3><input class="field" id="tm_num" value="' + esc(t.num) + '" autocomplete="off">' +
+      '<h3>Guests</h3><div class="choices">' + [1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map(function (g) {
+        return '<button class="chip ' + (t.guests === g ? 'on' : '') + '" data-a="tmGuests" data-g="' + g + '">' + g + '</button>';
+      }).join('') + '</div>' +
+      '<h3>Table note (allergy, birthday, waiting for friend…)</h3><input class="field" id="tm_note" value="' + esc(t.note || '') + '" autocomplete="off">' +
+      '<div class="foot"><button class="btn" data-a="tmSave">Save</button><button class="btn primary" data-a="closeTable">Close table (paid)</button></div>' +
+      '<button class="btn ghost danger block mt" data-a="deleteTable">Delete table (opened by mistake)</button>';
+  }
+
+  function sheetHistory(s) {
+    var t = S.history.filter(function (x) { return x.id === s.id; })[0];
+    if (!t) return '<div>Not found</div>';
+    var txt = L.summaryText(t, S.menu, false);
+    return '<h2>Стол ' + esc(t.num) + ' (closed)</h2><div class="en">' + new Date(t.closedAt).toLocaleString('ru-RU') + '</div>' +
+      '<pre style="white-space:pre-wrap;font:inherit" class="mt">' + esc(txt) + '</pre>' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Close</button><button class="btn primary" data-a="reopen" data-id="' + t.id + '">Reopen table</button></div>';
+  }
+
+  function sheetEditItem(s) {
+    var it = item(s.id);
+    var base = L.getItem(s.id);
+    return '<h2>' + esc(L.displayName(it)) + '</h2><div class="en">' + esc(it.en) + '</div>' +
+      (it.unverified ? '<div class="note unv">⚠ ' + esc(it.unverified) + '</div>' : '') +
+      '<h3>Price ₽ (photo: ' + rub(base ? base.price : null) + ')</h3><input class="field" id="ei_price" inputmode="numeric" value="' + (it.price == null ? '' : it.price) + '">' +
+      '<h3>Russian name</h3><input class="field" id="ei_ru" value="' + esc(it.ru) + '">' +
+      '<h3>My note</h3><input class="field" id="ei_note" value="' + esc((S.menu.overrides[s.id] || {}).myNote || '') + '" placeholder="e.g. comes with mashed potato">' +
+      '<div class="choices mt"><button class="chip ' + (it.stop ? 'on' : '') + '" data-a="stop" data-id="' + it.id + '">⛔ Stop-list</button>' +
+      '<button class="chip ' + (it.hidden ? 'on' : '') + '" data-a="hide" data-id="' + it.id + '">Hide (no longer on menu)</button></div>' +
+      '<div class="foot"><button class="btn" data-a="resetItem" data-id="' + it.id + '">Reset to photo</button><button class="btn primary" data-a="saveItem" data-id="' + it.id + '">Save</button></div>';
+  }
+
+  function sheetCustom() {
+    return '<h2>Add item missing from photos</h2>' +
+      '<h3>Russian name</h3><input class="field" id="cu_ru" autocomplete="off">' +
+      '<h3>English (optional)</h3><input class="field" id="cu_en" autocomplete="off">' +
+      '<h3>Price ₽</h3><input class="field" id="cu_price" inputmode="numeric">' +
+      '<h3>Section</h3><select class="field" id="cu_cat">' + MENU.CATS.map(function (c) { return '<option value="' + c.id + '">' + esc(c.ru) + '</option>'; }).join('') + '</select>' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Cancel</button><button class="btn primary" data-a="saveCustom">Add to menu</button></div>';
+  }
+
+  function sheetRestore() {
+    var snaps = store.listSnapshots();
+    return '<h2>Restore a snapshot</h2><div class="en">Taken automatically every 2 min while you work, and on every table close.</div>' +
+      (snaps.length ? '<ul class="list-plain mt">' + snaps.map(function (s) {
+        return '<li class="kv"><span>' + new Date(s.at).toLocaleString('ru-RU') + '<br><span class="small muted">' + s.tables + ' tables · ' + s.lines + ' lines</span></span>' +
+          '<button class="btn sm" data-a="doRestore" data-k="' + esc(s.key) + '">Restore</button></li>';
+      }).join('') + '</ul>' : '<div class="empty">No snapshots yet.</div>') +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Close</button></div>';
+  }
+
+  // ---------------------------------------------------------------- learn
+  function viewLearn() {
+    var lr = ui.learn;
+    var items = L.allItems(S.menu);
+    var pr = T.progress(items, S.training);
+    var h = '<div class="top"><h1>Learn the menu</h1><span class="savedot">' + pr.learned + '/' + pr.total + ' learned</span></div>';
+    h += '<div class="seg" style="margin:0">' + [['quiz', 'Quiz'], ['flash', 'Cards'], ['confuse', 'Look-alikes'], ['hard', 'Hard 🧠']].map(function (m) {
+      return '<button data-a="lrMode" data-m="' + m[0] + '" class="' + (lr.mode === m[0] ? 'on' : '') + '">' + m[1] + '</button>';
+    }).join('') + '</div>';
+    if (lr.mode === 'quiz' || lr.mode === 'flash') {
+      h += '<div class="strip mt">' + [['all', 'Everything'], ['food', 'Food'], ['drinks', 'Drinks'], ['bar', 'Bar'], ['hard', 'Only 🧠']].map(function (g) {
+        return '<button class="chip ' + (lr.group === g[0] ? 'on' : '') + '" data-a="lrGroup" data-g="' + g[0] + '">' + g[1] + '</button>';
+      }).join('') + '</div>';
+    }
+    if (lr.mode === 'quiz') {
+      if (!lr.q) lr.q = T.question(items, S.training, { group: lr.group });
+      var q = lr.q;
+      if (!q) return h + '<div class="empty">Not enough items here yet' + (lr.group === 'hard' ? ' — mark some as 🧠 hard (ⓘ on any item).' : '.') + '</div>';
+      h += '<div class="card mt"><div class="small muted">' + esc(q.prompt) + '</div><div style="font-size:20px;font-weight:800;margin-top:4px">' + esc(q.sub) + '</div></div>';
+      h += q.choices.map(function (c, i) {
+        var cls = '';
+        if (lr.answered != null) { if (c.correct) cls = 'right'; else if (i === lr.answered) cls = 'wrong'; }
+        return '<button class="answer ' + cls + '" data-a="answer" data-i="' + i + '">' + esc(c.label) + '</button>';
+      }).join('');
+      if (lr.answered != null) {
+        h += '<div class="note">' + esc(q.explain) + '</div>' +
+          '<div class="row mt"><button class="btn" data-a="hard" data-id="' + q.itemId + '">' + (S.training.hard[q.itemId] ? '🧠 Unmark hard' : '🧠 Mark hard') + '</button>' +
+          '<button class="btn primary" style="flex:1" data-a="nextQ">Next ›</button></div>';
+      }
+      h += '<div class="stat mt">Right ' + S.training.stats.right + ' · wrong ' + S.training.stats.wrong + '</div>';
+    } else if (lr.mode === 'flash') {
+      if (!lr.flash) lr.flash = (T.nextFlash(items, S.training, lr.group) || {}).id;
+      var it = lr.flash && item(lr.flash);
+      if (!it) return h + '<div class="empty">Nothing here yet.</div>';
+      h += '<button class="card flash mt" style="width:100%" data-a="flip">' +
+        (it.pre ? '<div class="small muted">' + esc(it.pre) + '</div>' : '') +
+        '<div class="big">' + esc(it.ru) + '</div><div style="font-size:26px">' + esc(it.icons || '') + '</div>' +
+        (lr.flipped ? '<div style="font-size:17px">' + esc(it.en) + '</div><div><b>' + rub(it.price) + '</b> · ' + esc(it.w) + ' · ' + esc(L.cat(it.cat).ru) + '</div>' +
+          (it.desc ? '<div class="small">' + esc(it.desc) + '</div>' : '') + (it.side ? '<div class="small">Гарнир: ' + esc(it.side.name) + '</div>' : '') +
+          (it.unverified ? '<div class="small" style="color:var(--warn)">⚠ ' + esc(it.unverified) + '</div>' : '')
+          : '<div class="muted small">Tap to reveal English, price, composition</div>') + '</button>';
+      h += '<div class="row"><button class="btn danger" style="flex:1" data-a="flashGrade" data-r="0">✗ Didn’t know</button>' +
+        '<button class="btn ok" style="flex:1" data-a="flashGrade" data-r="1">✓ Knew it</button></div>' +
+        '<button class="btn ghost block mt" data-a="hard" data-id="' + it.id + '">' + (S.training.hard[it.id] ? '🧠 Unmark hard' : '🧠 Mark hard') + '</button>';
+    } else if (lr.mode === 'confuse') {
+      h += '<div class="small muted mt">Groups that are easy to mix up on this menu. Differences are taken from the printed menu.</div>';
+      h += MENU.CONFUSABLES.map(function (g) {
+        return '<div class="card mt"><b>' + esc(g.title) + '</b><ul class="list-plain">' + g.ids.map(function (id) {
+          var x = item(id);
+          return '<li class="kv"><span>' + esc(x.icons || '') + ' ' + (x.form && x.form !== 'тарелка' ? '<span class="tag form">' + esc(x.form) + '</span>' : '') + esc(L.displayName(x)) + '</span><b class="price">' + rub(x.price) + '</b></li>';
+        }).join('') + '</ul><div class="small mt">' + esc(g.diff) + '</div></div>';
+      }).join('');
+    } else if (lr.mode === 'hard') {
+      var hard = items.filter(function (x) { return S.training.hard[x.id]; });
+      h += '<div class="small muted mt">Items you marked 🧠. They appear 3× more often in quiz and cards. Mark items via ⓘ anywhere.</div>';
+      h += hard.length ? '<div class="mt">' + hard.map(function (x) { return itemRow(x, null, 'learn'); }).join('') + '</div>' : '<div class="empty">None yet.</div>';
+    }
+    return h;
+  }
+
+  // ---------------------------------------------------------------- menu & data
+  function viewMenu() {
+    var m = ui.menu;
+    var all = MENU.ITEMS.map(function (x) { return L.getItem(x.id, S.menu); }).concat(S.menu.custom.map(function (c) { return L.getItem(c.id, S.menu); }));
+    var unv = all.filter(function (x) { return x.unverified; });
+    var stop = all.filter(function (x) { return x.stop; });
+    var h = '<div class="top"><h1>Menu &amp; data</h1>' + saveDot() + '</div>';
+    h += '<input class="search" style="width:100%" id="msearch" type="search" placeholder="Find item to edit price / stop-list…" value="' + esc(m.q) + '" autocomplete="off">';
+    h += '<div class="strip mt">' + [['all', 'Search'], ['stop', '⛔ Stop-list (' + stop.length + ')'], ['unv', '⚠ To verify (' + unv.length + ')'], ['data', 'Backup & settings']].map(function (f) {
+      return '<button class="chip ' + (m.filter === f[0] ? 'on' : '') + '" data-a="mFilter" data-f="' + f[0] + '">' + f[1] + '</button>';
+    }).join('') + '</div>';
+    h += '<div id="mlist">' + menuListHTML(all, unv, stop) + '</div>';
+    return h;
+  }
+
+  function menuListHTML(all, unv, stop) {
+    var m = ui.menu;
+    if (m.filter === 'data') return dataHTML();
+    if (m.filter === 'stop') {
+      return '<div class="small muted mt">Items marked unavailable for this shift. Adding them shows a red warning.</div>' +
+        (stop.length ? stop.map(function (x) { return itemRow(x, null, 'menu'); }).join('') + '<button class="btn block mt" data-a="clearStop">Clear stop-list (new shift)</button>' : '<div class="empty">Stop-list is empty.</div>');
+    }
+    if (m.filter === 'unv') {
+      return '<div class="small muted mt">These could not be read with certainty from the photos. Check against the real menu / POS and fix the price here.</div>' +
+        unv.map(function (x) { return itemRow(x, null, 'menu') + '<div class="small" style="margin:-2px 4px 10px;color:var(--warn)">⚠ ' + esc(x.unverified) + '</div>'; }).join('');
+    }
+    var list = m.q ? L.search(all.filter(function (x) { return !x.isExtra; }), m.q) : [];
+    if (!m.q) {
+      return '<div class="small muted mt">' + all.length + ' items transcribed from the 22 menu photos (menu ' + MENU.VERSION + '). Search to edit one.</div>' +
+        '<button class="btn block mt" data-a="custom">+ Add item missing from the photos</button>';
+    }
+    return list.slice(0, 50).map(function (x) { return itemRow(x, null, 'menu'); }).join('') || '<div class="empty">No match.</div>';
+  }
+
+  function dataHTML() {
+    var openLines = S.tables.reduce(function (a, t) { return a + t.lines.length; }, 0);
+    return '<div class="card mt"><b>Backup</b><div class="small muted">Everything is saved on this phone after every tap. Export a file now and then (e.g. to Files / Telegram) so a lost phone or cleared Safari data does not lose anything.</div>' +
+      '<div class="row wrap mt"><button class="btn" data-a="export">⬇ Export backup</button>' +
+      '<label class="btn">⬆ Import<input type="file" id="importfile" accept="application/json,.json" hidden></label>' +
+      '<button class="btn" data-a="restore">⟲ Snapshots</button><button class="btn" data-a="backupText">⧉ Copy as text</button></div>' +
+      '<div class="small muted mt" id="persist"></div></div>' +
+      '<div class="card"><b>End of shift</b><div class="small muted">Closes all ' + S.tables.length + ' open tables (' + openLines + ' lines) into history and clears the stop-list. A snapshot is taken first.</div>' +
+      '<button class="btn danger block mt" data-a="endShift">End shift</button></div>' +
+      '<div class="card"><b>Settings</b>' +
+      '<div class="kv mt"><span>Guest / seat numbers on lines</span><button class="btn sm" data-a="toggleSeats">' + (S.settings.seats ? 'On' : 'Off') + '</button></div>' +
+      '<div class="kv mt"><span>Theme</span><span class="row">' + [['', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(function (th) {
+        return '<button class="btn sm ' + ((S.settings.theme || '') === th[0] ? 'primary' : '') + '" data-a="theme" data-t="' + th[0] + '">' + th[1] + '</button>';
+      }).join('') + '</span></div>' +
+      '<div class="kv mt"><span>Reset training progress</span><button class="btn sm" data-a="resetTraining">Reset</button></div></div>' +
+      '<div class="card small muted">Install: in Safari tap Share → <b>Add to Home Screen</b>. It then opens full-screen and works offline. Data stays on this phone only.</div>';
+  }
+
+  // ---------------------------------------------------------------- actions
+  var A = {};
+  A.tab = function (d) {
+    if (d.v === 'table' && !cur()) return nav('tables');
+    nav(d.v);
+  };
+  A.undo = function () {
+    if (!toastUndo) return;
+    S = JSON.parse(toastUndo);
+    toastUndo = null; $toast.hidden = true;
+    store.save(S);
+    if (!findTable(ui.tableId) && (ui.view === 'table' || ui.view === 'review')) ui.view = 'tables';
+    render();
+  };
+  A.open = function (d) { ui.picker = null; nav('table', d.id); };
+  A.newTable = function () { openSheet({ type: 'newTable', num: '', guests: null }); };
+  A.kp = function (d) {
+    var s = ui.sheet;
+    if (d.k === 'C') s.num = '';
+    else if (d.k === '⌫') s.num = String(s.num).slice(0, -1);
+    else if (String(s.num).length < 4) s.num = (/^\d*$/.test(s.num) ? s.num : '') + d.k;
+    renderSheet();
+  };
+  A.kpGuests = function (d) { ui.sheet.guests = ui.sheet.guests === +d.g ? null : +d.g; renderSheet(); };
+  A.createTable = function () {
+    var s = ui.sheet;
+    var num = String(s.num).trim();
+    if (!num) return;
+    var ex = S.tables.filter(function (t) { return String(t.num) === num; })[0];
+    closeSheet();
+    if (ex) { toast('Table ' + num + ' was already open'); return nav('table', ex.id); }
+    var t = { id: L.uid('t'), num: num, guests: s.guests, note: '', openedAt: Date.now(), updatedAt: Date.now(), lines: [] };
+    commit(null, function () { S.tables.push(t); ui.view = 'table'; ui.tableId = t.id; });
+    A.openPicker();
+  };
+  A.tableMenu = function () { openSheet({ type: 'tableMenu' }); };
+  A.tmGuests = function (d) {
+    var t = cur(); var g = +d.g;
+    commit(null, function () { t.guests = t.guests === g ? null : g; });
+  };
+  A.tmSave = function () {
+    var t = cur();
+    var num = document.getElementById('tm_num').value.trim();
+    var note = document.getElementById('tm_note').value.trim();
+    var clash = S.tables.filter(function (x) { return x !== t && String(x.num) === num; })[0];
+    if (clash) { toast('Table ' + num + ' is already open — pick another number'); return; }
+    closeSheet();
+    commit('Saved', function () { if (num) t.num = num; t.note = note; }, { undo: false });
+  };
+  A.closeTable = function () {
+    var t = cur();
+    var n = t.lines.filter(function (l) { return l.status === 'new'; }).length;
+    closeSheet();
+    guard(n, n + ' line(s) are NOT marked as entered in POS. Close table anyway?', 'Close table', function () { commit('Стол ' + t.num + ' closed', function () {
+      S.tables = S.tables.filter(function (x) { return x !== t; });
+      t.closedAt = Date.now();
+      S.history.unshift(t);
+      ui.view = 'tables'; ui.tableId = null;
+    }, { snapshot: true }); });
+  };
+  A.deleteTable = function () {
+    var t = cur();
+    closeSheet();
+    guard(t.lines.length, 'Delete table ' + t.num + ' with ' + t.lines.length + ' lines?', 'Delete', function () {
+      commit('Стол ' + t.num + ' deleted', function () {
+        S.tables = S.tables.filter(function (x) { return x !== t; });
+        ui.view = 'tables'; ui.tableId = null;
+      }, { snapshot: true });
+    });
+  };
+  A.histOpen = function (d) { openSheet({ type: 'history', id: d.id }); };
+  A.reopen = function (d) {
+    var t = S.history.filter(function (x) { return x.id === d.id; })[0];
+    if (S.tables.some(function (x) { return String(x.num) === String(t.num); })) { toast('Table ' + t.num + ' is open again already — close it first'); return; }
+    closeSheet();
+    commit('Стол ' + t.num + ' reopened', function () {
+      S.history = S.history.filter(function (x) { return x !== t; });
+      delete t.closedAt;
+      S.tables.push(t);
+      ui.view = 'table'; ui.tableId = t.id;
+    });
+  };
+
+  // picker
+  A.openPicker = function () {
+    var hasQuick = S.favorites.length || Object.keys(S.usage).length > 3;
+    ui.picker = { q: '', group: L.cat(ui.lastCat).group, cat: hasQuick ? '★' : ui.lastCat, seat: '' };
+    if (hasQuick) ui.picker.group = 'food';
+    renderPicker();
+  };
+  A.closePicker = function () { ui.picker = null; $toast.hidden = true; render(); };
+  A.pClear = function () {
+    var inp = document.getElementById('psearch');
+    if (ui.picker.q) { ui.picker.q = ''; inp.value = ''; renderPicker(); inp.focus(); } else A.closePicker();
+  };
+  A.pGroup = function (d) {
+    var first = MENU.CATS.filter(function (c) { return c.group === d.g; })[0];
+    ui.picker.group = d.g; ui.picker.cat = first.id; ui.lastCat = first.id;
+    clearSearch(); renderPicker(); document.getElementById('plist').scrollTop = 0;
+  };
+  A.pCat = function (d) {
+    ui.picker.cat = d.c;
+    if (d.c !== '★') ui.lastCat = d.c;
+    clearSearch(); renderPicker(); document.getElementById('plist').scrollTop = 0;
+  };
+  A.pSeat = function (d) { ui.picker.seat = d.s === '' ? '' : +d.s; renderPicker(); };
+  function clearSearch() { ui.picker.q = ''; var i = document.getElementById('psearch'); if (i) { i.value = ''; i.blur(); } }
+
+  function needsSheet(it) { return (it.options || []).some(function (o) { return o.required; }); }
+
+  A.pick = function (d) {
+    var it = item(d.id), t = cur();
+    if (!t || !it) return;
+    if (it.stop && !d.force) return ask(it.ru + ' is on the STOP-LIST. Add anyway?', 'Add anyway', function () { A.pick({ id: d.id, force: true }); });
+    if (needsSheet(it)) {
+      var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null });
+      return openSheet({ type: 'line', mode: 'add', d: draft });
+    }
+    var prev = JSON.stringify(S);
+    var res;
+    commit(null, function () {
+      res = L.addItem(t, it.id, { seat: ui.picker && ui.picker.seat || null }, S.menu);
+      track(it.id);
+    });
+    var extra = it.side ? ' · side: ' + it.side.name + '?' : (it.suggest ? ' · offer ' + MENU.MODS[it.suggest[0]].ru.toLowerCase() : '');
+    toast('+1 ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : '') + extra, prev);
+  };
+  A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
+  function track(id) {
+    S.usage[id] = (S.usage[id] || 0) + 1;
+    S.recent = [id].concat(S.recent.filter(function (x) { return x !== id; })).slice(0, 20);
+  }
+
+  // line editor
+  A.editLine = function (d) {
+    var t = cur();
+    var l = t && t.lines.filter(function (x) { return x.id === d.id; })[0];
+    if (!l) return;
+    if (!item(l.itemId)) return ask('This item is no longer in the menu data. Delete the line?', 'Delete', function () { commit('Deleted', function () { t.lines = t.lines.filter(function (x) { return x !== l; }); }); });
+    openSheet({ type: 'line', mode: 'edit', id: l.id, d: JSON.parse(JSON.stringify(l)) });
+  };
+  A.lOpt = function (d) {
+    var s = ui.sheet, it = item(s.d.itemId);
+    var opt = it.options.filter(function (o) { return o.id === d.o; })[0];
+    if (opt.multi) {
+      var arr = (s.d.opts[d.o] || []).slice();
+      var i = arr.indexOf(d.c);
+      if (i >= 0) arr.splice(i, 1); else if (!opt.want || arr.length < opt.want) arr.push(d.c);
+      s.d.opts[d.o] = arr;
+    } else {
+      s.d.opts[d.o] = s.d.opts[d.o] === d.c ? null : d.c;
+      if (s.d.opts[d.o] == null) delete s.d.opts[d.o];
+    }
+    renderSheet();
+  };
+  A.lQty = function (d) { var s = ui.sheet; s.d.qty = Math.max(1, s.d.qty + (+d.d)); renderSheet(); };
+  A.lSide = function (d) {
+    var x = ui.sheet.d;
+    if (d.v === 'ok') { x.sideOk = !(x.sideOk && !x.sideSwap); x.sideSwap = null; }
+    else { x.sideSwap = x.sideSwap === d.v ? null : d.v; x.sideOk = false; }
+    renderSheet();
+  };
+  A.lMod = function (d) {
+    var x = ui.sheet.d;
+    if (x.mods[d.m]) delete x.mods[d.m]; else x.mods[d.m] = 1;
+    renderSheet();
+  };
+  A.lDecline = function () {
+    var x = ui.sheet.d, it = item(x.itemId);
+    (it.suggest || []).forEach(function (m) { if (x.dismissed.indexOf(m) < 0) x.dismissed.push(m); });
+    renderSheet();
+  };
+  A.lGroup = function (d) { var s = ui.sheet; s.open = s.open || {}; s.open[d.g] = !s.open[d.g]; renderSheet(); };
+  A.lSeat = function (d) { ui.sheet.d.seat = d.s === '' ? null : +d.s; renderSheet(); };
+  A.lNote = function (d) {
+    var x = ui.sheet.d;
+    syncNote();
+    var parts = (x.note || '').split(/\s*,\s*/).filter(Boolean);
+    var i = parts.indexOf(d.n);
+    if (i >= 0) parts.splice(i, 1); else parts.push(d.n);
+    x.note = parts.join(', ');
+    renderSheet();
+  };
+  A.lFree = function () { syncNote(); ui.sheet.d.free = !ui.sheet.d.free; renderSheet(); };
+  A.lStatus = function (d) { syncNote(); ui.sheet.d.status = d.v; if (d.v === 'sent' && !ui.sheet.d.sentAt) ui.sheet.d.sentAt = Date.now(); renderSheet(); };
+  function syncNote() { var n = document.getElementById('lnote'); if (n && ui.sheet && ui.sheet.d) ui.sheet.d.note = n.value.trim(); }
+  A.lSave = function () {
+    syncNote();
+    var s = ui.sheet, t = cur(), x = s.d, it = item(x.itemId);
+    closeSheet();
+    if (s.mode === 'add') {
+      var prev = JSON.stringify(S);
+      var res;
+      commit(null, function () {
+        res = L.addItem(t, x.itemId, { qty: x.qty, opts: x.opts, mods: x.mods, seat: x.seat, note: x.note, free: x.free }, S.menu);
+        if (x.sideOk) res.line.sideOk = true;
+        if (x.sideSwap) res.line.sideSwap = x.sideSwap;
+        res.line.dismissed = x.dismissed.slice();
+        track(x.itemId);
+      });
+      toast('+' + x.qty + ' ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : ''), prev);
+    } else {
+      commit('Saved', function () {
+        t.lines = t.lines.map(function (l) { return l.id === s.id ? x : l; });
+        t.updatedAt = Date.now();
+      });
+    }
+  };
+  A.lDelete = function () {
+    var s = ui.sheet, t = cur();
+    closeSheet();
+    var it = item(s.d.itemId);
+    commit('Deleted ' + (it ? it.ru : ''), function () { t.lines = t.lines.filter(function (l) { return l.id !== s.id; }); });
+  };
+  A.inc = function (d) {
+    var t = cur(); var l = t.lines.filter(function (x) { return x.id === d.id; })[0];
+    commit(null, function () { l.qty++; t.updatedAt = Date.now(); });
+  };
+  A.dec = function (d) {
+    var t = cur(); var l = t.lines.filter(function (x) { return x.id === d.id; })[0];
+    var it = item(l.itemId);
+    if (l.qty > 1) commit(null, function () { l.qty--; t.updatedAt = Date.now(); });
+    else commit('Removed ' + (it ? it.ru : ''), function () { t.lines = t.lines.filter(function (x) { return x !== l; }); });
+  };
+  A.addMod = function (d) {
+    var t = cur(); var l = t.lines.filter(function (x) { return x.id === d.line; })[0];
+    var m = MENU.MODS[d.mod];
+    commit('+ ' + m.ru + ' on ' + item(l.itemId).ru, function () { l.mods[d.mod] = 1; });
+  };
+  A.merge = function (d) { var t = cur(); commit('Merged', function () { L.mergeDuplicates(t, d.item); }); };
+
+  // review
+  A.review = function () { ui.review.onlyNew = cur().lines.some(function (l) { return l.status === 'new'; }); nav('review'); };
+  A.rvNew = function () { ui.review.onlyNew = true; render(); };
+  A.rvAll = function () { ui.review.onlyNew = false; render(); };
+  A.bigText = function () { ui.review.big = !ui.review.big; render(); };
+  A.tick = function (d) { ui.review.ticked[d.id] = !ui.review.ticked[d.id]; render(); };
+  A.markSent = function () {
+    var t = cur();
+    var ids = Object.keys(ui.review.ticked).filter(function (k) { return ui.review.ticked[k]; });
+    var blocked = t.lines.filter(function (l) {
+      return l.status === 'new' && (!ids.length || ids.indexOf(l.id) >= 0) &&
+        L.lineIssues(l, item(l.itemId)).some(function (i) { return i.level === 'block'; });
+    });
+    guard(blocked.length, blocked.length + ' line(s) still have a red problem (e.g. size not chosen). Mark as entered anyway?', 'Mark entered', function () { commit(ids.length ? ids.length + ' line(s) marked entered' : 'All marked entered', function () {
+      L.markSent(t, ids.length ? ids : null);
+      ui.review.ticked = {};
+      if (!t.lines.some(function (l) { return l.status === 'new'; })) ui.view = 'table';
+    }); });
+  };
+  A.copy = function () {
+    var t = cur();
+    var txt = L.summaryText(t, S.menu, ui.review.onlyNew);
+    copyText(txt).then(function () { toast('Copied'); }, function () { toast('Copy failed — long-press to select'); });
+  };
+  function copyText(txt) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(txt);
+    return new Promise(function (res, rej) {
+      var ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy') ? res() : rej(); } catch (e) { rej(e); }
+      ta.remove();
+    });
+  }
+
+  // item info / flags
+  A.info = function (d) { openSheet({ type: 'info', id: d.id }); };
+  A.fav = function (d) {
+    commit(null, function () {
+      var i = S.favorites.indexOf(d.id);
+      if (i >= 0) S.favorites.splice(i, 1); else S.favorites.push(d.id);
+    });
+  };
+  A.hard = function (d) { commit(null, function () { if (S.training.hard[d.id]) delete S.training.hard[d.id]; else S.training.hard[d.id] = true; }); };
+  function setOverride(id, patch) {
+    var ov = S.menu.overrides[id] = Object.assign({}, S.menu.overrides[id] || {}, patch);
+    Object.keys(ov).forEach(function (k) { if (ov[k] == null || ov[k] === false || ov[k] === '') delete ov[k]; });
+    if (!Object.keys(ov).length) delete S.menu.overrides[id];
+  }
+  A.stop = function (d) {
+    var it = item(d.id);
+    commit(it.stop ? it.ru + ' back on menu' : '⛔ ' + it.ru + ' on stop-list', function () { setOverride(d.id, { stop: !it.stop }); });
+  };
+  A.hide = function (d) { var it = item(d.id); commit(null, function () { setOverride(d.id, { hidden: !it.hidden }); }); };
+  A.editItem = function (d) { openSheet({ type: 'editItem', id: d.id }); };
+  A.saveItem = function (d) {
+    var p = document.getElementById('ei_price').value.trim();
+    var ru = document.getElementById('ei_ru').value.trim();
+    var note = document.getElementById('ei_note').value.trim();
+    var base = L.getItem(d.id);
+    var price = p === '' ? null : parseInt(p, 10);
+    if (p !== '' && (isNaN(price) || price < 0)) { toast('Price must be a whole number of rubles'); return; }
+    closeSheet();
+    commit('Item updated', function () {
+      setOverride(d.id, {
+        price: base && price === base.price ? null : price,
+        ru: base && ru === base.ru ? null : ru,
+        myNote: note,
+        note: note ? note + (base && base.note ? ' · ' + base.note : '') : null,
+      });
+    });
+  };
+  A.resetItem = function (d) { closeSheet(); commit('Reset to photo', function () { delete S.menu.overrides[d.id]; }); };
+  A.custom = function () { openSheet({ type: 'custom' }); };
+  A.saveCustom = function () {
+    var ru = document.getElementById('cu_ru').value.trim();
+    var en = document.getElementById('cu_en').value.trim();
+    var price = parseInt(document.getElementById('cu_price').value, 10);
+    var cat = document.getElementById('cu_cat').value;
+    if (!ru) { toast('Enter the Russian name first'); return; }
+    closeSheet();
+    commit('Added ' + ru, function () {
+      S.menu.custom.push({ id: L.uid('cu_'), cat: cat, ru: ru, en: en || ru, price: isNaN(price) ? null : price, w: '', icons: '✚', custom: true,
+        unverified: isNaN(price) ? 'Price not set' : null, note: 'Added by you' });
+    });
+  };
+  A.clearStop = function () {
+    commit('Stop-list cleared', function () { Object.keys(S.menu.overrides).forEach(function (id) { setOverride(id, { stop: null }); }); });
+  };
+  A.mFilter = function (d) { ui.menu.filter = d.f; render(); };
+
+  // data
+  A.export = function () {
+    var json = store.exportJSON(S);
+    var name = 'waiter-backup-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json';
+    var blob = new Blob([json], { type: 'application/json' });
+    if (navigator.canShare && window.File) {
+      var file = new File([blob], name, { type: 'application/json' });
+      if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: name }).catch(function () {}); return; }
+    }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  };
+  A.restore = function () { openSheet({ type: 'restore' }); };
+  A.doRestore = function (d) {
+    var s = store.restore(d.k);
+    if (!s) { toast('That snapshot could not be read'); return; }
+    ask('Replace current data with this snapshot? Current state is snapshotted first.', 'Restore', function () {
+      store.snapshot(S, true);
+      commit('Snapshot restored', function () { S = s; ui.view = 'tables'; ui.tableId = null; });
+    });
+  };
+  A.endShift = function () {
+    var n = S.tables.length;
+    var pending = S.tables.reduce(function (a, t) { return a + t.lines.filter(function (l) { return l.status === 'new'; }).length; }, 0);
+    ask('Close all ' + n + ' tables' + (pending ? ' (' + pending + ' lines NOT entered in POS!)' : '') + ' and clear stop-list?', 'End shift', function () {
+    store.snapshot(S, true);
+    commit('Shift ended — ' + n + ' tables to history', function () {
+      var now = Date.now();
+      S.tables.forEach(function (t) { t.closedAt = now; S.history.unshift(t); });
+      S.tables = [];
+      Object.keys(S.menu.overrides).forEach(function (id) { setOverride(id, { stop: null }); });
+      ui.tableId = null;
+    }, { snapshot: true });
+    });
+  };
+  A.toggleSeats = function () { commit(null, function () { S.settings.seats = !S.settings.seats; }); };
+  A.theme = function (d) { commit(null, function () { S.settings.theme = d.t; }); };
+  A.resetTraining = function () {
+    ask('Reset quiz progress and hard marks?', 'Reset', function () {
+      commit('Training reset', function () { S.training = { box: {}, hard: {}, stats: { right: 0, wrong: 0 } }; });
+    });
+  };
+
+  // learn
+  A.lrMode = function (d) { ui.learn.mode = d.m; ui.learn.q = null; ui.learn.answered = null; ui.learn.flash = null; ui.learn.flipped = false; render(); };
+  A.lrGroup = function (d) { ui.learn.group = d.g; ui.learn.q = null; ui.learn.answered = null; ui.learn.flash = null; render(); };
+  A.answer = function (d) {
+    var lr = ui.learn;
+    if (lr.answered != null) return;
+    lr.answered = +d.i;
+    var right = lr.q.choices[lr.answered].correct;
+    commit(null, function () { T.grade(S.training, lr.q.itemId, right); });
+  };
+  A.nextQ = function () { ui.learn.q = null; ui.learn.answered = null; render(); window.scrollTo(0, 0); };
+  A.flip = function () { ui.learn.flipped = !ui.learn.flipped; render(); };
+  A.flashGrade = function (d) {
+    var id = ui.learn.flash;
+    commit(null, function () { T.grade(S.training, id, d.r === '1'); });
+    ui.learn.flash = null; ui.learn.flipped = false; render();
+  };
+
+  A.confirmOk = function () { var fn = ui.sheet.fn; closeSheet(); fn(); };
+  A.backdrop = function (d, el, e) { if (e.target === el) closeSheet(); };
+  A.closeSheet = function () { closeSheet(); };
+
+  // ---------------------------------------------------------------- events
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-a]');
+    if (!el || el.disabled) return;
+    var fn = A[el.dataset.a];
+    if (!fn) return;
+    if (el.dataset.a !== 'backdrop') e.preventDefault();
+    fn(el.dataset, el, e);
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'msearch') {
+      ui.menu.q = e.target.value;
+      if (ui.menu.filter !== 'all') { ui.menu.filter = 'all'; }
+      var all = MENU.ITEMS.map(function (x) { return L.getItem(x.id, S.menu); }).concat(S.menu.custom.map(function (c) { return L.getItem(c.id, S.menu); }));
+      document.getElementById('mlist').innerHTML = menuListHTML(all, [], []);
+    }
+    if (e.target.id === 'tlabel' && ui.sheet && ui.sheet.type === 'newTable') {
+      ui.sheet.num = e.target.value.trim();
+      var btn = $sheet.querySelector('[data-a="createTable"]');
+      if (btn) { btn.disabled = !ui.sheet.num; btn.textContent = 'Open table ' + ui.sheet.num; }
+      var disp = $sheet.querySelector('.display'); if (disp) disp.textContent = ui.sheet.num || '№';
+    }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'importfile' && e.target.files[0]) {
+      var f = e.target.files[0];
+      f.text().then(importText);
+      e.target.value = '';
+    }
+  });
+
+  function importText(txt) {
+    var s;
+    try { s = store.importJSON(txt); } catch (err) { toast('Import failed: ' + err.message); return; }
+    ask('Replace current data with this backup (' + s.tables.length + ' open tables)? Current state is snapshotted first.', 'Import', function () {
+      store.snapshot(S, true);
+      commit('Backup imported', function () { S = s; ui.view = 'tables'; ui.tableId = null; });
+    });
+  }
+  A.backupText = function () { openSheet({ type: 'backupText' }); };
+  A.copyBackup = function () {
+    copyText(store.exportJSON(S)).then(function () { toast('Backup copied — paste it into Notes or a chat to yourself'); },
+      function () { var ta = document.getElementById('bk_out'); ta.focus(); ta.select(); toast('Select all and copy'); });
+  };
+  A.pasteBackup = function () { importText(document.getElementById('bk_in').value); };
+  function sheetBackupText() {
+    return '<h2>Backup as text</h2><div class="en">Works where file downloads are blocked. Copy it to Notes or Telegram; paste it back here to restore.</div>' +
+      '<textarea class="field mt" id="bk_out" readonly rows="4">' + esc(store.exportJSON(S)) + '</textarea>' +
+      '<button class="btn block mt" data-a="copyBackup">Copy backup</button>' +
+      '<h3>Restore from text</h3><textarea class="field" id="bk_in" rows="4" placeholder="Paste a backup here"></textarea>' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Close</button><button class="btn primary" data-a="pasteBackup">Restore pasted backup</button></div>';
+  }
+
+  window.addEventListener('storage', function (e) {
+    if (e.key === store.KEY && e.newValue) { S = store.load().state; render(); toast('Updated from another tab'); }
+  });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) store.save(S); else render(); });
+  window.addEventListener('pagehide', function () { store.save(S); });
+  setInterval(function () { if (!ui.sheet && !ui.picker && (ui.view === 'tables' || ui.view === 'table')) render(); }, 30000);
+
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(function (granted) { S.settings.persisted = granted; }).catch(function () {});
+  }
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+
+  store.save(S);
+  render();
+  window.__waiter = { get state() { return S; }, ui: ui, L: L };
+})();
+
+</script>

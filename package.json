@@ -1,0 +1,13 @@
+{
+  "name": "waiter-pad",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline waiter notepad, order checklist and menu trainer built on the restaurant's real menu.",
+  "scripts": {
+    "test": "node --test tests/logic.test.js",
+    "test:e2e": "node --test tests/e2e.test.js",
+    "build": "node build.js",
+    "serve": "npx http-server -c-1 ."
+  },
+  "license": "MIT"
+}
