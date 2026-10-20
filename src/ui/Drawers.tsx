@@ -1,7 +1,6 @@
-import { AUTOSAVE_TEXT, CONTROLS_TEXT } from './controls';
 import { nationalColor } from '../map/palette';
 import { TROPHIES } from '../sim/trophies';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { store, useStore } from '../state/store';
 import { fmtMoney, fmtNum, pct } from './format';
 import { Segmented, Slider } from './widgets';
@@ -78,12 +77,12 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
           <Segmented value={metric} onChange={setMetric} label="Metric" options={[{ v: 'gdp', label: 'GDP' }, { v: 'gdppc', label: 'GDP/cap' }, { v: 'pop', label: 'Population' }, { v: 'mil', label: 'Military' }, { v: 'land', label: 'Territory' }]} />
           <div className="faint" style={{ fontSize: 12, margin: '8px 0' }}>World GDP {fmtMoney(worldGdp)} · your rank #{myRank + 1} of {alive.length} · your share {pct(s.countries[s.player].eco.gdp / worldGdp)}</div>
           <table className="table">
-            <thead><tr><th>#</th><th>Country</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ textAlign: 'right' }}>GDP</th></tr></thead>
+            <thead><tr><th>#</th><th>Country</th><th style={{ textAlign: 'right' }}>{({ gdp: 'GDP', gdppc: 'GDP per person', pop: 'Population', mil: 'Strength', land: 'Provinces' } as Record<string, string>)[metric]}</th><th style={{ textAlign: 'right' }}>{metric === 'gdp' ? 'World share' : 'GDP'}</th></tr></thead>
             <tbody>
               {rows.map((c, i) => (
                 <tr key={c.id} className={`click ${c.id === s.player ? 'me' : ''}`} onClick={() => pick(c.id)}>
                   <td>{i + 1}</td><td><span className="dot" style={{ background: nationalColor(c), display: 'inline-block', marginRight: 8 }} />{c.name}</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(val(c))}</td><td style={{ textAlign: 'right' }} className="muted">{fmtMoney(c.eco.gdp)}</td>
+                  <td style={{ textAlign: 'right' }}>{fmt(val(c))}</td><td style={{ textAlign: 'right' }} className="muted">{metric === 'gdp' ? pct(c.eco.gdp / worldGdp) : fmtMoney(c.eco.gdp)}</td>
                 </tr>
               ))}
               {myRank >= 20 && (<tr className="me click" onClick={() => pick(s.player)}><td>{myRank + 1}</td><td>{s.countries[s.player].name}</td><td style={{ textAlign: 'right' }}>{fmt(val(s.countries[s.player]))}</td><td /></tr>)}
@@ -199,6 +198,14 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
 }
 
 // ---------------------------------------------------------------- menu
+/** which build this is (and whether Steam is connected): what a tester quotes in a bug report */
+function BuildLine() {
+  const [steam, setSteam] = useState<string>('');
+  useEffect(() => {
+    void desktop?.steam.status().then((s) => setSteam(s.on ? `Steam: ${s.user ?? 'connected'}` : 'Steam not running')).catch(() => setSteam(''));
+  }, []);
+  return <p className="pause-build">World Order {desktop?.version ?? 'web'}{steam ? ` · ${steam}` : ''}</p>;
+}
 function MenuDrawer({ onClose }: { onClose: () => void }) {
   const quit = async () => { if (await store.ask({ title: 'Quit to the main menu?', text: 'Anything you have not saved will be lost (your last autosave stays).', ok: 'Quit to menu' })) store.quitToMenu(); };
   const exit = async () => { if (await store.ask({ title: 'Quit the game?', text: 'Anything you have not saved will be lost (your last autosave stays).', ok: 'Quit to desktop', danger: true })) void desktop?.window.quit(); };
@@ -214,6 +221,7 @@ function MenuDrawer({ onClose }: { onClose: () => void }) {
         <button className="btn" onClick={() => void quit()}>Quit to main menu</button>
         {isDesktop && <button className="btn danger" onClick={() => void exit()}>Quit to desktop</button>}
       </div>
+      <BuildLine />
     </Modal>
   );
 }

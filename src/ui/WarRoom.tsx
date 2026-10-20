@@ -78,7 +78,7 @@ export function WarRoom() {
   const disp = w ? w.displaced ?? 0 : rec!.displaced ?? 0;
   const score = w ? warScore(s, w, atk[0]) : rec!.winner === 'a' ? 0.6 : rec!.winner === 'b' ? -0.6 : 0;
   const hist = (w ? w.hist : rec!.hist) ?? [];
-  const verdict = score > 0.25 ? `${A.name} is winning` : score < -0.25 ? `${D.name} is winning` : Math.abs(score) < 0.08 ? 'A stalemate' : score > 0 ? `${A.name} has the edge` : `${D.name} has the edge`;
+  const verdict = w && s.tick - start < 4 && Math.abs(score) < 0.25 ? 'Too early to tell' : score > 0.25 ? `${A.name} is winning` : score < -0.25 ? `${D.name} is winning` : Math.abs(score) < 0.08 ? (w && s.tick - start < 12 ? 'Neither side has broken through' : 'A stalemate') : score > 0 ? `${A.name} has the edge` : `${D.name} has the edge`;
   const ids = new Set([...atk, ...def]);
   const story = s.log.filter((l) => l.tick >= start && l.tick <= end && (l.kind === 'war' || l.kind === 'territory' || l.kind === 'peace') && l.countries.some((c) => ids.has(c))).slice(-14).reverse();
   const fronts = w ? [...w.fronts].sort((a, b) => b.progress - a.progress).slice(0, 8) : [];

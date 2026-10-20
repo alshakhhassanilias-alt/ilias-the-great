@@ -73,6 +73,12 @@ export function potentialOutput(c: Country, priceE: number, tfp = c.eco.tfp): nu
 /** Raw risk-sensitive component of the borrowing cost (changes in debt, inflation and stability move it). */
 const rateRaw = (e: Country['eco']) =>
   0.8 * Math.max(0, e.inflation - 0.02) + 0.04 * Math.max(0, e.debt / Math.max(e.gdp, 1) - 0.6) + 0.1 * Math.max(0, 0.7 - e.stability / 100);
+/**
+ * AI governments reinvest every spare budget point (infrastructure, schools, industry), which on top of a growth trend
+ * that already assumes normal investment compounds into implausible booms. Growth well above a country's realistic
+ * outlook meets diminishing returns. The player's country is exempt: there, a boom is the player's doing.
+ */
+const aiAnchor = (c: Country) => (c.isPlayer ? 0 : 2 * Math.max(0, c.eco.growth - c.eco.baseGrowth - 0.006));
 /** Market interest rate: the country's calibrated starting rate plus how much its fundamentals have changed since. */
 export function marketRate(e: Country['eco']): number {
   return clamp((e.prev.rate0 ?? 0.03) + rateRaw(e) - (e.prev.raw0 ?? 0), 0.005, 0.4);
@@ -258,7 +264,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.capital = Math.max(1, e.capital * (1 - DELTA * DT * (1 + 2 * e.damage)) + (privInv + stateInv) * DT);
 
   // ---- productivity ----
-  const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage;
+  const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage - aiAnchor(c);
   e.tfp *= 1 + gTfp * DT;
   e.tech = clamp(e.tech + DT * (0.25 + 40 * Math.max(-0.02, b.education - 0.02)) * (1 - e.tech / 110), 5, 100);
 

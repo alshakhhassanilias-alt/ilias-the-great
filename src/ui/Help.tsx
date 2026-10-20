@@ -1,4 +1,5 @@
 import { store } from '../state/store';
+import { AUTOSAVE_TEXT, CONTROLS_TEXT } from './controls';
 
 const STEPS: { title: string; body: string[] }[] = [
   { title: 'You run a country, in real time you control', body: [
@@ -80,6 +81,10 @@ const STEPS: { title: string; body: string[] }[] = [
     'Economy → World economy shows the business cycle: the risk of a world recession within a year and the warning signs behind it (years since the last recession, expensive oil or chips, trade wars, world inflation and debt). When the risk is high, a recession can come early.',
     'Four strategic goods: chips, critical minerals, oil and gas, food. A handful of countries make most of the world\'s chips (Taiwan alone about 40%) and refine most of its minerals (China). A country cut off from them loses productivity and military technology; a war that hits a big producer sends world prices up for everyone, and high prices pay the producers.',
     'On another country\'s Diplomacy tab: impose tariffs (a little revenue, happier unions and nationalists, but trade shrinks on both sides and they may hit back), or ban exports of a good you produce. The tab shows how much of their supply you control.' ] },
+  { title: 'Saving, settings and music', body: [
+    `${AUTOSAVE_TEXT} Esc opens the menu: save under any name, load any save, export a save to a file or import one. Continue on the main menu loads your newest save.`,
+    CONTROLS_TEXT,
+    'Settings has four tabs: Game (difficulty, AI aggression, how much you steer, when the clock pauses), Display (fullscreen, interface size, map graphics, fewer animations), Sound (master, music and effects volumes) and Controls. The music follows the world: calm in peace, tense in a crisis, driving in war.' ] },
   { title: 'Things to do', body: [
     'The Goals tab holds your objectives and a check-up of your country. How much help you get depends on difficulty: full guides with one-tap fixes on Easy, a few hints on Normal, none on Hard. Decisions wait in a small inbox on the map and never stop the clock; open one when you are ready. The news ticker (bottom) shows what the rest of the world is doing.',
     'There is no single right way to play: trader, peacemaker, bloc builder or conqueror. Press ☰ → How to play any time to read this again.' ] },

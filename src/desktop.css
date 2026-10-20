@@ -391,3 +391,11 @@
   .lever:not(.off) .lever-ic, .recon-g:not(:disabled) .recon-gi { transition: transform .2s ease; }
   .lever:not(.off):hover .lever-ic, .recon-g:not(:disabled):hover .recon-gi { transform: scale(1.18) rotate(-4deg); }
 }
+@media (min-width: 901px) {
+  /* the decision list sits on top of the clock, however tall the clock is; breaking news leaves room for offers */
+  .inbox { bottom: calc(var(--timebox-h, 96px) + 22px); }
+  .breaking { width: min(600px, calc(100% - 420px)); }
+}
+@media (min-width: 901px) {
+  .app:has(.breaking) .toasts { top: 260px; }
+}

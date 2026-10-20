@@ -9,6 +9,7 @@ import { prefs, setPrefs, onPrefs, KEY_ACTIONS, DEFAULT_KEYS, keyName, bindKey, 
 import { Slider, Segmented } from './widgets';
 import { music } from '../music';
 import { sfx } from '../audio';
+import { dateLabel } from '../sim/tick';
 
 export function usePrefs() {
   const [, set] = useState(0);
@@ -58,7 +59,7 @@ export function SaveScreen({ onClose, mode }: { onClose: () => void; mode: 'save
   const [tab, setTab] = useState<'save' | 'load'>(mode);
   const inGame = !!store.state && !store.preview;
   const s = store.state;
-  const [name, setName] = useState(() => (inGame && s ? `${s.countries[s.player].name}, ${new Date().toLocaleDateString()}` : ''));
+  const [name, setName] = useState(() => (inGame && s ? `${s.countries[s.player].name}, ${dateLabel(s.tick)}` : ''));
   const list = store.saveList;
   useEffect(() => { void store.refreshSaves(); }, []);
   const doSave = async (slot: string) => {

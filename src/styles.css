@@ -820,3 +820,7 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .crash-card h1 { margin: 0 0 8px; font-size: 22px; }
 .crash-card pre { white-space: pre-wrap; font-size: 12px; background: rgba(0,0,0,.35); padding: 10px; border-radius: 8px; max-height: 160px; overflow: auto; }
 html.calm *, html.calm *::before, html.calm *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+@media (min-width: 901px) {
+  .check > span > small { display: block; margin-top: 2px; }
+}
+.pause-build { margin: 12px 0 0; text-align: center; font-size: 11px; opacity: .5; letter-spacing: .04em; }

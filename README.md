@@ -12,7 +12,16 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
 
 ## Play without installing anything
-Download **`play/world-order.html`** (single file, about 4 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage.
+Download **`play/world-order.html`** (single file, about 4 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage. The music streams from this repository when you are online; offline the game plays without it.
+
+## The desktop app (Windows, macOS, Linux) and Steam
+`desktop/` wraps the game in an Electron app built for Steam: saves are files on disk (Steam Cloud ready), crash
+reports go to a logs folder, the window remembers its size, and the 24 trophies unlock as Steam achievements.
+* **Try it:** `npm install`, then `npm run desktop`.
+* **Build it:** `npm run desktop:dist` (output in `desktop/release/`), or on GitHub: *Actions → Desktop build → Run
+  workflow* builds Windows, macOS and Linux and attaches them as downloads.
+* **Put it on Steam:** step-by-step in [`desktop/STEAM.md`](desktop/STEAM.md) (app id, depots, achievements with
+  icons, Steam Cloud paths, overlay, crash reports).
 
 ## Quick start
 
@@ -24,7 +33,9 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 120 deterministic simulation tests (Vitest) |
+| `npm test` | 187 deterministic simulation tests (Vitest) |
+| `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
+| `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
 | `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
@@ -50,6 +61,22 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 26: what players expect from a Steam game
+* **Save slots:** named saves, rotating autosaves (every 1–24 months, keep 1–10), F5 quick save / F9 quick load,
+  Continue on the main menu, export and import; old saves move over by themselves.
+* **Settings with tabs:** Game, Display (fullscreen, interface size, map graphics, fewer animations, autosave), Sound
+  (master, music, effects, quieter while paused, mute in the background) and **Controls: every key can be rebound**.
+* **A pause menu** (Esc): resume, save, load, settings, how to play, replay the walkthrough, quit.
+* **A first-game walkthrough** that points at the real interface and waits for you to try things; skip or replay it.
+* **Crash handling:** an error pauses the game instead of breaking it; a crash screen offers a rescue save, carry on
+  or back to the menu, and a report you can copy (the desktop app also writes it to a log file).
+* **An original score:** seven pieces (main theme, three for peace, one for tension, two for war) that crossfade as
+  the world changes; the main theme returns in the war music. They are generated in code (`tools/music/`), so they are
+  free to ship. Replace them with your own: see `public/music/README.md`.
+* **Fixes:** developing economies no longer grow implausibly fast (India ~7.7% a year instead of 9%, Nigeria ~3%
+  instead of 7%); the decision list no longer covers the clock; breaking news no longer covers offers; a leader's
+  covering note is no longer shown twice; the war room says "too early to tell" in a war's first weeks.
 
 ## Round 25: deeper war, countries that differ, trade as a weapon
 * **War campaigns** (war room): general offensive (+25% attack, +40% losses, war support rides on the result), strategic bombing of factories, power grid or cities (scaled by air superiority; bombing cities kills civilians and costs reputation and relations), naval blockade (stacks on the automatic one; the target's trading partners resent it) and defence in depth (+25% defence, −40% attack). AI countries choose campaigns by how their war goes (`campaigns.ts`).
@@ -128,10 +155,11 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
    * **Diplomacy** — relations breakdown, the **negotiating table** (what they want, red lines, your leverage, terms
      you can add, the odds with every factor, counteroffers and patience), sanctions and embargoes, war declaration
      (with an odds estimate), pending offers from AI countries.
-4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–4 = speed, + / − zoom.
+4. **Control time** with the clock (bottom-left on desktop, top-left on phones). Space = pause, 1–4 = speed, + / − zoom,
+   Esc = menu, F5 / F9 = quick save / load (all keys can be changed in Settings → Controls).
    The game pauses automatically when someone declares war on you, and two weeks before an urgent decision would
    lapse. While a decision, a menu or the negotiating table is open, the clock holds. Each can be switched off in
-   settings. Autosave runs every 26 weeks of game time.
+   settings. Autosave runs every 6 months of game time by default (Settings → Display).
 
 ## Architecture
 

@@ -402,9 +402,12 @@ export const DEBT_RATIO: Record<string, number> = {
 };
 /** Baseline real GDP growth overrides (% per year). */
 export const GROWTH: Record<string, number> = {
-  China: 4.6, India: 6.5, Japan: 0.8, Russia: 2.5, Ukraine: 3, Germany: 0.3, Italy: 0.7, France: 1.0,
+  China: 4.6, India: 6.5, Japan: 0.8, Russia: 2.5, Ukraine: 3, Germany: 0.8, Italy: 0.7, France: 1.0,
   'United Kingdom': 0.8, 'United States of America': 2.3, Vietnam: 6, Indonesia: 5, Bangladesh: 5.5, Ethiopia: 6,
   Sudan: -10, Syria: 1, Lebanon: -1, Myanmar: 1, Venezuela: 3, Argentina: -1, Iran: 3, 'Saudi Arabia': 2.5, Libya: 4,
   Rwanda: 7, Guyana: 20, Philippines: 5.8, Malaysia: 4.2, Egypt: 3.5, Turkey: 3.5, Poland: 3, Spain: 2.3, Greece: 2,
   Brazil: 2.1, Mexico: 2.4, Canada: 1.5, Australia: 1.8, 'South Korea': 2.1, Taiwan: 3,
+  // medium-term outlooks where the income-based default is far off
+  Nigeria: 3.2, 'South Africa': 1.4, Kenya: 5, Pakistan: 4, Ghana: 4.5, Angola: 2.5, Algeria: 3, Morocco: 3.3, Colombia: 2.5,
+  Chile: 2.3, Peru: 2.7, Thailand: 2.8, Iraq: 3, Kazakhstan: 4, Tanzania: 6, Uganda: 6, 'Dem. Rep. Congo': 5,
 };

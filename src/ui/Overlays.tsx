@@ -95,7 +95,8 @@ function OfferCard({ o }: { o: GameState['offers'][number] }) {
   );
 }
 
-const cableNow = (s: GameState) => [...(s.cables ?? [])].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10);
+/** the newest unread message, unless it is the covering note of an offer (the offer card already quotes it) */
+const cableNow = (s: GameState) => [...(s.cables ?? [])].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10 && !s.offers.some((o) => o.from === x.from && o.tick === x.tick));
 const rippleNow = (s: GameState) => { const r = s.lastRipple; return r && (r.a === s.player || r.b === s.player) && store.rippleSeen !== `${r.tick}:${r.a}:${r.b}:${r.kind}` && s.tick - r.tick <= 26; };
 const reviewNow = (s: GameState) => !!s.review && store.reviewSeen < s.review.tick && s.tick - s.review.tick <= 30;
 
@@ -129,7 +130,7 @@ export function CableCard() {
   useStore();
   const s = store.state;
   if (!s?.cables?.length) return null;
-  const cb = [...s.cables].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10);
+  const cb = cableNow(s);
   if (!cb) return null;
   const C = s.countries[cb.from];
   const close = () => { store.cableSeen = cb.seq; store.notify(); };
