@@ -1031,6 +1031,7 @@ export class MapRenderer {
         ctx.restore();
       }
       // the token: a banner in the national colour with the army's number, its order and its general's stars
+      if (!Number.isFinite(sx) || !Number.isFinite(sy)) return; // an army without a valid position this frame
       const w = 30, h = 36;
       ctx.save();
       if (sel) { ctx.shadowColor = oc; ctx.shadowBlur = 16; }
@@ -1580,7 +1581,7 @@ export class MapRenderer {
     ctx.lineTo(hx + (hty / htl) * hw, hy - (htx / htl) * hw);
     for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]);
     ctx.closePath();
-    if (this.quality === 2) {
+    if (this.quality === 2 && [sx, sy, x1, y1].every(Number.isFinite)) {
       // painted like a staff map: a dark casing, a colour that strengthens towards the head, a lit edge
       const g = ctx.createLinearGradient(sx, sy, x1, y1);
       const a = 0.62 + 0.28 * Math.min(1, progress);
