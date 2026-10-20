@@ -3,6 +3,8 @@
  * player's situation (so a peaceful trader and a warlord see different tasks). Completing one pays out
  * immediately and the next relevant goal takes its place.
  */
+import { gainPC } from './domestic';
+import { fiscalNow } from './economy';
 import { clamp } from './util';
 import { logEvent } from './log';
 import { strength } from './military';
@@ -114,7 +116,17 @@ export const GOALS: Goal[] = [
     progress: (s) => ({ value: stat(s, 'warWins') > 0 ? 1 : 0, text: `${stat(s, 'warWins')} won` }), pay: (c) => { c.eco.cash += 0.012 * c.eco.gdp; c.reputation = clamp(c.reputation - 2, 0, 100); } },
   { id: 'navy', theme: 'military', title: 'Blue-water navy', desc: 'Grow your navy by half.', reward: `Reward: ${R(0.004)}`, when: (_s, c) => c.mil.equipNavy > 0,
     progress: (s, c) => { const b = stat(s, 'navy0') || (s.stats.navy0 = Math.max(1, c.mil.equipNavy)); return { value: clamp((c.mil.equipNavy / b - 1) / 0.5, 0, 1), text: `+${Math.max(0, (c.mil.equipNavy / b - 1) * 100).toFixed(0)}% / 50%` }; }, pay: cash(0.004) },
+  // ------------------------------------------------ objectives born of your problems
+  { id: 'balance', theme: 'economy', title: 'Balance the books', desc: 'Bring the deficit under 0.5% of GDP.', reward: `Reward: stability +2 · ${R(0.005)}`, when: (s, c) => fiscalBal(s, c) < -0.02,
+    progress: (s, c) => { const b = fiscalBal(s, c); return { value: clamp(1 - (-b - 0.005) / 0.04, 0, 1), text: `${b >= 0 ? 'surplus' : 'deficit'} ${(Math.abs(b) * 100).toFixed(1)}% of GDP` }; }, pay: (c) => { c.eco.stability = clamp(c.eco.stability + 2, 0, 100); c.eco.cash += 0.005 * c.eco.gdp; } },
+  { id: 'winback', theme: 'politics', title: 'Win back the angry', desc: 'Bring every faction to at least 45/100.', reward: 'Reward: stability +4', when: (_s, c) => (c.politics?.factions ?? []).some((f) => f.mood < 35),
+    progress: (_s, c) => { const m = Math.min(...(c.politics?.factions ?? []).map((f) => f.mood), 100); return { value: clamp((m - 25) / 20, 0, 1), text: `angriest at ${Math.round(m)} / 45` }; }, pay: (c) => { c.eco.stability = clamp(c.eco.stability + 4, 0, 100); } },
+  { id: 'reconcile', theme: 'politics', title: 'Bury the hatchet', desc: 'Reach a détente with a country that hates you (reconciliation in Diplomacy).', reward: 'Reward: reputation +6 · stability +2', when: (s, c) => s.countries.some((x) => x.alive && x.id !== c.id && getRelation(s, c.id, x.id) < -40) && !isAtWar(s, c.id),
+    progress: (s) => { let best = 0; for (const m of Object.values(s.nego ?? {})) if (m.track) best = Math.max(best, m.track.stage === 4 ? 1 : (m.track.stage - 1) * 0.25 + (m.track.trust / 100) * 0.25); return { value: best, text: best >= 1 ? 'détente reached' : best > 0 ? `in progress (${Math.round(best * 100)}%)` : 'not started' }; }, pay: (c) => { c.reputation = clamp(c.reputation + 6, 0, 100); c.eco.stability = clamp(c.eco.stability + 2, 0, 100); } },
+  { id: 'lawmaker', theme: 'politics', title: 'A government that delivers', desc: 'Pass two laws.', reward: `Reward: approval through stability +3 · ${R(0.003)}`, when: (_s, c) => !!c.politics,
+    progress: (s, c) => { const b = stat(s, 'laws0') || (s.stats.laws0 = (c.politics?.laws.length ?? 0) + 1); const n = (c.politics?.laws.length ?? 0) - (b - 1); return { value: bar(n, 2), text: `${Math.max(0, n)} / 2 passed` }; }, pay: (c) => { c.eco.stability = clamp(c.eco.stability + 3, 0, 100); c.eco.cash += 0.003 * c.eco.gdp; } },
 ];
+const fiscalBal = (s: GameState, c: Country) => { const f = fiscalNow(c, s); return f.balance / Math.max(1, c.eco.gdp); };
 
 function relevant(g: Goal, s: GameState, c: Country) { return !g.when || g.when(s, c); }
 
@@ -124,6 +136,7 @@ export function activeGoals(s: GameState): Goal[] {
 }
 
 /** Keep three relevant, unfinished goals active, mixing themes so the list does not feel repetitive. */
+const URGENT = new Set(['balance', 'winback', 'reconcile']);
 function refill(s: GameState, c: Country) {
   s.goalsActive = s.goalsActive.filter((id) => s.goalsDone[id] === undefined);
   while (s.goalsActive.length < 3) {
@@ -131,7 +144,8 @@ function refill(s: GameState, c: Country) {
     // never hand out a goal that is already (almost) achieved: it would complete instantly and mean nothing
     const pool = GOALS.filter((g) => s.goalsDone[g.id] === undefined && !s.goalsActive.includes(g.id) && relevant(g, s, c) && g.progress(s, c).value < 0.9);
     if (!pool.length) break;
-    pool.sort((a, b) => (have.has(a.theme) ? 1 : 0) - (have.has(b.theme) ? 1 : 0) || hash01('goal', a.id, c.id, s.goalsActive.length) - hash01('goal', b.id, c.id, s.goalsActive.length));
+    // a pressing problem (a deficit, an angry faction, a bitter enemy) comes first: the objective helps you fix it
+    pool.sort((a, b) => (URGENT.has(b.id) ? 1 : 0) - (URGENT.has(a.id) ? 1 : 0) || (have.has(a.theme) ? 1 : 0) - (have.has(b.theme) ? 1 : 0) || hash01('goal', a.id, c.id, s.goalsActive.length) - hash01('goal', b.id, c.id, s.goalsActive.length));
     s.goalsActive.push(pool[0].id);
   }
 }
@@ -148,6 +162,7 @@ export function stepGoals(s: GameState) {
     if (g.progress(s, c).value >= 1) {
       s.goalsDone[g.id] = s.tick;
       g.pay(c, s);
+      gainPC(s, 6);
       logEvent(s, `Objective complete: ${g.title}. ${g.reward.replace('Reward: ', 'You received ')}`, 'info', [s.player], true);
     }
   }

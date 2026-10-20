@@ -29,7 +29,7 @@ import { coursesFor, type CourseId } from './courses';
 import { isMajor } from './drama';
 import { addRec, type RecKey } from './minds';
 import { geoRefGet } from './geoRef';
-import type { EventDef, EventOption, D } from './eventkit';
+import { DECISION_COST, type EventDef, type EventOption, type D } from './eventkit';
 import type { Country, CountryId, FactionId, GameState } from './types';
 
 export type Arch = 'reform' | 'iron' | 'pragmatic';
@@ -82,7 +82,7 @@ const camp = (s: GameState, sign: number, me: number) => s.countries.filter((x) 
 function applyFx(s: GameState, c: Country, f: Fx, d: D): string {
   const e = c.eco;
   if (f.pc) spendPC(c, -f.pc);
-  if (f.cash) { if (f.cash < 0) fund(s, c.id, -f.cash * e.gdp, 'Storyline decision'); else e.cash += f.cash * e.gdp; }
+  if (f.cash) { if (f.cash < 0) fund(s, c.id, -f.cash * DECISION_COST * e.gdp, 'Storyline decision'); else e.cash += f.cash * e.gdp; }
   if (f.stab) e.stability = clamp(e.stability + f.stab, 0, 100);
   if (f.rep) c.reputation = clamp(c.reputation + f.rep, 0, 100);
   if (f.fac && c.isPlayer) for (const [k, v] of Object.entries(f.fac)) sway(c, k as FactionId, v as number);
@@ -283,7 +283,7 @@ export function storyEvents(): EventDef[] {
   for (const [k, v] of Object.entries(ISSUE) as [IssueKind, (typeof ISSUE)[IssueKind]][]) {
     out.push({
       id: `story1_${k}`, icon: '📖', title: `Act I: ${v.title}`, weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
-      text: (_s, c) => (c.story?.ch ?? 1) > 1 ? `${storyTitle(c)}, chapter ${roman(c.story!.ch!)}. ${c.story!.past?.length ? `The last chapter ended as ${c.story!.past[c.story!.past.length - 1].ending}. ` : ''}Now a new trouble defines the age: ${NEW_TROUBLE[k]}. ${whyLine(c)} A new chapter means a new road: answer as you see fit.` : `${storyTitle(c)}. ${whyLine(c)}The question of your age: ${seedOf(c).text}. How you answer will decide what kind of leader history remembers.`,
+      text: (_s, c) => (c.story?.ch ?? 1) > 1 ? `${storyTitle(c)}, chapter ${roman(c.story!.ch!)}. ${c.story!.past?.length ? `The last chapter ended as ${c.story!.past[c.story!.past.length - 1].ending}. ` : ''}Now a new trouble defines the age: ${NEW_TROUBLE[k]}. ${whyLine(c)}${brief(_s, c, 1, c.story?.rival ?? -1)} A new chapter means a new road: answer as you see fit.` : `${storyTitle(c)}. ${whyLine(c)}The question of your age: ${seedOf(c).text}. ${brief(_s, c, 1, c.story?.rival ?? -1)} How you answer will decide what kind of leader history remembers.`,
       options: v.opts.map((o, i) => opt(o, 1, i)),
       lapse: (s, c, d) => choose(s, c, 1, -1, { stab: -2 }, d, 'Events decide for you; the problem festers.'),
     });
@@ -299,7 +299,7 @@ export function storyEvents(): EventDef[] {
       : ['A deal behind closed doors', '', { cash: -0.004, rival: 20, fac: { business: 6, nationalists: -4 } }, 'A quiet bargain: money and concessions, no cameras.'];
     out.push({
       id: `story2_${a}`, icon: '📖', title: 'Act II: The Neighbour', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
-      text: (s, c, d) => { const r = d.rv >= 0 ? s.countries[d.rv] : null; const claim = r && CLAIMS.some(([x, y]) => (x === c.name && y === r.name) || (y === c.name && x === r.name)); return `${pathLine(c.story)}${whyLine(c)}Now ${r ? `${r.name} ${claim ? 'and the land you both claim' : 'and the old enmity between you'}` : 'your neighbourhood'} will test you. Relations stand at ${r ? getRelation(s, c.id, r.id).toFixed(0) : '?'}. ${a === 'reform' ? 'As a reformer you can take it to an international court.' : a === 'iron' ? 'As the iron hand you can prepare for war.' : 'As a pragmatist you can strike a quiet deal.'}`; },
+      text: (s, c, d) => { const r = d.rv >= 0 ? s.countries[d.rv] : null; const claim = r && CLAIMS.some(([x, y]) => (x === c.name && y === r.name) || (y === c.name && x === r.name)); return `${pathLine(c.story)}${whyLine(c)}Now ${r ? `${r.name} ${claim ? 'and the land you both claim' : 'and the old enmity between you'}` : 'your neighbourhood'} will test you. Relations stand at ${r ? getRelation(s, c.id, r.id).toFixed(0) : '?'}. ${brief(s, c, 2, d.rv ?? -1)} ${a === 'reform' ? 'As a reformer you can take it to an international court.' : a === 'iron' ? 'As the iron hand you can prepare for war.' : 'As a pragmatist you can strike a quiet deal.'}`; },
       options: [...base, extra].map((o, i) => opt(o, 2, i)),
       lapse: (s, c, d) => choose(s, c, 2, -1, { rival: -5 }, d, 'You let it drift; the tension grows.'),
     });
@@ -310,14 +310,14 @@ export function storyEvents(): EventDef[] {
       : ['Play the great powers against each other for investment', '', { cash: 0.006, west: 4, east: 4, capital: 0.01 }, 'Washington and Beijing bid for your favour.'];
     out.push({
       id: `story3_${k}_${a}`, icon: '📖', title: `Act III: ${v.title}`, weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
-      text: (_s, c) => `${pathLine(c.story)}${whyLine(c)}To reach ${seedOf(c).ambition}, the economy must change. ${v.frame}`,
+      text: (s, c) => `${pathLine(c.story)}${whyLine(c)}To reach ${seedOf(c).ambition}, the economy must change. ${v.frame} ${brief(s, c, 3, -1)}`,
       options: [...v.opts, extra].map((o, i) => opt(o, 3, i)),
       lapse: (s, c, d) => choose(s, c, 3, -1, {}, d, 'The economy carries on as before.'),
     });
   }
   out.push({
     id: 'story4', icon: '📖', title: 'Act IV: Your Place in the World', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
-    text: (s, c) => `${pathLine(c.story)}${whyLine(c)}The world is choosing sides, and ${c.name} must decide where it stands. ${c.story?.path[1] === 2 ? 'Your protector expects loyalty. ' : ''}Whatever you choose sets out a course of several steps (you will walk it in Diplomacy).`,
+    text: (s, c) => `${pathLine(c.story)}${whyLine(c)}The world is choosing sides, and ${c.name} must decide where it stands. ${brief(s, c, 4, -1)} ${c.story?.path[1] === 2 ? 'Your protector expects loyalty. ' : ''}Whatever you choose sets out a course of several steps (you will walk it in Diplomacy).`,
     options: ([['west', 'Turn toward the West'], ['east', 'Turn toward the East'], ['third', 'A third way'], ['region', 'Lead your region']] as [CourseId, string][]).map(([id, label], i): EventOption => ({
       label, hint: 'Starts a change-of-course storyline in Diplomacy', enabled: (s, c) => { const g = geoRefGet(); return !!g && !c.course && !!coursesFor(s, c, g).find((k) => k.id === id)?.ok; },
       why: (s, c) => { if (c.course) return 'You are already on a course'; const g = geoRefGet(); const k = g && coursesFor(s, c, g).find((x) => x.id === id); return k?.why ?? 'Not open to you now'; },
@@ -486,6 +486,50 @@ export function actTrigger(s: GameState, geo: Geo, c: Country, st: StoryState): 
   if (ml.length) return `a new government in ${ml[0].name} (${ml[0].leader!.name}) is reshaping the world`;
   return null;
 }
+/**
+ * The situation in numbers, act by act: what the problem looks like today in this country, so a decision is never
+ * taken in the abstract. (Read only: it never changes the world.)
+ */
+export function brief(s: GameState, c: Country, act: number, rv: number): string {
+  const e = c.eco, P = c.politics;
+  const f = (id: FactionId) => Math.round(P?.factions.find((x) => x.id === id)?.mood ?? 50);
+  const money = (v: number) => fmtMoney(v);
+  const p1 = (v: number) => `${(v * 100).toFixed(1)}%`;
+  if (act === 1) {
+    switch (issueOf(c)) {
+      case 'corruption': return `The numbers: only ${pct(e.collection)} of the taxes owed are actually collected, reputation abroad is ${Math.round(c.reputation)}/100, and business is ${f('business')}/100 happy with you.`;
+      case 'debt': return `The numbers: debt is ${pct(e.debt / e.gdp)} of GDP (${money(e.debt)}), interest costs ${money(e.debt * e.avgRate)} a year at ${p1(e.avgRate)}, ${pct((e.debt * e.avgRate) / Math.max(1, e.revenue))} of everything the state collects.`;
+      case 'separatism': case 'divided': return `The numbers: stability ${Math.round(e.stability)}/100; the regions are ${f('regions')}/100 happy with the capital, the nationalists ${f('nationalists')}/100.`;
+      case 'insurgency': return `The numbers: stability ${Math.round(e.stability)}/100, an army of ${Math.round(c.mil.troops / 1000)}k at ${pct(c.mil.readiness)} readiness, and the generals ${f('military')}/100 happy.`;
+      case 'climate': return `The numbers: infrastructure ${Math.round(e.infra)}/100, war and storm damage ${pct(e.damage)}, food production ${pct(e.foodCap / Math.max(1, e.foodDemand))} of what the country eats.`;
+      case 'exodus': return `The numbers: ${(e.pop / 1e6).toFixed(1)} million people (${c.baseline ? `${e.pop >= c.baseline.pop ? '+' : ''}${(((e.pop / c.baseline.pop) - 1) * 100).toFixed(1)}% since 2024` : 'steady'}), unemployment ${p1(e.unemployment)}, and a workforce that is getting older every year.`;
+      case 'rebuild': return `The numbers: ${pct(e.damage)} of the country is damaged, infrastructure at ${Math.round(e.infra)}/100, growth ${p1(e.growth)} a year.`;
+      case 'crime': return `The numbers: stability ${Math.round(e.stability)}/100, approval of the police and courts low, the liberals ${f('liberals')}/100 and the nationalists ${f('nationalists')}/100 for very different reasons.`;
+      case 'polarised': return `The numbers: the liberals are ${f('liberals')}/100 and the nationalists ${f('nationalists')}/100 happy with you; stability ${Math.round(e.stability)}/100; you hold ${Math.floor(P?.pc ?? 0)} political capital.`;
+      case 'isolated': return `The numbers: sanctions cut off ${pct(e.sanctionShare)} of your trade; ${s.countries.filter((x) => x.alive && x.id !== c.id && getRelation(s, c.id, x.id) > 40).length} governments still call you a friend.`;
+      case 'reunify': { const R = rv >= 0 ? s.countries[rv] : null; return R ? `The numbers: relations with ${R.name} stand at ${getRelation(s, c.id, R.id).toFixed(0)}; their army is ${Math.round(R.mil.troops / 1000)}k, yours ${Math.round(c.mil.troops / 1000)}k.` : ''; }
+      case 'army': return `The numbers: the generals are ${f('military')}/100 happy, the army is ${Math.round(c.mil.troops / 1000)}k strong and costs ${pct(c.budget.military)} of GDP.`;
+      case 'succession': return `The numbers: stability ${Math.round(e.stability)}/100; the army ${f('military')}/100 and the liberals ${f('liberals')}/100 happy with how power is held.`;
+      case 'inflation': return `The numbers: prices are rising ${p1(e.inflation)} a year, unemployment ${p1(e.unemployment)}, and business ${f('business')}/100 happy.`;
+      case 'energy': return `The numbers: ${pct(e.energyUnmet)} of the power the country needs goes unmet; energy costs ${s.market.priceE.toFixed(2)}× the 2024 price; you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of what you use.`;
+    }
+  }
+  if (act === 2) {
+    const R = rv >= 0 ? s.countries[rv] : null;
+    if (!R) return '';
+    const g = (s.grudges?.[`${R.id}>${c.id}`] ?? []).slice().sort((a, b) => b.w - a.w)[0];
+    return `${R.name}${R.leader ? `, led by ${R.leader.name} (${R.leader.traits.join(' and ')})` : ''}: ${Math.round(R.mil.troops / 1000)}k troops to your ${Math.round(c.mil.troops / 1000)}k, an economy of ${money(R.eco.gdp)} to your ${money(e.gdp)}.${R.goal?.target === c.id ? ` Their declared aim: ${R.goal.text.charAt(0).toLowerCase()}${R.goal.text.slice(1)}.` : ''}${g ? ` They still hold it against you that you ${g.why}.` : ''}`;
+  }
+  if (act === 3) {
+    const k = seedOf(c).econ;
+    const sector = k === 'oil' ? `you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of the energy you use, at ${s.market.priceE.toFixed(2)}× the 2024 price` : k === 'farms' ? `farms grow ${pct(e.foodCap / Math.max(1, e.foodDemand))} of the food the country eats` : k === 'tech' || k === 'industry' ? `technology stands at ${Math.round(e.tech)}/100` : k === 'services' || k === 'tourism' ? `trade is ${pct(e.openness)} of the economy` : `aid and remittances keep ${money(e.gdp * 0.05)} a year flowing in`;
+    return `The economy: ${money(e.gdp)}, growing ${p1(e.growth)} a year, unemployment ${p1(e.unemployment)}; ${sector}.`;
+  }
+  const o = c.orient ?? 0;
+  const courting = s.countries.filter((x) => x.alive && x.id !== c.id && isMajor(s, x.id) && getRelation(s, c.id, x.id) > 30).slice(0, 3).map((x) => x.name);
+  return `Where you stand: ${o > 0.3 ? 'in the Western camp' : o < -0.3 ? 'in the Eastern camp' : 'between the camps'} (${o >= 0 ? '+' : ''}${o.toFixed(2)}), the West holds ${pct(s.stats.westShare ?? 0.5)} of world power${courting.length ? `, and ${courting.join(', ')} count you as a friend` : ''}.`;
+}
+
 const whyLine = (c: Country) => (c.story?.why ? `${cap(c.story.why)}. ` : '');
 
 /** A chapter closed some years ago: open the next one, about what the country faces now. */

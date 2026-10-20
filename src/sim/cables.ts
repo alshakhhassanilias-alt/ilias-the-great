@@ -67,11 +67,51 @@ const LINES: Record<CableKind, { mood: Cable['mood']; hawk: T[]; dove: T[]; any:
     any: [(o) => `${o.me.name} would like to put our relations on a firmer footing.`] },
 };
 
+const big = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)} million` : v >= 1e3 ? `${Math.round(v / 1000)},000` : `${Math.round(v)}`);
+const money = (v: number) => (v >= 1e12 ? `$${(v / 1e12).toFixed(1)} trillion` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)} billion` : `$${(v / 1e6).toFixed(0)} million`);
+const pctTxt = (v: number) => `${v >= 0 ? '' : 'minus '}${Math.abs(v * 100).toFixed(1)}%`;
+
+/**
+ * The concrete part of a message: real names and numbers from the world, so a leader never just says "we are
+ * watching you" but what they are watching, and why.
+ */
+function factFor(s: GameState, me: Country, you: Country, kind: CableKind): string {
+  const grudge = (s.grudges?.[`${me.id}>${you.id}`] ?? []).slice().sort((a, b) => b.w - a.w)[0];
+  const war = s.wars.find((w) => (w.attackers.includes(me.id) && w.defenders.includes(you.id)) || (w.defenders.includes(me.id) && w.attackers.includes(you.id)));
+  const rel = Math.round(getRelation(s, me.id, you.id));
+  const ratio = me.mil.troops / Math.max(1, you.mil.troops);
+  switch (kind) {
+    case 'war_on_you': return grudge ? `We have not forgotten that you ${grudge.why}.` : me.goal?.target === you.id ? `${me.goal.text}: that is our aim, and we will reach it.` : `We have ${big(me.mil.troops)} soldiers under arms. You have ${big(you.mil.troops)}.`;
+    case 'you_declared': return ratio > 1 ? `${big(me.mil.troops)} of our soldiers are waiting for yours.` : `You may have ${big(you.mil.troops)} soldiers to our ${big(me.mil.troops)}, but every one of ours is defending home.`;
+    case 'sanctioned': return `Our trade with you was worth about ${money(Math.min(me.eco.gdp, you.eco.gdp) * 0.012)} a year. Now it is worth nothing to either of us.`;
+    case 'sanctions_you': return grudge ? `This is because you ${grudge.why}.` : `Relations between us stand at ${rel}. That is your doing.`;
+    case 'treaty_yes': return me.leader?.mandate ? `I came to power ${me.leader.mandate}; this agreement fits that promise.` : `Relations between us now stand at ${rel}.`;
+    case 'treaty_no': return grudge ? `Frankly, we still remember that you ${grudge.why}.` : rel < 0 ? `With relations at ${rel}, my cabinet would not even read it.` : '';
+    case 'peace': { const mine = war ? Math.round(war.casualties[me.id] ?? 0) : 0; return mine > 1000 ? `${big(mine)} of our soldiers were killed or wounded in this war. We will not forget their names.` : ''; }
+    case 'new_leader': return [me.leader?.mandate ? `I came to power ${me.leader.mandate}.` : '', me.goal ? `My aim: ${me.goal.text.charAt(0).toLowerCase()}${me.goal.text.slice(1)}.` : ''].filter(Boolean).join(' ');
+    case 'taunt': {
+      const opts = [
+        me.eco.growth > you.eco.growth + 0.01 ? `Our economy grew ${pctTxt(me.eco.growth)} last year. Yours: ${pctTxt(you.eco.growth)}.` : '',
+        ratio > 1.3 ? `We have ${big(me.mil.troops)} soldiers. You have ${big(you.mil.troops)}. Do the arithmetic.` : '',
+        grudge ? `And we remember that you ${grudge.why}.` : '',
+        you.eco.inflation > 0.06 ? `Prices in your country rose ${pctTxt(you.eco.inflation)} this year. Our people notice.` : '',
+        you.eco.stability < 45 ? `Your own people do not trust you: stability ${Math.round(you.eco.stability)} of 100.` : '',
+      ].filter(Boolean);
+      return opts.length ? opts[Math.floor(hash01('tf', me.id, s.tick) * opts.length)] : `Relations between us stand at ${rel}.`;
+    }
+    case 'offer': return `We bring an economy of ${money(me.eco.gdp)}${me.mil.troops > 50000 ? ` and ${big(me.mil.troops)} soldiers` : ''} to the table, and relations between us already stand at ${rel}.`;
+    case 'declined_offer': return `Relations between us stand at ${rel}. They could have been better.`;
+    case 'accepted_offer': return me.goal ? `It fits what we are working toward: ${me.goal.text.charAt(0).toLowerCase()}${me.goal.text.slice(1)}.` : '';
+    case 'warm': return rel > 60 ? `Relations between us stand at ${rel}: the best in years.` : '';
+    default: return '';
+  }
+}
+
 const HAWKISH = new Set(['hawk', 'strongman', 'nationalist', 'paranoid']);
 const DOVISH = new Set(['dove', 'reformer', 'mercantilist', 'pragmatist']);
 
-/** Record a message from country `from` to the player. */
-export function cable(s: GameState, from: number, kind: CableKind) {
+/** Record a message from country `from` to the player (`extra`: a specific line from the caller, e.g. why a deal failed). */
+export function cable(s: GameState, from: number, kind: CableKind, extra?: string) {
   if (from === s.player || !s.countries[from]?.alive) return;
   const me = s.countries[from], you = s.countries[s.player];
   const L = LINES[kind];
@@ -80,7 +120,8 @@ export function cable(s: GameState, from: number, kind: CableKind) {
   const fn = pool[Math.floor(hash01('ct', from, s.tick, kind) * pool.length)];
   const youName = s.legacy?.leader ?? `${you.name}'s government`;
   s.stats.cableSeq = (s.stats.cableSeq ?? 0) + 1;
-  (s.cables ??= []).push({ tick: s.tick, from, text: fn({ me, you, them: me.leader?.name ?? me.name, youName }), mood: L.mood, seq: s.stats.cableSeq });
+  const text = [fn({ me, you, them: me.leader?.name ?? me.name, youName }), extra ?? factFor(s, me, you, kind)].filter(Boolean).join(' ');
+  (s.cables ??= []).push({ tick: s.tick, from, text, mood: L.mood, seq: s.stats.cableSeq });
   if (s.cables.length > 30) s.cables.splice(0, s.cables.length - 30);
 }
 

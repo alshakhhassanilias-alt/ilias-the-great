@@ -148,7 +148,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
             const mine = r.a === s.player || r.b === s.player;
             const won = r.winner === 'draw' ? null : (r.winner === 'a') === (r.a === s.player);
             return (
-              <div className="row" key={`${r.id}-${i}`} style={{ fontSize: 12.5 }}>
+              <div className="row" key={`${r.id}-${i}`} style={{ fontSize: 12.5, cursor: 'pointer' }} onClick={() => store.openWarRoom(r.id, true)}>
                 <div className="grow"><b>{A.name} vs {B.name}</b>{mine && <span className={`pill ${won === null ? '' : won ? 'good' : 'bad'}`} style={{ marginLeft: 6 }}>{won === null ? 'draw' : won ? 'won' : 'lost'}</span>}
                   <div className="hint">{dateLabel(r.start)} – {dateLabel(r.end)} · {r.winner === 'draw' ? 'no clear winner' : `${(r.winner === 'a' ? A : B).name} prevailed`} · {fmtNum(r.casA + r.casB)} casualties · regions {r.provsA >= 0 ? '+' : ''}{r.provsA} / {r.provsB >= 0 ? '+' : ''}{r.provsB}</div></div>
               </div>
@@ -168,6 +168,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
                 <span className="good">Defenders:</span> {w.defenders.map((x) => <button key={x} className="pill" style={{ margin: 2, cursor: 'pointer' }} onClick={() => pick(x)}>{s.countries[x].name}</button>)}
               </div>
               <div className="faint" style={{ fontSize: 12, marginTop: 4 }}>Attacker war score {(warScore(s, w, w.attackers[0]) * 100).toFixed(0)} · {fmtNum(Object.values(w.casualties).reduce((a, b) => a + b, 0))} casualties · {w.fronts.length} fronts</div>
+              <button className="btn sm" style={{ marginTop: 6 }} onClick={() => store.openWarRoom(w.id)}>⚔ Open the war room</button>
             </div>
           ))
       )}

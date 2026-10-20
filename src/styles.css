@@ -604,3 +604,90 @@ input[type='search'], select, input[type='text'] { width: 100%; background: var(
 .style-chip { cursor: pointer; }
 .style-chip.on { background: var(--blue); color: #fff; border-color: var(--blue); }
 .judge-style { padding: 6px 8px; border-left: 3px solid var(--blue); background: var(--panel-2); border-radius: 4px; margin-bottom: 8px; display: grid; gap: 4px; font-size: 12.5px; }
+
+/* levers: ways to raise money and political capital */
+.levers { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.lever { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.lever:first-of-type { border-top: 0; }
+.lever.off { opacity: .55; }
+.lever-ic { font-size: 20px; width: 26px; text-align: center; flex: none; }
+.lever .lab b { font-weight: 600; margin-left: 4px; font-size: 12px; }
+.fiscal-rule { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; cursor: pointer; }
+.fiscal-rule input { margin-top: 3px; }
+.fiscal-rule.on { border-color: rgba(120, 200, 140, .45); }
+
+/* negotiating styles and the reconciliation process */
+.nego-style { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; text-align: center; max-width: 90px; }
+.nego-style span { font-size: 22px; }
+.nego-quote { font-style: italic; margin: 8px 0 10px; padding: 8px 12px; border-left: 3px solid rgba(214,171,82,.6); background: rgba(255,255,255,.03); font-size: 14px; }
+.nego-quote small { display: block; font-style: normal; font-size: 11px; opacity: .7; margin-top: 4px; }
+.nego-style-line { font-size: 12.5px; margin-bottom: 6px; }
+.recon-steps { display: flex; gap: 4px; margin-bottom: 10px; }
+.recon-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; opacity: .5; }
+.recon-step i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1px solid currentColor; font-size: 11px; }
+.recon-step.now { opacity: 1; color: var(--gold, #e7c25c); }
+.recon-step.done { opacity: .9; color: var(--green); }
+.recon-step.done i { background: rgba(120,200,140,.18); }
+.recon-trust { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; }
+.recon-trust .meter { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+.recon-trust .meter i { display: block; height: 100%; background: linear-gradient(90deg, #6fb7d9, #7fd19a); transition: width .6s ease; }
+.recon-note { font-style: italic; font-size: 12.5px; margin-bottom: 8px; opacity: .9; }
+.recon-why { list-style: none; padding: 0; margin: 0 0 8px; font-size: 12px; }
+.recon-why li { display: flex; justify-content: space-between; padding: 2px 0; }
+.recon-gestures { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 6px; }
+.recon-g { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); color: inherit; cursor: pointer; font: inherit; }
+.recon-g b { font-size: 12.5px; }
+.recon-g small { font-size: 11px; opacity: .75; }
+.recon-g.off, .recon-g:disabled { opacity: .45; cursor: default; }
+.recon-gi { font-size: 18px; }
+
+/* the political system and the paths to change it */
+.regime-now { margin-bottom: 8px; }
+.regime-path { margin-bottom: 8px; display: flex; flex-direction: column; gap: 5px; }
+.regime-path.on { border-color: rgba(231,194,92,.5); }
+.regime-head { display: flex; gap: 10px; align-items: flex-start; }
+.regime-ic { font-size: 22px; }
+.regime-steps { display: flex; flex-wrap: wrap; gap: 4px; font-size: 11px; }
+.regime-steps span { padding: 2px 7px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); opacity: .6; }
+.regime-steps span.now { opacity: 1; border-color: #e7c25c; color: #e7c25c; }
+.regime-steps span.done { opacity: .9; border-color: rgba(120,200,140,.6); color: var(--green); }
+
+/* the war room */
+.modal.warroom { max-width: 760px; }
+.wr-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12.5px; opacity: .9; margin-bottom: 10px; }
+.wr-verdict { font-weight: 700; }
+.wr-toll { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.wr-toll > div { padding: 10px; border-radius: 8px; background: rgba(255,80,60,.07); border: 1px solid rgba(255,90,70,.22); text-align: center; }
+.wr-toll b { display: block; font-size: 22px; color: #ff8a73; font-variant-numeric: tabular-nums; }
+.wr-toll small { font-size: 11px; opacity: .75; }
+.wr-tug { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 8px; }
+.wr-tugbar { flex: 1; position: relative; height: 10px; border-radius: 5px; background: #3b6fb0; overflow: hidden; }
+.wr-tugbar i.a { position: absolute; left: 0; top: 0; bottom: 0; background: #c8483a; transition: width .8s ease; }
+.wr-tugbar em { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1px; background: #fff; transition: left .8s ease; }
+.wr-chart { width: 100%; height: 150px; display: block; margin-bottom: 10px; background: rgba(255,255,255,.02); border-radius: 6px; }
+.wr-mid { stroke: rgba(255,255,255,.12); stroke-dasharray: 3 4; }
+.wr-score { fill: rgba(231,194,92,.14); }
+.wr-l { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.wr-la { stroke: #e0604f; } .wr-ld { stroke: #5b95d6; }
+.wr-tx { font-size: 10px; fill: rgba(255,255,255,.6); } .wr-ta { fill: #e0604f; } .wr-td { fill: #5b95d6; }
+.wr-nochart { font-size: 12px; padding: 18px; text-align: center; }
+.wr-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.wr-side-h { display: flex; flex-direction: column; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .9; margin-bottom: 6px; }
+.wr-side-h b { font-size: 20px; letter-spacing: 0; text-transform: none; }
+.wr-side.atk .wr-side-h b { color: #e0604f; } .wr-side.def .wr-side-h b { color: #5b95d6; }
+.wr-c { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; padding: 6px; border-radius: 6px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); margin-bottom: 4px; color: inherit; font: inherit; cursor: pointer; }
+.wr-c b { font-size: 13px; display: block; } .wr-c small { font-size: 11px; opacity: .75; }
+.wr-ex { height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; margin-top: 3px; overflow: hidden; }
+.wr-ex i { display: block; height: 100%; background: linear-gradient(90deg, #e3a64a, #e0604f); }
+.wr-h { margin: 10px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; opacity: .8; }
+.wr-fronts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wr-front { text-align: left; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); color: inherit; font: inherit; cursor: pointer; }
+.wr-front small { display: block; font-size: 11px; opacity: .7; }
+.wr-prog { height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.wr-prog i { display: block; height: 100%; background: #e0604f; }
+.wr-story { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; max-height: 220px; overflow: auto; }
+.wr-story span { opacity: .6; margin-right: 8px; font-size: 11px; }
+.wr-open { margin: 6px 6px 0 0; }
+@media (max-width: 900px) { .wr-toll { grid-template-columns: 1fr 1fr; } .wr-sides, .wr-fronts { grid-template-columns: 1fr; } }
+.lever .btn { white-space: nowrap; flex: none; }
+.delta-pop { display: none; }

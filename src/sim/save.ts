@@ -31,4 +31,6 @@ export function deserialize(text: string, nProvinces: number): GameState {
  */
 function migrate(s: GameState) {
   if (s.legacy && !s.legacy.traits) s.legacy.traits = ['pragmatist', 'reformer'];
+  // saves from before the fiscal rule existed get it switched on, like a new game (it can be turned off in the Economy tab)
+  if (s.stats && s.stats.fiscalRule === undefined) s.stats.fiscalRule = 1;
 }

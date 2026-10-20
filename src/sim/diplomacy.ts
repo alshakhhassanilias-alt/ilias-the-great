@@ -104,6 +104,9 @@ export function applyTreaty(s: GameState, a: CountryId, b: CountryId, kind: Prop
   const t = ensureTreaty(s, a, b);
   t[kind] = true;
   addRelation(s, a, b, kind === 'alliance' ? 12 : 6);
+  // a deal signed is a success at home: political capital (inline, to keep diplomacy free of domestic imports)
+  const P = (a === s.player || b === s.player) && !silent && (!s.legacy || s.legacy.status === 'office') ? s.countries[s.player].politics : undefined;
+  if (P) P.pc = Math.min(100, P.pc + (kind === 'alliance' ? 4 : 2));
   logEvent(s, `${s.countries[a].name} and ${s.countries[b].name} signed a ${PROPOSAL_LABEL[kind].toLowerCase()}.`, 'diplo', [a, b], a === s.player || b === s.player);
   // the rest of the world reacts (always for the player's deals; for AI deals only when notable)
   if (a === s.player || b === s.player) s.stats.deals = (s.stats.deals ?? 0) + 1;

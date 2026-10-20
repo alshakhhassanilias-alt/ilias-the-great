@@ -240,12 +240,19 @@ export function spendPC(c: Country, n: number) {
   return true;
 }
 export const pcOf = (c: Country) => c.politics?.pc ?? 0;
+/** Success builds political capital: a deal signed, an objective met, a war won. */
+export function gainPC(s: GameState, n: number) {
+  const P = s.countries[s.player]?.politics;
+  if (P && (!s.legacy || s.legacy.status === 'office')) P.pc = clamp(P.pc + n, 0, 100);
+}
 
 /** Weekly income of political capital, and why. */
 export function pcIncome(s: GameState, c: Country, appr: number): { v: number; parts: MoodPart[] } {
-  const parts: MoodPart[] = [{ label: 'Base', v: 0.25 }];
-  parts.push({ label: 'Public approval', v: clamp((appr - 50) / 60, -0.25, 0.3) });
-  if (c.cabinet?.length) parts.push({ label: 'Cabinet loyalty', v: clamp((avgLoyalty(c) - 50) / 160, -0.15, 0.15) });
+  const parts: MoodPart[] = [{ label: 'Base', v: 0.45 }];
+  parts.push({ label: 'Public approval', v: clamp((appr - 45) / 45, -0.25, 0.45) });
+  if (c.cabinet?.length) parts.push({ label: 'Cabinet loyalty', v: clamp((avgLoyalty(c) - 50) / 120, -0.15, 0.2) });
+  const happy = c.politics?.factions.filter((f) => f.mood >= 60).length ?? 0;
+  if (happy >= 3) parts.push({ label: `${happy} happy factions`, v: 0.05 * (happy - 2) });
   const L = s.legacy;
   if (L?.status === 'office' && s.tick - L.termStart < 26) parts.push({ label: 'Honeymoon after the vote', v: 0.3 });
   if (c.gov !== 'D') parts.push({ label: 'Unchecked power', v: 0.1 });

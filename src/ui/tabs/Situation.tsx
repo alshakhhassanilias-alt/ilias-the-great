@@ -103,7 +103,7 @@ export function SituationSection() {
           <div className="card hot" key={w.id}>
             <b>⚔ {w.name}</b>
             <div className="faint" style={{ fontSize: 12 }}>{mine} of your offensives · {theirs} enemy attacks · casualties {Math.round((w.casualties[s.player] ?? 0) / 1000)}k yours / {Math.round((w.casualties[enemy] ?? 0) / 1000)}k theirs</div>
-            <button className="linkbtn" onClick={() => focus(enemy)}>Show on map</button>
+            <div className="btnrow"><button className="btn sm primary" onClick={() => store.openWarRoom(w.id)}>⚔ War room</button><button className="linkbtn" onClick={() => focus(enemy)}>Show on map</button></div>
           </div>
         );
       })}

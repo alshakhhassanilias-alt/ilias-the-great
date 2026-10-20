@@ -5,7 +5,7 @@
  * a blazer and pearls, or a uniform with shoulder boards, ribbons and a peaked cap). Pure SVG, painted with
  * soft light from the upper left so it sits in the war-room look.
  */
-import { memo, useId } from 'react';
+import { isValidElement, memo, useMemo, type ReactElement, type ReactNode } from 'react';
 import { nationalHsl } from '../../map/palette';
 import type { Country } from '../../sim/types';
 import { isFemaleName } from '../../sim/names';
@@ -42,8 +42,8 @@ export function faceFor(c: Pick<Country, 'id' | 'region' | 'gov' | 'color' | 'na
   };
 }
 
-function PortraitImpl({ f, size = 64, title }: { f: FaceSpec; size?: number; title?: string }) {
-  const uid = useId().replace(/:/g, '');
+/** The face as an SVG element tree (pure: no hooks, so it can be turned into an image). */
+function faceSvg(f: FaceSpec, size: number, title: string | undefined, uid: string): ReactElement {
   const R = (i: number) => h(f.seed, i);
   const skin = pick(SKIN[f.region] ?? SKIN.EU, R(1));
   const grey = f.age > 62 ? 1 : f.age > 52 ? 0.55 : f.age > 46 ? 0.2 : 0;
@@ -178,5 +178,41 @@ function PortraitImpl({ f, size = 64, title }: { f: FaceSpec; size?: number; tit
       <rect x="12" y="10" width="76" height="80" fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="5" />
     </svg>
   );
+}
+
+// ------------------------------------------------------------------ portraits as cached images
+// A face is about sixty SVG shapes. Dozens of them on a panel made opening it slow, so each face is turned into
+// an SVG image once (cached by its spec) and shown as a single <img>: it looks the same and costs one element.
+const ATTR: Record<string, string> = { className: 'class', strokeWidth: 'stroke-width', strokeOpacity: 'stroke-opacity', strokeDasharray: 'stroke-dasharray', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', fillOpacity: 'fill-opacity', fillRule: 'fill-rule', stopColor: 'stop-color', stopOpacity: 'stop-opacity', clipPath: 'clip-path', gradientUnits: 'gradientUnits', gradientTransform: 'gradientTransform', viewBox: 'viewBox' };
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+function markup(n: ReactNode): string {
+  if (n === null || n === undefined || n === false || n === true) return '';
+  if (Array.isArray(n)) return n.map(markup).join('');
+  if (typeof n === 'string' || typeof n === 'number') return esc(String(n));
+  if (!isValidElement(n)) return '';
+  const props = n.props as Record<string, unknown>;
+  if (typeof n.type !== 'string') return markup(props.children as ReactNode); // fragments
+  let attrs = '';
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'children' || v === undefined || v === null || v === false || k === 'role' || k.startsWith('aria-')) continue;
+    const name = ATTR[k] ?? k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+    attrs += ` ${name}="${esc(String(v))}"`;
+  }
+  return `<${n.type}${n.type === 'svg' ? ' xmlns="http://www.w3.org/2000/svg"' : ''}${attrs}>${markup(props.children as ReactNode)}</${n.type}>`;
+}
+const imgCache = new Map<string, string>();
+function faceUrl(f: FaceSpec): string {
+  const key = JSON.stringify(f);
+  let url = imgCache.get(key);
+  if (!url) {
+    url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup(faceSvg(f, 100, undefined, 'p')))}`;
+    if (imgCache.size > 600) imgCache.clear();
+    imgCache.set(key, url);
+  }
+  return url;
+}
+function PortraitImpl({ f, size = 64, title }: { f: FaceSpec; size?: number; title?: string }) {
+  const src = useMemo(() => faceUrl(f), [f.seed, f.region, f.female, f.age, f.dress, f.accent, f.cap]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <img className="portrait" src={src} width={size} height={size} alt={title ?? 'portrait'} title={title} decoding="async" draggable={false} />;
 }
 export const Portrait = memo(PortraitImpl);

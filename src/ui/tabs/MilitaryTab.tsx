@@ -74,6 +74,7 @@ export function MilitaryTab({ id }: { id: number }) {
           {isAtWar(s, id) && <MeterRow label="War support" value={warSupport(c)} color={warSupport(c) < 0.3 ? 'var(--red)' : warSupport(c) < 0.45 ? 'var(--amber)' : 'var(--teal)'} hint="Public backing for the war: morale in battle, stability and willingness to keep fighting." />}
           <MeterRow label="War exhaustion" value={m.exhaustion} color={m.exhaustion > 0.6 ? 'var(--red)' : 'var(--amber)'} text={`${(m.exhaustion * 100).toFixed(0)}%`} hint="Rises with casualties, lost territory and damage; forces peace at the extreme." />
         </div>
+        {s.wars.filter((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)).map((w) => <button key={w.id} className="btn sm wr-open" onClick={() => store.openWarRoom(w.id)}>⚔ {w.name}: open the war room</button>)}
         <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>Lifetime casualties: {fmtNum(m.casualties)}. Strength also depends on terrain, distance to the front (supply), air and naval superiority, and economic staying power — not just troop count.</div>
       </Section>
 

@@ -57,6 +57,9 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   const A = s.countries[from], B = s.countries[to];
   const totalW = A.provinces.reduce((t, q) => t + geo.provinces[q].w, 0) || 1;
   const f = Math.min(1, geo.provinces[p].w / totalW);
+  // fighting over a region sends part of its people fleeing
+  const fw = warBetween(s, from, to);
+  if (fw) fw.displaced = (fw.displaced ?? 0) + A.eco.pop * f * 0.08;
   for (const k of SHARED_KEYS) {
     const amt = (A.eco[k] as number) * f;
     (A.eco[k] as number) -= amt;
@@ -331,7 +334,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
     const winner: 'a' | 'b' | 'draw' = t.kind === 'surrender' || (tp && tp.to === a && moved) ? 'a' : t.kind === 'concede' ? 'b' : edge > 1.2 ? 'a' : edge < -1.2 ? 'b' : 'draw';
     const hist = s.warHistory ?? (s.warHistory = []);
     if (winner !== 'draw') s.stats[`lostWar:${winner === 'a' ? b : a}`] = s.tick;
-    hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind });
+    hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA, provsB, winner, terms: t.kind, civ: Math.round(Object.values(w.civ ?? {}).reduce((x, y) => x + y, 0)), displaced: Math.round(w.displaced ?? 0), hist: w.hist?.slice(-60), atk: [...w.attackers], def: [...w.defenders] });
     legacyWarEnded(s, hist[hist.length - 1]);
     settleGoal(s, hist[hist.length - 1]);
     if (hist.length > 40) hist.splice(0, hist.length - 40);
@@ -444,6 +447,17 @@ export function attackCandidates(s: GameState, geo: Geo, c: Country, w: War): Ca
 }
 
 interface Strike { c: Country; supply: number; amphibious: boolean; share: number; from: ProvId; order?: ArmyOrder }
+
+/** Every 4 weeks, a point on each war's chart: casualties on both sides and the war score. */
+export function sampleWars(s: GameState) {
+  if (s.tick % 4 !== 0) return;
+  for (const w of s.wars) {
+    const sum = (ids: CountryId[]) => Math.round(ids.reduce((t, c) => t + (w.casualties[c] ?? 0), 0));
+    const h = (w.hist ??= []);
+    h.push([s.tick, sum(w.attackers), sum(w.defenders), Math.round(warScore(s, w, w.attackers[0]) * 100)]);
+    if (h.length > 120) h.splice(0, h.length - 120);
+  }
+}
 
 export function stepWars(s: GameState, geo: Geo) {
   stepPockets(s, geo);
@@ -702,6 +716,7 @@ function applyLosses(s: GameState, c: Country, loss: number, w: War, popShare: n
   c.mil.casualties += loss;
   c.eco.pop = Math.max(1, c.eco.pop - loss * popShare * 0.3);
   w.casualties[c.id] = (w.casualties[c.id] ?? 0) + loss;
+  (w.civ ??= {})[c.id] = (w.civ[c.id] ?? 0) + loss * popShare * 0.3;
   const tol = ({ D: 1.5, F: 1.1, A: 0.8, C: 0.7, M: 0.9 } as Record<string, number>)[c.gov] ?? 1;
   c.mil.exhaustion = clamp(c.mil.exhaustion + frac * 0.6 * tol, 0, 1);
   c.mil.readiness = clamp(c.mil.readiness - frac * 0.5, 0.05, 1);

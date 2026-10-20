@@ -450,7 +450,11 @@ export class MapRenderer {
     // while dragging, an uncovered edge is refilled at most ~8 times a second (a thin dark strip for a moment beats a stutter)
     const refill = !covered && (idle || t0 - this.lastBase > 120);
     if (!covered && !refill) this.dirty = true;
-    if (!this.baseValid || this.baseSel !== this.selected || this.baseMode !== this.mode) render = true;
+    // the selection is drawn on the overlay: picking a country no longer redraws the whole map (only the plain modes,
+    // where the player's outline depends on the selection, still need the base layer)
+    const selChanged = this.plain && this.baseSel !== this.selected;
+    if (this.baseSel !== this.selected && !this.plain) { this.baseSel = this.selected; this.labelsStale = true; this.labelsNow = true; }
+    if (!this.baseValid || selChanged || this.baseMode !== this.mode) render = true;
     else if (this.baseHardDirty) {
       // territory changed: batch redraws (at most ~3 a second) unless the view also needs one
       if (refill) render = true;
@@ -461,9 +465,9 @@ export class MapRenderer {
     else if (this.baseSoftDirty && t0 - this.lastBase > 450 && idle) render = true;
     // while the view moves, names are just carried along by the CSS transform and redrawn once it settles
     // a change of map mode (or selection) cross-fades instead of snapping
-    if (render && this.baseValid && this.quality >= 1 && (this.baseMode !== this.mode || this.baseSel !== this.selected)) this.ghostBase(this.baseMode !== this.mode ? 380 : 220);
-    if (render) this.renderBase(state, !ownersOnly && (!this.baseValid || this.lastLabels === 0 || this.baseSel !== this.selected));
-    else if (this.labelsStale && this.lctx && idle && (t0 - this.lastLabels > 1800 || t0 - this.lastViewChange < 600)) {
+    if (render && this.baseValid && this.quality >= 1 && this.baseMode !== this.mode) this.ghostBase(380);
+    if (render) this.renderBase(state, !ownersOnly && (!this.baseValid || this.lastLabels === 0 || selChanged));
+    else if (this.labelsStale && this.lctx && (this.labelsNow || (idle && (t0 - this.lastLabels > 1800 || t0 - this.lastViewChange < 600)))) {
       // names follow conquered land a moment later, in their own frame, so the war never stutters on text
       this.renderLabels(state);
     }
@@ -521,7 +525,9 @@ export class MapRenderer {
     lc.setTransform(1, 0, 0, 1, 0, 0);
     lc.clearRect(0, 0, this.labels!.width, this.labels!.height);
     lc.setTransform(dpr, 0, 0, dpr, dpr * m, dpr * m);
+    this.drawSelection(lc, state);
     this.drawLabels(lc, state);
+    this.labelsNow = false;
     this.labelView = { k: this.view.k, x: this.view.x + m, y: this.view.y + m };
     this.labelsStale = false;
     this.lastLabels = performance.now();
@@ -679,13 +685,6 @@ export class MapRenderer {
       ctx.strokeStyle = 'rgba(255,200,80,0.28)'; ctx.lineWidth = 5 / k; ctx.stroke(op);
       ctx.strokeStyle = 'rgba(255,214,120,0.95)'; ctx.lineWidth = 1.7 / k; ctx.stroke(op);
     }
-    if (this.selected !== null && this.selected !== P && state.countries[this.selected]?.alive) {
-      ctx.fillStyle = 'rgba(255,250,235,0.08)';
-      for (const p of state.countries[this.selected].provinces) ctx.fill(this.geom.provPaths[p], 'evenodd');
-      const op = this.outlinePath(state, this.selected);
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 5 / k; ctx.stroke(op);
-      ctx.strokeStyle = 'rgba(255,255,255,0.98)'; ctx.lineWidth = 1.9 / k; ctx.stroke(op);
-    }
     if (state.wars.length) {
       const fl = this.frontlinePath(state);
       ctx.strokeStyle = 'rgba(255,60,40,0.3)'; ctx.lineWidth = 6 / k; ctx.stroke(fl);
@@ -764,6 +763,29 @@ export class MapRenderer {
     return path;
   }
 
+  /** The selected country: a soft wash and a crisp outline. Drawn on the name layer, once per selection (it pans and
+   *  zooms with the map like the names), so picking a country never redraws the whole map. */
+  private drawSelection(ctx: CanvasRenderingContext2D, state: GameState) {
+    const c = this.selected;
+    if (c === null || c === state.player || this.plain || !state.countries[c]?.alive) return;
+    const k = this.view.k;
+    const sel = this.selectionPath(state, c);
+    ctx.fillStyle = 'rgba(255,250,235,0.08)'; ctx.fill(sel.fill, 'evenodd');
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 5 / k; ctx.stroke(sel.outline);
+    ctx.strokeStyle = 'rgba(255,255,255,0.98)'; ctx.lineWidth = 1.9 / k; ctx.stroke(sel.outline);
+  }
+  private labelsNow = false;
+  private selCache: { key: string; fill: Path2D; outline: Path2D } = { key: '', fill: new Path2D(), outline: new Path2D() };
+  private selectionPath(state: GameState, c: number) {
+    const key = `${c}|${this.ownersVersion}`;
+    if (this.selCache.key !== key) {
+      const fill = new Path2D();
+      for (const p of state.countries[c].provinces) fill.addPath(this.geom.provPaths[p]);
+      this.selCache = { key, fill, outline: this.outlinePath(state, c) };
+    }
+    return this.selCache;
+  }
   private drawOverlays(ctx: CanvasRenderingContext2D, state: GameState) {
     const { k } = this.view;
     const now = performance.now();
@@ -779,6 +801,7 @@ export class MapRenderer {
       fill(this.hoverOwner, 'rgba(255,250,235,0.12)');
       ctx.strokeStyle = 'rgba(255,250,235,0.8)'; ctx.lineWidth = 1.3 / k; this.outline(ctx, state, this.hoverOwner);
     }
+    if (!this.lctx) this.drawSelection(ctx, state); // (no name layer: the selection is drawn with the overlay)
     if (this.selectedProv !== null) {
       ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.8 / k; ctx.stroke(this.geom.provPaths[this.selectedProv]);
     }

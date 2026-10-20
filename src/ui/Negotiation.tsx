@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../state/store';
-import { GOAL_DESC, GOAL_LABEL, negotiate, stanceOf, TERM_LABEL, walkAway, type Goal, type NegoResult, type Term } from '../sim/negotiate';
+import { GOAL_DESC, GOAL_LABEL, negotiate, openingLine, stanceOf, TERM_LABEL, walkAway, type Goal, type NegoResult, type Term } from '../sim/negotiate';
 import { previewReactions } from '../sim/politics';
 import { getRelation, getTreaty, sanctionLevel, areAtWar } from '../sim/relations';
 import { traitsText } from '../sim/leaders';
@@ -55,9 +55,11 @@ export function NegotiationTable() {
             <div className="grow">
               <b>{T.leader?.name ?? T.name}</b>
               <small>{T.name}{T.leader ? ` · ${traitsText(T.leader)}` : ''}</small>
-              <small>Relations <b className={rel >= 0 ? 'good' : 'bad'}>{rel >= 0 ? '+' : ''}{rel.toFixed(0)}</b> · patience {'●'.repeat(Math.max(0, st.patience))}{'○'.repeat(Math.max(0, 3 - st.patience))}</small>
+              <small>Relations <b className={rel >= 0 ? 'good' : 'bad'}>{rel >= 0 ? '+' : ''}{rel.toFixed(0)}</b> · patience {'●'.repeat(Math.max(0, st.patience))}{'○'.repeat(Math.max(0, st.style.patience - st.patience))}{st.detente ? ' · 🕊 détente' : ''}</small>
             </div>
+            <div className="nego-style" title={st.style.desc}><span>{st.style.icon}</span><b>{st.style.name}</b></div>
           </div>
+          <div className="nego-quote">“{openingLine(s, T, st, rel)}”<small>{st.style.desc}</small></div>
 
           <div className="nego-goals" role="tablist" aria-label="What you want">
             {GOALS.map((g) => (
@@ -83,7 +85,7 @@ export function NegotiationTable() {
               {st.available.map((k) => (
                 <label key={k} className="check nego-term">
                   <input type="checkbox" checked={give.includes(k)} onChange={() => toggle(k)} />
-                  <span><b>{TERM_LABEL[k]}</b><small>worth +{st.termValue[k] ?? 0} to them{k.startsWith('cash') ? ` · ${fmtMoney((k === 'cash1' ? 0.001 : k === 'cash3' ? 0.003 : 0.006) * P.eco.gdp)}` : ''}</small></span>
+                  <span><b>{TERM_LABEL[k]}</b><small>worth +{st.termValue[k] ?? 0} to them{k.startsWith('cash') ? ` · ${fmtMoney((k === 'cash1' ? 0.001 : k === 'cash3' ? 0.003 : 0.006) * P.eco.gdp)}` : ''}{(st.style.mult[k.startsWith('cash') ? 'cash' : k] ?? 1) >= 1.3 ? ' · ★ their style values this' : (st.style.mult[k.startsWith('cash') ? 'cash' : k] ?? 1) <= 0.7 ? ' · their style dislikes this' : ''}</small></span>
                 </label>
               ))}
               <div className={`nego-odds ${st.blocked ? 'blocked' : st.p >= 0.6 ? 'good' : st.p >= 0.35 ? 'mid' : 'bad'}`}>

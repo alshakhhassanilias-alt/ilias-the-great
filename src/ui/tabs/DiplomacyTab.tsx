@@ -1,3 +1,4 @@
+import { ReconcilePanel } from '../Reconcile';
 import { useState } from 'react';
 import { WorldJudgement } from './Minds';
 import { CoursesSection } from './Courses';
@@ -75,11 +76,13 @@ export function DiplomacyTab({ id }: { id: number }) {
         </div>
       </Section>
 
+      <ReconcilePanel id={id} />
+
       {!atWar && (
         <Section title="Agreements" hint="open talks to see what they want and bargain">
           {(() => {
             const st = stanceOf(s, geo, id, { goal: 'trade', give: [] });
-            return st.interests.length > 0 && <div className="hint" style={{ marginBottom: 8 }}>{c.name} wants: {st.interests.slice(0, 3).map((i) => i.label.split(':')[0].toLowerCase()).join(', ')}{st.redLines.length ? ` · red line: ${st.redLines[0].toLowerCase()}` : ''}</div>;
+            return <><div className="nego-style-line">{st.style.icon} <b>{st.style.name}</b> <span className="faint">· {st.style.desc}</span></div>{st.interests.length > 0 && <div className="hint" style={{ marginBottom: 8 }}>{c.name} wants: {st.interests.slice(0, 3).map((i) => i.label.split(':')[0].toLowerCase()).join(', ')}{st.redLines.length ? ` · red line: ${st.redLines[0].toLowerCase()}` : ''}</div>}</>;
           })()}
           <div className="list">
             {([...KINDS, 'aid', ...(theirSanction ? ['relief'] : [])] as Goal[]).map((k) => {

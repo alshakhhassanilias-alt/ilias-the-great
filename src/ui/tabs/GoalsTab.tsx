@@ -13,7 +13,7 @@ const STATUS_ICON: Record<Check['status'], string> = { good: '●', warn: '▲',
 
 function FixButton({ fix }: { fix: Fix }) {
   return (
-    <button className="btn sm" onClick={() => { if (fix.run) store.act((g) => fix.run!(g, store.geo)); else if (fix.tab) store.setTab(fix.tab); }}>
+    <button className="btn sm" onClick={() => { if (fix.run) store.act((g) => fix.run!(g, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
       {fix.label}
     </button>
   );
@@ -51,9 +51,9 @@ export function GoalsTab() {
                 <b className="gc-title">{g.title}</b>
                 <div className="gc-desc">{g.desc}</div>
                 <Meter value={p.value} color={THEME_COL[g.theme]} />
-                <div className="gc-meta"><span>{p.text}</span><span>{g.reward.replace('Reward: ', '🎁 ')}</span></div>
+                <div className="gc-meta"><span>{p.text}</span><span>{g.reward.replace('Reward: ', '🎁 ')} · +6 political capital</span></div>
                 {help?.how && <div className="gc-how">💡 {help.how}</div>}
-                {level === 'full' && help?.fix && <div style={{ marginTop: 6 }}><FixButton fix={help.fix} /></div>}
+                {help?.fix && (level === 'full' || !help.fix.run) && <div style={{ marginTop: 6 }}><FixButton fix={help.fix} /></div>}
               </div>
             );
           })}

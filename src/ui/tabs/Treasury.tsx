@@ -10,6 +10,7 @@ import { budgetReport, DEFICIT_LABEL } from '../../sim/treasury';
 import { revenueAnnual } from '../../sim/economy';
 import { BUDGET_LIMITS, setBudget } from '../../sim/actions';
 import type { Budget, Country, GameState } from '../../sim/types';
+import { FiscalRule, LeverList } from './Levers';
 
 interface Fix { key: keyof Budget; label: string; to: number; effect: string }
 
@@ -74,6 +75,8 @@ export function TreasurySection({ c }: { c: Country }) {
           <div className="faint" style={{ fontSize: 11 }}>Smaller steps on several levers usually hurt less than one big one. Growth also closes deficits slowly: revenue rises with GDP.</div>
         </div>
       )}
+      {mine && <FiscalRule />}
+      {mine && <LeverList kind="money" />}
       {mine && (
         <div className="card fin-ledger">
           <div className="fin-kicker">Last 12 months · one-off money{B.autoBorrowedYear > 0 ? ` · ${fmtMoney(B.autoBorrowedYear)} borrowed to cover the deficit` : ''}</div>

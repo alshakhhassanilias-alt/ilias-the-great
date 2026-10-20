@@ -30,3 +30,19 @@ export function Tween({ value, format, ms }: { value: number; format: (v: number
   const v = useTween(value, ms);
   return <>{format(v)}</>;
 }
+
+/** A floating "+6" / "−$2B" that drifts up from a number when it changes noticeably (desktop flourish; CSS hides it on phones). */
+export function DeltaPop({ value, min, fmt }: { value: number; min: number; fmt: (d: number) => string }) {
+  const prev = useRef(value);
+  const [pops, setPops] = useState<{ id: number; d: number }[]>([]);
+  useEffect(() => {
+    const d = value - prev.current;
+    prev.current = value;
+    if (!Number.isFinite(d) || Math.abs(d) < min || (store.speed >= 3 && !store.lastUser)) return;
+    const id = performance.now() + Math.random();
+    setPops((p) => [...p.slice(-2), { id, d }]);
+    const t = setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1400);
+    return () => clearTimeout(t);
+  }, [value, min]);
+  return <>{pops.map((p) => <span key={p.id} className={`delta-pop ${p.d > 0 ? 'up' : 'down'}`} aria-hidden="true">{fmt(p.d)}</span>)}</>;
+}

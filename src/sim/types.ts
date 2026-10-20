@@ -260,6 +260,8 @@ export interface Politics {
   unrest?: { f: FactionId; until: number };
   arc?: ArcState;
   lastArc: number;
+  /** a change of political system under way (see regime.ts) */
+  reform?: { path: string; stage: number; next: number; since: number; note?: string };
   /** last week's change in each faction's mood, and the stability/approval it adds */
   stab: number;
   appr: number;
@@ -312,6 +314,24 @@ export interface NatGoal {
   /** long-term plans: how far along (0..1), the best it has been, patience left (0..1), an org or other detail, last news */
   progress?: number; best?: number; patience?: number; ref?: number; note?: string; step?: number;
 }
+/**
+ * A reconciliation process with a hostile country: back channel → confidence-building gestures → summit →
+ * normalisation (a détente that lasts while it is kept up).
+ */
+export interface Track {
+  stage: 1 | 2 | 3 | 4;
+  /** 0..100: built by gestures, broken by incidents */
+  trust: number;
+  /** the next step is possible from this tick */
+  next: number;
+  since: number;
+  /** gestures already made (each once) */
+  done: string[];
+  /** while the détente lasts, relations warm every week */
+  detenteUntil?: number;
+  /** the last thing that happened, for the UI */
+  note?: string;
+}
 export interface Grudge { tick: number; why: string; w: number }
 
 export interface Treaty {
@@ -343,6 +363,12 @@ export interface War {
   startProvs: Record<number, number>;
   /** regions captured in battle by each country */
   taken?: Record<number, number>;
+  /** civilian deaths by country (estimated from the fighting on its soil) */
+  civ?: Record<number, number>;
+  /** people who fled regions that changed hands */
+  displaced?: number;
+  /** every 4 weeks: [tick, attackers' military casualties, defenders', attackers' war score ×100] */
+  hist?: number[][];
 }
 
 /** A finished war between two countries (kept for the war history and the end-of-war summary). */
@@ -351,6 +377,7 @@ export interface WarRecord {
   casA: number; casB: number; provsA: number; provsB: number;
   /** who came out on top: 'a', 'b' or a draw */
   winner: 'a' | 'b' | 'draw'; terms: string;
+  civ?: number; displaced?: number; hist?: number[][]; atk?: CountryId[]; def?: CountryId[];
 }
 
 export type OfferKind = 'trade' | 'nap' | 'alliance' | 'coop' | 'peace';
@@ -407,7 +434,7 @@ export interface GameState {
   /** the player's main rival (country id) or -1 */
   rival: number;
   /** negotiating-table memory per country: patience left and any standing counteroffer */
-  nego?: Record<number, { patience: number; until: number; counter?: { goal: string; give: string[]; tick: number } }>;
+  nego?: Record<number, { patience: number; until: number; counter?: { goal: string; give: string[]; tick: number }; track?: Track }>;
   /** the current world-wide crisis (recession, pandemic, cold war ...) and when the next one may start */
   crisis: { id: string; start: number; end: number } | null;
   nextCrisis: number;

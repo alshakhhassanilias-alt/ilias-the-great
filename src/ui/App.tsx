@@ -1,4 +1,5 @@
 import { NegotiationTable } from './Negotiation';
+import { WarRoom } from './WarRoom';
 import { useEffect } from 'react';
 import { store, useStoreSelect } from '../state/store';
 import { MapView } from '../map/MapView';
@@ -65,6 +66,7 @@ export function App() {
       <AgendaDraft />
       <TermReview />
       <NegotiationTable />
+      <WarRoom />
       <HistoryBook />
     </div>
   );

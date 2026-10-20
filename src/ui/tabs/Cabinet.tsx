@@ -8,6 +8,15 @@ import { fmtMoney } from '../../sim/util';
 import { neighborsOf } from '../../sim/diplomacy';
 import type { Minister } from '../../sim/types';
 
+/** Reports are rebuilt every other week (and when a minister changes), not on every repaint. */
+const reportCache = new Map<string, ReturnType<typeof ministerReport>>();
+function cachedReport(s: Parameters<typeof ministerReport>[0], c: Parameters<typeof ministerReport>[1], m: Minister, near: () => Set<number>) {
+  const k = `${s.settings.seed}|${s.tick >> 1}|${m.id}|${m.role}|${m.skill}|${Math.round(m.loyalty / 5)}`;
+  let r = reportCache.get(k);
+  if (!r) { if (reportCache.size > 64) reportCache.clear(); r = ministerReport(s, c, m, near()); reportCache.set(k, r); }
+  return r;
+}
+
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 const loyColor = (l: number) => (l >= 55 ? 'var(--green)' : l >= 35 ? 'var(--amber)' : 'var(--red)');
 
@@ -23,12 +32,13 @@ export function CabinetSection() {
   const [open, setOpen] = useState<string | null>(null);
   const [hire, setHire] = useState<string | null>(null);
   if (!c.cabinet?.length || s.legacy?.status === 'opposition') return null;
-  const near = new Set(neighborsOf(s, store.geo, c.id));
+  let nearSet: Set<number> | null = null;
+  const near = () => (nearSet ??= new Set(neighborsOf(s, store.geo, c.id)));
   return (
     <Section title="Cabinet briefing" hint={`${c.cabinet.length} ministers · tap one for more`}>
       <div className="cabinet">
         {c.cabinet.map((m) => {
-          const r = ministerReport(s, c, m, near);
+          const r = cachedReport(s, c, m, near);
           const t = mtraitById(m.trait);
           const meta = ROLE_META[m.role];
           const isOpen = open === m.role;

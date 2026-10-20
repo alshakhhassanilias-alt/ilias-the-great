@@ -1,3 +1,5 @@
+import { stepFiscalRule } from './levers';
+import { stepTracks } from './detente';
 import { stepCoalitions } from './coalitions';
 import { stepMinds } from './minds';
 import { stepMembership } from './membership';
@@ -15,7 +17,7 @@ import { stepCables } from './cables';
 import { setInTick } from './relations';
 import type { Geo } from './geo';
 import { stepEconomiesGen } from './economy';
-import { stepWars, forcePeaceAll, logEvent } from './war';
+import { stepWars, sampleWars, forcePeaceAll, logEvent } from './war';
 import { stepPartisans } from './specops';
 import { stepAutopilot } from './modes';
 import { stepLegacy } from './legacy';
@@ -40,9 +42,13 @@ import { START_YEAR, TICKS_PER_YEAR, type GameState } from './types';
 export function dateOf(tick: number): Date {
   return new Date(Date.UTC(START_YEAR, 0, 1) + tick * 7 * 86400000);
 }
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+const labels = new Map<number, string>();
+/** "5 Jan 2025" (formatted by hand and cached: the locale formatter is slow and this runs in every list). */
 export function dateLabel(tick: number): string {
-  const d = dateOf(tick);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  let l = labels.get(tick);
+  if (l === undefined) { const d = dateOf(tick); l = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; if (labels.size > 4000) labels.clear(); labels.set(tick, l); }
+  return l;
 }
 
 function checkInstability(s: GameState, geo: Geo) {
@@ -103,6 +109,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepEconomiesGen(s, geo);
   mark('stepEconomiesGen'); yield;
   stepWars(s, geo);
+  sampleWars(s);
   mark('stepWars'); yield;
   stepArmies(s, geo);
   mark('stepArmies'); yield;
@@ -113,6 +120,8 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepAutopilot(s, geo);
   stepCabinet(s);
   stepDomestic(s, approval(s, s.countries[s.player]));
+  stepFiscalRule(s);
+  stepTracks(s);
   stepArcs(s, geo);
   mark('stepArcs'); yield;
   stepNations(s, geo);

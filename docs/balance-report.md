@@ -244,3 +244,19 @@ What fixed it:
 - In Legacy you pick your style; leaders react to it as they do to each other.
 - In Legacy, your personal record follows you. Losing power halves the country's record abroad (a fresh start for the new government). Your own record stays with you, fades half as fast, and comes back in full when you return.
 - Your storyline chapters follow your terms.
+
+## Round 23: treasury and political capital
+
+Measured with an "active player" bot over 5 years (answers every decision with the first affordable option, starts a megaproject, recruits 10%):
+
+| | before | after (fiscal rule off) | after (fiscal rule on) |
+|---|---|---|---|
+| weeks with an empty treasury, Germany | 65% | 63% | 25% |
+| weeks with an empty treasury, Japan | 59% | 57% | 0% |
+| weeks with an empty treasury, Poland | 37% | 17% | 0% |
+| decision costs paid (share of GDP over 5 years) | 6–10% | 3–3.5% | 3–3.5% |
+| political capital earned a year | ≈ 10 | 25–30 (capped by the 100 ceiling in the test) | — |
+
+The fiscal rule is on by default for new games. Levers (privatisation, spending review, tax enforcement, a friendly loan, a concession) add one-off cash or lasting revenue with cooldowns of 1–3 years.
+
+Reconciliation (bot: opens a back channel, makes one gesture every 4 weeks, holds the summit at 50 trust): India→Pakistan relations −71 → −17 with NAP odds ≈ 30% → 75–86%; USA→China −71 → −14/−29 in two of three worlds; Germany→Russia −41 → +17 in two of three. Structurally hostile pairs (Iran–USA) improve only through the lasting détente and the West's reduced hostility.

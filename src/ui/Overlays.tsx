@@ -1,5 +1,6 @@
 import { previewLapse } from '../sim/events';
 import { FOLLOW_UPS } from '../sim/events7';
+import { costHint, hintCost } from '../sim/eventkit';
 import { balanceText, budgetReport, fundingText } from '../sim/treasury';
 import { fmtMoney as fmtM, pct } from './format';
 import type { Country } from '../sim/types';
@@ -8,7 +9,7 @@ import { actAcceptOffer, actDeclineOffer } from '../sim/actions';
 import { PROPOSAL_LABEL, type Proposal } from '../sim/diplomacy';
 import { actResolveEvent } from '../sim/actions';
 import { eventById } from '../sim/events';
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { dateLabel } from '../sim/tick';
 import { nationalColor } from '../map/palette';
 import { Emblem } from './art/Emblem';
@@ -44,7 +45,7 @@ export function Toasts() {
   return (
     <div className="toasts" aria-live="polite">
       {store.toasts.map((t) => (
-        <div key={t.id} className={`toast ${t.kind}`} role="status" onClick={() => store.dismissToast(t.id)}>{t.text}</div>
+        <div key={t.id} className={`toast ${t.kind}${/^(Objective complete|🤝 THE |🏆)/.test(t.text) ? ' toast-win' : ''}`} role="status" onClick={() => store.dismissToast(t.id)}>{t.text}</div>
       ))}
     </div>
   );
@@ -71,7 +72,8 @@ function OfferCard({ o }: { o: GameState['offers'][number] }) {
   const s = store.state!;
   const C = s.countries[o.from];
   const quote = (s.cables ?? []).filter((x) => x.from === o.from).slice(-1)[0];
-  const react = o.kind !== 'peace' ? previewReactions(s, o.from, s.player, o.kind).filter((x) => x.id !== s.player).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3) : [];
+  // who would react, and how: recomputed monthly, not on every repaint
+  const react = useMemo(() => (o.kind !== 'peace' ? previewReactions(s, o.from, s.player, o.kind).filter((x) => x.id !== s.player).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3) : []), [o.id, o.kind, s.tick >> 2]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="offer" role="alert">
       <div className="offer-top">
@@ -198,8 +200,8 @@ function lapseOf(uid: number) {
 }
 /** "Costs 0.5% of GDP" → where the money would come from */
 function optionFunding(c: Country, hint: string) {
-  const m = /Costs ([\d.]+)% of GDP/.exec(hint);
-  if (m) return `one-off: ${fundingText(c, (Number(m[1]) / 100) * c.eco.gdp)}`;
+  const cost = hintCost(c, hint);
+  if (cost) return `one-off: ${fundingText(c, cost)}`;
   // a lasting budget change: say it is per year and what it does to the balance
   const r = /(spending|budget|Revenue)[^·]*?([+−-])([\d.]+)% of GDP/i.exec(hint);
   if (r) {
@@ -261,7 +263,7 @@ export function InboxTray() {
                     return (
                       <button key={i} className={`btn event-opt ${i === 0 ? 'primary' : ''} ${adv?.idx === i ? 'advised' : ''}`} disabled={!ok}
                         onClick={() => { store.act((g) => actResolveEvent(g, store.geo, i, it.uid)); store.inboxOpen = null; store.notify(); }}>
-                        {o.label}<small>{ok ? o.hint : (o.why?.(s, c) ?? 'Cannot afford this')}</small>{ok && optionFunding(c, o.hint) && <small className="opt-fund">💰 {optionFunding(c, o.hint)}</small>}
+                        {o.label}<small>{ok ? costHint(c, o.hint) : (o.why?.(s, c) ?? 'Cannot afford this')}</small>{ok && optionFunding(c, o.hint) && <small className="opt-fund">💰 {optionFunding(c, o.hint)}</small>}
                       </button>
                     );
                   })}

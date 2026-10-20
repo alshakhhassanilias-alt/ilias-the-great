@@ -111,6 +111,9 @@ class Store {
   inboxOpen: number | null = null;
   /** the negotiating table, when open */
   nego: { them: number; goal: Goal } | null = null;
+  /** the war room, when open (a running war, or a past one from the history) */
+  warRoom: { id: number; past?: boolean } | null = null;
+  openWarRoom(id: number, past = false) { this.warRoom = { id, past }; this.notify(); }
   openNego(them: number, goal: Goal) { this.nego = { them, goal }; this.notify(); }
   private lastInboxUid = 0;
   rippleSeen = '';
@@ -216,19 +219,28 @@ class Store {
       // run the simulation in slices within a small time budget per frame: drawing always gets its share
       const s = this.state, t0 = performance.now();
       let weeks = 0;
-      while (performance.now() - t0 < this.sliceBudget) {
+      while (performance.now() - t0 < (this.speed >= 4 ? this.sliceBudget + 3 : this.sliceBudget)) {
         if (!this.pending) { if (this.acc < 1) break; this.acc -= 1; this.pending = tickSlices(s, this.geo); }
         setInTick(true);
         let r: IteratorResult<void>;
+        const dbg = (globalThis as { __sliceLog?: [string, number][] }).__sliceLog, ts = dbg ? performance.now() : 0;
         try { r = this.pending.next(); } finally { setInTick(false); }
+        if (dbg) dbg.push([(globalThis as { __simSlice?: string }).__simSlice ?? '?', performance.now() - ts]);
         if (r.done) {
           this.pending = null; weeks++;
+          const tl = dbg ? performance.now() : 0;
           this.processLog();
+          if (dbg) dbg.push(['processLog', performance.now() - tl]);
+          const ta = dbg ? performance.now() : 0;
           if (s.tick % AUTOSAVE_WEEKS === 0) this.autosave();
+          if (dbg) dbg.push(['autosave', performance.now() - ta]);
           if (this.speed === 0) break; // an event (e.g. war against us) paused the clock
         }
       }
+      const tn = performance.now();
       if (weeks > 0) this.notify(false);
+      const dbg = (globalThis as { __sliceLog?: [string, number][] }).__sliceLog;
+      if (dbg && weeks > 0) dbg.push(['notify', performance.now() - tn]);
     };
     this.raf = requestAnimationFrame(loop);
   }

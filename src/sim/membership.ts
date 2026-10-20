@@ -73,12 +73,13 @@ export function memberValue(s: GameState, o: Org, m: CountryId, threat?: number)
   return { v: +parts.reduce((x, y) => x + y.v, 0).toFixed(2), parts: parts.sort((x, y) => Math.abs(y.v) - Math.abs(x.v)) };
 }
 /** An organisation's sums (strength, GDP, defence spending, its strongest member, members at war), once per week. */
-const totalsCache = new Map<string, { str: number; gdp: number; milGdp: number; top: CountryId; atWar: number }>();
+// one cache per game and per week: reset when either changes, so a loaded save (or a second game) never reads another's sums
+let totalsCache: { st: GameState | null; tick: number; map: Map<string, { str: number; gdp: number; milGdp: number; top: CountryId; atWar: number }> } = { st: null, tick: -1, map: new Map() };
 function totals(s: GameState, o: Org) {
-  const key = `${o.id}:${o.members.length}:${s.tick}`;
-  const hit = totalsCache.get(key);
+  if (totalsCache.st !== s || totalsCache.tick !== s.tick) totalsCache = { st: s, tick: s.tick, map: new Map() };
+  const key = `${o.id}:${o.members.length}`;
+  const hit = totalsCache.map.get(key);
   if (hit) return hit;
-  if (totalsCache.size > 400) totalsCache.clear();
   let str = 0, gdp = 0, milGdp = 0, top = -1, best = -1, atWar = 0;
   for (const x of o.members) {
     const X = s.countries[x];
@@ -89,7 +90,7 @@ function totals(s: GameState, o: Org) {
     if (isAtWar(s, x)) atWar++;
   }
   const out = { str, gdp, milGdp, top, atWar };
-  totalsCache.set(key, out);
+  totalsCache.map.set(key, out);
   return out;
 }
 export const smoothedValue = (s: GameState, o: Org, m: CountryId) => s.stats[`mv:${o.id}:${m}`];

@@ -214,7 +214,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     version: 1, tick: 0, rng: settings.seed >>> 0, settings, player, countries,
     owner: geo.provinces.map((p) => p.country0), core: geo.provinces.map((p) => p.country0), integ: geo.provinces.map(() => 1),
     treaties: {}, relDelta: {}, wars: [], nextWarId: 1,
-    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {}, inbox: [], nextInbox: 1, projects: [], nextProject: 1, grudges: {}, trophies: {}, review: null, rival: -1, crisis: null, nextCrisis: 70, recentEvents: [], eventCooldown: {}, lastEventTick: 0, goalsDone: {}, goalsActive: [], goalBase: { trade: 0, allies: 0, rank: 0, gdp: 0, tech: 0, debt: 0 }, intelUntil: {}, opCooldown: {}, guarantees: [], scheduled: [], bld: {}, lastRipple: null, resolutions: [], nextResolution: 1, history: [], stats: {},
+    market: { priceE: 1, priceF: 1, scarcityE: 0.9, scarcityF: 0.9 }, log: [], victory: null, worldHist: { gdp: [] }, offers: [], nextOfferId: 1, logSeq: 0, offerLog: {}, inbox: [], nextInbox: 1, projects: [], nextProject: 1, grudges: {}, trophies: {}, review: null, rival: -1, crisis: null, nextCrisis: 70, recentEvents: [], eventCooldown: {}, lastEventTick: 0, goalsDone: {}, goalsActive: [], goalBase: { trade: 0, allies: 0, rank: 0, gdp: 0, tech: 0, debt: 0 }, intelUntil: {}, opCooldown: {}, guarantees: [], scheduled: [], bld: {}, lastRipple: null, resolutions: [], nextResolution: 1, history: [], stats: { fiscalRule: 1 },
   };
 
   // normalise energy & food so the world market is balanced at the start (supply 3% above demand)

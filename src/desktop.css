@@ -324,3 +324,70 @@
   .side-body { will-change: transform; }
   .side-body > section { content-visibility: auto; contain-intrinsic-size: auto 420px; }
 }
+
+@media (min-width: 901px) {
+  .levers { background: var(--grain), linear-gradient(180deg, rgba(40,32,22,.45), rgba(22,18,13,.45)); }
+  .lever { transition: background .2s ease; border-radius: 4px; padding: 7px 6px; }
+  .lever:not(.off):hover { background: rgba(214,171,82,.07); }
+  .lever-ic { filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+  .fiscal-rule.on { box-shadow: inset 3px 0 0 var(--green); }
+}
+
+@media (min-width: 901px) {
+  .nego-quote { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; color: #f3e6c8; background: var(--grain), linear-gradient(90deg, rgba(214,171,82,.08), transparent); }
+  .nego-style b { font-family: var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--brass-hi); }
+  .recon { background: var(--grain), linear-gradient(180deg, rgba(30,40,46,.5), rgba(18,22,26,.5)); }
+  .recon-g { transition: transform .15s ease, border-color .2s ease, background .2s ease; }
+  .recon-g:not(:disabled):hover { transform: translateY(-1px); border-color: var(--brass); background: rgba(214,171,82,.08); }
+  .recon-step.now i { box-shadow: 0 0 0 3px rgba(214,171,82,.18), 0 0 12px rgba(214,171,82,.45); animation: wo-recon 2s ease-in-out infinite; }
+  @keyframes wo-recon { 50% { box-shadow: 0 0 0 5px rgba(214,171,82,.08), 0 0 18px rgba(214,171,82,.6); } }
+}
+
+@media (min-width: 901px) {
+  .regime-path { background: var(--grain), linear-gradient(180deg, rgba(40,32,22,.5), rgba(22,18,13,.5)); }
+  .regime-path b { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; color: #f3e6c8; }
+  .regime-path .hint b { font-family: inherit; font-size: inherit; color: inherit; }
+  .regime-ic { filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+}
+
+@media (min-width: 901px) {
+  .modal.warroom { background: var(--grain), radial-gradient(ellipse at top, rgba(120,30,20,.25), transparent 60%), linear-gradient(180deg, #1c1611, #120e0b); }
+  .warroom .modal-head h2 { font-family: var(--display); letter-spacing: .12em; text-transform: uppercase; color: #f0c9a8; text-shadow: 0 0 18px rgba(220,80,50,.35); }
+  .wr-toll > div { background: var(--grain), linear-gradient(180deg, rgba(90,24,18,.45), rgba(40,14,10,.45)); animation: wo-toll-in .6s ease both; }
+  .wr-toll > div:nth-child(2) { animation-delay: .08s; } .wr-toll > div:nth-child(3) { animation-delay: .16s; } .wr-toll > div:nth-child(4) { animation-delay: .24s; }
+  .wr-toll b { font-family: var(--cond); font-size: 30px; text-shadow: 0 0 14px rgba(255,100,70,.35); }
+  @keyframes wo-toll-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+  .wr-l { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: wo-draw 1.4s ease forwards; }
+  @keyframes wo-draw { to { stroke-dashoffset: 0; } }
+  .wr-c, .wr-front { transition: border-color .2s ease, background .2s ease; }
+  .wr-c:hover, .wr-front:hover { border-color: var(--brass); background: rgba(214,171,82,.07); }
+  .wr-verdict { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; color: #f3e6c8; }
+}
+
+/* ---- round 23 polish: floating deltas, victories that feel like victories, livelier controls ---- */
+@media (min-width: 901px) and (prefers-reduced-motion: no-preference) {
+  .kpi b { position: relative; }
+  .delta-pop { display: block; position: absolute; left: 100%; top: -2px; margin-left: 6px; font: 700 13px var(--cond); white-space: nowrap; pointer-events: none; animation: wo-delta 1.4s cubic-bezier(.2,.7,.3,1) forwards; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+  .delta-pop.up { color: #8ee09e; } .delta-pop.down { color: #ff8a73; }
+  @keyframes wo-delta { 0% { opacity: 0; transform: translateY(6px) scale(.8); } 15% { opacity: 1; transform: translateY(0) scale(1.1); } 100% { opacity: 0; transform: translateY(-18px) scale(1); } }
+
+  .toast.toast-win { background: var(--grain), linear-gradient(120deg, #4a3612, #7a5a1c 45%, #4a3612); border-color: #e7c25c; color: #fff4d6; box-shadow: 0 0 0 1px rgba(231,194,92,.4), 0 10px 30px rgba(0,0,0,.5), 0 0 30px rgba(231,194,92,.35); position: relative; overflow: hidden; animation: wo-win-in .6s cubic-bezier(.2,1.4,.4,1) both; }
+  .toast.toast-win::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.35) 50%, transparent 65%); transform: translateX(-120%); animation: wo-sheen 1.6s .3s ease-out; }
+  @keyframes wo-win-in { from { opacity: 0; transform: translateY(14px) scale(.9); } to { opacity: 1; transform: none; } }
+  @keyframes wo-sheen { to { transform: translateX(120%); } }
+
+  .btn.primary { position: relative; overflow: hidden; }
+  .btn.primary::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%); transform: translateX(-130%); transition: transform .7s ease; pointer-events: none; }
+  .btn.primary:not(:disabled):hover::after { transform: translateX(130%); }
+  .btn:not(:disabled):active { transform: translateY(1px) scale(.98); }
+
+  .modal { animation: wo-modal-in .35s cubic-bezier(.2,.9,.3,1.1) both; }
+  .scrim { animation: wo-scrim-in .3s ease both; }
+  @keyframes wo-modal-in { from { opacity: 0; transform: translateY(18px) scale(.96); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes wo-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .goal-card { transition: transform .2s ease, box-shadow .2s ease; }
+  .goal-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.35); }
+  .lever:not(.off) .lever-ic, .recon-g:not(:disabled) .recon-gi { transition: transform .2s ease; }
+  .lever:not(.off):hover .lever-ic, .recon-g:not(:disabled):hover .recon-gi { transform: scale(1.18) rotate(-4deg); }
+}

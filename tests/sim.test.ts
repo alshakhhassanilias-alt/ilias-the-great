@@ -788,8 +788,10 @@ describe('depth: doctrines, explanations, calendar', () => {
   it('AI war declarations state their reason', () => {
     const s = fresh('Brazil');
     s.nextCrisis = 1e9;
-    run(s, 52 * 6);
-    const wars = s.log.filter((e) => /declared war/.test(e.text));
+    // the log keeps only its last 400 lines: collect declarations as they happen
+    const wars: { text: string }[] = [];
+    let seen = 0;
+    for (let i = 0; i < 52 * 6; i++) { tick(s, geo); for (const e of s.log) if (e.seq > seen) { seen = e.seq; if (/declared war/.test(e.text)) wars.push(e); } }
     expect(wars.length).toBeGreaterThan(0);
     expect(wars.some((e) => /Reason:|rightfully/.test(e.text))).toBe(true);
   });
@@ -2195,5 +2197,125 @@ describe('round 21: sandbox and legacy, each with its own sense', () => {
     resolveEvent(s, geo, 4, it!.uid);
     expect(c.story!.act).toBe(5);
     expect(c.story!.next).toBeGreaterThanOrEqual(s.legacy!.nextVote);
+  });
+});
+
+import { actLever, leverViews, stepFiscalRule, setFiscalRule } from '../src/sim/levers';
+import { actTrack, backChannelOdds, stepTracks, trackOf } from '../src/sim/detente';
+import { actRegimeStep, pathsFor } from '../src/sim/regime';
+import { styleOf, openingLine } from '../src/sim/negotiate';
+import { pay, costHint, DECISION_COST } from '../src/sim/eventkit';
+import { pcIncome } from '../src/sim/domestic';
+
+describe('levers, the fiscal rule and political capital', () => {
+  it('raising money has a price: privatisation brings cash and angers the unions, and pays less each time', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    run(s, 1);
+    const c = s.countries[s.player];
+    const cash0 = c.eco.cash, lab0 = c.politics!.factions.find((f) => f.id === 'labour')!.mood;
+    const v1 = leverViews(s, c, 50).find((v) => v.id === 'privatise')!;
+    expect(actLever(s, 'privatise', 50).ok).toBe(true);
+    expect(c.eco.cash).toBeGreaterThan(cash0 + 0.01 * c.eco.gdp);
+    expect(c.politics!.factions.find((f) => f.id === 'labour')!.mood).toBeLessThan(lab0);
+    expect(actLever(s, 'privatise', 50).ok).toBe(false); // cooldown
+    s.tick += 200;
+    const v2 = leverViews(s, c, 50).find((v) => v.id === 'privatise')!;
+    expect(v2.gain).not.toBe(v1.gain);
+  });
+  it('the fiscal rule closes a deficit step by step', () => {
+    const s = fresh('France', { randomEvents: false });
+    const c = s.countries[s.player];
+    setFiscalRule(s, true);
+    c.budget.social += 0.03; // a big deficit
+    const b0 = budgetReport(s, c).balancePct;
+    for (let i = 0; i < 13 * 4; i++) { s.tick++; stepFiscalRule(s); }
+    expect(budgetReport(s, c).balancePct).toBeGreaterThan(b0 + 0.008);
+  });
+  it('political capital: a popular government earns over 20 a year, and levers can buy more', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    run(s, 1);
+    const c = s.countries[s.player];
+    expect(pcIncome(s, c, 60).v * 52).toBeGreaterThan(20);
+    c.politics!.pc = 10;
+    expect(actLever(s, 'speech', 60).ok).toBe(true);
+    expect(c.politics!.pc).toBeGreaterThan(14);
+  });
+  it('decision costs are charged at the shown price', () => {
+    const s = fresh('Italy', { randomEvents: false });
+    const c = s.countries[s.player];
+    c.eco.cash = 0.5 * c.eco.gdp;
+    const before = c.eco.cash;
+    pay(s, c, 0.01);
+    expect(before - c.eco.cash).toBeCloseTo(0.01 * DECISION_COST * c.eco.gdp, 0);
+    expect(costHint(c, 'Costs 1% of GDP · stability +2')).toMatch(/Costs \$[\d.]+[BMT] \(0\.5% of GDP\)/);
+  });
+});
+
+describe('negotiating styles and reconciliation', () => {
+  it('nations negotiate differently, and a cash offer is worth less to a proud nationalist than to a merchant', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const T = s.countries[id('Poland')];
+    T.leader!.traits = ['nationalist', 'dove'];
+    const proud = stanceOf(s, geo, T.id, { goal: 'trade', give: [] });
+    expect(styleOf(T).id).toBe('proud');
+    T.leader!.traits = ['mercantilist', 'dove'];
+    const merchant = stanceOf(s, geo, T.id, { goal: 'trade', give: [] });
+    expect(styleOf(T).id).toBe('merchant');
+    expect(merchant.termValue.cash3!).toBeGreaterThan(proud.termValue.cash3!);
+    expect(openingLine(s, T, merchant, 10).length).toBeGreaterThan(20);
+  });
+  it('a bitter rival can be brought round: back channel, gestures, summit, détente', () => {
+    const s = fresh('India', { randomEvents: false });
+    run(s, 1);
+    const P = s.countries[s.player], them = id('Pakistan');
+    const r0 = getRelation(s, them, s.player);
+    expect(backChannelOdds(s, them).p).toBeGreaterThan(0);
+    let guard = 0;
+    while ((trackOf(s, them)?.stage ?? 1) < 4 && guard++ < 400) {
+      P.politics!.pc = 80;
+      const tk = trackOf(s, them);
+      if (!tk || tk.stage === 1) actTrack(s, geo, them, 'open');
+      else if (tk.stage === 2) { for (const g of ['prisoners', 'hotline', 'culture', 'aid', 'border']) if (actTrack(s, geo, them, 'gesture', g).ok) break; }
+      else if (tk.stage === 3) actTrack(s, geo, them, 'summit');
+      s.tick++; stepTracks(s);
+    }
+    expect(trackOf(s, them)?.stage).toBe(4);
+    expect(getRelation(s, them, s.player)).toBeGreaterThan(r0 + 20);
+    expect(stanceOf(s, geo, them, { goal: 'nap', give: [] }).factors.some((f) => /détente/.test(f.label))).toBe(true);
+  });
+});
+
+describe('changing the political system', () => {
+  it('takes three paid steps with waits in between, and then the system changes', () => {
+    const s = fresh('Russia', { randomEvents: false });
+    run(s, 1);
+    const c = s.countries[s.player];
+    const path = pathsFor(c).find((p) => p.to === 'F')!;
+    expect(path).toBeDefined();
+    for (const f of c.politics!.factions) f.mood = 70; // no coup risk
+    for (let step = 0; step < 3; step++) {
+      c.politics!.pc = 100;
+      const r = actRegimeStep(s, path.id);
+      expect(r.ok).toBe(true);
+      if (step < 2) { expect(actRegimeStep(s, path.id).ok).toBe(false); s.tick += 14; }
+    }
+    expect(c.gov).toBe('F');
+  });
+});
+
+describe('the war room', () => {
+  it('a war records civilian deaths, refugees and a casualty history', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    s.nextCrisis = 1e9;
+    actDeclareWar(s, geo, id('Poland'), s.player);
+    run(s, 30);
+    const w = s.wars.find((x) => x.attackers.includes(id('Poland')) || x.defenders.includes(id('Poland')));
+    if (w) {
+      expect((w.hist ?? []).length).toBeGreaterThan(3);
+      expect(Object.values(w.civ ?? {}).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+    } else {
+      const r = s.warHistory!.find((x) => x.a === id('Poland') || x.b === id('Poland'))!;
+      expect(r.hist?.length ?? 0).toBeGreaterThan(0);
+    }
   });
 });
