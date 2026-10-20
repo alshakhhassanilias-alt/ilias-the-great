@@ -1,13 +1,16 @@
-/* Offline cache for the app shell. Bump VERSION when any file changes. */
-var VERSION = 'waiter-v3';
+/* Offline support. Online: always fetch fresh files (bypassing the 10-minute
+ * browser cache). Offline: serve the last good copy. Bump VERSION on release. */
+var VERSION = 'waiter-v4';
 var FILES = [
-  './', './index.html', './css/app.css', './manifest.webmanifest',
-  './js/menu-data.js', './js/logic.js', './js/store.js', './js/training.js', './js/app.js',
+  './', './index.html', './manifest.webmanifest',
+  './css/app.css?v=4', './js/menu-data.js?v=4', './js/logic.js?v=4', './js/store.js?v=4', './js/training.js?v=4', './js/app.js?v=4',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
 ];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(VERSION).then(function (c) {
+    return c.addAll(FILES.map(function (f) { return new Request(f, { cache: 'reload' }); }));
+  }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (e) {
@@ -16,14 +19,17 @@ self.addEventListener('activate', function (e) {
   }).then(function () { return self.clients.claim(); }));
 });
 
-// Network first (so updates arrive when online), cache fallback (works offline).
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then(function (res) {
-    var copy = res.clone();
-    caches.open(VERSION).then(function (c) { c.put(e.request, copy); });
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(function (res) {
+    if (res.ok) {
+      var copy = res.clone();
+      caches.open(VERSION).then(function (c) { c.put(e.request, copy); });
+    }
     return res;
   }).catch(function () {
-    return caches.match(e.request, { ignoreSearch: true }).then(function (r) { return r || caches.match('./index.html'); });
+    return caches.match(e.request).then(function (r) {
+      return r || caches.match(e.request, { ignoreSearch: true }) || caches.match('./index.html');
+    }).then(function (r) { return r || caches.match('./index.html'); });
   }));
 });

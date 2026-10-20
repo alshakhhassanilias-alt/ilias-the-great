@@ -2,6 +2,7 @@
 (function () {
   'use strict';
 
+  var APP_VERSION = '4';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -771,6 +772,7 @@
         return '<button class="btn sm ' + ((S.settings.theme || '') === th[0] ? 'primary' : '') + '" data-a="theme" data-t="' + th[0] + '">' + th[1] + '</button>';
       }).join('') + '</span></div>' +
       '<div class="kv mt"><span>Reset training progress</span><button class="btn sm" data-a="resetTraining">Reset</button></div></div>' +
+      '<div class="card small muted">App version <b>' + APP_VERSION + '</b> · menu ' + MENU.VERSION + '</div>' +
       '<div class="card small muted">Install: in Safari tap Share → <b>Add to Home Screen</b>. It then opens full-screen and works offline. Data stays on this phone only.</div>';
   }
 
@@ -1254,7 +1256,19 @@
     navigator.storage.persist().then(function (granted) { S.settings.persisted = granted; }).catch(function () {});
   }
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+    // When a new version installs, reload once so it is used right away.
+    // Everything is already saved after every tap, so nothing is lost.
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloaded) return;
+      reloaded = true;
+      store.save(S);
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+      reg.update();
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) reg.update(); });
+    }).catch(function () {});
   }
 
   store.save(S);
