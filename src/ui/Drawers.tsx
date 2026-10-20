@@ -18,6 +18,9 @@ import { LegacyDossier } from './Legacy';
 import { ControlPicker } from './ControlPicker';
 import { setControl } from '../sim/modes';
 import { Meter } from './widgets';
+import { ControlSettings, DisplaySettings, SaveScreen, SoundSettings } from './SystemScreens';
+import { desktop, isDesktop } from '../platform';
+import { keyName, prefs, setPrefs } from '../prefs';
 
 function Modal({ title, onClose, children, narrow }: { title: string; onClose: () => void; children: React.ReactNode; narrow?: boolean }) {
   return (
@@ -35,6 +38,9 @@ export function Drawers() {
   const open = store.drawer.open;
   if (!store.state || open === 'none') return null;
   const close = () => store.openDrawer('none');
+  if (open === 'save' || open === 'load') return <SaveScreen mode={open} onClose={close} />;
+  if (store.preview && open === 'settings') return <SettingsDrawer onClose={close} />;
+  if (store.preview && open !== 'help') return null;
   if (open === 'world') return <WorldDrawer onClose={close} />;
   if (open === 'menu') return <MenuDrawer onClose={close} />;
   if (open === 'settings') return <SettingsDrawer onClose={close} />;
@@ -194,40 +200,51 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
 
 // ---------------------------------------------------------------- menu
 function MenuDrawer({ onClose }: { onClose: () => void }) {
-  const file = useRef<HTMLInputElement>(null);
+  const quit = async () => { if (await store.ask({ title: 'Quit to the main menu?', text: 'Anything you have not saved will be lost (your last autosave stays).', ok: 'Quit to menu' })) store.quitToMenu(); };
+  const exit = async () => { if (await store.ask({ title: 'Quit the game?', text: 'Anything you have not saved will be lost (your last autosave stays).', ok: 'Quit to desktop', danger: true })) void desktop?.window.quit(); };
   return (
-    <Modal title="Menu" onClose={onClose} narrow>
-      <div style={{ display: 'grid', gap: 8 }}>
-        <button className="btn" onClick={() => { store.save(); onClose(); }}>💾 Save game (browser)</button>
-        <button className="btn" disabled={!store.hasSave()} onClick={() => { store.load(false); onClose(); }}>📂 Load saved game</button>
-        <button className="btn" disabled={!store.hasAutosave()} onClick={() => { store.load(true); onClose(); }}>↺ Load autosave</button>
-        <button className="btn" onClick={() => store.exportFile()}>⬇ Export save file</button>
-        <button className="btn" onClick={() => file.current?.click()}>⬆ Import save file</button>
-        <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { store.importText(await f.text()); onClose(); } }} />
+    <Modal title="Paused" onClose={onClose} narrow>
+      <div className="pause-menu">
+        <button className="btn primary" onClick={onClose}>▶ Resume</button>
+        <button className="btn" onClick={() => store.openDrawer('save')}>💾 Save game<small>{keyName(prefs.keys.quickSave)} quick save</small></button>
+        <button className="btn" onClick={() => store.openDrawer('load')}>📂 Load game<small>{keyName(prefs.keys.quickLoad)} quick load</small></button>
+        <button className="btn" onClick={() => store.openDrawer('settings')}>⚙ Settings<small>game, display, sound, controls</small></button>
         <button className="btn" onClick={() => { store.helpStep = 0; store.openDrawer('help'); }}>❓ How to play</button>
-        <button className="btn" onClick={() => store.openDrawer('settings')}>⚙ Game settings</button>
-        <button className="btn danger" onClick={() => { if (confirm('Quit to the main menu? Unsaved progress will be lost.')) { store.quitToMenu(); } }}>Quit to main menu</button>
+        <button className="btn" onClick={() => { setPrefs({ walk: 0 }); onClose(); }}>🧭 Replay the walkthrough</button>
+        <button className="btn" onClick={() => void quit()}>Quit to main menu</button>
+        {isDesktop && <button className="btn danger" onClick={() => void exit()}>Quit to desktop</button>}
       </div>
-      <p className="faint" style={{ fontSize: 11.5, marginTop: 12 }}>{AUTOSAVE_TEXT} {CONTROLS_TEXT}</p>
     </Modal>
   );
 }
 
 // ---------------------------------------------------------------- settings
 function SettingsDrawer({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<'game' | 'display' | 'sound' | 'controls'>(store.preview ? 'display' : 'game');
+  const tabs = [...(store.preview ? [] : [{ v: 'game' as const, label: 'Game' }]), { v: 'display' as const, label: 'Display' }, { v: 'sound' as const, label: 'Sound' }, { v: 'controls' as const, label: 'Controls' }];
+  return (
+    <Modal title="Settings" onClose={onClose} narrow>
+      <div className="set-tabs"><Segmented<typeof tab> value={tab} onChange={setTab} options={tabs} label="Settings section" /></div>
+      {tab === 'game' && <GameSettings />}
+      {tab === 'display' && <DisplaySettings />}
+      {tab === 'sound' && <SoundSettings />}
+      {tab === 'controls' && <ControlSettings />}
+      <button className="btn primary" style={{ width: '100%', marginTop: 10 }} onClick={onClose}>Done</button>
+    </Modal>
+  );
+}
+function GameSettings() {
   const s = store.state!;
   const st = s.settings;
   const upd = (patch: Partial<typeof st>) => store.mutate((g) => { Object.assign(g.settings, patch); });
   return (
-    <Modal title="Game settings" onClose={onClose} narrow>
+    <>
       <Slider label="AI aggression" value={st.aggression} min={0.3} max={2} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => upd({ aggression: v })} hint="Scales how willing AI countries are to start wars. Applies to new decisions immediately." />
       <div className="field"><label>Difficulty</label><Segmented<Difficulty> value={st.difficulty} onChange={(v) => upd({ difficulty: v })} options={[{ v: 'easy', label: 'Easy' }, { v: 'normal', label: 'Normal' }, { v: 'hard', label: 'Hard' }]} /></div>
       <label className="check"><input type="checkbox" checked={st.defensiveAlliances} onChange={(e) => upd({ defensiveAlliances: e.target.checked })} /><span><b>Defensive alliances</b><br /><span className="faint" style={{ fontSize: 12 }}>When off, attacked countries fight alone: a faster, more aggressive sandbox.</span></span></label>
       <div className="field"><label>How much do you steer?</label>
         <ControlPicker compact value={s.settings.control ?? { economy: 'hands', military: 'hands', diplomacy: 'hands' }} onChange={(v) => store.act((g) => { for (const k of ['economy', 'military', 'diplomacy'] as const) if (v[k] !== (g.settings.control?.[k] ?? 'hands')) setControl(g, k, v[k]); return { ok: true, message: '' }; }, true)} />
       </div>
-      <div className="field"><label>Graphics</label><Segmented<'auto' | 'high' | 'medium' | 'low'> value={store.graphics} onChange={(v) => store.setGraphics(v)} options={[{ v: 'auto', label: 'Auto' }, { v: 'high', label: 'Beautiful' }, { v: 'medium', label: 'Balanced' }, { v: 'low', label: 'Fast' }]} />
-        <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>Auto starts high and lowers the effects by itself if your device struggles. Fast keeps battles still and draws at normal resolution.</div></div>
       <label className="check"><input type="checkbox" checked={store.autoSlow} onChange={(e) => { store.autoSlow = e.target.checked; store.notify(); }} /><span><b>Slow down on big news about me</b><small>Fast-forward drops to Normal when something major happens to you</small></span></label>
       <label className="check"><input type="checkbox" checked={store.holdWhileReading} onChange={(e) => store.setHoldWhileReading(e.target.checked)} /><span><b>Hold the clock while I read</b><small>On by default: time stops while a decision, a menu or a negotiation is open, so nothing lapses behind your back</small></span></label>
       <label className="check"><input type="checkbox" checked={store.pauseBeforeLapse} onChange={(e) => { store.pauseBeforeLapse = e.target.checked; store.notify(); }} /><span><b>Pause before a decision lapses</b><small>On by default: two weeks before an urgent decision (or one with a default outcome) runs out, the game stops and tells you</small></span></label>
@@ -239,8 +256,7 @@ function SettingsDrawer({ onClose }: { onClose: () => void }) {
           <option value="conquest">Conquest — 40% of world land</option><option value="hegemon">Hegemony — bloc holds 60% of world GDP</option>
         </select>
       </div>
-      <button className="btn primary" style={{ width: '100%' }} onClick={onClose}>Done</button>
-    </Modal>
+    </>
   );
 }
 

@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
+import { CrashGuard } from './ui/Crash';
 import '@fontsource/cinzel/latin-600.css';
 import '@fontsource/cinzel/latin-ext-600.css';
 import '@fontsource/cormorant-garamond/latin-600-italic.css';
@@ -17,4 +18,4 @@ import './legacy.css';
 import './people.css';
 import './motion.css';
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);

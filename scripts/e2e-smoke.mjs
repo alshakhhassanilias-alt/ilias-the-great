@@ -170,11 +170,23 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('a weapons programme can be started from the Military tab', (await pg.evaluate(() => { const s = window.__store.state; return (s.countries[s.player].progs ?? []).length; })) === 1);
   await pg.click('button[aria-label="Pause"]');
   // save / load
-  await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Save game")');
+  await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Save game")');
+  await pg.fill('#save-name', 'E2E test save'); await pg.click('.sv-new button[type=submit]'); await sleep(400);
   const saved = (await S(pg)).tick;
+  check('a named save appears in the save list', await pg.evaluate(() => window.__store.saveList.some((m) => m.name === 'E2E test save')));
   await pg.click('button[aria-label="Very fast"]'); await sleep(800); await pg.click('button[aria-label="Pause"]');
-  await pg.click('button[aria-label="Menu"]'); await pg.click('button:has-text("Load saved game")'); await sleep(200);
+  await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Load game")');
+  await pg.click('.sv-row:has-text("E2E test save") button:has-text("Load")'); await pg.click('.ask button:has-text("Load")'); await sleep(400);
   check('save then load restores the earlier state', (await S(pg)).tick === saved);
+  await pg.keyboard.press('F5'); await sleep(400);
+  check('F5 quick saves', await pg.evaluate(() => window.__store.saveList.some((m) => m.name === 'Quicksave')));
+  await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Settings")');
+  check('settings has display, sound and controls', (await pg.locator('.set-tabs button').count()) === 4);
+  await pg.click('.set-tabs button:has-text("Controls")');
+  await pg.click('.kb-row:has-text("Pause / resume") .kb-key'); await pg.keyboard.press('KeyK');
+  check('a key can be rebound', (await pg.locator('.kb-row:has-text("Pause / resume") .kb-key').innerText()) === 'K');
+  await pg.click('button:has-text("Restore default keys")');
+  await pg.keyboard.press('Escape'); await sleep(100);
   await pg.close();
 }
 // ---------------- Legacy mode ----------------

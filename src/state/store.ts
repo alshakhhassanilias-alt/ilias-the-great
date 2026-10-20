@@ -3,7 +3,6 @@
  * The simulation itself is plain TypeScript (src/sim); React only reads from here.
  */
 import type { Goal } from '../sim/negotiate';
-import { AUTOSAVE_WEEKS } from '../ui/controls';
 import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { loadGeo } from '../sim/load';
 import { createGame } from '../sim/init';
@@ -16,6 +15,10 @@ import { neighborsOf } from '../sim/diplomacy';
 import { eventById } from '../sim/events';
 import { sfx, setSound, audio } from '../audio';
 import type { ActionResult } from '../sim/actions';
+import { achieve, saves, type SaveMeta } from '../platform';
+import type { Ask } from '../ui/SystemScreens';
+import { prefs, setPrefs } from '../prefs';
+import { dateLabel } from '../sim/tick';
 
 export type Tab = 'overview' | 'politics' | 'goals' | 'economy' | 'military' | 'diplomacy';
 export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
@@ -30,10 +33,9 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 1;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
 
-const SAVE_KEY = 'world-order-save-v1';
-const AUTO_KEY = 'world-order-autosave-v1';
+const QUICK = 'Quicksave';
 
 class Store {
   geo = loadGeo();
@@ -155,7 +157,8 @@ class Store {
     this.state = createGame(this.geo, settings, player);
     this.preview = false;
     this.afterLoad(player);
-    try { if (!localStorage.getItem('wo-tutorial-1')) { this.helpStep = 0; this.drawer = { open: 'help', worldTab: this.drawer.worldTab }; localStorage.setItem('wo-tutorial-1', '1'); } } catch { /* storage unavailable */ }
+    // the first game starts with the walkthrough (How to play stays in the menu)
+    if (prefs.walk < 0) setPrefs({ walk: 0 });
   }
   /** World shown behind the start screen (never simulated). */
   startPreview() {
@@ -189,6 +192,7 @@ class Store {
     this.termSeen = s.stats.reviewTerm ?? 0;
     this.cableSeen = s.stats.cableSeq ?? 0;
     this.bookSeen = false;
+    this.achSent = new Set();
     this.splash = null; this.callouts = [];
     this.focusRequest++;
     this.startLoop();
@@ -224,7 +228,16 @@ class Store {
         setInTick(true);
         let r: IteratorResult<void>;
         const dbg = (globalThis as { __sliceLog?: [string, number][] }).__sliceLog, ts = dbg ? performance.now() : 0;
-        try { r = this.pending.next(); } finally { setInTick(false); }
+        try { r = this.pending.next(); }
+        catch (err) {
+          // a bug in the simulation: pause and report it instead of failing every frame
+          setInTick(false);
+          this.pending = null; this.speed = 0;
+          this.onSimError?.(err);
+          this.toast('The simulation hit an error and paused. A report was saved; you can save your game and carry on.', 'danger');
+          this.notify();
+          return;
+        } finally { setInTick(false); }
         if (dbg) dbg.push([(globalThis as { __simSlice?: string }).__simSlice ?? '?', performance.now() - ts]);
         if (r.done) {
           this.pending = null; weeks++;
@@ -232,7 +245,7 @@ class Store {
           this.processLog();
           if (dbg) dbg.push(['processLog', performance.now() - tl]);
           const ta = dbg ? performance.now() : 0;
-          if (s.tick % AUTOSAVE_WEEKS === 0) this.autosave();
+          if (this.autosaveDue(s.tick)) this.autosave();
           if (dbg) dbg.push(['autosave', performance.now() - ta]);
           if (this.speed === 0) break; // an event (e.g. war against us) paused the clock
         }
@@ -264,7 +277,7 @@ class Store {
       this.processLog();
       if (respectPause && this.speed === 0) break; // an event (e.g. war against us) paused the clock
     }
-    if (s.tick % AUTOSAVE_WEEKS === 0) this.autosave();
+    if (this.autosaveDue(s.tick)) this.autosave();
   }
   private processLog() {
     const s = this.state!;
@@ -290,6 +303,8 @@ class Store {
         this.toast('Simulation paused: a war involving your country began.', 'danger');
       }
     }
+    // trophies are Steam achievements in the desktop app (Steam ignores ones already unlocked)
+    for (const id in s.trophies) if (s.trophies[id] > 0 && !this.achSent.has(id)) { this.achSent.add(id); achieve(`ACH_${id.toUpperCase()}`); }
     const hist = s.warHistory ?? [];
     if (this.lastHist > hist.length) this.lastHist = hist.length;
     while (this.lastHist < hist.length) {
@@ -397,37 +412,81 @@ class Store {
   mapCallout(prov: number, text: string, color = '#ffd36a') { if (prov >= 0) { this.callouts.push({ prov, text, color }); this.notify(); } }
   atWarWithPlayer(c: CountryId) { return !!this.state && areAtWar(this.state, c, this.state.player); }
 
+  private achSent = new Set<string>();
+  /** set by the crash module: records simulation errors */
+  onSimError: ((err: unknown) => void) | null = null;
+
+  // ---- dialogs ----
+  asking: Ask | null = null;
+  /** an in-game confirmation dialog (instead of the browser's confirm box) */
+  ask(a: Omit<Ask, 'resolve'>): Promise<boolean> {
+    return new Promise((resolve) => { if (this.asking) this.asking.resolve(false); this.asking = { ...a, resolve }; this.notify(); });
+  }
+
   // ---- saves ----
-  hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; } }
-  hasAutosave() { try { return !!localStorage.getItem(AUTO_KEY); } catch { return false; } }
-  save(): boolean {
+  /** the save slots on this computer (newest first), refreshed after every save/delete */
+  saveList: SaveMeta[] = [];
+  savesLoaded = false;
+  async refreshSaves() { this.saveList = await saves.list(); this.savesLoaded = true; this.notify(); return this.saveList; }
+  hasSave() { return this.saveList.length > 0; }
+  hasAutosave() { return this.saveList.some((m) => m.auto); }
+  private meta(name: string, auto = false): SaveMeta {
+    const s = this.state!, c = s.countries[s.player];
+    return { name, country: c.name, iso3: c.iso3, date: dateLabel(s.tick), tick: s.tick, mode: s.settings.mode ?? 'sandbox', savedAt: Date.now(), auto };
+  }
+  /** Save into a named slot (overwrites it). */
+  async saveAs(name?: string, quiet = false): Promise<boolean> {
     if (!this.state) return false;
     this.flushTick();
-    try { localStorage.setItem(SAVE_KEY, serialize(this.state)); this.toast('Game saved.', 'info'); return true; }
-    catch { this.toast('Could not save in this browser (storage full or blocked). Use Export instead.', 'danger'); return false; }
+    const slot = (name ?? '').trim() || `${this.state.countries[this.state.player].name}, ${dateLabel(this.state.tick)}`;
+    try {
+      await saves.write(slot, serialize(this.state), this.meta(slot));
+      if (!quiet) this.toast(`Saved: ${slot}.`, 'info');
+      void this.refreshSaves();
+      return true;
+    } catch (e) { this.toast(`Could not save (${(e as Error).message || 'storage full or blocked'}). Use Export instead.`, 'danger'); return false; }
   }
-  /** The snapshot is taken at the week boundary (so it is consistent); writing 2+ MB to storage waits for an idle moment. */
+  /** older name kept for the menu and tests */
+  save(): Promise<boolean> { return this.saveAs(QUICK); }
+  quickSave() { return this.saveAs(QUICK); }
+  /** The snapshot is taken at the week boundary (so it is consistent); writing waits for an idle moment. Autosaves rotate through a few slots. */
   private autosave() {
-    if (!this.state) return;
+    if (!this.state || prefs.autosaveMonths <= 0) return;
     let text: string;
     try { text = serialize(this.state); } catch { return; }
-    const write = () => { try { localStorage.setItem(AUTO_KEY, text); } catch { /* storage full or unavailable */ } };
+    const n = Math.max(1, prefs.autosaveSlots);
+    const autos = this.saveList.filter((m) => m.auto && /^Autosave \d+$/.test(m.name));
+    const free = Array.from({ length: n }, (_, i) => `Autosave ${i + 1}`).find((x) => !autos.some((m) => m.name === x));
+    const slot = free ?? [...autos].sort((a, b) => a.savedAt - b.savedAt)[0]?.name ?? 'Autosave 1';
+    const meta = this.meta(slot, true);
+    const write = () => { void saves.write(slot, text, meta).then(() => this.refreshSaves()).catch(() => { /* storage full or unavailable */ }); };
     const ric = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
     if (ric) ric(write, { timeout: 2000 }); else setTimeout(write, 0);
   }
-  load(auto = false): boolean {
+  /** autosave due this week? (every N months of game time) */
+  private autosaveDue(tick: number) { const m = prefs.autosaveMonths; return m > 0 && tick > 0 && tick % Math.max(4, Math.round(m * 52 / 12)) === 0; }
+  async loadSlot(name: string): Promise<boolean> {
     try {
-      const txt = localStorage.getItem(auto ? AUTO_KEY : SAVE_KEY);
-      if (!txt) return false;
+      const txt = await saves.read(name);
+      if (!txt) { this.toast('That save is missing.', 'danger'); return false; }
       this.pending = null;
       this.state = deserialize(txt, this.geo.provinces.length);
       this.victoryShown = !!this.state.victory;
       this.preview = false;
       this.afterLoad(this.state.player);
-      this.toast('Game loaded.', 'info');
+      this.toast(`Loaded: ${name}.`, 'info');
       return true;
     } catch (e) { this.toast(`Load failed: ${(e as Error).message}`, 'danger'); return false; }
   }
+  /** older entry point: the quick save, or the newest save of any kind */
+  async load(auto = false): Promise<boolean> {
+    if (!this.savesLoaded) await this.refreshSaves();
+    const pick = auto ? this.saveList.find((m) => m.auto) : this.saveList.find((m) => m.name === QUICK) ?? this.saveList[0];
+    return pick ? this.loadSlot(pick.name) : false;
+  }
+  quickLoad() { return this.saveList.some((m) => m.name === QUICK) ? this.loadSlot(QUICK) : Promise.resolve(false); }
+  continueLatest() { return this.saveList[0] ? this.loadSlot(this.saveList[0].name) : Promise.resolve(false); }
+  async deleteSlot(name: string) { await saves.remove(name); await this.refreshSaves(); }
   exportFile() {
     if (!this.state) return;
     this.flushTick();
@@ -451,6 +510,7 @@ class Store {
 }
 
 export const store = new Store();
+void store.refreshSaves();
 // handy for debugging and automated tests
 (globalThis as unknown as { __store?: Store }).__store = store;
 export function useStore() {

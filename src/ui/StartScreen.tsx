@@ -1,3 +1,4 @@
+import { desktop, isDesktop } from '../platform';
 import { nationalColor } from '../map/palette';
 import { Emblem } from './art/Emblem';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -123,8 +124,10 @@ export function StartScreen() {
           <p className="faint" style={{ fontSize: 11.5, lineHeight: 1.5 }}>Data: approximate 2023–24 figures for GDP, population, debt and military (rounded; game estimates where unknown). Borders: Natural Earth (public domain), subdivided into game provinces. Everything else is simulated.</p>
         </div>
         <div className="foot">
-          {(store.hasSave() || store.hasAutosave()) && <button className="btn" onClick={() => { if (!store.load(false)) store.load(true); }}>Continue</button>}
-          <button className="btn" onClick={() => file.current?.click()} title="Import a save file">Import</button>
+          {store.hasSave() && <button className="btn" onClick={() => void store.continueLatest()} title={`${store.saveList[0].name} · ${store.saveList[0].country}${store.saveList[0].date ? `, ${store.saveList[0].date}` : ''}`}>Continue</button>}
+          <button className="btn" onClick={() => store.openDrawer('load')}>Load game</button>
+          <button className="btn" onClick={() => store.openDrawer('settings')} aria-label="Settings">⚙</button>
+          {isDesktop && <button className="btn" onClick={() => void desktop!.window.quit()}>Quit</button>}
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) store.importText(await f.text()); }} />
           <button className="btn primary" disabled={picked === null} onClick={() => picked !== null && store.newGame({ ...settings, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, picked)}>
             {c ? (settings.mode === 'legacy' ? `Take office in ${c.name}` : `Lead ${c.name}`) : 'Choose a country'}

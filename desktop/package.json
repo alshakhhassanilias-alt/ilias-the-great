@@ -1,0 +1,33 @@
+{
+  "name": "world-order-desktop",
+  "productName": "World Order",
+  "version": "0.9.0",
+  "description": "World Order: a geopolitical strategy game",
+  "author": "World Order",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "steamworks.js": "0.4.0"
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.worldorder.game",
+    "productName": "World Order",
+    "executableName": "WorldOrder",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["main.cjs", "preload.cjs", "steam.cjs", "web/**", "package.json"],
+    "asarUnpack": ["**/node_modules/steamworks.js/**"],
+    "win": { "target": [{ "target": "dir" }, { "target": "zip" }], "icon": "build/icon.png" },
+    "mac": { "target": [{ "target": "dir" }, { "target": "zip" }], "category": "public.app-category.strategy-games", "icon": "build/icon.png" },
+    "linux": { "target": [{ "target": "dir" }, { "target": "tar.gz" }], "category": "Game", "icon": "build/icon.png" }
+  }
+}

@@ -1,12 +1,22 @@
-/** Tiny synthesised sound effects (no audio files). Off until the browser allows audio; mutable from the top bar. */
+/** Tiny synthesised sound effects (no audio files). Off until the browser allows audio; volumes come from the player's preferences. */
+import { prefs, setPrefs, onPrefs } from './prefs';
 let ctx: AudioContext | null = null;
-export const audio = { enabled: true };
-try { audio.enabled = localStorage.getItem('wo-sound') !== '0'; } catch { /* ignore */ }
+let out: GainNode | null = null;
+let focused = true;
+export const audio = { get enabled() { return prefs.soundOn; } };
+const level = () => (prefs.soundOn && (focused || !prefs.muteUnfocused) ? prefs.master * prefs.sfx : 0);
+onPrefs(() => { if (out) out.gain.value = level(); });
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', () => { focused = false; if (out) out.gain.value = level(); });
+  window.addEventListener('focus', () => { focused = true; if (out) out.gain.value = level(); });
+}
 
 function ac(): AudioContext | null {
-  if (!audio.enabled) return null;
+  if (!prefs.soundOn || level() <= 0) return null;
   try {
     ctx = ctx ?? new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    if (!out) { out = ctx.createGain(); out.connect(ctx.destination); }
+    out.gain.value = level();
     if (ctx.state === 'suspended') void ctx.resume();
     return ctx;
   } catch { return null; }
@@ -20,7 +30,7 @@ function tone(c: AudioContext, t0: number, freq: number, dur: number, type: Osci
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(vol, t0 + 0.015);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(c.destination);
+  o.connect(g).connect(out ?? c.destination);
   o.start(t0); o.stop(t0 + dur + 0.05);
 }
 
@@ -30,7 +40,7 @@ function noise(c: AudioContext, t0: number, dur: number, vol: number) {
   const src = c.createBufferSource(), g = c.createGain(), f = c.createBiquadFilter();
   f.type = 'lowpass'; f.frequency.value = 500;
   g.gain.value = vol;
-  src.buffer = buf; src.connect(f).connect(g).connect(c.destination); src.start(t0);
+  src.buffer = buf; src.connect(f).connect(g).connect(out ?? c.destination); src.start(t0);
 }
 
 export type Sfx = 'breaking' | 'war' | 'capture' | 'lost' | 'alert' | 'success' | 'click' | 'coin' | 'drums' | 'fanfare' | 'peace' | 'boom' | 'encircle';
@@ -58,4 +68,4 @@ export function sfx(kind: Sfx) {
     case 'encircle': tone(c, t, 220, 0.25, 'square', 0.04); tone(c, t + 0.22, 207, 0.25, 'square', 0.04); tone(c, t + 0.44, 196, 0.6, 'square', 0.05); break;
   }
 }
-export function setSound(on: boolean) { audio.enabled = on; try { localStorage.setItem('wo-sound', on ? '1' : '0'); } catch { /* ignore */ } if (on) sfx('click'); }
+export function setSound(on: boolean) { setPrefs({ soundOn: on }); if (on) sfx('click'); }

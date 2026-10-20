@@ -27,6 +27,12 @@ export const TROPHIES: Trophy[] = [
   { id: 'quarter', icon: '🏛', title: 'A generation', desc: 'Rule for twenty-five years.', check: (s) => s.tick >= 1300 },
   { id: 'giant', icon: '🌆', title: 'Hundred million', desc: 'Govern a hundred million people.', check: (_s, c) => c.eco.pop >= 1e8 },
   { id: 'survivor', icon: '🔥', title: 'Survivor', desc: 'Be at war for a full year and come through with a stable country.', check: (s, c) => s.stats.lastWar !== undefined && s.wars.some((w) => (w.attackers.includes(c.id) || w.defenders.includes(c.id)) && s.tick - w.start >= 52) && c.eco.stability > 45 },
+  { id: 'victors_peace', icon: '💰', title: "Victor's peace", desc: 'Make a defeated enemy pay reparations.', check: (s, c) => !!s.peaceDeals?.some((d) => d.kind === 'rep' && d.a === c.id) },
+  { id: 'integrated', icon: '🤝', title: 'Hearts and minds', desc: 'Fully integrate a region you conquered.', check: (s, c) => c.provinces.some((p) => s.core[p] !== c.id && s.integ[p] >= 1) },
+  { id: 'problem_solved', icon: '🧩', title: 'Problem solved', desc: 'Overcome one of your national challenges.', check: (_s, c) => Object.values(c.chal ?? {}).some((x) => x.sev <= 0.5) },
+  { id: 'economic_war', icon: '🧱', title: 'Economic warfare', desc: 'Put an export ban on a rival.', check: (s, c) => !!s.bans?.some((b) => b.from === c.id) },
+  { id: 'blockade', icon: '⚓', title: 'Rule the waves', desc: 'Blockade an enemy\'s ports.', check: (_s, c) => !!c.mil.camps?.some((x) => x.kind === 'blockade') },
+  { id: 'reconciled', icon: '🕊', title: 'No enemy is forever', desc: 'Sign a treaty of friendship with a former rival.', check: (s) => Object.values(s.nego ?? {}).some((n) => n.track?.stage === 5) },
   { id: 'liberator', icon: '✊', title: 'Liberator', desc: 'See a conquered country reborn.', check: (s) => s.log.some((e) => /INDEPENDENCE/.test(e.text)) },
 ];
 
