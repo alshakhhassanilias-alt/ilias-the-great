@@ -46,6 +46,26 @@ Data lives only on this phone (localStorage). Export a backup now and then:
    separately as "Not in POS yet".
 6. **⋯ → Close table (paid)** moves it to history (kept 7 days, can be reopened).
 
+If you tag lines with a guest number (the **Guest** row in the menu screen), the
+review screen can also group the order **By guest**. Use it to read the order
+back to the table, then switch to **By menu** for typing into the POS.
+
+## Learning the menu
+
+- **Practice order**: a guest orders 2–4 things in English, often look-alike
+  dishes, with sizes, side swaps and extras. Enter it with the normal menu
+  screen on a practice table that never mixes with your real tables, then tap
+  **Check**. It tells you what you missed, which size was wrong, which side you
+  didn't confirm, and when you picked a look-alike (for example the rum Мохито
+  instead of the non-alcoholic one), with the difference explained.
+- **Quiz**: price, English↔Russian name, "which dish contains…", look-alikes.
+- **Cards**: flashcards with price, weight and composition.
+- **Look-alikes**: the 23 groups side by side with prices.
+- **Hard 🧠**: items you mark come up 3× more often everywhere.
+
+Wrong answers move an item back to the start, right answers move it forward
+(spaced repetition).
+
 ## What it does because of *this* menu
 
 These came from reading the photos, not from a generic template.
@@ -99,8 +119,8 @@ and you can fix prices there.
 ## Development
 
 ```
-npm test          # 24 unit tests: menu data integrity, order logic, storage
-npm run test:e2e  # 19 browser checks at iPhone size (needs Playwright + Chromium)
+npm test          # 27 unit tests: menu data, order logic, storage, practice grading
+npm run test:e2e  # 21 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 
