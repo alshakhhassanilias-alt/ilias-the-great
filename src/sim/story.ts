@@ -17,7 +17,7 @@ import type { Geo } from './geo';
 import { RIVALRIES, CLAIMS, COUNTRY_BASE } from '../data/countryData';
 import { STORIES, type EconKind, type IssueKind } from '../data/stories';
 import { hash01, nextRand } from './rng';
-import { clamp, fmtMoney } from './util';
+import { clamp, fmtMoney, keyOf } from './util';
 import { logEvent } from './log';
 import { NAME_TO_ID, addRelation, areAtWar, getRelation, isAtWar, orgsOf } from './relations';
 import { neighborsOf } from './diplomacy';
@@ -235,7 +235,7 @@ const ECON: Record<EconKind, { title: string; frame: string; opts: [Opt, Opt, Op
 export type StoryState = NonNullable<Country['story']>;
 export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 const roman = (n: number) => ROMAN[n - 1] ?? String(n);
-export const seedOf = (c: Country) => STORIES[c.name] ?? { issue: 'polarised' as IssueKind, text: 'old divisions run deep', econ: 'services' as EconKind, ambition: 'a better future' };
+export const seedOf = (c: Country) => STORIES[keyOf(c)] ?? { issue: 'polarised' as IssueKind, text: 'old divisions run deep', econ: 'services' as EconKind, ambition: 'a better future' };
 export const storyTitle = (c: Country) => `${c.name}: ${seedOf(c).ambition}`;
 /** The problem of the current chapter (chapter I: the real one from 2024; later: what the country faces by then). */
 export const issueOf = (c: Country): IssueKind => (c.story?.issue as IssueKind | undefined) ?? seedOf(c).issue;
@@ -512,7 +512,7 @@ export function brief(s: GameState, c: Country, act: number, rv: number): string
       case 'army': return `The numbers: the generals are ${f('military')}/100 happy, the army is ${Math.round(c.mil.troops / 1000)}k strong and costs ${pct(c.budget.military)} of GDP.`;
       case 'succession': return `The numbers: stability ${Math.round(e.stability)}/100; the army ${f('military')}/100 and the liberals ${f('liberals')}/100 happy with how power is held.`;
       case 'inflation': return `The numbers: prices are rising ${p1(e.inflation)} a year, unemployment ${p1(e.unemployment)}, and business ${f('business')}/100 happy.`;
-      case 'energy': return `The numbers: ${pct(e.energyUnmet)} of the power the country needs goes unmet; energy costs ${s.market.priceE.toFixed(2)}× the 2024 price; you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of what you use.`;
+      case 'energy': return `The numbers: ${pct(e.energyUnmet)} of the power the country needs goes unmet; energy costs ${s.market.priceE.toFixed(2)}× the starting price; you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of what you use.`;
     }
   }
   if (act === 2) {
@@ -523,7 +523,7 @@ export function brief(s: GameState, c: Country, act: number, rv: number): string
   }
   if (act === 3) {
     const k = seedOf(c).econ;
-    const sector = k === 'oil' ? `you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of the energy you use, at ${s.market.priceE.toFixed(2)}× the 2024 price` : k === 'farms' ? `farms grow ${pct(e.foodCap / Math.max(1, e.foodDemand))} of the food the country eats` : k === 'tech' || k === 'industry' ? `technology stands at ${Math.round(e.tech)}/100` : k === 'services' || k === 'tourism' ? `trade is ${pct(e.openness)} of the economy` : `aid and remittances keep ${money(e.gdp * 0.05)} a year flowing in`;
+    const sector = k === 'oil' ? `you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of the energy you use, at ${s.market.priceE.toFixed(2)}× the starting price` : k === 'farms' ? `farms grow ${pct(e.foodCap / Math.max(1, e.foodDemand))} of the food the country eats` : k === 'tech' || k === 'industry' ? `technology stands at ${Math.round(e.tech)}/100` : k === 'services' || k === 'tourism' ? `trade is ${pct(e.openness)} of the economy` : `aid and remittances keep ${money(e.gdp * 0.05)} a year flowing in`;
     return `The economy: ${money(e.gdp)}, growing ${p1(e.growth)} a year, unemployment ${p1(e.unemployment)}; ${sector}.`;
   }
   const o = c.orient ?? 0;

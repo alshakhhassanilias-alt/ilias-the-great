@@ -1,4 +1,5 @@
 /** Trophies and the end-of-year review: small, frequent rewards that make time passing feel like progress. */
+import { START_YEAR } from './types';
 import type { Geo } from './geo';
 import { logEvent } from './log';
 import { alliesOf } from './relations';
@@ -72,6 +73,6 @@ export function stepReview(s: GameState, _geo: Geo) {
   lines.push(`At home: stability ${c.eco.stability.toFixed(0)}, inflation ${(100 * c.eco.inflation).toFixed(1)}%, debt ${(100 * c.eco.debt / c.eco.gdp).toFixed(0)}% of GDP.`);
   const headlines = s.log.filter((e) => e.big && e.tick > s.tick - 52 && !/TROPHY/.test(e.text)).slice(-3);
   for (const h of headlines) lines.push(`${h.text}`);
-  const year = 2024 + Math.floor(s.tick / 52) - 1;
+  const year = START_YEAR + Math.floor(s.tick / 52) - 1;
   s.review = { tick: s.tick, title: `${year} in review`, lines };
 }

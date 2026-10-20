@@ -2,6 +2,7 @@
  * Where your country stands in the world, and the organisations that bind countries together: see what pulls you
  * East or West, change course, apply to join, leave, or found a bloc of your own.
  */
+import { START_YEAR } from '../../sim/types';
 import { MembershipWorth } from './Minds';
 import { useState } from 'react';
 import { store } from '../../state/store';
@@ -91,7 +92,7 @@ export function OrgsSection() {
                   : <button className={`btn ${admitted(o, votes) ? 'primary' : ''}`} disabled={wait > 0} onClick={() => store.act((g) => actApplyOrg(g, o.id))}>Apply<small>{wait > 0 ? `again in ${wait} wk` : `${yes}/${votes.length} would vote yes · ${admitted(o, votes) ? 'likely admitted' : 'would be rejected'}`}</small></button>}
               </div>
               <button className="linkbtn" onClick={() => setOpen(open === o.id ? null : o.id)}>{open === o.id ? 'Hide details' : member ? 'Members, history and proposals' : 'Who votes how, and its history'}</button>
-              {open === o.id && (o.history?.length ?? 0) > 0 && <ul className="org-history">{o.history!.slice(-5).map((h, i) => <li key={i}><span>{2024 + Math.floor(h.tick / 52)}</span>{h.text}</li>)}</ul>}
+              {open === o.id && (o.history?.length ?? 0) > 0 && <ul className="org-history">{o.history!.slice(-5).map((h, i) => <li key={i}><span>{START_YEAR + Math.floor(h.tick / 52)}</span>{h.text}</li>)}</ul>}
               {open === o.id && member && <MembershipWorth orgId={o.id} />}
               {open === o.id && member && <OrgProposals o={o} />}
               {open === o.id && (

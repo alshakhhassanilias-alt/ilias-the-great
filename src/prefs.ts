@@ -3,7 +3,7 @@
  * Kept in localStorage, which the desktop app keeps in its own profile folder.
  */
 export type KeyAction =
-  | 'pause' | 'speed1' | 'speed2' | 'speed3' | 'speed4' | 'step'
+  | 'pause' | 'speed1' | 'speed2' | 'speed3' | 'speed4' | 'speed5' | 'step'
   | 'zoomIn' | 'zoomOut' | 'home'
   | 'quickSave' | 'quickLoad' | 'saves' | 'menu'
   | 'tabOverview' | 'tabPolitics' | 'tabGoals' | 'tabEconomy' | 'tabMilitary' | 'tabDiplomacy'
@@ -15,6 +15,7 @@ export const KEY_ACTIONS: { id: KeyAction; label: string; group: string }[] = [
   { id: 'speed2', label: 'Normal', group: 'Time' },
   { id: 'speed3', label: 'Fast', group: 'Time' },
   { id: 'speed4', label: 'Very fast', group: 'Time' },
+  { id: 'speed5', label: 'Centuries (fastest)', group: 'Time' },
   { id: 'step', label: 'Advance one week', group: 'Time' },
   { id: 'zoomIn', label: 'Zoom in', group: 'Map' },
   { id: 'zoomOut', label: 'Zoom out', group: 'Map' },
@@ -36,7 +37,7 @@ export const KEY_ACTIONS: { id: KeyAction; label: string; group: string }[] = [
 ];
 
 export const DEFAULT_KEYS: Record<KeyAction, string> = {
-  pause: 'Space', speed1: 'Digit1', speed2: 'Digit2', speed3: 'Digit3', speed4: 'Digit4', step: 'Period',
+  pause: 'Space', speed1: 'Digit1', speed2: 'Digit2', speed3: 'Digit3', speed4: 'Digit4', speed5: 'Digit5', step: 'Period',
   zoomIn: 'Equal', zoomOut: 'Minus', home: 'KeyH',
   quickSave: 'F5', quickLoad: 'F9', saves: 'KeyL', menu: 'Escape',
   tabOverview: 'KeyQ', tabPolitics: 'KeyP', tabGoals: 'KeyG', tabEconomy: 'KeyE', tabMilitary: 'KeyM', tabDiplomacy: 'KeyD',
@@ -103,7 +104,7 @@ export function keyName(code: string): string {
 export function actionFor(code: string): KeyAction | null {
   for (const a of Object.keys(prefs.keys) as KeyAction[]) if (prefs.keys[a] === code) return a;
   // the numeric keypad mirrors the speed keys
-  const m = /^Numpad([1-4])$/.exec(code);
+  const m = /^Numpad([1-5])$/.exec(code);
   if (m) return `speed${m[1]}` as KeyAction;
   if (code === 'NumpadAdd') return 'zoomIn';
   if (code === 'NumpadSubtract') return 'zoomOut';

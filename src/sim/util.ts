@@ -2,9 +2,19 @@ export const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > h
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
 
+/**
+ * Money is shown in the dollars of the game's first year: over centuries prices rise many times over, and
+ * "$17 million trillion" says nothing. The simulation keeps working in the money of the day; only display divides
+ * by the world's price level (set every week by the economy, see stepEconomiesGen).
+ */
+let PRICE_LEVEL = 1;
+export function setPriceLevel(p: number) { PRICE_LEVEL = Number.isFinite(p) && p > 0 ? p : 1; }
 export function fmtMoney(v: number, digits = 1): string {
+  v /= PRICE_LEVEL;
   const a = Math.abs(v);
   const s = v < 0 ? '-' : '';
+  if (a >= 1e18) return `${s}$${(a / 1e18).toFixed(digits)} quintillion`;
+  if (a >= 1e15) return `${s}$${(a / 1e15).toFixed(digits)} quadrillion`;
   if (a >= 1e12) return `${s}$${(a / 1e12).toFixed(digits)}T`;
   if (a >= 1e9) return `${s}$${(a / 1e9).toFixed(a >= 1e11 ? 0 : digits)}B`;
   if (a >= 1e6) return `${s}$${(a / 1e6).toFixed(a >= 1e8 ? 0 : digits)}M`;
@@ -28,3 +38,5 @@ const SHORT: Record<string, string> = {
   'Trinidad and Tobago': 'Trinidad & Tobago', 'Papua New Guinea': 'Papua N. Guinea', 'Solomon Is.': 'Solomon Is.', 'Marshall Is.': 'Marshall Is.',
 };
 export const shortName = (n: string) => SHORT[n] ?? n;
+/** The name a country's national data is filed under: its original name, even after the country is renamed. */
+export const keyOf = (c: { key?: string; name: string }) => c.key ?? c.name;

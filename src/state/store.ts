@@ -2,6 +2,7 @@
  * Game store: owns the GameState, the simulation clock (pause / speeds), selection, notifications and saves.
  * The simulation itself is plain TypeScript (src/sim); React only reads from here.
  */
+import { breakAway, peripheryOf, unite } from '../sim/epochs';
 import type { Goal } from '../sim/negotiate';
 import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { loadGeo } from '../sim/load';
@@ -29,11 +30,12 @@ export const SPEEDS = [
   { label: 'Normal', tps: 1, hint: '1 week per second' },
   { label: 'Fast', tps: 2.5, hint: '2-3 weeks per second' },
   { label: 'Very fast', tps: 6, hint: '6 weeks per second' },
+  { label: 'Centuries', tps: 60, hint: 'as fast as your computer allows: watch history unfold' },
 ] as const;
 export const DEFAULT_SPEED = 1;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
 
 const QUICK = 'Quicksave';
 
@@ -223,7 +225,7 @@ class Store {
       // run the simulation in slices within a small time budget per frame: drawing always gets its share
       const s = this.state, t0 = performance.now();
       let weeks = 0;
-      while (performance.now() - t0 < (this.speed >= 4 ? this.sliceBudget + 3 : this.sliceBudget)) {
+      while (performance.now() - t0 < (this.speed >= 5 ? this.sliceBudget + 9 : this.speed >= 4 ? this.sliceBudget + 3 : this.sliceBudget)) {
         if (!this.pending) { if (this.acc < 1) break; this.acc -= 1; this.pending = tickSlices(s, this.geo); }
         setInTick(true);
         let r: IteratorResult<void>;
@@ -513,6 +515,8 @@ export const store = new Store();
 void store.refreshSaves();
 // handy for debugging and automated tests
 (globalThis as unknown as { __store?: Store }).__store = store;
+// (test hook: the history engine, so browser tests can stage a breakaway or a union without waiting centuries)
+(globalThis as unknown as { __epochs?: unknown }).__epochs = { breakAway, unite, peripheryOf };
 export function useStore() {
   useSyncExternalStore(store.subscribe, store.getVersion);
   return store;

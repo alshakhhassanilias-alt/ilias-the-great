@@ -63,7 +63,7 @@ export function StartScreen() {
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="desk-only start-emblem"><Emblem c={c} size={86} /></div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><h3 style={{ margin: 0, fontSize: 19 }}>{c.name}</h3><span className="pill gold">{sizeClass(c)}</span></div>
-              <div className="faint" style={{ fontSize: 12, margin: '2px 0 10px' }}>{GOV[c.gov]} · {REGION[c.region]} · baseline year 2024{c.estimated ? ' · rough estimates' : ''}</div>
+              <div className="faint" style={{ fontSize: 12, margin: '2px 0 10px' }}>{GOV[c.gov]} · {REGION[c.region]} · data of 2024{settings.startYear === 2021 ? ', rewound to 2021' : ''}{c.estimated ? ' · rough estimates' : ''}</div>
               <div className="grid2">
                 <Stat label="Population" value={fmtNum(c.eco.pop)} />
                 <Stat label="GDP" value={fmtMoney(c.eco.gdp)} sub={`${fmtMoney(c.eco.gdp / c.eco.pop, 0)} / person`} />
@@ -92,12 +92,16 @@ export function StartScreen() {
           <div className="field"><label>How much do you want to steer? <span className="faint">change any time</span></label>
             <ControlPicker value={settings.control ?? DEFAULT_SETTINGS.control!} onChange={(v) => upd({ control: v })} />
           </div>
+          <div className="field"><label>Start in</label>
+            <Segmented<'2021' | '2024'> value={String(settings.startYear ?? 2021) as '2021' | '2024'} onChange={(v) => upd({ startYear: Number(v) as 2021 | 2024 })} options={[{ v: '2021', label: '2021' }, { v: '2024', label: '2024' }]} />
+            <span className="faint" style={{ fontSize: 11.5 }}>{(settings.startYear ?? 2021) === 2021 ? 'Before the wars: Ukraine at peace, Finland and Sweden outside NATO, the pandemic fading.' : 'Today: the world as it is, wars and all.'}</span>
+          </div>
           <div className="field"><label>Difficulty</label>
             <Segmented<Difficulty> value={settings.difficulty} onChange={(v) => upd({ difficulty: v })} options={[{ v: 'easy', label: 'Easy' }, { v: 'normal', label: 'Normal' }, { v: 'hard', label: 'Hard' }]} />
           </div>
           <div className="field"><label>Starting economic conditions</label>
             <Segmented<StartCondition> value={settings.start} onChange={(v) => upd({ start: v })} options={[{ v: 'historical', label: 'Historical' }, { v: 'crisis', label: 'Crisis' }, { v: 'prosperous', label: 'Prosperous' }]} />
-            <span className="faint" style={{ fontSize: 11.5 }}>{settings.start === 'historical' ? 'Real 2024 baseline.' : settings.start === 'crisis' ? 'Debt +40%, empty treasury, higher inflation, shaky stability.' : 'Strong treasury, lower debt, confident markets.'}</span>
+            <span className="faint" style={{ fontSize: 11.5 }}>{settings.start === 'historical' ? settings.startYear === 2021 ? 'The real world of January 2021.' : 'The real world of January 2024.' : settings.start === 'crisis' ? 'Debt +40%, empty treasury, higher inflation, shaky stability.' : 'Strong treasury, lower debt, confident markets.'}</span>
           </div>
           <Slider label="AI aggression" value={settings.aggression} min={0.3} max={2} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => upd({ aggression: v })} hint="How readily AI countries start wars. They never automatically target you." />
           <label className="check"><input type="checkbox" checked={settings.defensiveAlliances} onChange={(e) => upd({ defensiveAlliances: e.target.checked })} /><span><b>Defensive alliances</b><br /><span className="faint" style={{ fontSize: 12 }}>Allies may join wars to defend each other. Turn off for a faster, more aggressive sandbox.</span></span></label>

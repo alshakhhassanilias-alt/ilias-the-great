@@ -42,7 +42,7 @@ export function initialOrgs(): Org[] {
     { id: 3, key: 'csto', name: 'the CSTO', icon: '⚔', kind: 'defence', bonus: 22, members: ids(CSTO), founded: 0, camp: -1 },
     { id: 4, key: 'arab', name: 'the Arab League', icon: '🌙', kind: 'economic', bonus: 14, members: ids(ARAB_LEAGUE), founded: 0, camp: 0 },
     { id: 5, key: 'brics', name: 'BRICS', icon: '🌐', kind: 'economic', bonus: 6, members: ids(BRICS), founded: 0, camp: 0 },
-  ] as Org[]).map((o) => ({ ...o, base: o.bonus, depth: 2 / 3, history: [{ tick: 0, text: 'A founding pillar of the 2024 world order' }] }));
+  ] as Org[]).map((o) => ({ ...o, base: o.bonus, depth: 2 / 3, history: [{ tick: 0, text: 'A founding pillar of the world order' }] }));
 }
 
 /** Older saves and new games: make sure orientation, hostility, organisations and long memory exist. */

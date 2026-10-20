@@ -1,3 +1,4 @@
+import { START_YEAR, type Country, type GameState } from '../sim/types';
 import { PoliticsTab } from './tabs/PoliticsTab';
 import { nationalColor } from '../map/palette';
 import { store, useStoreThrottled, type Tab } from '../state/store';
@@ -19,6 +20,19 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' }, { id: 'politics', label: 'Politics' }, { id: 'goals', label: 'Goals' }, { id: 'economy', label: 'Economy' }, { id: 'military', label: 'Military' }, { id: 'diplomacy', label: 'Diplomacy' },
 ];
 
+/** "Founded 2087, breaking away from Brazil" · "Restored in 2140" · "Formerly Poland" */
+function originLine(s: GameState, c: Country): string {
+  const year = (t: number) => Math.floor(START_YEAR + t / 52);
+  const o = c.origin;
+  if (o) {
+    const from = s.countries[o.from]?.name ?? 'its old masters';
+    if (o.how === 'revival') return `Restored in ${year(o.tick)}, breaking free from ${from}`;
+    if (o.how === 'union') return `United in ${year(o.tick)}`;
+    return `Founded in ${year(o.tick)}, breaking away from ${from}`;
+  }
+  if (c.key && c.key !== c.name) return `Formerly ${c.key}`;
+  return '';
+}
 export function SidePanel() {
   useStoreThrottled(450);
   const s = store.state!;
@@ -49,6 +63,7 @@ export function SidePanel() {
                 {isAtWar(s, c.id) && <span className="pill red">⚔ at war</span>}
                 {c.mil.nuclear && <span className="pill">☢</span>}
               </div>
+              {originLine(s, c) && <div className="head-origin">{originLine(s, c)}</div>}
               {c.leader && c.id !== s.player && <div className="desk-only head-leader">Led by <b>{c.leader.name}</b> · {c.leader.traits.map((x) => traitById(x).title).join(', ')}</div>}
             </div>
             {(() => { const nm = c.id === s.player ? s.legacy?.leader : c.leader?.name; return nm ? <span className="desk-only head-portrait" title={nm}><Portrait f={faceFor(c, nm, 'leader')} size={58} /></span> : null; })()}

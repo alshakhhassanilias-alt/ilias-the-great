@@ -1,4 +1,5 @@
 import { nationalColor } from '../map/palette';
+import { START_YEAR } from '../sim/types';
 import { TROPHIES } from '../sim/trophies';
 import { useEffect, useRef, useState } from 'react';
 import { store, useStore } from '../state/store';
@@ -70,7 +71,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
     .slice(0, 120);
   return (
     <Modal title="World overview" onClose={onClose}>
-      <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'blocs', label: 'Blocs' }, { v: 'assembly', label: 'Assembly' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'trophies', label: `Trophies ${Object.keys(s.trophies).length}/${TROPHIES.length}` }, { v: 'news', label: 'News' }]} />
+      <Segmented value={tab} onChange={(v) => store.openDrawer('world', v)} label="World tabs" options={[{ v: 'rankings', label: 'Rankings' }, { v: 'blocs', label: 'Blocs' }, { v: 'assembly', label: 'Assembly' }, { v: 'wars', label: `Wars (${s.wars.length})` }, { v: 'trophies', label: `Trophies ${Object.keys(s.trophies).length}/${TROPHIES.length}` }, { v: 'history', label: 'History' }, { v: 'news', label: 'News' }]} />
       <div style={{ height: 12 }} />
       {tab === 'rankings' && (
         <>
@@ -178,6 +179,7 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
             </div>
           ))
       )}
+      {tab === 'history' && <HistoryTab onClose={onClose} />}
       {tab === 'news' && (
         <>
           <Segmented value={newsKind} onChange={setNewsKind} label="News filter" options={[{ v: 'all', label: 'All' }, { v: 'you', label: 'You' }, { v: 'war', label: 'War' }, { v: 'diplo', label: 'Diplomacy' }, { v: 'econ', label: 'Economy' }]} />
@@ -194,6 +196,39 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
         </>
       )}
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- history
+const HIST_ICON: Record<string, string> = { born: '🏳', revived: '🕊', union: '🤝', fell: '⚑', renamed: '👑', collapse: '💥' };
+/** The chronicle of the map: every nation born, restored, united, renamed or lost since the game began. */
+function HistoryTab({ onClose }: { onClose: () => void }) {
+  const s = store.state!;
+  const ch = [...(s.chronicle ?? [])].reverse();
+  const alive = s.countries.filter((c) => c.alive);
+  const newer = alive.filter((c) => c.origin).length;
+  const gone = s.countries.filter((c) => !c.alive && c.provinces.length === 0 && (s.stats[`fallen:${c.id}`] ?? -1) >= 0).length;
+  const renamed = alive.filter((c) => c.key && c.key !== c.name && !c.origin).length;
+  const years = Math.floor(s.tick / 52);
+  return (
+    <>
+      <div className="faint" style={{ fontSize: 12, margin: '0 0 10px' }}>
+        {years < 2 ? 'History is only beginning. ' : `${years} years since ${START_YEAR}. `}
+        {alive.length} nations today · {newer} born or restored since {START_YEAR} · {gone} gone · {renamed} renamed. Over centuries, empires rise and break apart, regions win their independence and close neighbours unite: the map will not stay the one you started with.
+      </div>
+      <div className="list">
+        {ch.map((e, i) => {
+          const c = e.ids.map((x) => s.countries[x]).find((x) => x?.alive);
+          return (
+            <div className={`row news k-${e.kind === 'fell' || e.kind === 'collapse' ? 'war' : e.kind === 'union' ? 'diplo' : 'info'}`} key={i} style={{ alignItems: 'flex-start', cursor: c ? 'pointer' : undefined }}
+              onClick={() => { if (c) { store.select(c.id, null, true); onClose(); } }}>
+              <span className="t" style={{ minWidth: 52 }}>{Math.floor(START_YEAR + e.tick / 52)}</span><span className="grow">{HIST_ICON[e.kind] ?? '•'} {e.text}</span>
+            </div>
+          );
+        })}
+        {ch.length === 0 && <p className="muted">No borders have moved yet. Give it time: history is slow, then sudden.</p>}
+      </div>
+    </>
   );
 }
 

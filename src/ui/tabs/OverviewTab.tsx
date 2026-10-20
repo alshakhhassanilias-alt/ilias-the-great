@@ -114,7 +114,7 @@ export function OverviewTab({ id }: { id: number }) {
 
       <Section title="Snapshot" hint={`${sizeClass(c)} · #${rank} economy`}>
         <div className="grid2">
-          <Stat label="Population" value={fmtNum(e.pop)} sub={`${signedPct(popGrowthRate(c), 1)} / yr trend`} />
+          <Stat label="Population" value={fmtNum(e.pop)} sub={`${signedPct(popGrowthRate(c, s), 1)} / yr trend`} />
           <Stat label="GDP (nominal)" tip={TIP.gdp} value={`${gdp.approx ? '≈' : ''}${fmtMoney(gdp.v)}`} sub={`${fmtMoney(e.gdp / e.pop, 0)} per person`} />
           <Stat label="Real growth" tip={TIP.growth} value={signedPct(e.growth)} tone={e.growth < 0 ? 'bad' : e.growth > 0.04 ? 'good' : undefined} sub={`inflation ${pct(e.inflation)}`} />
           <Stat label="Stability" tip={TIP.stab} value={e.stability.toFixed(0)} tone={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'} sub={`unemployment ${pct(e.unemployment)}`} />

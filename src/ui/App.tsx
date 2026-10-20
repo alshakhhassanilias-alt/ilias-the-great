@@ -45,7 +45,7 @@ export function App() {
       const s = store.state;
       switch (a) {
         case 'pause': store.togglePause(); break;
-        case 'speed1': case 'speed2': case 'speed3': case 'speed4': store.setSpeed(Number(a.slice(5))); break;
+        case 'speed1': case 'speed2': case 'speed3': case 'speed4': case 'speed5': store.setSpeed(Number(a.slice(5))); break;
         case 'step': store.stepOnce(); break;
         case 'zoomIn': window.dispatchEvent(new CustomEvent('wo-zoom', { detail: 1.4 })); break;
         case 'zoomOut': window.dispatchEvent(new CustomEvent('wo-zoom', { detail: 1 / 1.4 })); break;

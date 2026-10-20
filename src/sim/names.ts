@@ -3,6 +3,7 @@
  * banks (male and female first names, surnames, with feminine surname forms where the language has them);
  * everyone else falls back to a regional bank. Names are combinations, never real office holders.
  */
+import { keyOf } from './util';
 import type { Country } from './types';
 
 interface Bank { m: string[]; f: string[]; l: string[]; fem?: 'slavic' | 'polish' | 'czech' | 'baltic' }
@@ -72,7 +73,7 @@ function feminize(l: string, kind?: Bank['fem']) {
   return l;
 }
 
-const bankOf = (c: Pick<Country, 'name' | 'region'>) => B[c.name] ?? R[c.region] ?? R.EU;
+const bankOf = (c: Pick<Country, 'name' | 'region'> & { key?: string; culture?: string }) => B[c.culture ?? keyOf(c)] ?? R[c.region] ?? R.EU;
 
 /**
  * A fictional name for someone from country c. `r1`..`r3` are uniform random numbers (deterministic upstream).

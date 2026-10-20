@@ -27,7 +27,7 @@ import { addGrudge } from './leaders';
 import { sway } from './domestic';
 import { logEvent } from './log';
 import { hash01 } from './rng';
-import { clamp, fmtMoney } from './util';
+import { clamp, fmtMoney, keyOf } from './util';
 import { DT } from './types';
 
 export type Good = 'chips' | 'minerals' | 'energy' | 'food';
@@ -47,7 +47,7 @@ const SUP_ID: Record<'chips' | 'minerals', [number, number][]> = {
   chips: Object.entries(SUPPLY.chips).map(([n, v]) => [NAME_TO_ID[n], v] as [number, number]).filter(([i]) => i !== undefined),
   minerals: Object.entries(SUPPLY.minerals).map(([n, v]) => [NAME_TO_ID[n], v] as [number, number]).filter(([i]) => i !== undefined),
 };
-export const supplyShare = (c: Country, g: 'chips' | 'minerals') => SUPPLY[g][c.name] ?? 0;
+export const supplyShare = (c: Country, g: 'chips' | 'minerals') => SUPPLY[g][keyOf(c)] ?? 0;
 export const producers = (g: 'chips' | 'minerals') => SUP_ID[g];
 
 export interface Ban { from: CountryId; to: CountryId; good: Good; since: number }

@@ -5,6 +5,8 @@
  * baseline rate. Values derived here (capital stock, tech, infrastructure, tax-rate split ...) are
  * game-generated estimates, not real statistics.
  */
+import { setPriceLevel } from './util';
+import { rewindTo2021 } from './start2021';
 import { ensureAlignment } from './alignment';
 import { ensurePolitics } from './domestic';
 import { setGeoRef } from './geoRef';
@@ -24,7 +26,7 @@ import { ALPHA, DELTA, popTrend, aggregateWorld, demandSide, factors, tradeFlows
 import { ensureTreaty, NAME_TO_ID } from './relations';
 import { equipTotal } from './military';
 import {
-  type Budget, type Country, type Economy, type GameState, type Military, type Personality, type Settings, START_YEAR,
+  type Budget, type Country, type Economy, type GameState, type Military, type Personality, type Settings, START_YEAR, setStartYear,
 } from './types';
 
 const TECH_BONUS: Record<string, number> = {
@@ -195,6 +197,8 @@ function pickHues(geo: Geo, nCountries: number): number[] {
 
 export function createGame(geo: Geo, settings: Settings, player: number): GameState {
   setGeoRef(geo);
+  setStartYear(settings.startYear ?? 2024);
+  setPriceLevel(1);
   const n = COUNTRY_BASE.length;
   const hues = pickHues(geo, n);
   const countries: Country[] = COUNTRY_BASE.map((B, id) => {
@@ -288,6 +292,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
   ensurePolitics(state);
   if (settings.mode === 'legacy') initLegacy(state);
   ensureAlignment(state);
+  if (settings.startYear === 2021) rewindTo2021(state);
   // standing security guarantees in 2024: the US for Taiwan (the Taiwan Relations Act); the main NATO powers for
   // Kosovo (KFOR peacekeepers)
   for (const [from, to] of [['United States of America', 'Taiwan'], ['United States of America', 'Kosovo'], ['Germany', 'Kosovo'], ['United Kingdom', 'Kosovo'], ['France', 'Kosovo'], ['Italy', 'Kosovo']]) {

@@ -15,7 +15,7 @@
  * with PC), are rubber-stamped with a little help in a hybrid regime, and are simply decreed in an autocracy,
  * at a higher price and with a cost to legitimacy. Only the player has politics; AI countries are unaffected.
  */
-import { clamp } from './util';
+import { clamp, keyOf } from './util';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
 import { nationalName } from './names';
@@ -158,8 +158,8 @@ export function ensurePolitics(s: GameState) {
     F: { labour: 20, business: 17, military: 12, nationalists: 20, liberals: 13, regions: 18 },
     X: { labour: 19, business: 15, military: 21, nationalists: 21, liberals: 8, regions: 16 },
   };
-  const base = { ...sup[c.gov === 'D' ? 'D' : c.gov === 'F' ? 'F' : 'X'], ...(NATIONAL_POLITICS[c.name]?.sup ?? {}) };
-  const moodAdj = NATIONAL_POLITICS[c.name]?.mood ?? {};
+  const base = { ...sup[c.gov === 'D' ? 'D' : c.gov === 'F' ? 'F' : 'X'], ...(NATIONAL_POLITICS[keyOf(c)]?.sup ?? {}) };
+  const moodAdj = NATIONAL_POLITICS[keyOf(c)]?.mood ?? {};
   const b = c.budget;
   const factions: Faction[] = FACTIONS.map((f, i) => {
     const jitter = (hash01('fac', c.id, i) - 0.5) * 6;

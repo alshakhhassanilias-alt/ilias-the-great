@@ -2,6 +2,7 @@
  * Alliances have lives: they get names, deepen while their members get on and fray when they do not, add a
  * mutual-defence clause when a common threat appears, merge with like-minded blocs, and split when members fall out.
  */
+import { START_YEAR } from './types';
 import type { Region } from '../data/countryData';
 import { COUNTRY_BASE } from '../data/countryData';
 import { ensureTreaty, getRelation, areAtWar, orgsOf, touchOrgs, touchTreaties } from './relations';
@@ -58,7 +59,7 @@ export function orgName(s: GameState, kind: Org['kind'], founder: CountryId, mem
     const name = p.replace('{City}', city).replace('{Adj}', adj).replace('{Noun}', noun).replace(/\bthe the\b/gi, 'the').replace(/of the the/gi, 'of the');
     if (!used.has(name.toLowerCase())) return name;
   }
-  return `the ${city} ${kind === 'defence' ? 'Pact' : kind === 'union' ? 'Union' : 'Forum'} ${2024 + Math.floor(s.tick / 52)}`;
+  return `the ${city} ${kind === 'defence' ? 'Pact' : kind === 'union' ? 'Union' : 'Forum'} ${START_YEAR + Math.floor(s.tick / 52)}`;
 }
 /** Clean a name a player typed. */
 export function cleanName(raw: string): string | null {

@@ -35,7 +35,7 @@ import { memberValue, stepMembership } from '../src/sim/membership';
 import { backlashDue, crisisOf, policyTfp, stepThaw, turningLeader } from '../src/sim/turns';
 const geo = loadGeo();
 const id = (n: string) => NAME_TO_ID[n];
-const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, ...over }, id(player));
+const fresh = (player = 'Germany', over: Partial<typeof DEFAULT_SETTINGS> = {}) => createGame(geo, { ...DEFAULT_SETTINGS, startYear: 2024, ...over }, id(player));
 const run = (s: GameState, n: number) => { for (let i = 0; i < n; i++) tick(s, geo); };
 
 describe('geography', () => {
@@ -2490,5 +2490,102 @@ describe('deeper war, national character and trade', () => {
       expect(c.eco.inflation).toBeGreaterThan(-0.05);
     }
     for (const v of Object.values(s.resist ?? {})) expect(v >= 0 && v <= 1).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// round 28: the long run of history, and a 2021 start
+// ---------------------------------------------------------------------------------------------------------------
+import { breakAway, peripheryOf, unite, unionReady, shortName, stepEpochs, ASSIMILATION_YEARS } from '../src/sim/epochs';
+import { serialize, deserialize } from '../src/sim/save';
+import { dateLabel } from '../src/sim/tick';
+import { popTrend } from '../src/sim/economy';
+import { fmtMoney } from '../src/sim/util';
+
+describe('round 28: nations are born, unite and fall; the game can start in 2021', () => {
+  it('a region breaks away as a new nation that carries its share of people and output, and the save still loads', () => {
+    const s = fresh('Brazil');
+    const ru = s.countries[id('Russia')];
+    const n0 = s.countries.length, pop0 = ru.eco.pop, gdp0 = ru.eco.realGdp, provs0 = ru.provinces.length;
+    const block = peripheryOf(s, geo, ru);
+    expect(block.length).toBeGreaterThan(2);
+    expect(block).not.toContain(ru.capital);
+    const X = breakAway(s, geo, ru, block, { peaceful: true })!;
+    expect(X).toBeTruthy();
+    expect(s.countries.length).toBe(n0 + 1);
+    expect(X.alive && X.provinces.length === block.length).toBe(true);
+    expect(ru.provinces.length).toBe(provs0 - block.length);
+    for (const p of block) { expect(s.owner[p]).toBe(X.id); expect(s.core[p]).toBe(X.id); }
+    expect(X.eco.pop + ru.eco.pop).toBeCloseTo(pop0, -3);
+    expect((X.eco.realGdp + ru.eco.realGdp) / gdp0).toBeGreaterThan(0.97);
+    expect(X.origin?.from).toBe(ru.id);
+    expect(X.leader).toBeTruthy();
+    expect(s.chronicle?.some((e) => e.kind === 'born')).toBe(true);
+    run(s, 10);
+    expect(Number.isFinite(X.eco.gdp) && X.eco.gdp > 0).toBe(true);
+    const back = deserialize(serialize(s), geo.provinces.length);
+    expect(back.countries.length).toBe(n0 + 1);
+    expect(back.countries[X.id].name).toBe(X.name);
+  });
+  it('an annexed nation can rise again under its own name', () => {
+    const s = fresh('Brazil');
+    const at = s.countries[id('Austria')], it_ = s.countries[id('Italy')];
+    const provs = [...at.provinces];
+    for (const p of provs) transferProvince(s, geo, p, it_.id);
+    expect(at.alive).toBe(false);
+    const X = breakAway(s, geo, it_, provs, { peaceful: true })!;
+    expect(X.id).toBe(at.id);
+    expect(X.name).toBe('Austria');
+    expect(X.alive).toBe(true);
+    expect(X.origin?.how).toBe('revival');
+  });
+  it('close allies unite: the smaller joins, or equals found a union with a new name', () => {
+    const s = fresh('Brazil');
+    const ar = s.countries[id('Argentina')], ur = s.countries[id('Uruguay')];
+    const n = ar.provinces.length + ur.provinces.length;
+    unite(s, geo, ar, ur);
+    expect(ur.alive).toBe(false);
+    expect(ar.provinces.length).toBe(n);
+    expect(ar.name).toBe('Argentina'); // Uruguay is far smaller: it joins
+    const lt = s.countries[id('Lithuania')], lv = s.countries[id('Latvia')];
+    unite(s, geo, lt, lv);
+    expect(lt.name).not.toBe('Lithuania'); // partners of a similar size found a union with a new name
+    expect(lt.key).toBe('Lithuania'); // national data stays filed under the old name
+    expect(s.chronicle!.filter((e) => e.kind === 'union').length).toBe(2);
+    expect(shortName('United Arab Emirates')).toBe('Emirates');
+    expect(unionReady(s, s.countries[id('India')], s.countries[id('Pakistan')])).toBe(false); // rivals never unite
+  });
+  it('conquered land that has been integrated for generations becomes the conqueror\'s own', () => {
+    const s = fresh('Brazil');
+    const p = s.countries[id('Belgium')].provinces[0];
+    transferProvince(s, geo, p, id('France'));
+    s.integ[p] = 1;
+    s.tick = 52 * (ASSIMILATION_YEARS + 1) + 7;
+    s.stats[`held:${p}`] = 0;
+    stepEpochs(s, geo);
+    expect(s.core[p]).toBe(id('France'));
+  });
+  it('the 2021 start: before the wars, Finland and Sweden outside NATO, the pandemic fading', () => {
+    const s = createGame(geo, { ...DEFAULT_SETTINGS, startYear: 2021 }, id('Poland'));
+    expect(dateLabel(0)).toBe('1 Jan 2021');
+    const nato = s.orgs!.find((o) => o.key === 'nato')!;
+    expect(nato.members).not.toContain(id('Finland'));
+    expect(nato.members).not.toContain(id('Sweden'));
+    expect(s.orgs!.find((o) => o.key === 'brics')!.members.length).toBe(5);
+    expect(s.crisis?.id).toBe('pandemic');
+    const s24 = fresh('Poland');
+    expect(dateLabel(0)).toBe('1 Jan 2024');
+    expect(s.countries[id('Ukraine')].mil.troops).toBeLessThan(0.5 * s24.countries[id('Ukraine')].mil.troops);
+    expect(s.countries[id('Turkey')].eco.gdp).toBeLessThan(s24.countries[id('Turkey')].eco.gdp);
+  });
+  it('the long run: births fall with the demographic transition, booms fade, money is shown in today\'s dollars', () => {
+    expect(popTrend(2000, 'AF', 100)).toBeLessThan(0.5 * popTrend(2000, 'AF', 0));
+    expect(popTrend(60000, 'EU', 200)).toBeGreaterThan(popTrend(60000, 'EU', 0));
+    const s = fresh('Brazil');
+    const gy = s.countries[id('Guyana')];
+    const t0 = gy.eco.tfpTrend;
+    run(s, 52 * 3);
+    expect(gy.eco.tfpTrend).toBeLessThan(t0);
+    expect(fmtMoney(2e15)).toMatch(/quadrillion/);
   });
 });

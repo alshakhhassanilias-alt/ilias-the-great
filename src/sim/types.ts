@@ -34,6 +34,8 @@ export interface Settings {
   leaderTraits?: [string, string];
   /** Sandbox: your national storyline on (default) or off */
   storylines?: boolean;
+  /** the year the game begins: 2021 (before the wars of 2022–24) or 2024 (today). Older saves: 2024 */
+  startYear?: 2021 | 2024;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   econFocus: 'growth',
   randomEvents: true,
   nukes: true,
+  startYear: 2021,
   world: 'current',
   endYear: null,
 };
@@ -247,6 +250,14 @@ export interface Country {
   chal?: Record<string, { sev: number; drift?: number; until?: number }>;
   /** the player's weapons programmes */
   progs?: { id: string; until: number; done: boolean }[];
+  /** the name this country's national data is filed under (set when it is renamed; see keyOf) */
+  key?: string;
+  /** whose names its people carry (a breakaway state keeps its parent's), see names.ts */
+  culture?: string;
+  /** how a nation founded during the game came to be (see epochs.ts) */
+  origin?: { tick: number; from: CountryId; how: 'independence' | 'revival' | 'union' | 'collapse'; formerly?: string };
+  /** the name before an imperial title or a union renamed it */
+  baseName?: string;
 }
 
 export type FactionId = 'labour' | 'business' | 'military' | 'nationalists' | 'liberals' | 'regions';
@@ -459,6 +470,8 @@ export interface GameState {
   opCooldown: Record<string, number>;
   /** one-way security guarantees: "guarantor>protected" */
   guarantees: string[];
+  /** the long story of the map: nations born, revived, united and fallen (see epochs.ts) */
+  chronicle?: ChronicleEntry[];
   scheduled: Scheduled[];
   /** province buildings: "provinceId:type" -> level 0..3 */
   bld: Record<string, number>;
@@ -497,9 +510,12 @@ export interface Ripple { tick: number; a: CountryId; b: CountryId; kind: string
 export interface Scheduled { tick: number; id: string; data: Record<string, number> }
 export interface Resolution { id: number; kind: 'condemn' | 'sanction' | 'ceasefire' | 'aid'; target: CountryId; victim: number; tick: number; yes: number; no: number; passed: boolean | null }
 export interface ProjectRun { uid: number; id: string; owner: CountryId; cost: number; weeks: number; done: number; start: number; stalled: boolean }
+export interface ChronicleEntry { tick: number; kind: 'born' | 'revived' | 'union' | 'fell' | 'renamed' | 'collapse'; text: string; ids: CountryId[] }
 export interface InboxItem { uid: number; id: string; tick: number; expires: number; urgent: boolean; data: Record<string, number> }
 
-export const START_YEAR = 2024;
+/** the year of tick 0 for the game being played (set when a game is created or loaded) */
+export let START_YEAR = 2024;
+export function setStartYear(y: number) { START_YEAR = y; }
 export const TICKS_PER_YEAR = 52;
 export const DT = 1 / TICKS_PER_YEAR;
 export const HIST_EVERY = 4;

@@ -10,7 +10,7 @@
  * may build a blue-water navy and press the Taiwan question; Iran may cross the nuclear threshold.
  */
 import { changeGov } from './alignment';
-import { clamp } from './util';
+import { clamp, keyOf } from './util';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
 import { NAME_TO_ID, addRelation, areAtWar, getRelation, sanctionLevel } from './relations';
@@ -260,7 +260,7 @@ const GENERIC: Record<string, NatPath> = {
 };
 
 export function pathOf(c: Country): NatPath {
-  const p = PATHS[c.name];
+  const p = PATHS[keyOf(c)];
   if (p) return p;
   const e = c.eco;
   if (e.energyCap > e.energyDemand * 1.6) return GENERIC.petro;
@@ -367,7 +367,7 @@ export function stepNations(s: GameState, geo: Geo) {
   if (P?.alive && P.nat?.active && s.tick >= P.nat.active.until) { const n = nodeOf(P, P.nat.active.id); if (n) complete(s, P, n); else P.nat.active = undefined; }
   if (s.tick % 13 !== 6) return;
   for (const c of s.countries) {
-    if (!c.alive || c.isPlayer || !PATHS[c.name]) continue;
+    if (!c.alive || c.isPlayer || !PATHS[keyOf(c)]) continue;
     if (c.nat?.active) { if (s.tick >= c.nat.active.until) { const n = nodeOf(c, c.nat.active.id); if (n) complete(s, c, n); else c.nat.active = undefined; } continue; }
     if (s.tick < 20 || nextRand(s) > 0.35) continue;
     // the bomb is a decision a government makes for a reason (its long-term plan), not a project picked at random

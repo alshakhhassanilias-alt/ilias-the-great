@@ -19,7 +19,7 @@ import { spendPC } from './domestic';
 import { fund } from './actions';
 import { logEvent } from './log';
 import { hash01 } from './rng';
-import { clamp } from './util';
+import { clamp, keyOf } from './util';
 import { geoRefGet } from './geoRef';
 
 // ------------------------------------------------------------------ traits
@@ -78,10 +78,10 @@ export function traitsOf(c: Country): Trait[] {
   const hit = traitCache.get(c.id);
   if (hit) return hit;
   const out: Trait[] = [];
-  const has = (k: string) => SET[k]?.has(c.name);
-  if ((ENERGY_RATIO[c.name] ?? 1) >= 2.2) out.push(TRAITS.petro);
-  if ((ENERGY_RATIO[c.name] ?? 1) <= 0.35) out.push(TRAITS.importer);
-  if ((FOOD_RATIO[c.name] ?? 1) >= 1.6) out.push(TRAITS.bread);
+  const has = (k: string) => SET[k]?.has(keyOf(c));
+  if ((ENERGY_RATIO[keyOf(c)] ?? 1) >= 2.2) out.push(TRAITS.petro);
+  if ((ENERGY_RATIO[keyOf(c)] ?? 1) <= 0.35) out.push(TRAITS.importer);
+  if ((FOOD_RATIO[keyOf(c)] ?? 1) >= 1.6) out.push(TRAITS.bread);
   for (const k of ['giant', 'chips', 'frontline', 'ageing', 'young', 'finance', 'minerals', 'island', 'remit', 'tourism']) if (has(k)) out.push(TRAITS[k]);
   const geo = geoRefGet();
   if (geo && c.provinces.length && !c.provinces.some((p) => geo.provinces[p].coast > 0.15) && !has('island')) out.push(TRAITS.landlocked);
@@ -270,11 +270,11 @@ type ChalState = NonNullable<Country['chal']>[string];
 export function challengesOf(c: Country): Record<string, ChalState> {
   if (c.chal) return c.chal;
   const out: Record<string, ChalState> = {};
-  for (const d of CHALLENGES) { const w = d.where[c.name]; if (w && w[0] > 0) out[d.id] = { sev: w[0] }; }
+  for (const d of CHALLENGES) { const w = d.where[keyOf(c)]; if (w && w[0] > 0) out[d.id] = { sev: w[0] }; }
   c.chal = out;
   return out;
 }
-export const localName = (c: Country, id: string) => challengeById(id)?.where[c.name]?.[1] ?? '';
+export const localName = (c: Country, id: string) => challengeById(id)?.where[keyOf(c)]?.[1] ?? '';
 
 /** Combined effect of all challenges (scaled by severity) and traits on one quantity. */
 function chalSum(c: Country, k: keyof ChalEff): number {

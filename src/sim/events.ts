@@ -194,7 +194,8 @@ export const EVENTS: EventDef[] = [
 import { EVENTS2 } from './events2';
 import { finalizeResolution, proposeResolution } from './politics';
 import { EVENTS3 } from './events3';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...storyEvents()];
+import { EVENTS9 } from './events9';
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...storyEvents()];
 export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
 
 export const INBOX_MAX = 4;

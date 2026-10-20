@@ -1,4 +1,5 @@
 import { stepFiscalRule } from './levers';
+import { stepEpochs } from './epochs';
 import { stepLoans, stepTracks } from './detente';
 import { stepCoalitions } from './coalitions';
 import { stepMinds } from './minds';
@@ -54,8 +55,9 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 
 const labels = new Map<number, string>();
 /** "5 Jan 2025" (formatted by hand and cached: the locale formatter is slow and this runs in every list). */
 export function dateLabel(tick: number): string {
-  let l = labels.get(tick);
-  if (l === undefined) { const d = dateOf(tick); l = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; if (labels.size > 4000) labels.clear(); labels.set(tick, l); }
+  const key = START_YEAR * 1e6 + tick;
+  let l = labels.get(key);
+  if (l === undefined) { const d = dateOf(tick); l = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; if (labels.size > 4000) labels.clear(); labels.set(key, l); }
   return l;
 }
 
@@ -152,6 +154,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepAlignmentGen(s, geo);
   mark('stepAlignment'); yield;
   stepCourses(s, geo);
+  stepEpochs(s, geo);
   mark('stepCourses'); yield;
   yield* stepStoriesGen(s, geo);
   mark('stepStories'); yield;

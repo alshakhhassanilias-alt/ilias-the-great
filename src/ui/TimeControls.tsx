@@ -6,7 +6,7 @@ import { crisisById, crisisLeft } from '../sim/crises';
 export function TimeControls() {
   useStore();
   const s = store.state!;
-  const labels = ['⏸', '▶', '▶▶', '▶▶▶', '⏩'];
+  const labels = ['⏸', '▶', '▶▶', '▶▶▶', '⏩', '⏭'];
   // the decision list stacks above the clock; it needs the clock's real height (a crisis adds a line)
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -22,7 +22,7 @@ export function TimeControls() {
       {s.crisis && (() => { const d = crisisById(s.crisis.id); return <div className={`crisis-chip ${d.id === 'boom' ? 'good' : ''}`} title={d.blurb}>{d.icon}<span className="t"> {d.title} ·</span> {crisisLeft(s)} wk</div>; })()}
       <div className="speedrow">
         {SPEEDS.map((sp, i) => (
-          <button key={sp.label} className={`${i === 0 ? 'pause' : ''} ${store.speed === i ? 'on' : ''}`} title={`${sp.label}: ${sp.hint}${i ? ` (key ${i})` : ' (space)'}`} aria-label={sp.label} aria-pressed={store.speed === i}
+          <button key={sp.label} className={`${i === 0 ? 'pause' : ''} ${store.speed === i ? 'on' : ''} ${i === 5 ? 'desk-only' : ''}`} title={`${sp.label}: ${sp.hint}${i ? ` (key ${i})` : ' (space)'}`} aria-label={sp.label} aria-pressed={store.speed === i}
             onClick={() => store.setSpeed(i)}>{labels[i]}</button>
         ))}
         <button title="Advance one week" aria-label="Advance one week" onClick={() => { store.setSpeed(0); store.stepOnce(); }}>+1w</button>

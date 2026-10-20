@@ -116,15 +116,16 @@ let orgCache: { st: GameState; ver: number; masks: Int32Array; bonus: number[] }
 function orgMasks(s: GameState) {
   const ver = s.orgVer ?? 0;
   if (orgCache && orgCache.st === s && orgCache.ver === ver) return orgCache;
-  const masks = new Int32Array(N_COUNTRIES), bonus: number[] = [];
-  (s.orgs ?? []).slice(0, 31).forEach((o, i) => { bonus[i] = o.bonus; for (const m of o.members) if (m < N_COUNTRIES) masks[m] |= 1 << i; });
+  const masks = new Int32Array(Math.max(N_COUNTRIES, s.countries.length)), bonus: number[] = [];
+  (s.orgs ?? []).slice(0, 31).forEach((o, i) => { bonus[i] = o.bonus; for (const m of o.members) if (m < masks.length) masks[m] |= 1 << i; });
   orgCache = { st: s, ver, masks, bonus };
   return orgCache;
 }
 /** Shared organisations (NATO, the EU, the CSTO ... and any founded later). */
 export function orgRelation(s: GameState, a: CountryId, b: CountryId): number {
-  if (!s.orgs?.length || a >= N_COUNTRIES || b >= N_COUNTRIES) return 0;
+  if (!s.orgs?.length) return 0;
   const M = orgMasks(s);
+  if (a >= M.masks.length || b >= M.masks.length) return 0;
   let both = M.masks[a] & M.masks[b], r = 0, i = 0;
   while (both) { if (both & 1) r += M.bonus[i]; both >>>= 1; i++; }
   return r;
@@ -199,7 +200,7 @@ export const isInTick = () => inTick;
 function index(s: GameState): TreatyIndex {
   let i = treatyIdx.get(s);
   const n = s.countries.length;
-  if (!i || i.tick !== s.tick || (i.dirty && !inTick)) {
+  if (!i || i.tick !== s.tick || i.n !== n || (i.dirty && !inTick)) {
     i = { tick: s.tick, n, dirty: false, ally: Array.from({ length: n }, () => []), trade: Array.from({ length: n }, () => []), nap: Array.from({ length: n }, () => []), coop: Array.from({ length: n }, () => []) };
     for (const k in s.treaties) {
       const t = s.treaties[k];

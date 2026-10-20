@@ -15,6 +15,7 @@ import { DT } from './types';
 import type { Budget, Country, GameState } from './types';
 import type { Geo } from './geo';
 import { clamp, fmtMoney } from './util';
+import { setPriceLevel } from './util';
 import { DEFICIT_LABEL, record } from './treasury';
 import { logEvent } from './log';
 import { stepMilitary } from './military';
@@ -80,6 +81,14 @@ const rateRaw = (e: Country['eco']) =>
  * outlook meets diminishing returns. The player's country is exempt: there, a boom is the player's doing.
  */
 const aiAnchor = (c: Country) => (c.isPlayer ? 0 : 2 * Math.max(0, c.eco.growth - c.eco.baseGrowth - 0.006));
+/** Income per person of the richest large economies: the frontier everyone else converges toward (weekly cache). */
+let frontierCache = { tick: -1, st: null as GameState | null, v: 1 };
+export function frontierGdppc(s: GameState): number {
+  if (frontierCache.tick === s.tick && frontierCache.st === s) return frontierCache.v;
+  const big = s.countries.filter((c) => c.alive && c.eco.pop > 2e7).map((c) => c.eco.gdp / c.eco.pop).sort((a, b) => b - a);
+  frontierCache = { tick: s.tick, st: s, v: big[Math.min(2, big.length - 1)] ?? 50000 };
+  return frontierCache.v;
+}
 /** Market interest rate: the country's calibrated starting rate plus how much its fundamentals have changed since. */
 export function marketRate(e: Country['eco']): number {
   return clamp((e.prev.rate0 ?? 0.03) + rateRaw(e) - (e.prev.raw0 ?? 0), 0.005, 0.25);
@@ -87,12 +96,21 @@ export function marketRate(e: Country['eco']): number {
 
 const REGIONAL_POP: Record<string, number> = { EU: -0.003, EA: -0.0035, RU: -0.0025, AF: 0.004, ME: 0.003, SA: 0.001, NA: 0.001 };
 /** Demographic trend as a function of income and region (births fall as countries get richer). */
-export function popTrend(gdppc: number, region: string): number {
-  return clamp(0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000) + (REGIONAL_POP[region] ?? 0), -0.01, 0.035);
+export function popTrend(gdppc: number, region: string, years = 0): number {
+  let g = 0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000) + (REGIONAL_POP[region] ?? 0);
+  // the demographic transition runs its course: high birth rates fall everywhere over the century, and very low ones
+  // partly recover, so the world's population levels off (as the UN projects) instead of exploding or dying out
+  if (years > 0) g = g > 0 ? g * Math.exp(-years / 70) : g * (0.4 + 0.6 * Math.exp(-years / 80));
+  return clamp(g, -0.01, 0.035);
 }
-export function popGrowthRate(c: Country): number {
-  const gdppc = c.eco.gdp / Math.max(c.eco.pop, 1);
-  let g = popTrend(gdppc, c.region);
+/** Income per person in today's money: prices rise over the centuries, birth rates follow real living standards. */
+export function realGdppc(s: GameState, c: Country): number {
+  const f = frontierGdppc(s);
+  s.stats.frontier0 ??= f;
+  return (c.eco.gdp / Math.max(c.eco.pop, 1)) * (s.stats.frontier0 / Math.max(f, 1));
+}
+export function popGrowthRate(c: Country, s: GameState): number {
+  let g = popTrend(realGdppc(s, c), c.region, s.tick / 52);
   g += clamp((c.budget.social / Math.max(c.eco.baseSocial, 0.01) - 1) * 0.004, -0.004, 0.004);
   g -= 0.05 * c.eco.foodUnmet;
   g -= 0.002 * Math.max(0, 50 - c.eco.stability) / 50;
@@ -228,7 +246,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.lfShare = clamp(e.lfShare * (1 + charLabour(c) * DT), 0.25, 0.75);
 
   // ---- labour ----
-  e.pop *= 1 + popGrowthRate(c) * DT;
+  e.pop *= 1 + popGrowthRate(c, s) * DT;
   e.laborForce = e.pop * e.lfShare;
 
   // ---- productive capacity ----
@@ -267,6 +285,16 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.capital = Math.max(1, e.capital * (1 - DELTA * DT * (1 + 2 * e.damage)) + (privInv + stateInv) * DT);
 
   // ---- productivity ----
+  // the long run: the 2024 growth outlook fades over a couple of decades into convergence. Countries far behind the
+  // richest catch up fastest; at the frontier, productivity grows about 1% a year. (Without this, a 2024 boom
+  // compounds for centuries: Guyana's 20% a year would make it the world's largest economy.)
+  if (s.tick % 52 === c.id % 52) {
+    const gdppc = e.gdp / Math.max(e.pop, 1);
+    const gap = clamp(Math.log(Math.max(frontierGdppc(s), gdppc) / Math.max(gdppc, 1)) / Math.log(20), 0, 1);
+    const target = (1 - ALPHA) * (0.012 + 0.018 * gap);
+    e.tfpTrend += (target - e.tfpTrend) * (e.tfpTrend > target + 0.02 ? 1 / 8 : 1 / 20);
+    e.baseGrowth = e.tfpTrend / (1 - ALPHA) + popTrend(realGdppc(s, c), c.region, s.tick / 52);
+  }
   const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage - aiAnchor(c);
   // productivity knocked far below its normal path (war, collapse, years of turmoil) slowly recovers toward it,
   // as post-conflict economies do; ordinary policy differences (within 10%) are left alone
@@ -371,7 +399,17 @@ export function stepEconomies(s: GameState, geo: Geo) {
   for (const _ of stepEconomiesGen(s, geo)) { /* run to completion */ }
 }
 /** The same, in slices (yields every few countries) so a slow device never freezes on one week. */
+/** The world's price level (output-weighted), relative to the start of the game: what display money is divided by. */
+export function updatePriceLevel(s: GameState) {
+  let num = 0, den = 0;
+  for (const c of s.countries) if (c.alive) { num += c.eco.price * c.eco.realGdp; den += c.eco.realGdp; }
+  const wpi = den > 0 ? num / den : 1;
+  s.stats.wpi0 ??= wpi;
+  s.stats.wpi = wpi;
+  setPriceLevel(wpi / s.stats.wpi0);
+}
 export function* stepEconomiesGen(s: GameState, geo: Geo): Generator<void> {
+  updatePriceLevel(s);
   const w = aggregateWorld(s);
   let n = 0;
   for (const c of s.countries) {

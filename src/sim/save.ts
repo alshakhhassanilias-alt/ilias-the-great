@@ -1,5 +1,6 @@
 /** Save / load. The whole GameState is plain JSON (geometry is static and never saved). */
-import type { GameState } from './types';
+import { setStartYear, type GameState } from './types';
+import { setPriceLevel } from './util';
 import { COUNTRY_BASE } from '../data/countryData';
 
 export const SAVE_VERSION = 1;
@@ -18,7 +19,7 @@ export function deserialize(text: string, nProvinces: number): GameState {
   if (f.format !== 'world-order-save') throw new Error('Not a World Order save file');
   if (f.version !== SAVE_VERSION) throw new Error(`Unsupported save version ${f.version}`);
   const s = f.state;
-  if (!s || s.countries?.length !== COUNTRY_BASE.length || s.owner?.length !== nProvinces)
+  if (!s || (s.countries?.length ?? 0) < COUNTRY_BASE.length || s.owner?.length !== nProvinces)
     throw new Error('Save file does not match this version of the world map');
   migrate(s);
   return s;
@@ -30,6 +31,8 @@ export function deserialize(text: string, nProvinces: number): GameState {
  * once at the start of a game needs a default here.
  */
 function migrate(s: GameState) {
+  setStartYear(s.settings.startYear ?? 2024);
+  setPriceLevel(s.stats?.wpi && s.stats.wpi0 ? s.stats.wpi / s.stats.wpi0 : 1);
   if (s.legacy && !s.legacy.traits) s.legacy.traits = ['pragmatist', 'reformer'];
   // saves from before the fiscal rule existed get it switched on, like a new game (it can be turned off in the Economy tab)
   if (s.stats && s.stats.fiscalRule === undefined) s.stats.fiscalRule = 1;

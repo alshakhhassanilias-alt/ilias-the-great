@@ -15,7 +15,7 @@
  */
 import type { Geo } from './geo';
 import { nextRand } from './rng';
-import { clamp, fmtMoney } from './util';
+import { clamp, fmtMoney, keyOf } from './util';
 import { logEvent } from './log';
 import { addRelation, areAtWar, getRelation, isAtWar, orgsOf, sanctionLevel } from './relations';
 import { applyTreaty, liftSanction, neighborsOf, imposeSanction, type Proposal } from './diplomacy';
@@ -124,7 +124,7 @@ export function coursesFor(s: GameState, c: Country, geo: Geo): Course[] {
   const o = c.orient ?? 0;
   const west = top(s, c, (x) => (x.orient ?? 0) > 0.5), east = top(s, c, (x) => (x.orient ?? 0) < -0.5);
   const nbrs = neighborsOf(s, geo, c.id).filter((x) => !areAtWar(s, c.id, x));
-  const fl = FLAVOUR[c.name] ?? {};
+  const fl = FLAVOUR[keyOf(c)] ?? {};
   const away = (dir: number) => Math.sign(initialOrientOf(c)) === -dir && initialOrientOf(c) !== 0; // turning against the camp it started in
   const backlash = (dir: number, k = 1): Partial<Record<FactionId, number>> => (away(dir) ? { military: -5 * k, nationalists: -5 * k } : {});
   const merge = (...fs: Partial<Record<FactionId, number>>[]) => { const r: Partial<Record<FactionId, number>> = {}; for (const f of fs) for (const [k, v] of Object.entries(f)) r[k as FactionId] = (r[k as FactionId] ?? 0) + (v as number); return r; };

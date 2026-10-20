@@ -10,6 +10,7 @@
  *   progress per tick = 0.16 · clamp(ln(attack/defence) + 0.25, −1.2, 1.6) scaled by province size.
  * A province changes hands when progress reaches 100%. Casualties are Lanchester-like in the force ratio.
  */
+import { chronicle } from './chronicle';
 import { addRec } from './minds';
 import { addAggression, coalitionAgainst } from './coalitions';
 import { settleGoal } from './wargoals';
@@ -54,14 +55,15 @@ export const isCoastalCountry = (s: GameState, geo: Geo, c: Country) => c.provin
 const SHARED_KEYS: (keyof Country['eco'])[] = ['pop', 'realGdp', 'potential', 'capital', 'energyCap', 'foodCap', 'energyDemand', 'foodDemand', 'laborForce'];
 
 /** Move a province between countries, carrying its share of population and productive capacity. */
-export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryId): number {
+/** `quiet`: a peaceful change (independence, a union): no refugees, no "capital falls" banner, no annexation notice */
+export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryId, quiet = false): number {
   const from = s.owner[p];
   if (from === to) return 0;
   const A = s.countries[from], B = s.countries[to];
   const totalW = A.provinces.reduce((t, q) => t + geo.provinces[q].w, 0) || 1;
   const f = Math.min(1, geo.provinces[p].w / totalW);
   // fighting over a region sends part of its people fleeing
-  const fw = warBetween(s, from, to);
+  const fw = quiet ? undefined : warBetween(s, from, to);
   if (fw) fw.displaced = (fw.displaced ?? 0) + A.eco.pop * f * 0.08;
   for (const k of SHARED_KEYS) {
     const amt = (A.eco[k] as number) * f;
@@ -85,7 +87,8 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   transferBuildings(s, p, from, to);
   for (const w of s.wars) w.fronts = w.fronts.filter((fr) => fr.prov !== p);
   for (const c of [A, B]) c.mil.focus = c.mil.focus.filter((q) => s.owner[q] !== c.id);
-  if (A.provinces.length === 0) eliminateCountry(s, A, to);
+  if (A.provinces.length === 0) eliminateCountry(s, A, to, quiet);
+  else if (p === A.capital && quiet) A.capital = A.provinces.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), A.provinces[0]);
   else if (p === A.capital) {
     A.capital = A.provinces.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), A.provinces[0]);
     A.eco.stability = Math.max(0, A.eco.stability - 12);
@@ -98,11 +101,15 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   return f;
 }
 
-function eliminateCountry(s: GameState, c: Country, by: CountryId) {
+function eliminateCountry(s: GameState, c: Country, by: CountryId, quiet = false) {
   c.alive = false;
   c.eco.pop = 0;
-  s.stats[`conq:${by}`] = (s.stats[`conq:${by}`] ?? 0) + 1;
-  logEvent(s, `${c.name} has been wiped off the map: annexed by ${s.countries[by].name}.`, 'territory', [c.id, by], true, { big: true, prov: s.countries[by].capital });
+  s.stats[`fallen:${c.id}`] = s.tick;
+  if (!quiet) {
+    s.stats[`conq:${by}`] = (s.stats[`conq:${by}`] ?? 0) + 1;
+    logEvent(s, `${c.name} has been wiped off the map: annexed by ${s.countries[by].name}.`, 'territory', [c.id, by], true, { big: true, prov: s.countries[by].capital });
+    chronicle(s, 'fell', `${c.name} was conquered by ${s.countries[by].name}.`, [c.id, by]);
+  }
   for (const w of [...s.wars]) {
     w.attackers = w.attackers.filter((x) => x !== c.id);
     w.defenders = w.defenders.filter((x) => x !== c.id);
