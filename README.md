@@ -62,6 +62,32 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 28: centuries of history, and a 2021 start
+Play for decades or for a thousand years: the map changes the way it always has.
+* **New nations are born.** Big countries crack along their far edges in hard times (a lost war, years of turmoil, a
+  weak centre): the Russian Far East, Xinjiang or the Amazon can become a republic, named after its main city or
+  region ("Republic of Hotan", "West Canada", "Free State of Santarém"). A hard-line parent may fight a war of
+  independence instead of letting go.
+* **Old nations rise again.** A country swallowed by a neighbour comes back under its own name when its conqueror
+  weakens; an empire in deep crisis loses all its unintegrated conquests at once.
+* **Empires and unions.** A country that rules many peoples takes an imperial title ("Empire of Ethiopia",
+  "Commonwealth of India") and drops it when they are gone; close allies that have long been alike unite, as equals
+  under a new name ("Lithuania-Latvia Union") or with the smaller joining the larger. Big old nations rarely do.
+* **Assimilation.** Conquered land governed well for about fifty years comes to see itself as part of the country
+  that holds it.
+* **Your country too:** if one of your regions wants to leave you decide (let it go, a referendum, autonomy, or a
+  crackdown that may start a war of independence); a close ally may propose a union.
+* **World → History** lists every nation born, restored, united, renamed and fallen; a country's header says where
+  it came from ("Founded in 2087, breaking away from Brazil").
+* **The long run is sane now.** Before this round, a 300-year game ended with 2.3 trillion people and Guyana worth
+  $46 quadrillion trillion. Now: booms fade into convergence (the poorest catch up fastest, the richest grow about
+  1% a year), birth rates fall with the demographic transition so the population levels off, and money is shown in
+  the dollars of the year you started.
+* **A "Centuries" speed** (key 5) runs as fast as your computer allows.
+* **Start in 2021 (the new default) or 2024.** 2021 is the world before the wars: Ukraine at peace and at peacetime
+  strength, Finland and Sweden outside NATO, BRICS still five members, the West's rivals not yet its declared
+  adversaries, economies in the dollars of 2021, the pandemic's last wave fading.
+
 ## Round 27: deep QA (what was quietly breaking the world)
 Found by long automated games (20 years, many countries and seeds) and by playing the opening as a new player.
 * **No more debt death spirals:** 17 AI countries used to end with debts of 400–13,000% of GDP at 40% interest. A

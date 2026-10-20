@@ -123,7 +123,7 @@ export function* stepLeadersGen(s: GameState, geo: Geo): Generator<void> {
     if (!c.leader) { crownLeader(s, c, Math.round(hash01('gen0', c.id, s.settings.seed) * 1e6)); c.goal = choosePlan(s, geo, c); }
     // a long-term plan, worked on every month and reconsidered twice a year
     if ((s.tick + c.id) % 4 === 2) { pursuePlan(s, geo, c); stepDebtCrisis(s, c); if (backlashDue(s, c)) backlash(s, geo, c); }
-    if ((s.tick + c.id) % 26 === 5) { const g = choosePlan(s, geo, c); if (g !== c.goal) c.goal = g; }
+    if ((s.tick + c.id) % 52 === 5) { const g = choosePlan(s, geo, c); if (g !== c.goal) c.goal = g; }
     // succession, once a year per country
     if ((s.tick + c.id * 7) % 52 !== 11) continue;
     const years = (s.tick - c.leader!.since) / 52;

@@ -403,3 +403,7 @@
   /* dispatches wait while a decision is open: they would sit on top of it (they are all in the news log) */
   .app:has(.inbox-item.open) .toasts { display: none; }
 }
+@media (min-width: 901px) {
+  /* the news ticker starts where the clock ends, however wide the clock is */
+  .ticker { left: calc(var(--timebox-w, 300px) + 24px); }
+}

@@ -105,6 +105,9 @@ function eliminateCountry(s: GameState, c: Country, by: CountryId, quiet = false
   c.alive = false;
   c.eco.pop = 0;
   s.stats[`fallen:${c.id}`] = s.tick;
+  // a fallen nation keeps its name and colours for the history books, not its charts (saves stay small over centuries)
+  c.hist = { gdp: [], gdppc: [], debt: [], mil: [], stab: [], infl: [], unemp: [], pop: [], trade: [] };
+  delete c.generals;
   if (!quiet) {
     s.stats[`conq:${by}`] = (s.stats[`conq:${by}`] ?? 0) + 1;
     logEvent(s, `${c.name} has been wiped off the map: annexed by ${s.countries[by].name}.`, 'territory', [c.id, by], true, { big: true, prov: s.countries[by].capital });

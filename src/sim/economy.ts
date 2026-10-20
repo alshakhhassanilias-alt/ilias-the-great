@@ -100,7 +100,7 @@ export function popTrend(gdppc: number, region: string, years = 0): number {
   let g = 0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000) + (REGIONAL_POP[region] ?? 0);
   // the demographic transition runs its course: high birth rates fall everywhere over the century, and very low ones
   // partly recover, so the world's population levels off (as the UN projects) instead of exploding or dying out
-  if (years > 0) g = g > 0 ? g * Math.exp(-years / 70) : g * (0.4 + 0.6 * Math.exp(-years / 80));
+  if (years > 0) g = g > 0 ? g * Math.exp(-years / 50) : g * (0.4 + 0.6 * Math.exp(-years / 80));
   return clamp(g, -0.01, 0.035);
 }
 /** Income per person in today's money: prices rise over the centuries, birth rates follow real living standards. */

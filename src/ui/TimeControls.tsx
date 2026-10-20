@@ -12,7 +12,7 @@ export function TimeControls() {
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--timebox-h', `${el.offsetHeight}px`));
+    const ro = new ResizeObserver(() => { document.documentElement.style.setProperty('--timebox-h', `${el.offsetHeight}px`); document.documentElement.style.setProperty('--timebox-w', `${el.offsetWidth}px`); });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

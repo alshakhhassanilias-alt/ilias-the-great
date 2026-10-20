@@ -27,7 +27,7 @@ export function StartScreen() {
   const list = useMemo(() => {
     const all = s.countries.filter((c) => c.alive).sort((a, b) => b.eco.gdp - a.eco.gdp);
     if (q.trim()) return all.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40);
-    return FEATURED.map((n) => s.countries[NAME_TO_ID[n]]);
+    return FEATURED.map((n) => s.countries[NAME_TO_ID[n]]).sort((a, b) => b.eco.gdp - a.eco.gdp);
   }, [q, s]);
   const c = picked !== null ? s.countries[picked] : null;
   const upd = (p: Partial<Settings>) => setSettings((x) => ({ ...x, ...p }));

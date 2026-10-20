@@ -23,7 +23,7 @@ import { clamp, keyOf } from './util';
 import { logEvent } from './log';
 import { chronicle } from './chronicle';
 import { transferProvince, declareWar } from './war';
-import { addRelation, getRelation, hasAlliance, isAtWar } from './relations';
+import { addRelation, getRelation, hasAlliance, isAtWar, touchTreaties } from './relations';
 import { neighborsOf } from './diplomacy';
 import { strength } from './military';
 import { crownLeader } from './leaders';
@@ -38,7 +38,7 @@ export const ASSIMILATION_YEARS = 50;
 // ------------------------------------------------------------------ the weekly step
 export function stepEpochs(s: GameState, geo: Geo) {
   if (s.tick < 2 * YEAR) return;
-  if (s.tick % YEAR === 7) assimilate(s);
+  if (s.tick % YEAR === 7) { assimilate(s); treatyHousekeeping(s); }
   if (s.tick % 26 === 11) considerUnions(s, geo);
   for (const c of s.countries) {
     if (!c.alive || (s.tick + c.id * 7) % YEAR !== 0) continue;
@@ -56,6 +56,25 @@ function assimilate(s: GameState) {
     if (s.tick - (s.stats[`held:${p}`] ?? 0) < ASSIMILATION_YEARS * YEAR) continue;
     s.core[p] = o;
   }
+}
+
+// ------------------------------------------------------------------ treaties lapse
+/**
+ * Trade agreements between AI countries are renegotiated and lapse, as real ones do: at once when the two have fallen
+ * out, now and then when they are far apart. Without this, every pair of countries ends up with one over the
+ * centuries (and the world slows down counting them).
+ */
+function treatyHousekeeping(s: GameState) {
+  let changed = false;
+  for (const k in s.treaties) {
+    const t = s.treaties[k];
+    const dash = k.indexOf('-'), a = +k.slice(0, dash), b = +k.slice(dash + 1);
+    const A = s.countries[a], B = s.countries[b];
+    if (!A?.alive || !B?.alive) { delete s.treaties[k]; changed = true; continue; }
+    if (t.trade && !A.isPlayer && !B.isPlayer && (getRelation(s, a, b) < 0 || (A.region !== B.region && nextRand(s) < 0.03))) { t.trade = false; changed = true; }
+    if (!t.trade && !t.nap && !t.alliance && !t.coop && !t.sAB && !t.sBA) { delete s.treaties[k]; changed = true; }
+  }
+  if (changed) touchTreaties(s);
 }
 
 // ------------------------------------------------------------------ geometry helpers
