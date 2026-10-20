@@ -61,6 +61,7 @@ export function PoliticsTab() {
             <div className="pc-bar"><i style={{ width: `${P.pc}%` }} /></div>
             <div className="faint" style={{ fontSize: 12 }}>{inc.v >= 0 ? '+' : ''}{inc.v.toFixed(2)} a week ({Math.round(inc.v * 52)} a year): {inc.parts.map((p) => `${p.label} ${p.v >= 0 ? '+' : ''}${p.v.toFixed(2)}`).join(' · ')}</div>
             <div className="faint" style={{ fontSize: 12 }}>Spend it on laws, reforms, deals with angry factions and crisis responses. Signing treaties (+2, alliances +4) and meeting objectives (+6) earn it too.</div>
+            {P.pc >= 99 && <div className="pc-full">Full: what you earn from now on is wasted. Pass a law (below), start a national project (<button className="linkish" onClick={() => store.setTab('goals')}>Goals</button>) or change a doctrine (<button className="linkish" onClick={() => store.setTab('overview')}>Overview</button>).</div>}
           </div>
         </div>
         <LeverList kind="pc" />

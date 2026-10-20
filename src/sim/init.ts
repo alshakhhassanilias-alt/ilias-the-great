@@ -288,5 +288,11 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
   ensurePolitics(state);
   if (settings.mode === 'legacy') initLegacy(state);
   ensureAlignment(state);
+  // standing security guarantees in 2024: the US for Taiwan (the Taiwan Relations Act); the main NATO powers for
+  // Kosovo (KFOR peacekeepers)
+  for (const [from, to] of [['United States of America', 'Taiwan'], ['United States of America', 'Kosovo'], ['Germany', 'Kosovo'], ['United Kingdom', 'Kosovo'], ['France', 'Kosovo'], ['Italy', 'Kosovo']]) {
+    const f = NAME_TO_ID[from], t = NAME_TO_ID[to];
+    if (f !== undefined && t !== undefined && f !== player && !state.guarantees.includes(`${f}>${t}`)) state.guarantees.push(`${f}>${t}`);
+  }
   return state;
 }

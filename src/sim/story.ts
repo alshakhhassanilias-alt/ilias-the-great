@@ -34,6 +34,7 @@ import type { Country, CountryId, FactionId, GameState } from './types';
 
 export type Arch = 'reform' | 'iron' | 'pragmatic';
 export const ARCH_LABEL: Record<Arch, string> = { reform: 'the reformer', iron: 'the iron hand', pragmatic: 'the pragmatist' };
+const troopsTxt = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)} million` : `${Math.round(v / 1000)},000`);
 const ARCHS: Arch[] = ['reform', 'iron', 'pragmatic'];
 
 // ------------------------------------------------------------------ effects
@@ -518,7 +519,7 @@ export function brief(s: GameState, c: Country, act: number, rv: number): string
     const R = rv >= 0 ? s.countries[rv] : null;
     if (!R) return '';
     const g = (s.grudges?.[`${R.id}>${c.id}`] ?? []).slice().sort((a, b) => b.w - a.w)[0];
-    return `${R.name}${R.leader ? `, led by ${R.leader.name} (${R.leader.traits.join(' and ')})` : ''}: ${Math.round(R.mil.troops / 1000)}k troops to your ${Math.round(c.mil.troops / 1000)}k, an economy of ${money(R.eco.gdp)} to your ${money(e.gdp)}.${R.goal?.target === c.id ? ` Their declared aim: ${R.goal.text.charAt(0).toLowerCase()}${R.goal.text.slice(1)}.` : ''}${g ? ` They still hold it against you that you ${g.why}.` : ''}`;
+    return `${R.name}${R.leader ? `, led by ${R.leader.name} (${R.leader.traits.join(' and ')})` : ''}: ${troopsTxt(R.mil.troops)} troops to your ${troopsTxt(c.mil.troops)}, an economy of ${money(R.eco.gdp)} to your ${money(e.gdp)}.${R.goal?.target === c.id ? ` Their declared aim: ${R.goal.text.charAt(0).toLowerCase()}${R.goal.text.slice(1)}.` : ''}${g ? ` They still hold it against you that you ${g.why}.` : ''}`;
   }
   if (act === 3) {
     const k = seedOf(c).econ;

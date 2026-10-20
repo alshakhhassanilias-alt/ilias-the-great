@@ -35,7 +35,7 @@ export function battleReport(s: GameState, geo: Geo, warId: number, prov: number
   add(gp.terrain > 0.6 ? 'Mountains & rough ground' : gp.terrain > 0.35 ? 'Hills & forests' : 'Open plains', 1 + 0.9 * gp.terrain, 'defender');
   const fl = levelOf(s, prov, 'fort');
   if (fl) add(`Fortress level ${fl}`, fortBonus(s, prov), 'defender');
-  if (prov === D.capital) add('Capital city', 1.25 / 1.0, 'defender');
+  if (prov === D.capital) add('Capital city', 1.6, 'defender');
   add('Fortifications & infrastructure', 1.15 + 0.2 * (D.eco.infra / 100), 'defender');
   const air = airSuperiority(A, D);
   if (Math.abs(air) > 0.05) mods_.push({ label: air > 0 ? `${A.name} rules the skies` : `${D.name} rules the skies`, pct: Math.round(Math.abs(0.18 * air) * 100), favours: air > 0 ? 'attacker' : 'defender' });

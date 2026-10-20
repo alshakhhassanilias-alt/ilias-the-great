@@ -82,10 +82,13 @@ function backSides(s: GameState, w: War) {
     if (!G.alive || !isMajor(s, G.id) || warSideOf(w, G.id) >= 0 || G.id === s.player) continue;
     const ra = getRelation(s, G.id, A), rd = getRelation(s, G.id, D);
     const side = rd > 30 && ra < 0 ? D : ra > 30 && rd < 0 ? A : -1;
-    if (side < 0 || nextRand(s) > 0.5) continue;
+    // a country fighting off an invasion with close friends among the great powers gets far more (Ukraine: tens of
+    // billions a year) than one side of a war the patrons merely prefer
+    const victim = side === D && rd > 50;
+    if (side < 0 || nextRand(s) > (victim ? 0.8 : 0.5)) continue;
     const other = side === A ? D : A;
     const S = s.countries[side];
-    const aid = Math.min(0.0015 * G.eco.gdp, 0.02 * S.eco.gdp);
+    const aid = victim ? Math.min(0.003 * G.eco.gdp, 0.06 * S.eco.gdp) : Math.min(0.0015 * G.eco.gdp, 0.02 * S.eco.gdp);
     S.mil.equipArmy += aid * 0.7; S.mil.equipAir += aid * 0.3;
     addRelation(s, G.id, side, 4); addRelation(s, G.id, other, -6);
     if (side === D && sanctionLevel(s, G.id, other) === 0 && nextRand(s) < 0.4) imposeSanction(s, G.id, other, 1);

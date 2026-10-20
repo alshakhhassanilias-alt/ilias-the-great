@@ -25,6 +25,9 @@ import { GOAL_DESC, GOAL_LABEL, stanceOf, type Goal } from '../../sim/negotiate'
 import { alliesOf, areAtWar, baseRelation, relationBreakdown, getRelation, getTreaty, partnersOf, sanctionLevel, warsOf } from '../../sim/relations';
 import { grudgesOf } from '../../sim/leaders';
 import { assessAttack } from '../../sim/ai';
+
+/** attack-vs-defence ratio in words a player reads at a glance */
+const oddsText = (r: number) => r >= 1.15 ? `Your attack is about ${r >= 10 ? Math.round(r) : r.toFixed(1)} times their defence` : r > 0.87 ? 'Your attack and their defence are about even' : `Their defence is about ${1 / r >= 10 ? Math.round(1 / r) : (1 / r).toFixed(1)} times your attack`;
 import { claimStrength } from '../../sim/war';
 
 const KINDS: Proposal[] = ['trade', 'nap', 'alliance', 'coop'];
@@ -205,7 +208,7 @@ export function DiplomacyTab({ id }: { id: number }) {
         ) : confirmWar ? (
           <div className="note bad">
             <b>Declare war on {c.name}?</b>
-            <div style={{ margin: '6px 0' }}>Estimated attack strength {as.ratio.toFixed(2)}× their defence{as.allies > 0 ? ' (including allies who may join)' : ''}{as.nuclear ? '; they have a nuclear deterrent' : ''}. {t?.nap || t?.alliance ? 'This breaks a treaty and hurts your reputation. ' : ''}Other nations will react and your economy will be strained.</div>
+            <div style={{ margin: '6px 0' }}>{oddsText(as.ratio)}{as.allies > 0 ? ' (counting allies who may join them)' : ''}{as.nuclear ? '; they have a nuclear deterrent' : ''}. {t?.nap || t?.alliance ? 'This breaks a treaty and hurts your reputation. ' : ''}Other nations will react and your economy will be strained.</div>
             <div className="btnrow">
               <button className="btn danger" onClick={() => { const r = store.act((g) => actDeclareWar(g, geo, g.player, id)); if (r.ok) { store.setTab('military'); } setConfirmWar(false); }}>Declare war</button>
               <button className="btn" onClick={() => setConfirmWar(false)}>Cancel</button>
@@ -214,7 +217,7 @@ export function DiplomacyTab({ id }: { id: number }) {
         ) : (
           <button className="btn danger" style={{ width: '100%' }} onClick={() => setConfirmWar(true)}>Declare war…<small>effective immediately</small></button>
         )}
-        {!atWar && as.ratio < 0.8 && <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>Their defence is currently stronger than your offence ({as.ratio.toFixed(2)}×).</div>}
+        {!atWar && as.ratio < 0.8 && <div className="faint" style={{ fontSize: 11.5, marginTop: 6 }}>{oddsText(as.ratio)}: an attack now would likely fail.</div>}
       </Section>
     </>
   );

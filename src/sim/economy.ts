@@ -36,7 +36,7 @@ export function taxFactor(b: Budget, collection = 1): number {
     1.2 * Math.pow(Math.max(0, b.taxVat * collection - 0.18), 1.5);
   return clamp(1 - d, 0.3, 1);
 }
-export const stabilityFactor = (s: number) => (s >= 60 ? 1 : 1 - 0.5 * Math.pow((60 - s) / 60, 1.5));
+export const stabilityFactor = (s: number) => (s >= 60 ? 1 : 1 - 0.35 * Math.pow((60 - s) / 60, 1.5));
 export const infraFactor = (infra: number) => 0.8 + 0.4 * (infra / 100);
 export const needInfra = (infra: number) => 0.01 + 0.0004 * infra;
 
@@ -57,7 +57,8 @@ export function factors(c: Country, priceE: number): Factors {
     infra: infraFactor(e.infra),
     energy: energyFactor(e, priceE),
     trade: 1 + 0.15 * (e.tradeIndex - 1),
-    stab: stabilityFactor(e.stability),
+    // output answers to stability over months, not weeks: a coup scare does not halve a year's GDP
+    stab: stabilityFactor(e.prev.stabOut ?? e.stability),
     tax: taxFactor(c.budget, e.collection),
     war: 1 - 0.5 * e.damage,
   };
@@ -81,7 +82,7 @@ const rateRaw = (e: Country['eco']) =>
 const aiAnchor = (c: Country) => (c.isPlayer ? 0 : 2 * Math.max(0, c.eco.growth - c.eco.baseGrowth - 0.006));
 /** Market interest rate: the country's calibrated starting rate plus how much its fundamentals have changed since. */
 export function marketRate(e: Country['eco']): number {
-  return clamp((e.prev.rate0 ?? 0.03) + rateRaw(e) - (e.prev.raw0 ?? 0), 0.005, 0.4);
+  return clamp((e.prev.rate0 ?? 0.03) + rateRaw(e) - (e.prev.raw0 ?? 0), 0.005, 0.25);
 }
 
 const REGIONAL_POP: Record<string, number> = { EU: -0.003, EA: -0.0035, RU: -0.0025, AF: 0.004, ME: 0.003, SA: 0.001, NA: 0.001 };
@@ -252,7 +253,9 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   const energyShock = 0.025 * Math.max(0, priceE - 1) * Math.min(1, Math.max(0, e.energyDemand - e.energyCap) / Math.max(e.energyDemand, 1) * 4);
   const piTarget = 0.02 + 1.2 * e.monetary + overheating + energyShock * charShock(c) + charInfl(c) + 0.12 * fxStress + 0.04 * (e.stability < 25 ? (25 - e.stability) / 25 : 0);
   e.inflation += (piTarget - e.inflation) * (1 - Math.exp(-DT * 2.5));
-  e.price *= 1 + e.inflation * DT;
+  // prices are in dollars: inflation above the world's ~3% is mostly lost to a weaker currency, so a country does not
+  // get richer in dollars by printing money (Turkey's or Argentina's dollar GDP barely moved through years of inflation)
+  e.price *= 1 + (e.inflation <= 0.03 ? e.inflation : 0.03 + 0.1 * (e.inflation - 0.03)) * DT;
   e.gdp = e.realGdp * e.price;
   e.reserves += balance * DT + (0.12 * e.gdp - e.reserves) * 0.5 * DT;
 
@@ -265,7 +268,12 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
 
   // ---- productivity ----
   const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage - aiAnchor(c);
-  e.tfp *= 1 + gTfp * DT;
+  // productivity knocked far below its normal path (war, collapse, years of turmoil) slowly recovers toward it,
+  // as post-conflict economies do; ordinary policy differences (within 10%) are left alone
+  const path = (e.prev.tfpPath ?? e.tfp) * (1 + e.tfpTrend * DT);
+  e.prev.tfpPath = path;
+  const recovery = 0.1 * Math.max(0, Math.log(path / e.tfp) - 0.1);
+  e.tfp *= 1 + (gTfp + recovery) * DT;
   e.tech = clamp(e.tech + DT * (0.25 + 40 * Math.max(-0.02, b.education - 0.02)) * (1 - e.tech / 110), 5, 100);
 
   // ---- infrastructure ----
@@ -300,14 +308,18 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
       logEvent(s, `🏦 The treasury is empty. From now on the deficit (${fmtMoney(spending - revenue)} a year) is covered by borrowing, and one-off costs are borrowed too. Raise taxes or cut spending in the Economy tab to stop the debt growing.`, 'danger', [c.id], true);
     }
   } else if (e.dry && e.cash > 0.01 * e.gdp) e.dry = false;
-  // debt crisis
+  // debt crisis: when the debt can no longer be serviced (very high, or interest eating a large share of revenue), the
+  // country defaults and restructures down to a level it can carry, as real defaulters do (Greece 2012, Argentina,
+  // Zambia). Markets stay wary for years (the rate premium fades as stability returns).
   const debtRatio = e.debt / e.gdp;
-  if (debtRatio > 3 && s.tick - e.lastDefault > 520) {
-    e.debt *= 0.5;
-    e.stability = Math.max(0, e.stability - 25);
-    e.monetary += 0.05;
+  const unsustainable = debtRatio > 4 || (debtRatio > 1.2 && e.interest > 0.35 * Math.max(e.revenue, 1));
+  if (unsustainable && s.tick > 26 && s.tick - e.lastDefault > 260) {
+    const before = e.debt;
+    e.debt = Math.min(e.debt * 0.5, Math.max(0.7 * e.gdp, e.debt * 0.25));
+    e.stability = Math.max(0, e.stability - 20);
+    e.monetary += 0.04;
     e.lastDefault = s.tick;
-    logEvent(s, `${c.name} defaulted on its sovereign debt (${(debtRatio * 100).toFixed(0)}% of GDP); creditors accepted a 50% haircut.`, 'econ', [c.id], true);
+    logEvent(s, `${c.name} defaulted on its sovereign debt (${(debtRatio * 100).toFixed(0)}% of GDP); creditors accepted a ${Math.round((1 - e.debt / before) * 100)}% haircut.`, c.isPlayer ? 'danger' : 'econ', [c.id], true);
   }
 
   // ---- stability ----
@@ -332,6 +344,8 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.stabParts = parts;
   const target = Object.values(parts).reduce((t, v) => t + v, 0);
   e.stability = clamp(e.stability + (target - e.stability) * (1 - Math.exp(-DT * 2)), 0, 100);
+  const so = e.prev.stabOut ?? e.stability;
+  e.prev.stabOut = so + (e.stability - so) * (1 - Math.exp(-DT * 1.5));
 
   // ---- growth explanation (annualised log contributions, smoothed) ----
   const lnNow: Record<string, number> = {

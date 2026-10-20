@@ -262,16 +262,17 @@ export function termProvinces(s: GameState, geo: Geo, a: CountryId, b: CountryId
       return near(p) - near(q) || geo.provinces[q].w - geo.provinces[p].w;
     });
     if (t.kind === 'surrender') return { from: b, to: a, provs: ranked };
+    // a peace treaty redraws the border: it hands over land next to the winner, never the loser's capital (a capital
+    // is only lost by being taken), and never land across the sea from anything the winner holds
+    const reachable = ranked.filter((p) => p !== donor.capital && geo.adj[p].some((n) => mine.has(n)));
     const n = Math.max(1, Math.round((t.share ?? 0.2) * donor.provinces.length));
-    return { from: b, to: a, provs: ranked.slice(0, Math.min(n, donor.provinces.length - 1 || 1)) };
+    return { from: b, to: a, provs: reachable.slice(0, Math.min(n, donor.provinces.length - 1 || 1)) };
   }
   if (t.kind === 'concede') {
     const donor = s.countries[a];
     const theirs = new Set(s.countries[b].provinces);
-    const ranked = [...donor.provinces].filter((p) => p !== donor.capital).sort((p, q) => {
-      const near = (x: number) => geo.adj[x].some((n) => theirs.has(n)) ? 0 : 1;
-      return near(p) - near(q) || geo.provinces[p].w - geo.provinces[q].w;
-    });
+    const ranked = [...donor.provinces].filter((p) => p !== donor.capital && geo.adj[p].some((n) => theirs.has(n)))
+      .sort((p, q) => geo.provinces[p].w - geo.provinces[q].w);
     const n = Math.max(1, Math.round((t.share ?? 0.15) * donor.provinces.length));
     return { from: a, to: b, provs: ranked.slice(0, Math.min(n, ranked.length)) };
   }
@@ -537,7 +538,7 @@ export function stepWars(s: GameState, geo: Geo) {
       const sumDef = tp.reduce((t, q) => t + defW(q, e), 0);
       const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (defW(p, e) / sumDef) * (1 + 0.25 * E.eco.infra / 100);
       const terrain = geo.provinces[p].terrain;
-      const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.25 : 0);
+      const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.8 : 0);
       const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
       const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) : 1) * campDef(s, E) * charDef(E));
       let Pa = 0;

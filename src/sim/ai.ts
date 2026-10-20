@@ -9,10 +9,10 @@ import { warSupport } from './warsupport';
 import { grudgeScore } from './leaders';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
-import { nextRand } from './rng';
+import { hash01, nextRand } from './rng';
 import { clamp } from './util';
 import {
-  alliesOf, areAtWar, enemiesOf, getRelation, hasAlliance, hasNap, hasTrade, isAtWar, partnersOf, sanctionLevel, warBetween, warsOf,
+  alliesOf, areAtWar, enemiesOf, getRelation, guarantorsOf, hasAlliance, hasNap, hasTrade, isAtWar, partnersOf, sanctionLevel, warBetween, warsOf,
 } from './relations';
 import { manpower, strength } from './military';
 import {
@@ -194,7 +194,7 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
   }
 }
 
-export interface Assessment { mine: number; defense: number; ratio: number; supply: number; allies: number; nuclear: boolean; distance: number }
+export interface Assessment { mine: number; defense: number; ratio: number; supply: number; allies: number; nuclear: boolean; distance: number; /** a strong outside power has promised to defend the target */ guarded: boolean }
 /** How feasible would an attack by c on T be? (used by the AI and shown to the player before declaring war) */
 export function assessAttack(s: GameState, geo: Geo, c: Country, T: Country): Assessment {
   const mine = strength(c) * (0.6 + 0.4 * c.mil.readiness);
@@ -203,10 +203,19 @@ export function assessAttack(s: GameState, geo: Geo, c: Country, T: Country): As
   let defense = strength(T) * 1.3 * (0.6 + 0.4 * T.mil.readiness);
   let allies = 0;
   if (s.settings.defensiveAlliances) allies = 0.6 * alliesOf(s, T.id).filter((a) => a !== c.id).reduce((x, a) => x + strength(s.countries[a]), 0);
+  // security guarantees (the US for Taiwan, NATO's peacekeepers for Kosovo, any the player gives): a guarantor may
+  // or may not come, so it counts for less than an ally, but a strong one makes an attacker think twice
+  let guarded = false;
+  for (const g of guarantorsOf(s, T.id)) {
+    if (g === c.id || hasAlliance(s, g, c.id)) continue;
+    const G = strength(s.countries[g]);
+    if (s.settings.defensiveAlliances) allies += 0.3 * G;
+    if (G > 0.5 * mine) guarded = true;
+  }
   defense += allies;
   const nuclear = T.mil.nuclear && !c.mil.nuclear;
   if (nuclear) defense *= 4;
-  return { mine, defense, ratio: (mine * supply) / Math.max(1, defense), supply, allies, nuclear, distance: dist };
+  return { mine, defense, ratio: (mine * supply) / Math.max(1, defense), supply, allies, nuclear, distance: dist, guarded };
 }
 
 function considerWar(s: GameState, geo: Geo, c: Country) {
@@ -240,16 +249,19 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     let desire = mind + revenge + goalPull + cause + coal + c.ai.aggression * 0.6 * s.settings.aggression * (s.crisis?.id === 'coldwar' ? 1.3 : 1) + c.ai.expansion * 0.3 + claim * 0.5 + Math.max(0, -rel / 100) * 0.5
       + Math.min(0.2, (T.eco.gdp / Math.max(c.eco.gdp, 1)) * 0.1) + Math.min(0.2, (ratio - need) * 0.05)
       - c.ai.caution * 0.35 - (hasNap(s, c.id, t) ? 0.3 : 0) - (hasTrade(s, c.id, t) ? 0.12 : 0) - (c.eco.debt / c.eco.gdp > 2 ? 0.15 : 0);
+    if (as.guarded) desire -= 0.3;
+    // each leader's temper differs from game to game, so the same crises do not erupt on schedule every time
+    desire *= 0.7 + 0.6 * hash01('temper', s.settings.seed, c.id, t);
     if (desire > 0) desire *= charDeter(T);
     if (t === s.player) desire *= mods(T).deter * (s.settings.difficulty === 'hard' ? 1.25 : s.settings.difficulty === 'easy' ? 0.7 : 1);
-    if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (attack odds ${ratio.toFixed(1)}×)`;
+    if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (${ratio.toFixed(1)} times its strength)`;
     if (desire > 0.62 && (!best || desire > best.desire)) {
       const why: string[] = [];
       if (planWarPull(s, c, t) > 0.1 && c.goal) why.push(`its aim: ${c.goal.text.charAt(0).toLowerCase() + c.goal.text.slice(1)}`);
       if (opinionOf(s, c.id, t).v < -15) why.push(`${c.leader?.name ?? 'its leader'} has judged ${T.name}'s record and does not like it`);
       if (claim > 0.3) why.push('old territorial claims');
       if (rel < -40) why.push('deep hostility');
-      if (ratio > 2.5) why.push(`it sees ${T.name} as weak (${ratio.toFixed(1)}× odds)`);
+      if (ratio > 2.5) why.push(`it sees ${T.name} as weak (${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)} times stronger)`);
       if (c.ai.expansion > 0.6) why.push('an expansionist government');
       if (c.ai.aggression > 0.8) why.push('a hawkish leadership');
       if (s.crisis?.id === 'coldwar') why.push('the cold war climate');

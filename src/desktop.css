@@ -399,3 +399,7 @@
 @media (min-width: 901px) {
   .app:has(.breaking) .toasts { top: 260px; }
 }
+@media (min-width: 901px) {
+  /* dispatches wait while a decision is open: they would sit on top of it (they are all in the news log) */
+  .app:has(.inbox-item.open) .toasts { display: none; }
+}

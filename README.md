@@ -62,6 +62,26 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 27: deep QA (what was quietly breaking the world)
+Found by long automated games (20 years, many countries and seeds) and by playing the opening as a new player.
+* **No more debt death spirals:** 17 AI countries used to end with debts of 400–13,000% of GDP at 40% interest. A
+  country that can no longer pay now defaults and restructures to a level it can carry; rates are capped at 25%.
+* **No more collapsing economies:** fragile states used to shrink 40–80% a year because output followed every swing
+  in stability. Output now follows stability over months, and productivity wrecked by war or turmoil recovers toward
+  its normal path.
+* **Inflation no longer makes countries rich:** prices are in dollars, so a high-inflation currency loses value;
+  Turkey or Iran no longer grow tenfold in dollars in 15 years.
+* **Every game is different:** leaders' tempers vary from game to game, and the real 2024 security guarantees exist
+  (the US for Taiwan, the main NATO powers for Kosovo). Before, China invaded Taiwan in 7 of 10 games and Serbia
+  attacked Kosovo in 7 of 10; now the opening crises vary from game to game.
+* **Wars end sensibly:** peace treaties only hand over land next to the winner and never the loser's capital (before,
+  a peace could hand Russia the capitals of Sweden and Finland at once); capitals are much harder to storm; great
+  powers arm a country fighting off an invasion at real-world scale, so Kyiv does not always fall.
+* **Interface:** pop-up news no longer covers an open decision; each offer quotes its own covering note and offers
+  have more varied wording; war odds and troop numbers in plain words ("their defence is about 3 times your
+  attack", "1.2 million troops"); the year in review disappears after a quarter; a full political capital bar says
+  so and points to where to spend it.
+
 ## Round 26: what players expect from a Steam game
 * **Save slots:** named saves, rotating autosaves (every 1–24 months, keep 1–10), F5 quick save / F9 quick load,
   Continue on the main menu, export and import; old saves move over by themselves.

@@ -824,3 +824,5 @@ html.calm *, html.calm *::before, html.calm *::after { animation-duration: 0.001
   .check > span > small { display: block; margin-top: 2px; }
 }
 .pause-build { margin: 12px 0 0; text-align: center; font-size: 11px; opacity: .5; letter-spacing: .04em; }
+.pc-full { margin-top: 6px; font-size: 12px; color: #f2c14e; }
+.linkish { background: none; border: none; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }

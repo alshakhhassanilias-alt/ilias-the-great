@@ -62,9 +62,9 @@ const LINES: Record<CableKind, { mood: Cable['mood']; hawk: T[]; dove: T[]; any:
     dove: [() => 'Our peoples have so much in common. Let us keep building on it.'],
     any: [() => 'Our trade grows every quarter. My compliments to your ministers.', (o) => `Whatever happens in the world, ${o.me.name} stands with ${o.you.name}.`] },
   offer: { mood: 'warm',
-    hawk: [(o) => `${o.me.name} needs strong partners, and so does ${o.you.name}. Let us put it on paper.`],
-    dove: [() => 'I believe we can do great things together. Will you sign?'],
-    any: [(o) => `${o.me.name} would like to put our relations on a firmer footing.`] },
+    hawk: [(o) => `${o.me.name} needs strong partners, and so does ${o.you.name}. Let us put it on paper.`, () => 'We do not sign with everyone. We would sign with you.', (o) => `Strength comes in pairs. ${o.me.name} has chosen its partner; the pen is on your desk.`],
+    dove: [() => 'I believe we can do great things together. Will you sign?', () => 'My people and yours already trade, study and marry. Our governments should catch up.', (o) => `A small step, but ${o.me.name} would like to take it with ${o.you.name}.`],
+    any: [(o) => `${o.me.name} would like to put our relations on a firmer footing.`, () => 'Our officials have done the work. It only needs two signatures now.', (o) => `${o.me.name} has a proposal. We think it serves us both.`] },
 };
 
 const big = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)} million` : v >= 1e3 ? `${Math.round(v / 1000)},000` : `${Math.round(v)}`);

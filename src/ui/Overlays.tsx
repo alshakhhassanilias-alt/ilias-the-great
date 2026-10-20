@@ -72,7 +72,8 @@ export function Offers() {
 function OfferCard({ o }: { o: GameState['offers'][number] }) {
   const s = store.state!;
   const C = s.countries[o.from];
-  const quote = (s.cables ?? []).filter((x) => x.from === o.from).slice(-1)[0];
+  // the covering note sent with this offer (not a later message, which would repeat on every offer from them)
+  const quote = (s.cables ?? []).find((x) => x.from === o.from && x.tick === o.tick);
   // who would react, and how: recomputed monthly, not on every repaint
   const react = useMemo(() => (o.kind !== 'peace' ? previewReactions(s, o.from, s.player, o.kind).filter((x) => x.id !== s.player).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3) : []), [o.id, o.kind, s.tick >> 2]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
@@ -98,7 +99,7 @@ function OfferCard({ o }: { o: GameState['offers'][number] }) {
 /** the newest unread message, unless it is the covering note of an offer (the offer card already quotes it) */
 const cableNow = (s: GameState) => [...(s.cables ?? [])].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10 && !s.offers.some((o) => o.from === x.from && o.tick === x.tick));
 const rippleNow = (s: GameState) => { const r = s.lastRipple; return r && (r.a === s.player || r.b === s.player) && store.rippleSeen !== `${r.tick}:${r.a}:${r.b}:${r.kind}` && s.tick - r.tick <= 26; };
-const reviewNow = (s: GameState) => !!s.review && store.reviewSeen < s.review.tick && s.tick - s.review.tick <= 30;
+const reviewNow = (s: GameState) => !!s.review && store.reviewSeen < s.review.tick && s.tick - s.review.tick <= 12;
 
 /**
  * Desktop: every notice that is not a decision (offers, cables, how the world reacted, the year in review) in one
