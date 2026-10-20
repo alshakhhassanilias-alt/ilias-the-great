@@ -16,8 +16,12 @@ root anywhere that serves files over HTTPS, then in **Safari → Share → Add t
 Home Screen**. It then opens full-screen and keeps working offline (service
 worker). Two easy hosts:
 
-- **GitHub Pages**: repo *Settings → Pages → Deploy from branch → `main` / root*.
-  Note: on a free GitHub plan Pages only works for public repositories.
+- **GitHub Pages**: open
+  https://github.com/alshakhhassanilias-alt/ilias-the-great/settings/pages →
+  *Deploy from a branch* → branch **`waiter-pad`**, folder **/ (root)** → Save.
+  After 1–2 minutes the app is at
+  https://alshakhhassanilias-alt.github.io/ilias-the-great/
+  (Pages on a free plan needs the repository to be public.)
 - **Netlify Drop** (app.netlify.com/drop): drag the repo folder in.
 
 `npm run build` also writes `dist/waiter-pad.html`, a single self-contained file
