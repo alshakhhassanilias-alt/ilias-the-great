@@ -5,3 +5,4 @@ dist
 desktop/node_modules
 desktop/release
 desktop/web
+__pycache__/

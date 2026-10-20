@@ -2,7 +2,8 @@
  * Adaptive music. Tracks are grouped by mood (menu, peace, tension, war); the game picks the mood from the
  * state of the world and the player crossfades to a track of that mood, then keeps playing tracks of the
  * same mood. Files live in /music (see public/music/README.md: replace them with your own to change the
- * score). Where the files are missing (the single-file build), the game simply plays without music.
+ * score). The single-file build streams them from the repository; where a file cannot be loaded, the game simply plays
+ * without it.
  */
 import { prefs, onPrefs } from './prefs';
 
@@ -19,6 +20,8 @@ export const TRACKS: Track[] = [
 ];
 
 const FADE = 3.5;
+/** where the files are: next to the game, or (in the single-file build) wherever WO_MUSIC_BASE points */
+const BASE = (typeof window !== 'undefined' && (window as { WO_MUSIC_BASE?: string }).WO_MUSIC_BASE) || 'music/';
 class Music {
   private a: HTMLAudioElement | null = null;
   private b: HTMLAudioElement | null = null;
@@ -63,7 +66,7 @@ class Music {
     if (!this.unlocked || !prefs.musicOn || !prefs.soundOn) return;
     const t = this.pick();
     if (!t) { this.stop(); return; }
-    const el = new Audio(`music/${t.file}`);
+    const el = new Audio(`${BASE}${t.file}`);
     el.preload = 'auto';
     el.volume = 0;
     el.addEventListener('ended', () => { if (this.a === el) { this.now = null; this.next(); } });
