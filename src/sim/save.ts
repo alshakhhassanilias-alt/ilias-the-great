@@ -20,5 +20,15 @@ export function deserialize(text: string, nProvinces: number): GameState {
   const s = f.state;
   if (!s || s.countries?.length !== COUNTRY_BASE.length || s.owner?.length !== nProvinces)
     throw new Error('Save file does not match this version of the world map');
+  migrate(s);
   return s;
+}
+
+/**
+ * Saves from older versions load into the newer game: the world and your progress are kept, and the new systems
+ * fill themselves in as the game runs (leaders' agendas, moods, plans, storylines, records). Only what is chosen
+ * once at the start of a game needs a default here.
+ */
+function migrate(s: GameState) {
+  if (s.legacy && !s.legacy.traits) s.legacy.traits = ['pragmatist', 'reformer'];
 }
