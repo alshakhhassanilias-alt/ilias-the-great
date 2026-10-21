@@ -103,12 +103,13 @@ export function campRelation(s: GameState, a: CountryId, b: CountryId): number {
   return r;
 }
 /** Forms of government: democracies trust each other. */
+const isTheocracy = (s: GameState, x: CountryId) => !!s.countries[x]?.politics?.laws.some((l) => l.id === 'clerics');
 export function govRelation(s: GameState, a: CountryId, b: CountryId): number {
   const ga = s.countries[a]?.gov ?? COUNTRY_BASE[a].gov, gb = s.countries[b]?.gov ?? COUNTRY_BASE[b].gov;
-  const theo = (x: CountryId) => !!s.countries[x]?.politics?.laws.some((l) => l.id === 'clerics');
+  const base = ga === 'D' && gb === 'D' ? 10 : (ga === 'D') !== (gb === 'D') ? -3 : 0;
   // democracies distrust a theocracy (only the player has laws, so only the player's pairs need the check)
-  const t = (a === s.player || b === s.player) && ((theo(a) && gb === 'D') || (theo(b) && ga === 'D')) ? -6 : 0;
-  return (ga === 'D' && gb === 'D' ? 10 : (ga === 'D') !== (gb === 'D') ? -3 : 0) + t;
+  if (a !== s.player && b !== s.player) return base;
+  return base + ((isTheocracy(s, a) && gb === 'D') || (isTheocracy(s, b) && ga === 'D') ? -6 : 0);
 }
 
 // organisation membership as one bit per organisation, rebuilt when membership changes

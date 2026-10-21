@@ -100,7 +100,7 @@ export function popTrend(gdppc: number, region: string, years = 0): number {
   let g = 0.03 - 0.0085 * Math.log(Math.max(gdppc, 500) / 1000) + (REGIONAL_POP[region] ?? 0);
   // the demographic transition runs its course: high birth rates fall everywhere over the century, and very low ones
   // partly recover, so the world's population levels off (as the UN projects) instead of exploding or dying out
-  if (years > 0) g = g > 0 ? g * Math.exp(-years / 50) : g * (0.4 + 0.6 * Math.exp(-years / 80));
+  if (years > 0) g = g > 0 ? g * Math.exp(-years / 40) : g * (0.4 + 0.6 * Math.exp(-years / 80));
   return clamp(g, -0.01, 0.035);
 }
 /** Income per person in today's money: prices rise over the centuries, birth rates follow real living standards. */
@@ -274,6 +274,9 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   // prices are in dollars: inflation above the world's ~3% is mostly lost to a weaker currency, so a country does not
   // get richer in dollars by printing money (Turkey's or Argentina's dollar GDP barely moved through years of inflation)
   e.price *= 1 + (e.inflation <= 0.03 ? e.inflation : 0.03 + 0.1 * (e.inflation - 0.03)) * DT;
+  // over decades a currency's real value drifts back toward its long-run level (purchasing power parity): decades of
+  // chronic inflation do not make a country look richer and richer in dollars
+  if (s.stats.wpi) { const rel = e.price / s.stats.wpi; e.prev.rel0 ??= rel; e.price *= Math.pow(e.prev.rel0 / rel, DT / 25); }
   e.gdp = e.realGdp * e.price;
   e.reserves += balance * DT + (0.12 * e.gdp - e.reserves) * 0.5 * DT;
 

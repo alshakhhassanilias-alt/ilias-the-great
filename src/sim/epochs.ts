@@ -183,7 +183,7 @@ function collapse(s: GameState, geo: Geo, c: Country, groups: Map<number, number
 function considerIndependence(s: GameState, geo: Geo, c: Country) {
   if (c.provinces.length < 6) return;
   const size = Math.min(3, c.provinces.length / 12);
-  const chance = 0.004 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1);
+  const chance = 0.006 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1);
   if (nextRand(s) >= chance) return;
   const block = peripheryOf(s, geo, c);
   if (block.length < 2) return;
@@ -381,7 +381,8 @@ const FORMS_A = ['State of {X}', '{X} Republic', 'Republic of {X}'];
 export function newNationName(s: GameState, geo: Geo, P: Country, provs: number[]): string {
   const r = (t: string) => hash01(t, provs[0], s.tick, s.settings.seed);
   const main = provs.reduce((b, p) => (geo.provinces[p].w > geo.provinces[b].w ? p : b), provs[0]);
-  const city = placeName(main);
+  // a region without a real city name has a label like "Central Libya II": drop the numbering
+  const city = placeName(main).replace(/\s+[IVX]+$/, '');
   const taken = new Set(s.countries.filter((c) => c.alive).map((c) => c.name));
   const forms = P.gov === 'D' ? FORMS_D : FORMS_A;
   const form = forms[Math.floor(r('form') * forms.length)];
@@ -417,7 +418,7 @@ function coined(r: (t: string) => number, region: string, city: string): string 
 const SHORT_NAMES: Record<string, string> = {
   'United Arab Emirates': 'Emirates', 'United States of America': 'America', 'United Kingdom': 'Britain', 'Central African Rep.': 'Central Africa',
   'Dem. Rep. Congo': 'Congo', 'Dominican Rep.': 'Dominica', 'Bosnia and Herz.': 'Bosnia', 'S. Sudan': 'South Sudan', 'N. Cyprus': 'Cyprus',
-  'W. Sahara': 'Sahara', 'Eq. Guinea': 'Guinea', 'Solomon Is.': 'Solomons', 'Czechia': 'Czech', 'Saudi Arabia': 'Arabia', 'South Africa': 'South Africa',
+  'W. Sahara': 'Sahara', 'Eq. Guinea': 'Guinea', 'Solomon Is.': 'Solomons', 'Saudi Arabia': 'Arabia', 'South Africa': 'South Africa',
   'New Zealand': 'Zealand', 'Papua New Guinea': 'Papua', 'Sri Lanka': 'Lanka', 'Costa Rica': 'Costa Rica', 'El Salvador': 'Salvador',
 };
 /** One word (or a well-known short form) for a country, to build union names from */
@@ -437,7 +438,7 @@ function unionName(s: GameState, A: Country, B: Country): string {
     `${short(a)}-${short(b)} Union`,
     `United ${short(a)} and ${short(b)}`,
     `Federation of ${short(a)} and ${short(b)}`,
-    `Commonwealth of ${short(a)}`,
+    `${short(a)}-${short(b)} Federation`,
   ];
   const name = opts[Math.floor(r * opts.length)];
   return name.length <= 32 ? name : `Union of ${short(a)}`;

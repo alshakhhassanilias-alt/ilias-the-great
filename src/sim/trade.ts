@@ -74,6 +74,7 @@ function capacity(s: GameState, P: Country): number {
 export function stepTrade(s: GameState) {
   if (s.tick % 4 !== 0) return;
   const M = s.market;
+  const tIdx = tariffIndex(s);
   for (const g of ['chips', 'minerals'] as const) {
     const lost = SUP_ID[g].reduce((t, [p, sh]) => t + sh * (1 - capacity(s, s.countries[p])), 0);
     const key = g === 'chips' ? 'priceC' : 'priceM';
@@ -105,7 +106,7 @@ export function stepTrade(s: GameState) {
       const short = clamp((1 - avail) * 0.7 - 0.15, 0, 1);
       pv[g === 'chips' ? 'shC' : 'shM'] = Math.round(short * 1000) / 1000;
     }
-    pv.tariff = tariffHit(s, c.id);
+    pv.tariff = tariffHit(s, c.id, tIdx);
     pv.tarRev = 0;
   }
   for (const k in s.tariffs ?? {}) {
@@ -116,19 +117,20 @@ export function stepTrade(s: GameState) {
 }
 
 /** Share of trade a country loses to tariffs (its own and those on it). */
-function tariffHit(s: GameState, i: CountryId): number {
-  const T = s.tariffs;
-  if (!T) return 0;
+function tariffHit(s: GameState, i: CountryId, idx: Map<CountryId, CountryId[]>): number {
   let hit = 0;
-  for (const k in T) {
-    const j = k.indexOf('>');
-    const a = Number(k.slice(0, j)), b = Number(k.slice(j + 1));
-    if (a !== i && b !== i) continue;
-    const other = s.countries[a === i ? b : a];
-    if (!other?.alive) continue;
-    hit += 0.6 * dependence(s, i, other.id);
-  }
+  for (const o of idx.get(i) ?? []) if (s.countries[o]?.alive) hit += 0.6 * dependence(s, i, o);
   return Math.min(0.35, hit);
+}
+/** who has tariffs with whom (either direction), built once per pass instead of scanning every tariff per country */
+function tariffIndex(s: GameState): Map<CountryId, CountryId[]> {
+  const idx = new Map<CountryId, CountryId[]>();
+  for (const k in s.tariffs ?? {}) {
+    const j = k.indexOf('>'); const a = Number(k.slice(0, j)), b = Number(k.slice(j + 1));
+    (idx.get(a) ?? idx.set(a, []).get(a)!).push(b);
+    (idx.get(b) ?? idx.set(b, []).get(b)!).push(a);
+  }
+  return idx;
 }
 /** how much of a country's trade is with another (rough: the partner's size, closeness and openness) */
 export function dependence(s: GameState, a: CountryId, b: CountryId): number {
@@ -236,13 +238,24 @@ function aiRespond(s: GameState, ai: CountryId, by: CountryId) {
 /** AI: trade wars between hostile big economies, bans by producers on enemies, and lifting them when relations mend. */
 export function stepTradeAI(s: GameState) {
   if (s.tick % 13 !== 6) return;
-  const big = s.countries.filter((c) => c.alive && !c.isPlayer && c.eco.gdp > 8e11);
+  // "big" is a share of the world economy (about the size of the Netherlands in 2024), not a dollar figure prices outgrow
+  const world = s.countries.reduce((t, c) => t + (c.alive ? c.eco.gdp : 0), 0);
+  const BIG = 0.008 * world;
+  const big = s.countries.filter((c) => c.alive && !c.isPlayer && c.eco.gdp > BIG);
+  // tariffs an AI government set lapse when the quarrel is over, when the target is gone, or after a decade of calmer relations
+  for (const k of Object.keys(s.tariffs ?? {})) {
+    const j = k.indexOf('>'); const a = Number(k.slice(0, j)), b = Number(k.slice(j + 1));
+    const A = s.countries[a], B = s.countries[b];
+    if (!A?.alive || !B?.alive) { delete s.tariffs![k]; continue; }
+    if (A.isPlayer) continue;
+    const rel = getRelation(s, a, b), age = s.tick - s.tariffs![k];
+    if ((rel > -10 && hash01('twl2', a * 1000 + b, s.tick) < 0.3) || (age > 520 && rel > -40 && hash01('twl3', a * 1000 + b, s.tick) < 0.1)) setTariff(s, a, b, false, true);
+  }
   for (const A of big) {
     for (const B of s.countries) {
-      if (!B.alive || B.id === A.id || B.eco.gdp < 8e11) continue;
+      if (!B.alive || B.id === A.id || B.eco.gdp < BIG) continue;
       const rel = getRelation(s, A.id, B.id);
       if (rel < -50 && !hasTariff(s, A.id, B.id) && hash01('tw', A.id * 1000 + B.id, s.tick) < 0.012) setTariff(s, A.id, B.id, true);
-      else if (rel > -10 && hasTariff(s, A.id, B.id) && hash01('twl', A.id * 1000 + B.id, s.tick) < 0.3) setTariff(s, A.id, B.id, false);
       if (rel < -65 && hash01('ban', A.id * 1000 + B.id, s.tick) < 0.008) {
         const g = (['minerals', 'chips', 'energy'] as Good[]).find((x) => !banBlocked(s, A.id, B.id, x) && !hasBan(s, A.id, B.id, x) && banBite(s, A.id, B.id, x) > 0.08);
         if (g) setBan(s, A.id, B.id, g, true);
