@@ -1,5 +1,5 @@
 /*
- * Menu data transcribed from the 22 menu photos provided (October 2026).
+ * Menu data transcribed from the menu photos provided (22 on 20 Oct, 24 clearer pages re-checked on 21 Oct 2026).
  *
  * Rules followed:
  *  - Russian names, prices, weights and compositions are copied from the photos.
@@ -271,12 +271,14 @@
   I('mains', 'mn_pork', 'Жареная свиная вырезка с картофелем по-деревенски', 'Roast pork tenderloin with potato wedges', 820, '330 г', { icons: '🐖🥔', mods: SAVORY, side: { name: 'картофель по-деревенски', swap: SWAP } });
   I('mains', 'mn_perlovka', 'Перловка с томлёной говядиной', 'Pearl barley with slow-cooked beef', 850, '300 г', { tags: ['new'], icons: '🍯🐄', mods: SAVORY });
   I('mains', 'mn_cutlets', 'Котлеты по-домашнему с макаронами в укропе', 'Homemade cutlets with pasta in dill', 595, '230 г', { icons: '🥩🍝', mods: SAVORY, side: { name: 'макароны в укропе', swap: SWAP } });
-  I('mains', 'mn_kiev', 'Котлета по-киевски', 'Chicken Kiev', 690, '150/120/20/20 г', { icons: '🍗🧈', mods: SAVORY, sideUnknown: true });
+  I('mains', 'mn_kiev', 'Котлета по-киевски', 'Chicken Kiev', 690, '150/120/20/20 г', { icons: '🍗🧈', mods: SAVORY, sideUnknown: true,
+    note: 'Menu photo shows mashed potato and cucumber, but the side is not named in the text.' });
   I('mains', 'mn_friedpot', 'Жареный картофель с луком и грибами', 'Fried potatoes with onions and mushrooms', 465, '220 г', { icons: '🥔🍄', mods: SAVORY });
   I('mains', 'mn_pikecut', 'Щучьи котлеты с овощным пюре «Оливье»', 'Pike cutlets with vegetable puree', 685, '300 г', { icons: '🐟', mods: SAVORY, side: { name: 'овощное пюре «Оливье»', swap: SWAP } });
   I('mains', 'mn_friedpotpork', 'Жареный картофель со свиной вырезкой и грибами', 'Fried potatoes with pork tenderloin and mushrooms', 640, '220 г', { icons: '🥔🐖🍄', mods: SAVORY });
   I('mains', 'mn_liver', 'Запеканка из куриной печени', 'Chicken liver casserole', 750, '255 г', { tags: ['new'], icons: '🍗', mods: SAVORY });
-  I('mains', 'mn_chickcut', 'Котлеты куриные с сыром', 'Chicken cutlets with cheese', 570, '110/120/20 г', { icons: '🍗🧀', mods: SAVORY, sideUnknown: true });
+  I('mains', 'mn_chickcut', 'Котлеты куриные с сыром', 'Chicken cutlets with cheese', 570, '110/120/20 г', { icons: '🍗🧀', mods: SAVORY, sideUnknown: true,
+    note: 'Menu photo shows mashed potato and cucumber, but the side is not named in the text.' });
   I('mains', 'mn_zucchini', 'Драники из кабачков с куриным филе и соусом из шампиньонов', 'Zucchini pancakes with chicken fillet and champignon sauce', 740, '260 г', { icons: '🥒🍗🍄', mods: SAVORY });
   I('mains', 'mn_draniki', 'Картофельные драники', 'Potato draniki', 390, '185 г', { tags: ['new'], icons: '🥔', mods: SAVORY });
 
@@ -288,7 +290,7 @@
 
   // ===== Desserts =====
   I('desserts', 'ds_medovik', 'Настоящий медовик', 'Traditional honey cake', 480, '110 г', { tags: ['new'], icons: '🍯🍰', mods: ['icecream'], suggest: ['i_van'] });
-  I('desserts', 'ds_horn', 'Слоеные трубочки со сливочным кремом', 'Cream horn', 375, '100 г', { icons: '🥐', mods: ['icecream'], unverified: 'Weight hard to read on photo (looks like 100 г).' });
+  I('desserts', 'ds_horn', 'Слоеные трубочки со сливочным кремом', 'Cream horn', 375, '100 г', { icons: '🥐', mods: ['icecream'] });
   I('desserts', 'ds_ptichka', 'Торт суфле «Птичка»', 'Birdie soufflé cake', 520, '110 г', { tags: ['new'], icons: '🍫🍰', mods: ['icecream'] });
   I('desserts', 'ds_smetannik', 'Бабушкин сметанник с вишней', 'Grandma’s sour cream cake with cherry', 530, '180 г', { icons: '🍒🍰', mods: ['icecream'] });
   I('desserts', 'ds_cheesecake', 'Маковый чизкейк', 'Poppy seed cheesecake', 495, '160 г', { icons: '⚫🍰', mods: ['icecream'] });
@@ -315,14 +317,13 @@
   I('coffee', 'cf_americano', 'Американо', 'Americano', 215, '150 мл', { icons: '☕', mods: COFFEE });
   I('coffee', 'cf_capp', 'Капучино', 'Cappuccino', 275, '200 мл', { icons: '☕🥛', mods: COFFEE });
   I('coffee', 'cf_doublecapp', 'Двойной капучино', 'Double cappuccino', 490, '400 мл', { icons: '☕🥛', mods: COFFEE,
-    unverified: 'Price column on photo is not aligned with names — 400 мл/490 ₽ is the best reading.' });
-  var COFFEE_ALIGN = 'Price column on the coffee photo is misaligned; this pairing is the best reading — check once.';
-  I('coffee', 'cf_latte', 'Латте', 'Latte', 280, '200 мл', { icons: '☕🥛', mods: COFFEE, unverified: COFFEE_ALIGN });
-  I('coffee', 'cf_hotchoc', 'Горячий шоколад', 'Hot chocolate', 310, '125 мл', { icons: '🍫', mods: COFFEE, unverified: COFFEE_ALIGN });
-  I('coffee', 'cf_mishka', 'Мишка на севере', 'Mishka in the north', 350, '200 мл', { icons: '🐻☕', desc: 'Эспрессо, сливки, молоко, шоколад, топпинг карамель', descEn: 'Espresso, cream, milk, chocolate, topping caramel', mods: COFFEE, unverified: COFFEE_ALIGN });
+  });
+  I('coffee', 'cf_latte', 'Латте', 'Latte', 280, '200 мл', { icons: '☕🥛', mods: COFFEE });
+  I('coffee', 'cf_hotchoc', 'Горячий шоколад', 'Hot chocolate', 310, '125 мл', { icons: '🍫', mods: COFFEE });
+  I('coffee', 'cf_mishka', 'Мишка на севере', 'Mishka in the north', 350, '200 мл', { icons: '🐻☕', desc: 'Эспрессо, сливки, молоко, шоколад, топпинг карамель', descEn: 'Espresso, cream, milk, chocolate, topping caramel', mods: COFFEE });
   I('coffee', 'cf_snickers', 'Сникерс', 'Snickers', 350, '200 мл', { icons: '🥜☕', desc: 'Эспрессо, сливки, молоко, арахисовая паста, сироп соленая карамель', descEn: 'Espresso, cream, milk, peanut butter, salted caramel syrup', mods: COFFEE });
-  I('coffee', 'cf_drummer', 'Сырный ударник', 'Cheese drummer', 350, '200 мл', { icons: '🧀☕', desc: 'Эспрессо, сливки, молоко, сырная основа, мед', descEn: 'Espresso, cream, milk, cheese base, honey', mods: COFFEE, unverified: COFFEE_ALIGN });
-  I('coffee', 'cf_cacao', 'Какао', 'Cacao', 280, '200 мл', { icons: '🍫🥛', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_drummer', 'Сырный ударник', 'Cheese drummer', 350, '200 мл', { icons: '🧀☕', desc: 'Эспрессо, сливки, молоко, сырная основа, мед', descEn: 'Espresso, cream, milk, cheese base, honey', mods: COFFEE });
+  I('coffee', 'cf_cacao', 'Какао', 'Cacao', 280, '200 мл', { icons: '🍫🥛', mods: COFFEE });
   I('coffee', 'cf_coco_capp', 'Капучино', 'Cappuccino on coconut milk', 330, '200 мл', { icons: '🥥☕', mods: COFFEE });
   I('coffee', 'cf_coco_latte', 'Латте', 'Latte on coconut milk', 330, '200 мл', { icons: '🥥☕', mods: COFFEE });
 
@@ -485,14 +486,12 @@
   SP('gn_ginster', 'Джинстер пломбир', 'Ginger sundae (gin)', 330);
   SP('rm_puntacana', 'Пунтакана Клаб Сильвер/Вьехо', 'Punta Cana Club rum', 470, { options: [pick('kind', 'Kind', ['Сильвер', 'Вьехо'])] });
   SP('rm_devils', 'Девилс Айленд Спайсед', 'Devils Island Spiced rum', 390);
-  var TEQ = 'Price is cut off on the photo — fill it in (Menu tab → edit).';
-  SP('tq_silver', 'Де Лос Дорадос Сильвер', 'Tequila De Los Dorados Silver', null, { unverified: TEQ });
-  SP('tq_gold', 'Де Лос Дорадос Голд', 'Tequila De Los Dorados Gold', null, { unverified: TEQ });
-  var WSK = 'Price partly cut off on both photos — best reading, please confirm.';
-  SP('wk_jack', 'Джек Дэниелс', 'Jack Daniels', 550, { unverified: WSK });
-  SP('wk_jameson', 'Джемесон', 'Jameson', 560, { unverified: WSK });
-  SP('wk_chivas', 'Чивас Ригал 12', 'Chivas Regal 12', 850, { unverified: WSK });
-  SP('wk_glen', 'Гленфиддик 12', 'Glenfiddich 12', 990, { unverified: WSK });
+  SP('tq_silver', 'Де Лос Дорадос Сильвер', 'Tequila De Los Dorados Silver', 440);
+  SP('tq_gold', 'Де Лос Дорадос Голд', 'Tequila De Los Dorados Gold', 440);
+  SP('wk_jack', 'Джек Дэниелс', 'Jack Daniels', 560);
+  SP('wk_jameson', 'Джемесон', 'Jameson', 560);
+  SP('wk_chivas', 'Чивас Ригал 12', 'Chivas Regal 12', 850);
+  SP('wk_glen', 'Гленфиддик 12', 'Glenfiddich 12', 990);
   SP('cg_noah', 'Ной 3*', 'Cognac Noah 3*', 420);
   SP('cg_tiflis', 'Сокровище Тифлиса 7 лет', 'Treasure of Tiflis 7', 400);
   SP('cg_batumi', 'Батуми 12 лет', 'Batumi 12', 620);
@@ -566,7 +565,7 @@
     { title: 'Tea: berry vs leaf', ids: ['tb_grandma', 'tl_0'], diff: 'Berry & herb teas 420 ₽ · leaf tea 299 ₽ (both 400 мл).' },
   ];
 
-  var MENU = { GROUPS: GROUPS, CATS: CATS, ITEMS: ITEMS, MODS: MODS, MOD_GROUPS: MOD_GROUPS, RULES: RULES, CONFUSABLES: CONFUSABLES, VERSION: '2026-10-20' };
+  var MENU = { GROUPS: GROUPS, CATS: CATS, ITEMS: ITEMS, MODS: MODS, MOD_GROUPS: MOD_GROUPS, RULES: RULES, CONFUSABLES: CONFUSABLES, VERSION: '2026-10-21' };
   if (typeof module !== 'undefined' && module.exports) module.exports = MENU;
   else root.MENU = MENU;
 })(this);

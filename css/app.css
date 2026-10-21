@@ -130,6 +130,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .line .steps { display: flex; flex-direction: column; border-left: 1px solid var(--line); }
 .line .steps button { flex: 1; width: 48px; border: 0; background: transparent; font-size: 22px; font-weight: 700; }
 .line .steps button + button { border-top: 1px solid var(--line); }
+.line .steps .notebtn { font-size: 18px; color: var(--muted); flex: 1 0 40px; }
+.line .lnote { font-size: 14.5px; font-weight: 600; margin-top: 4px; padding: 4px 8px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); display: inline-block; }
+.tnote { display: block; width: 100%; text-align: left; border: 0; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .issue { font-size: 13px; padding: 3px 8px; border-radius: 8px; border: 0; text-align: left; line-height: 1.25; }
 .issue.block { background: var(--block-bg); color: var(--block); font-weight: 700; }
 .issue.warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }

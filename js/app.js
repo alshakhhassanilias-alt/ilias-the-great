@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '4';
+  var APP_VERSION = '5';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -106,6 +106,8 @@
 
   // ---------------------------------------------------------------- render
   function render() {
+    S.tables.concat(S.history).forEach(function (t) { t.lines.forEach(L.registerCustom); });
+    if (ui.practice) ui.practice.table.lines.forEach(L.registerCustom);
     document.documentElement.dataset.theme = S.settings.theme || '';
     var t = findTable(ui.tableId);
     var newCount = t ? t.lines.filter(function (l) { return l.status === 'new'; }).length : 0;
@@ -188,7 +190,7 @@
     var it = item(l.itemId);
     var name = it ? it.ru : (l.snap ? l.snap.ru : l.itemId);
     var pre = it && it.pre ? '<span class="pre">' + esc(it.pre) + '</span>' : '';
-    var det = L.lineDetail(l, it);
+    var det = L.lineDetail(l, it).filter(function (d) { return !l.note || d !== '«' + l.note + '»'; });
     var tot = L.lineTotal(l, it);
     return '<div class="line ' + l.status + '">' +
       '<span class="stripe" style="background:' + catColor(it ? it.cat : '') + '"></span>' +
@@ -196,9 +198,11 @@
       '<div class="body" role="button" tabindex="0" data-a="editLine" data-id="' + l.id + '">' + pre +
         '<span class="name">' + esc(name) + '</span> <span class="price muted small">' + rub(tot) + '</span>' +
         (det.length ? '<div class="detail">' + esc(det.join(' · ')) + '</div>' : '') +
+        (l.note ? '<div class="lnote">📝 ' + esc(l.note) + '</div>' : '') +
         (opts.issues ? '<div class="issues">' + issueChips(l, it, l.status === 'new') + '</div>' : '') +
       '</div>' +
-      (l.status === 'new' ? '<span class="steps"><button data-a="inc" data-id="' + l.id + '" aria-label="plus">+</button><button data-a="dec" data-id="' + l.id + '" aria-label="minus">−</button></span>' : '') +
+      '<span class="steps">' + (l.status === 'new' ? '<button data-a="inc" data-id="' + l.id + '" aria-label="plus">+</button><button data-a="dec" data-id="' + l.id + '" aria-label="minus">−</button>' : '') +
+        '<button class="notebtn" data-a="noteLine" data-id="' + l.id + '" aria-label="note">✎</button></span>' +
       '</div>';
   }
 
@@ -214,7 +218,8 @@
         return '<button class="chip ' + (o.id === t.id ? 'on' : '') + '" data-a="open" data-id="' + o.id + '">' + (hasNew ? '<span class="dot"></span>' : '') + esc(o.num) + '</button>';
       }).join('') + '<button class="chip" data-a="newTable">+</button></div>';
     }
-    if (t.note) h += '<div class="note">📝 ' + esc(t.note) + '</div>';
+    h += t.note ? '<button class="note tnote" data-a="noteTable">📝 ' + esc(t.note) + ' <span class="muted small">✎</span></button>'
+      : '<button class="chip" data-a="noteTable" style="margin-bottom:4px">📝 Add table note</button>';
     var ti = L.tableIssues(t, S.menu);
     if (ti.length) {
       h += '<div class="tableissues mt">' + ti.map(function (i) {
@@ -283,7 +288,7 @@
     h += '<div class="rv mt ' + (r.big ? 'big' : '') + '">';
     lines.forEach(function (l) {
       var it = item(l.itemId);
-      var head = hasSeats && r.bySeat ? (l.seat ? 'Гость ' + l.seat : 'Без гостя / на стол') : (it ? L.cat(it.cat).ru : '');
+      var head = hasSeats && r.bySeat ? (l.seat ? 'Гость ' + l.seat : 'Без гостя / на стол') : (it ? (L.cat(it.cat) ? L.cat(it.cat).ru : 'Не из меню') : '');
       if (head !== lastHead) { lastHead = head; h += '<div class="cat-h">' + esc(head) + '</div>'; }
       var d = L.lineDetail(l, it);
       if (hasSeats && r.bySeat) d = d.filter(function (x) { return !/^гость /.test(x); });
@@ -347,8 +352,9 @@
     var h = '';
     if (p.q) {
       var res = L.search(all, p.q, { learned: (S.searchLearn || {})[L.norm(p.q)], usage: S.usage }).slice(0, 60);
-      if (!res.length) h += '<div class="empty">Nothing for “' + esc(p.q) + '”.<br><span class="small">Try Russian, English, or part of a word.</span></div>';
+      if (!res.length) h += '<div class="empty">Nothing on the menu for “' + esc(p.q) + '”.</div>';
       h += res.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
+      h += '<button class="btn block mt" data-a="customLine">✚ Add “' + esc(p.q) + '” as a request not on the menu</button>';
       return h;
     }
     if (p.cat === '★') {
@@ -437,6 +443,8 @@
     else if (s.type === 'confirm') body = '<h2>' + esc(s.msg) + '</h2><div class="foot"><button class="btn" data-a="closeSheet">Cancel</button>' +
       '<button class="btn primary" data-a="confirmOk">' + esc(s.ok) + '</button></div>';
     else if (s.type === 'backupText') body = sheetBackupText(s);
+    else if (s.type === 'note') body = sheetNote(s);
+    else if (s.type === 'customLine') body = sheetCustomLine(s);
     var keepScroll = $sheet.querySelector('.sheet');
     var st = keepScroll ? keepScroll.scrollTop : 0;
     $sheet.innerHTML = '<div class="backdrop" data-a="backdrop"><div class="sheet' + (s.keepScroll ? '' : ' anim') + '" role="dialog"><div class="grab"></div>' + body + '</div></div>';
@@ -453,6 +461,10 @@
     if (it.desc) h += '<div class="desc mt">' + esc(it.desc) + '</div>';
     if (it.note) h += '<div class="note">' + esc(it.note) + '</div>';
     if (it.unverified) h += '<div class="note unv">⚠ ' + esc(it.unverified) + '</div>';
+    if (it.isCustom) {
+      h += '<h3>Request (not on the menu)</h3><input class="field" id="cl_ru" value="' + esc(d.custom.ru) + '" autocomplete="off">' +
+        '<h3>Price ₽ (optional)</h3><input class="field" id="cl_price" inputmode="numeric" value="' + (d.custom.price == null ? '' : d.custom.price) + '">';
+    }
     if (it.stop) h += '<div class="issue block mt">STOP-LIST — marked unavailable</div>';
 
     (it.options || []).forEach(function (opt) {
@@ -975,6 +987,12 @@
   A.lSave = function () {
     syncNote();
     var s = ui.sheet, t = cur(), x = s.d, it = item(x.itemId);
+    if (x.custom && document.getElementById('cl_ru')) {
+      var cn = document.getElementById('cl_ru').value.trim(), cp = parseInt(document.getElementById('cl_price').value, 10);
+      if (cn) x.custom.ru = cn;
+      x.custom.price = isNaN(cp) ? null : cp;
+      L.registerCustom(x);
+    }
     closeSheet();
     if (s.mode === 'add') {
       var prev = JSON.stringify(S);
@@ -1188,6 +1206,63 @@
     ui.learn.flash = null; ui.learn.flipped = false; render();
   };
 
+  // ---- notes & custom requests
+  var LINE_CHIPS = ['без лука', 'без соуса', 'соус отдельно', 'без льда', 'сначала', 'позже', 'вместе с горячим', 'с собой', 'острее', 'аллергия'];
+  var TABLE_CHIPS = ['аллергия', 'день рождения', 'ждут ещё гостей', 'спешат', 'счёт раздельно', 'постоянные гости', 'с ребёнком'];
+  function sheetNote(s) {
+    var t = cur(), title, cur0, chips;
+    if (s.target === 'table') { title = 'Note for Стол ' + esc(t.num); cur0 = t.note || ''; chips = TABLE_CHIPS; }
+    else {
+      var l = t.lines.filter(function (x) { return x.id === s.id; })[0];
+      title = 'Note for ' + esc(L.displayName(item(l.itemId))); cur0 = l.note || ''; chips = LINE_CHIPS;
+    }
+    if (s.text == null) s.text = cur0;
+    return '<h2>' + title + '</h2><div class="en">Anything the guest asked for, in your own words.</div>' +
+      '<textarea class="field mt" id="note_text" rows="3" placeholder="e.g. без сметаны, сделать погорячее…">' + esc(s.text) + '</textarea>' +
+      '<div class="choices mt">' + chips.map(function (c) { return '<button class="chip" data-a="noteChip" data-n="' + esc(c) + '">+ ' + esc(c) + '</button>'; }).join('') + '</div>' +
+      '<div class="foot">' + (cur0 ? '<button class="btn danger" data-a="noteClear">Clear</button>' : '<button class="btn" data-a="closeSheet">Cancel</button>') +
+      '<button class="btn primary" data-a="noteSave">Save note</button></div>';
+  }
+  function sheetCustomLine(s) {
+    return '<h2>Request not on the menu</h2><div class="en">Added as its own line, marked “Не из меню”, so you remember to ask the kitchen or bar.</div>' +
+      '<h3>What the guest wants</h3><input class="field" id="cl_new_ru" value="' + esc(s.ru) + '" autocomplete="off">' +
+      '<h3>Price ₽ (optional, if you know it)</h3><input class="field" id="cl_new_price" inputmode="numeric" placeholder="leave empty if unknown">' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Cancel</button><button class="btn primary" data-a="customSave">Add to order</button></div>';
+  }
+  A.noteLine = function (d) { openSheet({ type: 'note', target: 'line', id: d.id }); focusSoon('note_text'); };
+  A.noteTable = function () { openSheet({ type: 'note', target: 'table' }); focusSoon('note_text'); };
+  A.noteChip = function (d) {
+    var ta = document.getElementById('note_text');
+    var v = ta.value.trim();
+    ui.sheet.text = v ? v + ', ' + d.n : d.n;
+    renderSheet();
+  };
+  function saveNote(text) {
+    var s = ui.sheet, t = cur();
+    closeSheet();
+    commit(text ? 'Note saved' : 'Note cleared', function () {
+      if (s.target === 'table') t.note = text;
+      else t.lines.forEach(function (l) { if (l.id === s.id) l.note = text; });
+      t.updatedAt = Date.now();
+    });
+  }
+  A.noteSave = function () { saveNote(document.getElementById('note_text').value.trim()); };
+  A.noteClear = function () { saveNote(''); };
+  A.customLine = function () { openSheet({ type: 'customLine', ru: ui.picker ? ui.picker.q.trim() : '' }); };
+  A.customSave = function () {
+    var ru = document.getElementById('cl_new_ru').value.trim();
+    var price = parseInt(document.getElementById('cl_new_price').value, 10);
+    if (!ru) { toast('Write what the guest wants first'); return; }
+    var t = cur(), prev = JSON.stringify(S);
+    closeSheet();
+    var line = L.newLine(L.uid('cl_'), { seat: ui.picker && ui.picker.seat || null });
+    line.custom = { ru: ru, price: isNaN(price) ? null : price };
+    L.registerCustom(line);
+    commit(null, function () { t.lines.push(line); t.updatedAt = Date.now(); });
+    toast('+1 ' + ru + ' (не из меню)', prev);
+  };
+  function focusSoon(id) { setTimeout(function () { var e = document.getElementById(id); if (e) { e.focus(); e.setSelectionRange && e.setSelectionRange(e.value.length, e.value.length); } }, 60); }
+
   A.confirmOk = function () { var fn = ui.sheet.fn; closeSheet(); fn(); };
   A.backdrop = function (d, el, e) { if (e.target === el) closeSheet(); };
   A.closeSheet = function () { closeSheet(); };
@@ -1202,6 +1277,7 @@
     fn(el.dataset, el, e);
   });
   document.addEventListener('input', function (e) {
+    if (e.target.id === 'note_text' && ui.sheet) ui.sheet.text = e.target.value;
     if (e.target.id === 'msearch') {
       ui.menu.q = e.target.value;
       if (ui.menu.filter !== 'all') { ui.menu.filter = 'all'; }

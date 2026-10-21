@@ -138,6 +138,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .line .steps { display: flex; flex-direction: column; border-left: 1px solid var(--line); }
 .line .steps button { flex: 1; width: 48px; border: 0; background: transparent; font-size: 22px; font-weight: 700; }
 .line .steps button + button { border-top: 1px solid var(--line); }
+.line .steps .notebtn { font-size: 18px; color: var(--muted); flex: 1 0 40px; }
+.line .lnote { font-size: 14.5px; font-weight: 600; margin-top: 4px; padding: 4px 8px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); display: inline-block; }
+.tnote { display: block; width: 100%; text-align: left; border: 0; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .issue { font-size: 13px; padding: 3px 8px; border-radius: 8px; border: 0; text-align: left; line-height: 1.25; }
 .issue.block { background: var(--block-bg); color: var(--block); font-weight: 700; }
 .issue.warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
@@ -275,7 +278,7 @@ textarea.field { min-height: 70px; }
 <noscript>This app needs JavaScript.</noscript>
 <script>
 /*
- * Menu data transcribed from the 22 menu photos provided (October 2026).
+ * Menu data transcribed from the menu photos provided (22 on 20 Oct, 24 clearer pages re-checked on 21 Oct 2026).
  *
  * Rules followed:
  *  - Russian names, prices, weights and compositions are copied from the photos.
@@ -547,12 +550,14 @@ textarea.field { min-height: 70px; }
   I('mains', 'mn_pork', 'Жареная свиная вырезка с картофелем по-деревенски', 'Roast pork tenderloin with potato wedges', 820, '330 г', { icons: '🐖🥔', mods: SAVORY, side: { name: 'картофель по-деревенски', swap: SWAP } });
   I('mains', 'mn_perlovka', 'Перловка с томлёной говядиной', 'Pearl barley with slow-cooked beef', 850, '300 г', { tags: ['new'], icons: '🍯🐄', mods: SAVORY });
   I('mains', 'mn_cutlets', 'Котлеты по-домашнему с макаронами в укропе', 'Homemade cutlets with pasta in dill', 595, '230 г', { icons: '🥩🍝', mods: SAVORY, side: { name: 'макароны в укропе', swap: SWAP } });
-  I('mains', 'mn_kiev', 'Котлета по-киевски', 'Chicken Kiev', 690, '150/120/20/20 г', { icons: '🍗🧈', mods: SAVORY, sideUnknown: true });
+  I('mains', 'mn_kiev', 'Котлета по-киевски', 'Chicken Kiev', 690, '150/120/20/20 г', { icons: '🍗🧈', mods: SAVORY, sideUnknown: true,
+    note: 'Menu photo shows mashed potato and cucumber, but the side is not named in the text.' });
   I('mains', 'mn_friedpot', 'Жареный картофель с луком и грибами', 'Fried potatoes with onions and mushrooms', 465, '220 г', { icons: '🥔🍄', mods: SAVORY });
   I('mains', 'mn_pikecut', 'Щучьи котлеты с овощным пюре «Оливье»', 'Pike cutlets with vegetable puree', 685, '300 г', { icons: '🐟', mods: SAVORY, side: { name: 'овощное пюре «Оливье»', swap: SWAP } });
   I('mains', 'mn_friedpotpork', 'Жареный картофель со свиной вырезкой и грибами', 'Fried potatoes with pork tenderloin and mushrooms', 640, '220 г', { icons: '🥔🐖🍄', mods: SAVORY });
   I('mains', 'mn_liver', 'Запеканка из куриной печени', 'Chicken liver casserole', 750, '255 г', { tags: ['new'], icons: '🍗', mods: SAVORY });
-  I('mains', 'mn_chickcut', 'Котлеты куриные с сыром', 'Chicken cutlets with cheese', 570, '110/120/20 г', { icons: '🍗🧀', mods: SAVORY, sideUnknown: true });
+  I('mains', 'mn_chickcut', 'Котлеты куриные с сыром', 'Chicken cutlets with cheese', 570, '110/120/20 г', { icons: '🍗🧀', mods: SAVORY, sideUnknown: true,
+    note: 'Menu photo shows mashed potato and cucumber, but the side is not named in the text.' });
   I('mains', 'mn_zucchini', 'Драники из кабачков с куриным филе и соусом из шампиньонов', 'Zucchini pancakes with chicken fillet and champignon sauce', 740, '260 г', { icons: '🥒🍗🍄', mods: SAVORY });
   I('mains', 'mn_draniki', 'Картофельные драники', 'Potato draniki', 390, '185 г', { tags: ['new'], icons: '🥔', mods: SAVORY });
 
@@ -564,7 +569,7 @@ textarea.field { min-height: 70px; }
 
   // ===== Desserts =====
   I('desserts', 'ds_medovik', 'Настоящий медовик', 'Traditional honey cake', 480, '110 г', { tags: ['new'], icons: '🍯🍰', mods: ['icecream'], suggest: ['i_van'] });
-  I('desserts', 'ds_horn', 'Слоеные трубочки со сливочным кремом', 'Cream horn', 375, '100 г', { icons: '🥐', mods: ['icecream'], unverified: 'Weight hard to read on photo (looks like 100 г).' });
+  I('desserts', 'ds_horn', 'Слоеные трубочки со сливочным кремом', 'Cream horn', 375, '100 г', { icons: '🥐', mods: ['icecream'] });
   I('desserts', 'ds_ptichka', 'Торт суфле «Птичка»', 'Birdie soufflé cake', 520, '110 г', { tags: ['new'], icons: '🍫🍰', mods: ['icecream'] });
   I('desserts', 'ds_smetannik', 'Бабушкин сметанник с вишней', 'Grandma’s sour cream cake with cherry', 530, '180 г', { icons: '🍒🍰', mods: ['icecream'] });
   I('desserts', 'ds_cheesecake', 'Маковый чизкейк', 'Poppy seed cheesecake', 495, '160 г', { icons: '⚫🍰', mods: ['icecream'] });
@@ -591,14 +596,13 @@ textarea.field { min-height: 70px; }
   I('coffee', 'cf_americano', 'Американо', 'Americano', 215, '150 мл', { icons: '☕', mods: COFFEE });
   I('coffee', 'cf_capp', 'Капучино', 'Cappuccino', 275, '200 мл', { icons: '☕🥛', mods: COFFEE });
   I('coffee', 'cf_doublecapp', 'Двойной капучино', 'Double cappuccino', 490, '400 мл', { icons: '☕🥛', mods: COFFEE,
-    unverified: 'Price column on photo is not aligned with names — 400 мл/490 ₽ is the best reading.' });
-  var COFFEE_ALIGN = 'Price column on the coffee photo is misaligned; this pairing is the best reading — check once.';
-  I('coffee', 'cf_latte', 'Латте', 'Latte', 280, '200 мл', { icons: '☕🥛', mods: COFFEE, unverified: COFFEE_ALIGN });
-  I('coffee', 'cf_hotchoc', 'Горячий шоколад', 'Hot chocolate', 310, '125 мл', { icons: '🍫', mods: COFFEE, unverified: COFFEE_ALIGN });
-  I('coffee', 'cf_mishka', 'Мишка на севере', 'Mishka in the north', 350, '200 мл', { icons: '🐻☕', desc: 'Эспрессо, сливки, молоко, шоколад, топпинг карамель', descEn: 'Espresso, cream, milk, chocolate, topping caramel', mods: COFFEE, unverified: COFFEE_ALIGN });
+  });
+  I('coffee', 'cf_latte', 'Латте', 'Latte', 280, '200 мл', { icons: '☕🥛', mods: COFFEE });
+  I('coffee', 'cf_hotchoc', 'Горячий шоколад', 'Hot chocolate', 310, '125 мл', { icons: '🍫', mods: COFFEE });
+  I('coffee', 'cf_mishka', 'Мишка на севере', 'Mishka in the north', 350, '200 мл', { icons: '🐻☕', desc: 'Эспрессо, сливки, молоко, шоколад, топпинг карамель', descEn: 'Espresso, cream, milk, chocolate, topping caramel', mods: COFFEE });
   I('coffee', 'cf_snickers', 'Сникерс', 'Snickers', 350, '200 мл', { icons: '🥜☕', desc: 'Эспрессо, сливки, молоко, арахисовая паста, сироп соленая карамель', descEn: 'Espresso, cream, milk, peanut butter, salted caramel syrup', mods: COFFEE });
-  I('coffee', 'cf_drummer', 'Сырный ударник', 'Cheese drummer', 350, '200 мл', { icons: '🧀☕', desc: 'Эспрессо, сливки, молоко, сырная основа, мед', descEn: 'Espresso, cream, milk, cheese base, honey', mods: COFFEE, unverified: COFFEE_ALIGN });
-  I('coffee', 'cf_cacao', 'Какао', 'Cacao', 280, '200 мл', { icons: '🍫🥛', mods: COFFEE, unverified: COFFEE_ALIGN });
+  I('coffee', 'cf_drummer', 'Сырный ударник', 'Cheese drummer', 350, '200 мл', { icons: '🧀☕', desc: 'Эспрессо, сливки, молоко, сырная основа, мед', descEn: 'Espresso, cream, milk, cheese base, honey', mods: COFFEE });
+  I('coffee', 'cf_cacao', 'Какао', 'Cacao', 280, '200 мл', { icons: '🍫🥛', mods: COFFEE });
   I('coffee', 'cf_coco_capp', 'Капучино', 'Cappuccino on coconut milk', 330, '200 мл', { icons: '🥥☕', mods: COFFEE });
   I('coffee', 'cf_coco_latte', 'Латте', 'Latte on coconut milk', 330, '200 мл', { icons: '🥥☕', mods: COFFEE });
 
@@ -761,14 +765,12 @@ textarea.field { min-height: 70px; }
   SP('gn_ginster', 'Джинстер пломбир', 'Ginger sundae (gin)', 330);
   SP('rm_puntacana', 'Пунтакана Клаб Сильвер/Вьехо', 'Punta Cana Club rum', 470, { options: [pick('kind', 'Kind', ['Сильвер', 'Вьехо'])] });
   SP('rm_devils', 'Девилс Айленд Спайсед', 'Devils Island Spiced rum', 390);
-  var TEQ = 'Price is cut off on the photo — fill it in (Menu tab → edit).';
-  SP('tq_silver', 'Де Лос Дорадос Сильвер', 'Tequila De Los Dorados Silver', null, { unverified: TEQ });
-  SP('tq_gold', 'Де Лос Дорадос Голд', 'Tequila De Los Dorados Gold', null, { unverified: TEQ });
-  var WSK = 'Price partly cut off on both photos — best reading, please confirm.';
-  SP('wk_jack', 'Джек Дэниелс', 'Jack Daniels', 550, { unverified: WSK });
-  SP('wk_jameson', 'Джемесон', 'Jameson', 560, { unverified: WSK });
-  SP('wk_chivas', 'Чивас Ригал 12', 'Chivas Regal 12', 850, { unverified: WSK });
-  SP('wk_glen', 'Гленфиддик 12', 'Glenfiddich 12', 990, { unverified: WSK });
+  SP('tq_silver', 'Де Лос Дорадос Сильвер', 'Tequila De Los Dorados Silver', 440);
+  SP('tq_gold', 'Де Лос Дорадос Голд', 'Tequila De Los Dorados Gold', 440);
+  SP('wk_jack', 'Джек Дэниелс', 'Jack Daniels', 560);
+  SP('wk_jameson', 'Джемесон', 'Jameson', 560);
+  SP('wk_chivas', 'Чивас Ригал 12', 'Chivas Regal 12', 850);
+  SP('wk_glen', 'Гленфиддик 12', 'Glenfiddich 12', 990);
   SP('cg_noah', 'Ной 3*', 'Cognac Noah 3*', 420);
   SP('cg_tiflis', 'Сокровище Тифлиса 7 лет', 'Treasure of Tiflis 7', 400);
   SP('cg_batumi', 'Батуми 12 лет', 'Batumi 12', 620);
@@ -842,7 +844,7 @@ textarea.field { min-height: 70px; }
     { title: 'Tea: berry vs leaf', ids: ['tb_grandma', 'tl_0'], diff: 'Berry & herb teas 420 ₽ · leaf tea 299 ₽ (both 400 мл).' },
   ];
 
-  var MENU = { GROUPS: GROUPS, CATS: CATS, ITEMS: ITEMS, MODS: MODS, MOD_GROUPS: MOD_GROUPS, RULES: RULES, CONFUSABLES: CONFUSABLES, VERSION: '2026-10-20' };
+  var MENU = { GROUPS: GROUPS, CATS: CATS, ITEMS: ITEMS, MODS: MODS, MOD_GROUPS: MOD_GROUPS, RULES: RULES, CONFUSABLES: CONFUSABLES, VERSION: '2026-10-21' };
   if (typeof module !== 'undefined' && module.exports) module.exports = MENU;
   else root.MENU = MENU;
 })(this);
@@ -865,6 +867,14 @@ textarea.field { min-height: 70px; }
     var catIndex = {};
     MENU.CATS.forEach(function (c, i) { catIndex[c.id] = Object.assign({ order: i }, c); });
     var DRINK_GROUPS = { drinks: true, bar: true };
+    // Custom lines (requests not on the menu) carry their own name/price;
+    // registerCustom() makes them resolvable like normal items.
+    var adhoc = {};
+    function registerCustom(line) {
+      if (!line || !line.custom) return;
+      adhoc[line.itemId] = { id: line.itemId, cat: 'custom', ru: line.custom.ru, en: 'Not on the menu', pre: 'Не из меню',
+        price: line.custom.price == null ? null : line.custom.price, w: '', icons: '✚', isCustom: true };
+    }
 
     // Menu = base data + user overrides (price fixes, stop-list, renames) + custom items.
     function getItem(id, menuState) {
@@ -873,7 +883,7 @@ textarea.field { min-height: 70px; }
       if (!base && menuState && menuState.custom) {
         custom = menuState.custom.filter(function (c) { return c.id === id; })[0] || null;
       }
-      var it = base || custom;
+      var it = base || custom || adhoc[id];
       if (!it) return null;
       var ov = menuState && menuState.overrides && menuState.overrides[id];
       if (!ov) return it;
@@ -1343,7 +1353,7 @@ textarea.field { min-height: 70px; }
     }
 
     return {
-      uid: uid, getItem: getItem, allItems: allItems, isDrink: isDrink, displayName: displayName,
+      uid: uid, getItem: getItem, registerCustom: registerCustom, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
       lineDetail: lineDetail, sortedLines: sortedLines, summaryText: summaryText, markSent: markSent,
@@ -1772,7 +1782,7 @@ textarea.field { min-height: 70px; }
 (function () {
   'use strict';
 
-  var APP_VERSION = '4';
+  var APP_VERSION = '5';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -1876,6 +1886,8 @@ textarea.field { min-height: 70px; }
 
   // ---------------------------------------------------------------- render
   function render() {
+    S.tables.concat(S.history).forEach(function (t) { t.lines.forEach(L.registerCustom); });
+    if (ui.practice) ui.practice.table.lines.forEach(L.registerCustom);
     document.documentElement.dataset.theme = S.settings.theme || '';
     var t = findTable(ui.tableId);
     var newCount = t ? t.lines.filter(function (l) { return l.status === 'new'; }).length : 0;
@@ -1958,7 +1970,7 @@ textarea.field { min-height: 70px; }
     var it = item(l.itemId);
     var name = it ? it.ru : (l.snap ? l.snap.ru : l.itemId);
     var pre = it && it.pre ? '<span class="pre">' + esc(it.pre) + '</span>' : '';
-    var det = L.lineDetail(l, it);
+    var det = L.lineDetail(l, it).filter(function (d) { return !l.note || d !== '«' + l.note + '»'; });
     var tot = L.lineTotal(l, it);
     return '<div class="line ' + l.status + '">' +
       '<span class="stripe" style="background:' + catColor(it ? it.cat : '') + '"></span>' +
@@ -1966,9 +1978,11 @@ textarea.field { min-height: 70px; }
       '<div class="body" role="button" tabindex="0" data-a="editLine" data-id="' + l.id + '">' + pre +
         '<span class="name">' + esc(name) + '</span> <span class="price muted small">' + rub(tot) + '</span>' +
         (det.length ? '<div class="detail">' + esc(det.join(' · ')) + '</div>' : '') +
+        (l.note ? '<div class="lnote">📝 ' + esc(l.note) + '</div>' : '') +
         (opts.issues ? '<div class="issues">' + issueChips(l, it, l.status === 'new') + '</div>' : '') +
       '</div>' +
-      (l.status === 'new' ? '<span class="steps"><button data-a="inc" data-id="' + l.id + '" aria-label="plus">+</button><button data-a="dec" data-id="' + l.id + '" aria-label="minus">−</button></span>' : '') +
+      '<span class="steps">' + (l.status === 'new' ? '<button data-a="inc" data-id="' + l.id + '" aria-label="plus">+</button><button data-a="dec" data-id="' + l.id + '" aria-label="minus">−</button>' : '') +
+        '<button class="notebtn" data-a="noteLine" data-id="' + l.id + '" aria-label="note">✎</button></span>' +
       '</div>';
   }
 
@@ -1984,7 +1998,8 @@ textarea.field { min-height: 70px; }
         return '<button class="chip ' + (o.id === t.id ? 'on' : '') + '" data-a="open" data-id="' + o.id + '">' + (hasNew ? '<span class="dot"></span>' : '') + esc(o.num) + '</button>';
       }).join('') + '<button class="chip" data-a="newTable">+</button></div>';
     }
-    if (t.note) h += '<div class="note">📝 ' + esc(t.note) + '</div>';
+    h += t.note ? '<button class="note tnote" data-a="noteTable">📝 ' + esc(t.note) + ' <span class="muted small">✎</span></button>'
+      : '<button class="chip" data-a="noteTable" style="margin-bottom:4px">📝 Add table note</button>';
     var ti = L.tableIssues(t, S.menu);
     if (ti.length) {
       h += '<div class="tableissues mt">' + ti.map(function (i) {
@@ -2053,7 +2068,7 @@ textarea.field { min-height: 70px; }
     h += '<div class="rv mt ' + (r.big ? 'big' : '') + '">';
     lines.forEach(function (l) {
       var it = item(l.itemId);
-      var head = hasSeats && r.bySeat ? (l.seat ? 'Гость ' + l.seat : 'Без гостя / на стол') : (it ? L.cat(it.cat).ru : '');
+      var head = hasSeats && r.bySeat ? (l.seat ? 'Гость ' + l.seat : 'Без гостя / на стол') : (it ? (L.cat(it.cat) ? L.cat(it.cat).ru : 'Не из меню') : '');
       if (head !== lastHead) { lastHead = head; h += '<div class="cat-h">' + esc(head) + '</div>'; }
       var d = L.lineDetail(l, it);
       if (hasSeats && r.bySeat) d = d.filter(function (x) { return !/^гость /.test(x); });
@@ -2117,8 +2132,9 @@ textarea.field { min-height: 70px; }
     var h = '';
     if (p.q) {
       var res = L.search(all, p.q, { learned: (S.searchLearn || {})[L.norm(p.q)], usage: S.usage }).slice(0, 60);
-      if (!res.length) h += '<div class="empty">Nothing for “' + esc(p.q) + '”.<br><span class="small">Try Russian, English, or part of a word.</span></div>';
+      if (!res.length) h += '<div class="empty">Nothing on the menu for “' + esc(p.q) + '”.</div>';
       h += res.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
+      h += '<button class="btn block mt" data-a="customLine">✚ Add “' + esc(p.q) + '” as a request not on the menu</button>';
       return h;
     }
     if (p.cat === '★') {
@@ -2207,6 +2223,8 @@ textarea.field { min-height: 70px; }
     else if (s.type === 'confirm') body = '<h2>' + esc(s.msg) + '</h2><div class="foot"><button class="btn" data-a="closeSheet">Cancel</button>' +
       '<button class="btn primary" data-a="confirmOk">' + esc(s.ok) + '</button></div>';
     else if (s.type === 'backupText') body = sheetBackupText(s);
+    else if (s.type === 'note') body = sheetNote(s);
+    else if (s.type === 'customLine') body = sheetCustomLine(s);
     var keepScroll = $sheet.querySelector('.sheet');
     var st = keepScroll ? keepScroll.scrollTop : 0;
     $sheet.innerHTML = '<div class="backdrop" data-a="backdrop"><div class="sheet' + (s.keepScroll ? '' : ' anim') + '" role="dialog"><div class="grab"></div>' + body + '</div></div>';
@@ -2223,6 +2241,10 @@ textarea.field { min-height: 70px; }
     if (it.desc) h += '<div class="desc mt">' + esc(it.desc) + '</div>';
     if (it.note) h += '<div class="note">' + esc(it.note) + '</div>';
     if (it.unverified) h += '<div class="note unv">⚠ ' + esc(it.unverified) + '</div>';
+    if (it.isCustom) {
+      h += '<h3>Request (not on the menu)</h3><input class="field" id="cl_ru" value="' + esc(d.custom.ru) + '" autocomplete="off">' +
+        '<h3>Price ₽ (optional)</h3><input class="field" id="cl_price" inputmode="numeric" value="' + (d.custom.price == null ? '' : d.custom.price) + '">';
+    }
     if (it.stop) h += '<div class="issue block mt">STOP-LIST — marked unavailable</div>';
 
     (it.options || []).forEach(function (opt) {
@@ -2745,6 +2767,12 @@ textarea.field { min-height: 70px; }
   A.lSave = function () {
     syncNote();
     var s = ui.sheet, t = cur(), x = s.d, it = item(x.itemId);
+    if (x.custom && document.getElementById('cl_ru')) {
+      var cn = document.getElementById('cl_ru').value.trim(), cp = parseInt(document.getElementById('cl_price').value, 10);
+      if (cn) x.custom.ru = cn;
+      x.custom.price = isNaN(cp) ? null : cp;
+      L.registerCustom(x);
+    }
     closeSheet();
     if (s.mode === 'add') {
       var prev = JSON.stringify(S);
@@ -2958,6 +2986,63 @@ textarea.field { min-height: 70px; }
     ui.learn.flash = null; ui.learn.flipped = false; render();
   };
 
+  // ---- notes & custom requests
+  var LINE_CHIPS = ['без лука', 'без соуса', 'соус отдельно', 'без льда', 'сначала', 'позже', 'вместе с горячим', 'с собой', 'острее', 'аллергия'];
+  var TABLE_CHIPS = ['аллергия', 'день рождения', 'ждут ещё гостей', 'спешат', 'счёт раздельно', 'постоянные гости', 'с ребёнком'];
+  function sheetNote(s) {
+    var t = cur(), title, cur0, chips;
+    if (s.target === 'table') { title = 'Note for Стол ' + esc(t.num); cur0 = t.note || ''; chips = TABLE_CHIPS; }
+    else {
+      var l = t.lines.filter(function (x) { return x.id === s.id; })[0];
+      title = 'Note for ' + esc(L.displayName(item(l.itemId))); cur0 = l.note || ''; chips = LINE_CHIPS;
+    }
+    if (s.text == null) s.text = cur0;
+    return '<h2>' + title + '</h2><div class="en">Anything the guest asked for, in your own words.</div>' +
+      '<textarea class="field mt" id="note_text" rows="3" placeholder="e.g. без сметаны, сделать погорячее…">' + esc(s.text) + '</textarea>' +
+      '<div class="choices mt">' + chips.map(function (c) { return '<button class="chip" data-a="noteChip" data-n="' + esc(c) + '">+ ' + esc(c) + '</button>'; }).join('') + '</div>' +
+      '<div class="foot">' + (cur0 ? '<button class="btn danger" data-a="noteClear">Clear</button>' : '<button class="btn" data-a="closeSheet">Cancel</button>') +
+      '<button class="btn primary" data-a="noteSave">Save note</button></div>';
+  }
+  function sheetCustomLine(s) {
+    return '<h2>Request not on the menu</h2><div class="en">Added as its own line, marked “Не из меню”, so you remember to ask the kitchen or bar.</div>' +
+      '<h3>What the guest wants</h3><input class="field" id="cl_new_ru" value="' + esc(s.ru) + '" autocomplete="off">' +
+      '<h3>Price ₽ (optional, if you know it)</h3><input class="field" id="cl_new_price" inputmode="numeric" placeholder="leave empty if unknown">' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Cancel</button><button class="btn primary" data-a="customSave">Add to order</button></div>';
+  }
+  A.noteLine = function (d) { openSheet({ type: 'note', target: 'line', id: d.id }); focusSoon('note_text'); };
+  A.noteTable = function () { openSheet({ type: 'note', target: 'table' }); focusSoon('note_text'); };
+  A.noteChip = function (d) {
+    var ta = document.getElementById('note_text');
+    var v = ta.value.trim();
+    ui.sheet.text = v ? v + ', ' + d.n : d.n;
+    renderSheet();
+  };
+  function saveNote(text) {
+    var s = ui.sheet, t = cur();
+    closeSheet();
+    commit(text ? 'Note saved' : 'Note cleared', function () {
+      if (s.target === 'table') t.note = text;
+      else t.lines.forEach(function (l) { if (l.id === s.id) l.note = text; });
+      t.updatedAt = Date.now();
+    });
+  }
+  A.noteSave = function () { saveNote(document.getElementById('note_text').value.trim()); };
+  A.noteClear = function () { saveNote(''); };
+  A.customLine = function () { openSheet({ type: 'customLine', ru: ui.picker ? ui.picker.q.trim() : '' }); };
+  A.customSave = function () {
+    var ru = document.getElementById('cl_new_ru').value.trim();
+    var price = parseInt(document.getElementById('cl_new_price').value, 10);
+    if (!ru) { toast('Write what the guest wants first'); return; }
+    var t = cur(), prev = JSON.stringify(S);
+    closeSheet();
+    var line = L.newLine(L.uid('cl_'), { seat: ui.picker && ui.picker.seat || null });
+    line.custom = { ru: ru, price: isNaN(price) ? null : price };
+    L.registerCustom(line);
+    commit(null, function () { t.lines.push(line); t.updatedAt = Date.now(); });
+    toast('+1 ' + ru + ' (не из меню)', prev);
+  };
+  function focusSoon(id) { setTimeout(function () { var e = document.getElementById(id); if (e) { e.focus(); e.setSelectionRange && e.setSelectionRange(e.value.length, e.value.length); } }, 60); }
+
   A.confirmOk = function () { var fn = ui.sheet.fn; closeSheet(); fn(); };
   A.backdrop = function (d, el, e) { if (e.target === el) closeSheet(); };
   A.closeSheet = function () { closeSheet(); };
@@ -2972,6 +3057,7 @@ textarea.field { min-height: 70px; }
     fn(el.dataset, el, e);
   });
   document.addEventListener('input', function (e) {
+    if (e.target.id === 'note_text' && ui.sheet) ui.sheet.text = e.target.value;
     if (e.target.id === 'msearch') {
       ui.menu.q = e.target.value;
       if (ui.menu.filter !== 'all') { ui.menu.filter = 'all'; }

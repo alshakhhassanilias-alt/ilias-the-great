@@ -57,6 +57,13 @@ Data lives only on this phone (localStorage). Export a backup now and then:
    separately as "Not in POS yet".
 6. **⋯ → Close table (paid)** moves it to history (kept 7 days, can be reopened).
 
+**Notes:** tap ✎ on any line to write what the guest asked for ("без укропа",
+"соус отдельно"); it shows under the dish in amber and appears in Review and
+Copy text. "📝 Add table note" at the top of a table is for things like an
+allergy, a birthday or a split bill. If a guest wants something that isn't on
+the menu, type it in search and tap **✚ Add "…" as a request not on the
+menu**. It becomes its own line marked *Не из меню*, with an optional price.
+
 If you tag lines with a guest number (the **Guest** row in the menu screen), the
 review screen can also group the order **By guest**. Use it to read the order
 back to the table, then switch to **By menu** for typing into the POS.
@@ -110,11 +117,6 @@ These came from reading the photos, not from a generic template.
 Marked ⚠ in the app. All of them are listed under **Menu & data → ⚠ To verify**,
 and you can fix prices there.
 
-- **Tequila** Де Лос Дорадос Silver/Gold: price cut off in the photo, so it is left empty.
-- **Whisky** (Jack Daniels 550, Jameson 560, Chivas 850, Glenfiddich 990):
-  partly cut off. These are best readings.
-- **Coffee**: the price column is misaligned with the names in the photo. Latte 280,
-  hot chocolate 310, Mishka 350, Cheese Drummer 350, Cacao 280 are best readings.
 - **Blini with toppings (390)**: how many toppings are included is not printed.
 - **Side swap +35**: which dishes it applies to is not printed.
 - **Tasting set of 5 shots**: has a `**` footnote that is not legible.
@@ -130,8 +132,8 @@ and you can fix prices there.
 ## Development
 
 ```
-npm test          # 28 unit tests: menu data, order logic, storage, practice grading
-npm run test:e2e  # 22 browser checks at iPhone size (needs Playwright + Chromium)
+npm test          # 29 unit tests: menu data, order logic, storage, practice grading
+npm run test:e2e  # 23 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 

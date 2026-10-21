@@ -14,6 +14,14 @@
     var catIndex = {};
     MENU.CATS.forEach(function (c, i) { catIndex[c.id] = Object.assign({ order: i }, c); });
     var DRINK_GROUPS = { drinks: true, bar: true };
+    // Custom lines (requests not on the menu) carry their own name/price;
+    // registerCustom() makes them resolvable like normal items.
+    var adhoc = {};
+    function registerCustom(line) {
+      if (!line || !line.custom) return;
+      adhoc[line.itemId] = { id: line.itemId, cat: 'custom', ru: line.custom.ru, en: 'Not on the menu', pre: 'Не из меню',
+        price: line.custom.price == null ? null : line.custom.price, w: '', icons: '✚', isCustom: true };
+    }
 
     // Menu = base data + user overrides (price fixes, stop-list, renames) + custom items.
     function getItem(id, menuState) {
@@ -22,7 +30,7 @@
       if (!base && menuState && menuState.custom) {
         custom = menuState.custom.filter(function (c) { return c.id === id; })[0] || null;
       }
-      var it = base || custom;
+      var it = base || custom || adhoc[id];
       if (!it) return null;
       var ov = menuState && menuState.overrides && menuState.overrides[id];
       if (!ov) return it;
@@ -492,7 +500,7 @@
     }
 
     return {
-      uid: uid, getItem: getItem, allItems: allItems, isDrink: isDrink, displayName: displayName,
+      uid: uid, getItem: getItem, registerCustom: registerCustom, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
       lineDetail: lineDetail, sortedLines: sortedLines, summaryText: summaryText, markSent: markSent,

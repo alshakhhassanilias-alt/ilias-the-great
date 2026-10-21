@@ -155,6 +155,33 @@ test('waiter flow on iPhone viewport', async (t) => {
     assert.equal((await state()).tables[0].lines.some((l) => l.itemId === 'jc_orange'), true);
   });
 
+  await t.test('notes on a line and on the table, custom request', async () => {
+    const line = page.locator('.line', { hasText: 'Пельмени сибирские' }).first();
+    await line.locator('[data-a="noteLine"]').tap();
+    await page.fill('#note_text', 'без укропа');
+    await page.tap('[data-a="noteChip"][data-n="соус отдельно"]');
+    await page.tap('[data-a="noteSave"]');
+    assert.match(await page.locator('.line', { hasText: 'Пельмени сибирские' }).first().innerText(), /📝 без укропа, соус отдельно/);
+    await page.tap('[data-a="noteTable"]');
+    await page.fill('#note_text', 'аллергия на орехи');
+    await page.tap('[data-a="noteSave"]');
+    assert.match(await page.locator('#app').innerText(), /📝 аллергия на орехи/);
+    await page.tap('[data-a="openPicker"]');
+    await page.fill('#psearch', 'тёплое молоко для ребёнка');
+    await page.tap('[data-a="customLine"]');
+    await page.fill('#cl_new_price', '100');
+    await page.tap('[data-a="customSave"]');
+    await page.tap('[data-a="closePicker"]');
+    await shot('16-notes-custom');
+    const txt = await page.locator('#app').innerText();
+    assert.match(txt, /тёплое молоко для ребёнка/);
+    const s = await state();
+    const cl = s.tables[0].lines.find((l) => l.custom);
+    assert.equal(cl.custom.price, 100);
+    // remove the custom line again so later checks see the same order
+    await page.locator('.line', { hasText: 'тёплое молоко' }).locator('[data-a="dec"]').tap();
+  });
+
   await t.test('state survives a reload (app killed by iOS)', async () => {
     await page.reload();
     await page.waitForSelector('.line');

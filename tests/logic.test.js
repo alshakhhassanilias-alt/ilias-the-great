@@ -322,3 +322,17 @@ test('smart search: shortcuts, word forms, typos, latin, learned picks', () => {
   // weak leftovers are dropped
   assert.ok(L.search(items, 'солянка').length <= 3);
 });
+
+test('custom request line: resolvable, priced, in summary', () => {
+  const t = table();
+  const line = L.newLine('cl_test1', { qty: 2 });
+  line.custom = { ru: 'Тёплое молоко', price: 100 };
+  L.registerCustom(line);
+  t.lines.push(line);
+  const it = L.getItem('cl_test1');
+  assert.equal(it.isCustom, true);
+  assert.equal(L.lineTotal(line, it), 200);
+  assert.match(L.summaryText(t, menuState), /2 × Не из меню: Тёплое молоко/);
+  line.custom.price = null; L.registerCustom(line);
+  assert.ok(L.lineIssues(line, L.getItem('cl_test1')).some((i) => i.code === 'price'));
+});
