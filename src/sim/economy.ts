@@ -105,12 +105,21 @@ export function popTrend(gdppc: number, region: string, years = 0): number {
 }
 /** Income per person in today's money: prices rise over the centuries, birth rates follow real living standards. */
 export function realGdppc(s: GameState, c: Country): number {
-  const f = frontierGdppc(s);
-  s.stats.frontier0 ??= f;
-  return (c.eco.gdp / Math.max(c.eco.pop, 1)) * (s.stats.frontier0 / Math.max(f, 1));
+  const p = s.stats.wpi && s.stats.wpi0 ? s.stats.wpi / s.stats.wpi0 : 1;
+  return c.eco.gdp / Math.max(c.eco.pop, 1) / Math.max(p, 1e-9);
+}
+/**
+ * The demographic transition: each country starts from its real population growth and, over the century, every
+ * country's birth rate falls toward a slightly shrinking long-run level (fastest where it is highest now), as the
+ * UN projects. The world's population peaks in the second half of the century and then eases.
+ */
+export function demographicTrend(s: GameState, c: Country): number {
+  const g0 = (c.eco.prev.popG0 ??= popTrend(realGdppc(s, c), c.region));
+  const k = Math.exp(-s.tick / 52 / 45);
+  return g0 * k - 0.002 * (1 - k);
 }
 export function popGrowthRate(c: Country, s: GameState): number {
-  let g = popTrend(realGdppc(s, c), c.region, s.tick / 52);
+  let g = demographicTrend(s, c);
   g += clamp((c.budget.social / Math.max(c.eco.baseSocial, 0.01) - 1) * 0.004, -0.004, 0.004);
   g -= 0.05 * c.eco.foodUnmet;
   g -= 0.002 * Math.max(0, 50 - c.eco.stability) / 50;
@@ -296,7 +305,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     const gap = clamp(Math.log(Math.max(frontierGdppc(s), gdppc) / Math.max(gdppc, 1)) / Math.log(20), 0, 1);
     const target = (1 - ALPHA) * (0.012 + 0.018 * gap);
     e.tfpTrend += (target - e.tfpTrend) * (e.tfpTrend > target + 0.02 ? 1 / 8 : 1 / 20);
-    e.baseGrowth = e.tfpTrend / (1 - ALPHA) + popTrend(realGdppc(s, c), c.region, s.tick / 52);
+    e.baseGrowth = e.tfpTrend / (1 - ALPHA) + demographicTrend(s, c);
   }
   const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage - aiAnchor(c);
   // productivity knocked far below its normal path (war, collapse, years of turmoil) slowly recovers toward it,

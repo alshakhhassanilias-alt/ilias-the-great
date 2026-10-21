@@ -51,6 +51,17 @@ const AGGRESSION: Record<string, number> = {
   Canada: 0.1, Sweden: 0.1, Norway: 0.1, Finland: 0.1, 'United States of America': 0.35, 'United Kingdom': 0.2, France: 0.25,
 };
 
+/** Population growth around 2024 (UN World Population Prospects, rounded); regions fill in for the rest. */
+const POP_GROWTH: Record<string, number> = {
+  India: 0.008, China: -0.001, 'United States of America': 0.005, Indonesia: 0.007, Pakistan: 0.019, Nigeria: 0.024, Brazil: 0.005,
+  Bangladesh: 0.01, Russia: -0.003, Ethiopia: 0.025, Mexico: 0.007, Japan: -0.005, Egypt: 0.016, Philippines: 0.015,
+  'Dem. Rep. Congo': 0.032, Vietnam: 0.007, Iran: 0.007, Turkey: 0.005, Germany: 0.001, Thailand: 0.001, 'United Kingdom': 0.005,
+  France: 0.002, Tanzania: 0.029, 'South Africa': 0.013, Italy: -0.002, Kenya: 0.019, Colombia: 0.006, 'South Korea': -0.001,
+  Spain: 0.003, Sudan: 0.026, Uganda: 0.028, Argentina: 0.005, Algeria: 0.015, Iraq: 0.022, Afghanistan: 0.026, Poland: -0.004,
+  Canada: 0.01, Morocco: 0.01, 'Saudi Arabia': 0.015, Ukraine: -0.01, Australia: 0.011, Taiwan: -0.002,
+};
+const REGION_POP_GROWTH: Record<string, number> = { AF: 0.025, ME: 0.015, LA: 0.008, SEA: 0.009, SA: 0.015, EU: -0.001, EA: 0, RU: -0.002, NA: 0.007, OC: 0.012 };
+
 const RATIO_E: Record<string, number> = { NA: 1.0, LA: 1.05, EU: 0.6, RU: 1.2, ME: 1.3, AF: 0.95, SA: 0.7, EA: 0.6, SEA: 0.95, OC: 0.8 };
 const RATIO_F: Record<string, number> = { NA: 1.2, LA: 1.2, EU: 0.95, RU: 1.1, ME: 0.55, AF: 0.9, SA: 0.95, EA: 0.8, SEA: 1.0, OC: 0.9 };
 
@@ -64,7 +75,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
   const lfShare = clamp(0.36 + 0.05 * Math.log10(Math.max(gdppc, 300) / 300), 0.34, 0.5);
   const kOverY = clamp(2.2 + 0.4 * (lg + 0.5), 2.2, 3.6);
   const g0 = clamp((GROWTH[B.name] ?? (1.2 + 4.5 * Math.exp(-gdppc / 12000))) / 100, -0.02, 0.09);
-  const popG = popTrend(gdppc, B.region);
+  const popG = POP_GROWTH[B.name] ?? REGION_POP_GROWTH[B.region] ?? popTrend(gdppc, B.region);
   const tfpTrend = (1 - ALPHA) * (g0 - popG);
 
   // ---- fiscal baseline ----
@@ -164,7 +175,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
   e.energyCap = eRatio * e.energyDemand;
   e.foodDemand = fShare * gdp;
   e.foodCap = fRatio * e.foodDemand;
-  e.prev = { rate0: e.prev.rate0, raw0: e.prev.raw0, mil0: mil, troops0: troops, eInt, fPc: e.foodDemand / pop, gdppc0: gdppc, stab0, infl0, milEdge: mi.milTech - tech0 };
+  e.prev = { rate0: e.prev.rate0, raw0: e.prev.raw0, mil0: mil, troops0: troops, eInt, fPc: e.foodDemand / pop, gdppc0: gdppc, stab0, infl0, milEdge: mi.milTech - tech0, popG0: popG };
   e.savings = clamp((g0 + DELTA) * kOverY - 0.7 * industry, 0.05, 0.42);
   return { eco: e, budget, mil: mi, ai };
 }
