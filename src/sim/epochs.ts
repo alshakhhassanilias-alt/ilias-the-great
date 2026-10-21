@@ -183,7 +183,7 @@ function collapse(s: GameState, geo: Geo, c: Country, groups: Map<number, number
 function considerIndependence(s: GameState, geo: Geo, c: Country) {
   if (c.provinces.length < 6) return;
   const size = Math.min(3, c.provinces.length / 12);
-  const chance = 0.006 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1);
+  const chance = 0.008 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1);
   if (nextRand(s) >= chance) return;
   const block = peripheryOf(s, geo, c);
   if (block.length < 2) return;
@@ -297,7 +297,7 @@ function considerUnions(s: GameState, geo: Geo) {
       if (!unionReady(s, A, B)) continue;
       // twice a year, a ready pair takes the step with a small chance: a union is a once-in-generations event
       // big old nations rarely give up their sovereignty; small neighbours more readily
-      if (nextRand(s) >= 0.004 * 6 / (6 + A.provinces.length + B.provinces.length)) continue;
+      if (nextRand(s) >= 0.005 * 6 / (6 + A.provinces.length + B.provinces.length)) continue;
       const player = A.isPlayer ? A : B.isPlayer ? B : null;
       if (player) {
         const other = player === A ? B : A;

@@ -83,6 +83,10 @@ Play for decades or for a thousand years: the map changes the way it always has.
   $46 quadrillion trillion. Now: booms fade into convergence (the poorest catch up fastest, the richest grow about
   1% a year), birth rates fall with the demographic transition so the population levels off, and money is shown in
   the dollars of the year you started.
+* **Tested over a thousand years** (a headless game from 2021 to 3017): 121 nations were born and 15 restored, 70 unions
+  formed, 31 nations were conquered; half of the world's land changed hands and 235 nations stood at the end (199 at
+  the start). Population follows the UN path (about 9.3 billion by 2046, a peak near 10–11 billion, then level), each
+  country starting from its real growth rate. No broken numbers; the save stays under 5 MB.
 * **A "Centuries" speed** (key 5) runs as fast as your computer allows.
 * **Start in 2021 (the new default) or 2024.** 2021 is the world before the wars: Ukraine at peace and at peacetime
   strength, Finland and Sweden outside NATO, BRICS still five members, the West's rivals not yet its declared

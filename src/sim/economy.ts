@@ -116,7 +116,7 @@ export function realGdppc(s: GameState, c: Country): number {
 export function demographicTrend(s: GameState, c: Country): number {
   const g0 = (c.eco.prev.popG0 ??= popTrend(realGdppc(s, c), c.region));
   const k = Math.exp(-s.tick / 52 / 45);
-  return g0 * k - 0.002 * (1 - k);
+  return g0 * k - 0.0005 * (1 - k);
 }
 export function popGrowthRate(c: Country, s: GameState): number {
   let g = demographicTrend(s, c);
@@ -303,7 +303,9 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   if (s.tick % 52 === c.id % 52) {
     const gdppc = e.gdp / Math.max(e.pop, 1);
     const gap = clamp(Math.log(Math.max(frontierGdppc(s), gdppc) / Math.max(gdppc, 1)) / Math.log(20), 0, 1);
-    const target = (1 - ALPHA) * (0.012 + 0.018 * gap);
+    // the frontier itself slows over the centuries (secular stagnation): 1.2% a year now, about 0.4% in the far future
+    const frontier = 0.012 * (0.35 + 0.65 * Math.exp(-s.tick / 52 / 150));
+    const target = (1 - ALPHA) * (frontier + 0.018 * gap);
     e.tfpTrend += (target - e.tfpTrend) * (e.tfpTrend > target + 0.02 ? 1 / 8 : 1 / 20);
     e.baseGrowth = e.tfpTrend / (1 - ALPHA) + demographicTrend(s, c);
   }
