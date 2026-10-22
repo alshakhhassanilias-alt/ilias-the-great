@@ -2706,3 +2706,35 @@ describe('round 30: regions around real towns, wars with reasons, voices, adapti
     expect(dynGoal(s, 'd:overtake:9999:0')).toBeNull();
   });
 });
+
+// round 31: the race for world power
+import { powerRank, powerTable, raceOf, stepRace } from '../src/sim/power';
+
+describe('round 31: the race for world power', () => {
+  it('ranks nations by economy, army and influence, and tells you who is next', () => {
+    const s = fresh('Poland');
+    const t = powerTable(s);
+    expect(s.countries[t[0].id].name).toBe('United States of America');
+    expect(s.countries[t[1].id].name).toBe('China');
+    const r = raceOf(s);
+    expect(r.rank).toBe(powerRank(s, s.player));
+    expect(r.above).toBeTruthy();
+    expect(r.tier).toBe(10); // from 20th place the next milestone is the top 10
+  });
+  it('reaching a new tier is a moment with a reward', () => {
+    const s = fresh('Poland');
+    s.tick = 1; stepRace(s);
+    const c = s.countries[s.player];
+    const pc0 = c.politics!.pc;
+    c.eco.gdp *= 6; c.mil.troops *= 5; // a decade of growth, at once
+    s.tick = 5; stepRace(s);
+    expect(powerRank(s, s.player)).toBeLessThanOrEqual(10);
+    expect(s.stats['tier:10']).toBe(5);
+    expect(c.politics!.pc).toBeGreaterThan(pc0);
+  });
+  it('first place held for five years wins (and the game goes on)', () => {
+    const s = fresh('United States of America');
+    for (let t = 1; t <= 52 * 5 + 8; t += 4) { s.tick = t; stepRace(s); }
+    expect(s.victory?.achieved).toBe(true);
+  });
+});

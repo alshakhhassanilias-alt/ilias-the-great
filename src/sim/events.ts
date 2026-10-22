@@ -255,7 +255,7 @@ export function rollPlayerEvent(s: GameState, geo: Geo) {
     return;
   }
   if (s.settings.randomEvents === false) return;
-  if (s.inbox.length >= 2 || s.tick < 14 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 15 : 22) || s.tick % 2 !== 0) return;
+  if (s.inbox.length >= 2 || s.tick < 14 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 26 : 44) || s.tick % 2 !== 0) return;
   if (nextRand(s) > 0.3) return;
   const pool: { def: EventDef; d: D; w: number }[] = [];
   for (const def of ALL_EVENTS) {

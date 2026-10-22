@@ -107,7 +107,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   // wait for the moment itself (how many weeks pass per second depends on the machine)
   for (let i = 0; i < 32 && (await S(pg)).speed !== 0; i++) await sleep(250);
   // an urgent decision about to lapse stops the clock and says so; answer it and carry on
-  const lastChance = (await S(pg)).speed === 0 && (await pg.locator('.toast:has-text("Last chance")').count()) > 0;
+  const lastChance = (await S(pg)).speed === 0 && (await pg.locator('.toast:has-text("needs your answer")').count()) > 0;
   if (!(await pg.locator('.inbox .event-opt').count())) await pg.locator('.inbox-row').first().click().catch(() => {});
   await answerEvent(pg);
   await pg.evaluate(() => window.__store.openInbox(null));
@@ -149,9 +149,12 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('a minister reports concrete numbers and can be replaced', /GDP/.test(await pg.locator('.min-more').innerText()) && (await pg.locator('.min-more button:has-text("Replace")').count()) === 1);
   await pg.evaluate(() => { const st = window.__store, s = st.state; const ru = s.countries.findIndex((x) => x.name === 'Russia'); s.offers = []; s.lastRipple = undefined; s.review = undefined; s.stats.cableSeq = (s.stats.cableSeq || 0) + 1; (s.cables ||= []).push({ tick: s.tick, from: ru, text: 'A test of the cable desk, from Moscow.', mood: 'cold', seq: s.stats.cableSeq }); st.notify(); });
   await sleep(100);
-  check('a diplomatic cable shows the foreign leader and can be answered', (await pg.locator('.cable .portrait').count()) === 1);
-  await pg.click('.cable button:has-text("Reply warmly")');
-  check('answering a cable closes it', (await pg.locator('.cable').count()) === 0);
+  // on the desktop a leader's messages do not pop up: they wait in that leader's dossier
+  check('no diplomatic cable pops up over the map', (await pg.locator('.notes-col .cable').count()) === 0);
+  await pg.evaluate(() => { const st = window.__store; st.select(st.state.countries.findIndex((x) => x.name === 'Russia'), null, false); st.setTab('overview'); });
+  await sleep(200);
+  check("a leader's latest message is in their dossier", /cable desk/.test(await pg.locator('.leader-quote').first().innerText()));
+  await pg.evaluate(() => { const st = window.__store; st.select(st.state.player, null, false); });
   await pg.click('.tabs button:has-text("Politics")');
   check('the Politics tab shows six factions, a parliament and political capital', (await pg.locator('.faction').count()) === 6 && (await pg.locator('.hemicycle circle').count()) >= 95 && (await pg.locator('.pc-big b').count()) === 1);
   const lawsBefore = await pg.evaluate(() => { const s = window.__store.state; const c = s.countries[s.player]; c.politics.pc = 100; window.__store.notify(); return c.politics.laws.length; });

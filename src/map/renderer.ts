@@ -515,7 +515,7 @@ export class MapRenderer {
 
   /** Whether another frame is needed even if nothing was touched (animations running). */
   animating(state: GameState | null) {
-    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.fx.count > 0 || !!this.dragArmy || (this.selectedArmy !== null && this.running) || this.battlePending || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
+    return !!state && (this.battleVisible || this.labelsStale || this.callouts.length > 0 || this.fx.count > 0 || !!this.dragArmy || (this.selectedArmy !== null && this.running) || this.battlePending || this.armiesMoving || this.effects.length > 0 || !!this.anim || this.inertia || Math.abs(this.targetK - this.view.k) > this.view.k * 0.002);
   }
 
   // ------------------------------------------------------------------ base layer
@@ -1008,58 +1008,90 @@ export class MapRenderer {
     const geo = this.geom.geo, V = this.view, P = state.player;
     const col = this.colorSnap[P] || '#c33';
     const ORDER_COL: Record<string, string> = { advance: '#ffcf5a', encircle: '#ff9a3c', raid: '#c58cff', hold: '#7fc1ff', defend: '#7fc1ff' };
-    const ORDER_ICON: Record<string, string> = { advance: '➤', encircle: '⭕', raid: '⚡', hold: '🛡', defend: '🏛' };
+    const ORDER_WORD: Record<string, string> = { advance: 'Advance', encircle: 'Encircle', raid: 'Raid', hold: 'Hold', defend: 'Defend' };
     const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
     ctx.save();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const byAt = new Map<number, number>();
+    // armies glide from region to region instead of jumping (map coordinates, eased every frame)
+    const dt = Math.min(0.1, (now - (this.armyT || now)) / 1000);
+    this.armyT = now;
+    this.armiesMoving = false;
     armies.forEach((a, i) => {
       const at = a.at >= 0 ? a.at : state.countries[P].capital;
       const n = byAt.get(at) ?? 0; byAt.set(at, n + 1);
       const sd = geo.provinces[at].seed;
-      const sx = sd[0] * V.k + V.x + n * 34 - 10, sy = sd[1] * V.k + V.y - 26 - (n % 2) * 6;
+      // several armies in one region stand side by side
+      const goal: [number, number] = [sd[0] + (n * 30 - 10) / V.k, sd[1] - (22 + (n % 2) * 6) / V.k];
+      let pos = this.armyPos.get(a.id);
+      if (!pos || !Number.isFinite(pos[0])) { pos = [...goal]; this.armyPos.set(a.id, pos); }
+      const f = 1 - Math.exp(-dt * 2.6);
+      pos[0] += (goal[0] - pos[0]) * f; pos[1] += (goal[1] - pos[1]) * f;
+      const moving = Math.hypot(goal[0] - pos[0], goal[1] - pos[1]) * V.k > 0.6;
+      if (moving) this.armiesMoving = true;
+      const sx = pos[0] * V.k + V.x, sy = pos[1] * V.k + V.y + (moving ? Math.sin(now / 90) * 1.2 : 0);
       const sel = this.selectedArmy === a.id;
       const oc = ORDER_COL[a.order] ?? '#fff';
-      // objective: a dashed arrow towards the target region
+      // objective: a gently curved path of marching chevrons to a pulsing target ring
       const tgt = this.dragArmy?.id === a.id ? null : a.target;
-      if (tgt !== null && tgt >= 0) {
+      if (tgt !== null && tgt >= 0 && Number.isFinite(sx)) {
         const td = geo.provinces[tgt].seed;
         const tx = td[0] * V.k + V.x, ty = td[1] * V.k + V.y;
+        const mx = (sx + tx) / 2, my = (sy + ty) / 2, dx = tx - sx, dy = ty - sy, L = Math.hypot(dx, dy) || 1;
+        const cx = mx - (dy / L) * L * 0.18, cy = my + (dx / L) * L * 0.18;
         ctx.save();
-        ctx.strokeStyle = 'rgba(10,6,2,0.75)'; ctx.lineWidth = sel ? 5 : 4; ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
-        ctx.strokeStyle = oc; ctx.lineWidth = sel ? 2.6 : 1.8; ctx.setLineDash([7, 5]); ctx.lineDashOffset = -(now / 40) % 12;
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
-        ctx.setLineDash([]);
-        const ang = Math.atan2(ty - sy, tx - sx);
-        ctx.fillStyle = oc; ctx.strokeStyle = 'rgba(10,6,2,0.9)'; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - 12 * Math.cos(ang - 0.45), ty - 12 * Math.sin(ang - 0.45)); ctx.lineTo(tx - 12 * Math.cos(ang + 0.45), ty - 12 * Math.sin(ang + 0.45)); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.arc(tx, ty, 9 + 2 * Math.sin(now / 200), 0, 6.283); ctx.strokeStyle = oc; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(10,6,2,0.55)'; ctx.lineWidth = sel ? 6 : 5;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(cx, cy, tx, ty); ctx.stroke();
+        ctx.strokeStyle = oc; ctx.globalAlpha = sel ? 0.9 : 0.55; ctx.lineWidth = sel ? 2.2 : 1.6;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(cx, cy, tx, ty); ctx.stroke();
+        ctx.globalAlpha = 1;
+        // chevrons marching along the curve
+        const nCh = Math.max(2, Math.floor(L / 26));
+        const phase = (now / 900) % 1;
+        for (let j = 0; j < nCh; j++) {
+          const u = (j + phase) / nCh;
+          if (u < 0.12 || u > 0.9) continue;
+          const px = (1 - u) * (1 - u) * sx + 2 * (1 - u) * u * cx + u * u * tx, py = (1 - u) * (1 - u) * sy + 2 * (1 - u) * u * cy + u * u * ty;
+          const qx = 2 * (1 - u) * (cx - sx) + 2 * u * (tx - cx), qy = 2 * (1 - u) * (cy - sy) + 2 * u * (ty - cy);
+          const ang = Math.atan2(qy, qx);
+          ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
+          ctx.globalAlpha = Math.sin(u * Math.PI);
+          ctx.fillStyle = oc; ctx.strokeStyle = 'rgba(10,6,2,0.85)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4.5); ctx.lineTo(-1, 0); ctx.lineTo(-3, 4.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.restore();
+        }
+        const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+        ctx.strokeStyle = oc; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.5 + 0.4 * pulse;
+        ctx.beginPath(); ctx.arc(tx, ty, 8 + 3 * pulse, 0, 6.283); ctx.stroke();
+        ctx.globalAlpha = 0.25 * (1 - pulse);
+        ctx.beginPath(); ctx.arc(tx, ty, 14 + 6 * pulse, 0, 6.283); ctx.stroke();
         ctx.restore();
+        this.armiesMoving = true;
       }
-      // the token: a banner in the national colour with the army's number, its order and its general's stars
       if (!Number.isFinite(sx) || !Number.isFinite(sy)) return; // an army without a valid position this frame
-      const w = 30, h = 36;
       ctx.save();
-      if (sel) { ctx.shadowColor = oc; ctx.shadowBlur = 16; }
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.beginPath(); ctx.ellipse(sx, sy + h / 2 + 4, 15, 4, 0, 0, 6.283); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(sx - w / 2, sy - h / 2); ctx.lineTo(sx + w / 2, sy - h / 2); ctx.lineTo(sx + w / 2, sy + h / 2 - 9); ctx.lineTo(sx, sy + h / 2); ctx.lineTo(sx - w / 2, sy + h / 2 - 9); ctx.closePath();
-      const g = ctx.createLinearGradient(sx, sy - h / 2, sx, sy + h / 2);
-      g.addColorStop(0, '#fff6dc'); g.addColorStop(0.12, col); g.addColorStop(1, '#1d140a');
-      ctx.fillStyle = g; ctx.fill();
+      if (sel) { ctx.shadowColor = oc; ctx.shadowBlur = 18; }
+      const C = state.countries[P];
+      drawToken(ctx, sx, sy, 15, col, C.mil.equipArmy / Math.max(1, C.mil.troops) > 140000, Math.max(0, Math.min(1, C.mil.readiness * (1 - C.mil.exhaustion))), 'mine');
       ctx.shadowBlur = 0;
-      ctx.lineWidth = sel ? 2.4 : 1.6; ctx.strokeStyle = sel ? '#fff3c4' : '#d6ab52'; ctx.stroke();
-      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(10,6,2,0.9)'; ctx.stroke();
-      ctx.fillStyle = '#fff8e6'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = `700 13px ${LABEL_FONT}`; ctx.fillText(ROMAN[i] ?? String(i + 1), sx, sy - 6);
-      ctx.font = `12px ${UI_FONT}`; ctx.fillText(ORDER_ICON[a.order] ?? '', sx, sy + 8);
-      const gen = state.countries[P].generals?.find((x) => x.id === a.general && x.status === 'active');
-      if (gen) { const st = '★'.repeat(Math.min(5, 1 + Math.floor(gen.xp / 25))); ctx.font = `700 8px ${UI_FONT}`; ctx.fillStyle = '#ffcf5a'; ctx.fillText(st, sx, sy - h / 2 - 5); }
+      // a pennant with the army's number and an order badge
+      const fx = sx + 11, fy = sy - 22;
+      ctx.strokeStyle = 'rgba(20,12,4,0.9)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(sx + 9, sy - 9); ctx.lineTo(fx, fy - 6); ctx.stroke();
+      const wave = moving ? Math.sin(now / 120) * 1.5 : Math.sin(now / 400) * 0.6;
+      ctx.fillStyle = oc;
+      ctx.beginPath(); ctx.moveTo(fx, fy - 6); ctx.lineTo(fx + 18, fy - 3 + wave); ctx.lineTo(fx, fy + 3); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(20,12,4,0.85)'; ctx.lineWidth = 0.8; ctx.stroke();
+      ctx.fillStyle = '#1a1006'; ctx.font = `700 8px ${UI_FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(ROMAN[i] ?? String(i + 1), fx + 2, fy - 1.5);
+      const gen = C.generals?.find((x) => x.id === a.general && x.status === 'active');
+      if (gen) { const st = '★'.repeat(Math.min(5, 1 + Math.floor(gen.xp / 25))); ctx.font = `700 8px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText(st, sx + 0.6, sy - 21.4); ctx.fillStyle = '#ffd36a'; ctx.fillText(st, sx, sy - 22); }
+      troopTab(ctx, sx, sy + 21, ORDER_WORD[a.order] ?? a.order);
       ctx.restore();
       this.armyHits.push({ id: a.id, x: sx, y: sy });
     });
+    for (const id of [...this.armyPos.keys()]) if (!armies.some((a) => a.id === id)) this.armyPos.delete(id);
     // dragging: a live line to the region under the pointer
     const d = this.dragArmy;
     if (d) {
@@ -1095,6 +1127,10 @@ export class MapRenderer {
   private fx = new Fx();
   private lastFxT = 0;
   private lastCounterT = 0;
+  /** the player's armies glide between regions: their eased positions (map coordinates) */
+  private armyPos = new Map<number, [number, number]>();
+  private armyT = 0;
+  private armiesMoving = false;
   private unitPos = new Map<string, [number, number]>();
   private garrisonCache = new Map<number, { key: string; list: { prov: number; troops: number }[] }>();
   /** Where a country keeps the troops not committed to offensives: its capital and the borders facing hostile neighbours. */
@@ -1473,11 +1509,11 @@ export class MapRenderer {
         pos[0] += (c.x - pos[0]) * ease; pos[1] += (c.y - pos[1]) * ease;
         let sx = pos[0] * V.k + V.x, sy = pos[1] * V.k + V.y;
         for (let tries = 0; tries < 6; tries++) {
-          const r: [number, number, number, number] = [sx - 16, sy - 9, sx + 16, sy + 13];
+          const r: [number, number, number, number] = [sx - 16, sy - 18, sx + 16, sy + 22];
           if (!overlaps(r)) break;
-          sy += tries % 2 === 0 ? 24 * (tries + 1) : -24 * (tries + 1);
+          sy += tries % 2 === 0 ? 30 * (tries + 1) : -30 * (tries + 1);
         }
-        taken.push([sx - 16, sy - 9, sx + 16, sy + 13]);
+        taken.push([sx - 16, sy - 18, sx + 16, sy + 22]);
         this.blitCounter(ctx, sx, sy, c, k);
       }
       for (const key of [...this.unitPos.keys()]) if (!seen.has(key)) this.unitPos.delete(key);
@@ -1621,7 +1657,7 @@ export class MapRenderer {
     const divs = Math.max(1, Math.round(c.troops / 10000));
     const key = `${c.gen ?? 0}|${c.color}|${divs}|${c.armor ? 1 : 0}|${Math.round(Math.max(0, Math.min(1, c.org)) * 29)}|${c.mine ? 1 : 0}${c.enemy ? 1 : 0}|${showLabel ? fmtNum(c.troops, 0) : ''}|${this.dpr}`;
     let sp = this.counterSprites.get(key);
-    const W = 48, H = 52, ox = 24, oy = 22; // sprite box around the counter's centre (room for the shadow and the troop label)
+    const W = 52, H = 56, ox = 26, oy = 24; // sprite box around the token's centre (room for the stars, the shadow and the size tab)
     if (!sp) {
       if (this.counterSprites.size > 240) this.counterSprites.clear();
       sp = document.createElement('canvas');
@@ -1635,48 +1671,19 @@ export class MapRenderer {
   }
 
   /**
-   * NATO-style army counter in the country's colour: infantry (crossed box) or armour (oval), the number of
-   * divisions (10,000 troops each), and a strength bar (readiness x morale). Screen coordinates.
+   * An army on the map: a round medallion in the national colour with a helmet (infantry) or a tank (armour), a ring
+   * that shows its strength (readiness x morale: green, amber, red), a gold rim for yours and a red one for the enemy,
+   * and its size on a small tab underneath. Screen coordinates.
    */
   private drawCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }, k: number) {
-    const w = 30, h = 16;
-    const x0 = sx - w / 2, y0 = sy - h / 2;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x0 + 2, y0 + 2, w, h + 5);
-    ctx.fillStyle = c.color; ctx.fillRect(x0, y0, w, h);
-    // division count panel on the left
-    const divs = Math.max(1, Math.round(c.troops / 10000));
-    ctx.fillStyle = 'rgba(12,8,4,0.82)'; ctx.fillRect(x0, y0, 12, h);
-    ctx.fillStyle = '#fff'; ctx.font = `700 ${divs > 99 ? 7.5 : 9}px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(divs), x0 + 6, y0 + h / 2 + 0.5);
-    // unit symbol
-    const ix = x0 + 14, iw = 13, ih = 9, iy = y0 + (h - ih) / 2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.1;
-    ctx.strokeRect(ix, iy, iw, ih);
-    ctx.beginPath();
-    if (c.armor) ctx.ellipse(ix + iw / 2, iy + ih / 2, iw / 2 - 2.2, ih / 2 - 1.6, 0, 0, 6.283);
-    else { ctx.moveTo(ix, iy); ctx.lineTo(ix + iw, iy + ih); ctx.moveTo(ix + iw, iy); ctx.lineTo(ix, iy + ih); }
-    ctx.stroke();
-    // strength bar
-    const org = Math.max(0, Math.min(1, c.org));
-    ctx.fillStyle = 'rgba(12,8,4,0.85)'; ctx.fillRect(x0, y0 + h, w, 4);
-    ctx.fillStyle = org > 0.6 ? '#5fd17a' : org > 0.35 ? '#e8c14a' : '#e8553f'; ctx.fillRect(x0 + 0.5, y0 + h + 0.5, (w - 1) * org, 3);
-    ctx.strokeStyle = c.mine ? '#ffd56a' : c.enemy ? 'rgba(255,90,70,0.95)' : 'rgba(12,8,4,0.95)'; ctx.lineWidth = c.mine || c.enemy ? 1.6 : 1.2;
-    ctx.strokeRect(x0, y0, w, h + 4);
+    drawToken(ctx, sx, sy, 11, c.color, c.armor, Math.max(0, Math.min(1, c.org)), c.mine ? 'mine' : c.enemy ? 'enemy' : 'other');
     if (c.gen) {
-      // the commanding general's stars, on a small tab above the counter
-      const st = '★'.repeat(c.gen);
-      ctx.font = `700 8px ${UI_FONT}`;
-      const tw = ctx.measureText(st).width + 6;
-      ctx.fillStyle = 'rgba(12,8,4,0.9)'; ctx.fillRect(sx - tw / 2, y0 - 9, tw, 9);
-      ctx.fillStyle = '#ffcf5a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(st, sx, y0 - 4.2);
+      ctx.font = `700 8px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText('★'.repeat(c.gen), sx + 0.6, sy - 15.4);
+      ctx.fillStyle = '#ffd36a'; ctx.fillText('★'.repeat(c.gen), sx, sy - 16);
     }
-    if (k > this.fitK * 5 && c.troops) {
-      const label = fmtNum(c.troops, 0);
-      ctx.font = `700 9px ${UI_FONT}`;
-      const tw = ctx.measureText(label).width + 6;
-      ctx.fillStyle = 'rgba(10,8,6,0.85)'; ctx.fillRect(sx - tw / 2, y0 + h + 6, tw, 11);
-      ctx.fillStyle = '#fff'; ctx.fillText(label, sx, y0 + h + 12);
-    }
+    const label = k > this.fitK * 5 && c.troops ? fmtNum(c.troops, 0) : c.troops >= 1000 ? `${Math.round(c.troops / 1000)}K` : '';
+    if (label) troopTab(ctx, sx, sy + 15, label);
   }
 
   // ------------------------------------------------------------------ screen-space finishing
@@ -1888,4 +1895,72 @@ export class MapRenderer {
     ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(14,10,6,0.9)'; ctx.stroke();
     ctx.fillStyle = color; ctx.fill();
   }
+}
+
+
+// ------------------------------------------------------------------ army tokens
+/** A soldier's helmet (infantry) or a tank (armour), drawn as a small white emblem centred on (x, y). */
+function unitGlyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, armor: boolean) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(r / 10, r / 10);
+  ctx.fillStyle = 'rgba(255,250,236,0.96)';
+  ctx.strokeStyle = 'rgba(20,12,4,0.55)'; ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  if (armor) {
+    // hull with rounded ends, turret, barrel
+    ctx.moveTo(-6.5, 2.2); ctx.lineTo(6.5, 2.2); ctx.quadraticCurveTo(8.2, 2.2, 7.6, 4.2); ctx.lineTo(-7.6, 4.2); ctx.quadraticCurveTo(-8.2, 2.2, -6.5, 2.2); ctx.closePath();
+    ctx.rect(-5.5, -0.6, 11, 2.8);
+    ctx.moveTo(-3.2, -0.6); ctx.quadraticCurveTo(-3, -4, 0.4, -4); ctx.quadraticCurveTo(3.4, -4, 3.4, -0.6); ctx.closePath();
+    ctx.rect(2.6, -3.1, 6.2, 1.2);
+  } else {
+    // a helmet: dome and brim
+    ctx.moveTo(-6.4, 1.6); ctx.quadraticCurveTo(-6.2, -5.4, 0, -5.4); ctx.quadraticCurveTo(6.2, -5.4, 6.4, 1.6); ctx.closePath();
+    ctx.moveTo(-8.2, 1.4); ctx.lineTo(8.2, 1.4); ctx.quadraticCurveTo(8.6, 3.6, 6.8, 3.6); ctx.lineTo(-6.8, 3.6); ctx.quadraticCurveTo(-8.6, 3.6, -8.2, 1.4); ctx.closePath();
+  }
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+const lighten = (hex: string, f: number) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = (v: number) => Math.round(v + (255 - v) * f);
+  return `rgb(${ch((n >> 16) & 255)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+};
+/** The medallion itself (shared by AI counters and the player's army groups). */
+export function drawToken(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, armor: boolean, org: number, side: 'mine' | 'enemy' | 'other') {
+  // shadow on the ground
+  ctx.fillStyle = 'rgba(0,0,0,0.38)';
+  ctx.beginPath(); ctx.ellipse(x + 1, y + r + 2.5, r * 0.95, r * 0.32, 0, 0, 6.283); ctx.fill();
+  // body: the national colour, lit from the top left
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.45, r * 0.15, x, y, r * 1.05);
+  g.addColorStop(0, lighten(color, 0.45)); g.addColorStop(0.55, color); g.addColorStop(1, 'rgba(18,12,6,1)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+  // rim: gold for yours, red for the enemy, dark for the rest
+  ctx.lineWidth = side === 'other' ? 1.4 : 2;
+  ctx.strokeStyle = side === 'mine' ? '#f3cf6e' : side === 'enemy' ? '#ff5a46' : 'rgba(14,9,4,0.95)';
+  ctx.stroke();
+  // strength ring
+  const col = org > 0.6 ? '#62d488' : org > 0.35 ? '#f0c54e' : '#ef5a43';
+  ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(10,6,2,0.65)';
+  ctx.beginPath(); ctx.arc(x, y, r + 3, -Math.PI / 2, Math.PI * 1.5); ctx.stroke();
+  ctx.strokeStyle = col;
+  ctx.beginPath(); ctx.arc(x, y, r + 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, org)); ctx.stroke();
+  ctx.lineCap = 'butt';
+  // a glint
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.5, r * 0.45, r * 0.22, -0.5, 0, 6.283); ctx.fill();
+  unitGlyph(ctx, x, y + 0.5, r * 0.78, armor);
+}
+/** A small dark tab with white text (an army's size, a name) centred under a token. */
+export function troopTab(ctx: CanvasRenderingContext2D, x: number, y: number, label: string) {
+  ctx.font = `700 9px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(label).width + 8;
+  ctx.fillStyle = 'rgba(12,9,5,0.88)';
+  ctx.beginPath(); ctx.roundRect(x - tw / 2, y - 5.5, tw, 11, 5.5); ctx.fill();
+  ctx.strokeStyle = 'rgba(214,171,82,0.55)'; ctx.lineWidth = 0.8; ctx.stroke();
+  ctx.fillStyle = '#fff6e0'; ctx.fillText(label, x, y + 0.5);
 }

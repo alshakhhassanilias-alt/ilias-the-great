@@ -43,6 +43,7 @@ import { stepUnrest } from './unrest';
 import { rollPlayerEvent, stepAssembly, stepWorldEvents } from './events';
 import { stepPolitics } from './politics';
 import { stepGoals, turningPoint } from './goals';
+import { stepRace } from './power';
 import { alliesOf } from './relations';
 import { START_YEAR, TICKS_PER_YEAR, type GameState } from './types';
 import { transferProvince } from './war';
@@ -88,7 +89,7 @@ function checkVictory(s: GameState, geo: Geo) {
     logEvent(s, s.victory.text, 'info', [s.player], true);
     return;
   }
-  if (s.victory || s.settings.victory === 'none' || s.tick % 13 !== 0) return;
+  if (s.victory || s.settings.victory === 'none' || s.settings.victory === 'superpower' || s.tick % 13 !== 0) return;
   let worldGdp = 0, worldW = 0, myW = 0;
   for (const c of s.countries) if (c.alive) worldGdp += c.eco.gdp;
   for (const p of geo.provinces) worldW += p.area;
@@ -185,6 +186,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCalendar(s);
   rollPlayerEvent(s, geo);
   stepGoals(s);
+  stepRace(s);
   turningPoint(s, (id) => !!pushInbox(s, id, {}, 20));
   stepLegacy(s, geo);
   checkVictory(s, geo);

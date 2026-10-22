@@ -302,7 +302,9 @@ class Store {
         if (e.kind === 'war' && /declared war/.test(e.text) && e.countries[0] !== s.player) sfx('war');
         else if (e.kind === 'territory' && /captured/.test(e.text)) sfx(e.countries[0] === s.player ? 'capture' : 'lost');
       }
-      if (!e.big && (mine && e.kind !== 'info' || (e.important && this.relevant(e)))) this.toast(e.text, e.kind);
+      // a toast only for what really happens to you (a war, land won or lost, peace, real danger); the rest of the
+      // world is in the news ticker and the News tab, not in your face
+      if (!e.big && mine && e.important && (e.kind === 'war' || e.kind === 'territory' || e.kind === 'peace' || e.kind === 'danger')) this.toast(e.text, e.kind);
       if (this.pauseOnWar && e.kind === 'war' && mine && e.countries[0] !== s.player && /declared war|joins|honours/.test(e.text) && this.speed !== 0) {
         this.speed = 0;
         this.toast('Simulation paused: a war involving your country began.', 'danger');
@@ -324,7 +326,6 @@ class Store {
       if (it.uid <= this.lastInboxUid) continue;
       this.lastInboxUid = it.uid;
       if (it.urgent) {
-        this.toast(`${eventById(it.id).icon} ${eventById(it.id).title}: needs an answer`, 'danger');
         sfx('alert');
         if (this.speed > 2) this.speed = 2; // slow down, never stop
       }
@@ -338,7 +339,7 @@ class Store {
         if (!it.urgent && !def.lapse) continue;
         this.lapseWarned.add(it.uid);
         if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; }
-        this.toast(`⏳ Last chance: “${def.title}” lapses in ${Math.max(0, it.expires - s.tick)} weeks. Decide now, or press play to let it lapse.`, 'danger');
+        this.toast(`⏳ “${def.title}” needs your answer`, 'danger');
       }
     }
   }
@@ -349,9 +350,9 @@ class Store {
   private announce(e: LogEntry) {
     if (this.preview) return;
     const s = this.state!;
-    const prio = e.countries.includes(s.player) || this.relevant(e) || /TROPHY|WORLD |complete!/.test(e.text) ? 2 : 1;
+    const prio = e.countries.includes(s.player) || (e.kind === 'war' && this.relevant(e)) || /WORLD CRISIS/.test(e.text) ? 2 : 1;
     const now = performance.now();
-    if (prio < 2 && this.speed >= 3) return; // background world news only when time is not racing
+    if (prio < 2) return; // world news goes to the ticker; the banner is for what concerns you
     if (prio >= 2 && this.autoSlow && this.speed > 2) { this.speed = 2; this.acc = 0; } // big news about you: ease off so you can read it
     if (this.breaking && now - this.breakAt < 5500 && prio <= this.breakPrio) return; // let the current one be read
     if (prio < 2 && now - this.breakAt < 8000) return;
@@ -360,7 +361,7 @@ class Store {
     if (e.prov !== undefined) { this.pingSeq++; this.pingProv = e.prov; this.pingColor = e.kind === 'war' || e.kind === 'danger' ? '#ff6b5a' : '#ffd36a'; }
     sfx(/TROPHY|complete!/.test(e.text) ? 'success' : e.kind === 'war' || e.kind === 'danger' ? 'war' : 'breaking');
     clearTimeout(this.breakTimer);
-    this.breakTimer = window.setTimeout(() => { this.breaking = null; this.notify(); }, 9000);
+    this.breakTimer = window.setTimeout(() => { this.breaking = null; this.notify(); }, 5000);
   }
   dismissBreaking() { this.breaking = null; this.notify(); }
   private victoryShown = false;
@@ -379,10 +380,14 @@ class Store {
   }
   toast(text: string, kind: LogEntry['kind'] = 'info') {
     if (this.toasts.some((x) => x.text === text)) return; // no duplicates
+    const now = performance.now();
+    if (kind !== 'danger' && now - this.lastToast < 2500) return; // never a stream of them
+    this.lastToast = now;
     const t = { id: this.toastId++, text, kind };
-    this.toasts = [...this.toasts.slice(-2), t]; // at most three on screen
-    setTimeout(() => { this.toasts = this.toasts.filter((x) => x.id !== t.id); this.notify(); }, 5500);
+    this.toasts = [...this.toasts.slice(-1), t]; // at most two on screen
+    setTimeout(() => { this.toasts = this.toasts.filter((x) => x.id !== t.id); this.notify(); }, 4500);
   }
+  private lastToast = 0;
   dismissToast(id: number) { this.toasts = this.toasts.filter((x) => x.id !== id); this.notify(); }
 
   // ---- selection / UI ----

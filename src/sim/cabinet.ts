@@ -228,7 +228,7 @@ export function stepCabinet(s: GameState) {
   }
   // the classic fight over money: the Treasury against Defence
   const fin = ministerOf(c, 'finance'), def = ministerOf(c, 'defence');
-  if (fin && def && s.settings.randomEvents !== false && s.tick > 30 && s.tick - (s.stats.minClash ?? -999) > 90 && (s.tick + c.id) % 13 === 4 && nextRand(s) < 0.12) {
+  if (fin && def && s.settings.randomEvents !== false && s.tick > 30 && s.tick - (s.stats.minClash ?? -999) > 156 && (s.tick + c.id) % 13 === 4 && nextRand(s) < 0.12) {
     const deficit = -fiscalNow(c, s).balance / Math.max(1, c.eco.gdp);
     if (deficit > 0.015 || c.budget.military > 0.03) { const n = s.inbox.length; queue(s, 'min_clash', { f: fin.id, d: def.id }, 18); if (s.inbox.length > n) s.stats.minClash = s.tick; }
   }

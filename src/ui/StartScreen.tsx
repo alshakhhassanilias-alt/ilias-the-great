@@ -121,7 +121,7 @@ export function StartScreen() {
           )}
           <div className="field" style={{ display: settings.mode === 'legacy' ? 'none' : undefined }}><label>Victory condition</label>
             <select value={settings.victory} onChange={(e) => upd({ victory: e.target.value as VictoryMode })} aria-label="Victory condition">
-              <option value="none">None — endless sandbox</option><option value="economic">Economic — 30% of world GDP</option>
+              <option value="superpower">Superpower: hold first place in world power for five years</option><option value="none">None: endless sandbox</option><option value="economic">Economic — 30% of world GDP</option>
               <option value="conquest">Conquest — 40% of world land</option><option value="hegemon">Hegemony — your bloc holds 60% of GDP</option>
             </select>
           </div>

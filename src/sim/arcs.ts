@@ -111,7 +111,7 @@ export function stepArcs(s: GameState, geo: Geo) {
     if (!P.arc.next && !s.inbox.some((x) => x.id.startsWith('arc_')) && s.tick - P.arc.started > 6) { P.arc = undefined; P.lastArc = s.tick; }
     return;
   }
-  if (s.tick < 26 || s.tick - P.lastArc < 30 || s.settings.randomEvents === false) return;
+  if (s.tick < 52 || s.tick - P.lastArc < 130 || s.settings.randomEvents === false) return;
   if ((s.tick + c.id) % 3 !== 0 || nextRand(s) > 0.1) return;
   // the same story does not come back for five years, and never more than twice
   const fresh = (max: number) => ARCS.filter((a) => (s.stats[`arc:${a.id}`] ?? 0) < max && s.tick - (s.stats[`arcAt:${a.id}`] ?? -999) > 260).map((a) => ({ a, d: a.trigger(s, c, geo) })).filter((x) => x.d);

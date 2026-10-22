@@ -378,7 +378,7 @@ export function stepPolitics(s: GameState, appr: number) {
   if (s.tick >= P.nextDemand) {
     // the unhappiest faction speaks up: never the same one twice in a row, and each at most once a year
     const worst = [...P.factions].sort((a, b) => a.mood - b.mood).find((f) => P.factions.indexOf(f) !== s.stats.lastDemandF && s.tick - (s.stats[`facAt:${f.id}`] ?? -999) >= 52);
-    P.nextDemand = s.tick + 32 + Math.floor(nextRand(s) * 22);
+    P.nextDemand = s.tick + 60 + Math.floor(nextRand(s) * 30);
     if (worst && worst.mood < 44) {
       const fi = P.factions.indexOf(worst);
       // they remember how you answered last time (1 gave in, 2 a smaller deal, 3 refused, 0 ignored)

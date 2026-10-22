@@ -455,3 +455,33 @@
   .mission-path { font-size: 12px; color: var(--muted); }
   .mission-path b { color: var(--brass-hi); font-weight: 600; }
 }
+@media (min-width: 901px) {
+  .voices.compact { padding: 7px 28px 7px 10px; }
+  .voices-sum { background: none; border: 0; color: var(--text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; padding: 0; }
+  .voices-sum .good { color: var(--teal); } .voices-sum .bad { color: var(--red); }
+}
+/* the cabinet: faces and loyalty at a glance; a minister's report opens on click */
+@media (min-width: 901px) {
+  .cabinet { display: grid; gap: 4px; }
+  .cabinet .minister:not(.open) .min-say { display: none; }
+  .cabinet .minister:not(.open) .min-tags { display: none; }
+}
+/* the race for world power, first thing in the top bar */
+@media (min-width: 901px) {
+  .desk-hide { display: none !important; }
+  .race-kpi { min-width: 150px; border: 1px solid var(--brass-lo); border-radius: 4px; background: linear-gradient(180deg, rgba(214, 171, 82, 0.16), rgba(214, 171, 82, 0.04)); padding: 4px 12px !important; }
+  .race-kpi label { color: var(--brass-hi) !important; }
+  .race-rank { font-size: 24px !important; color: #fff3cf; }
+  .race-kpi small { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .race-kpi small b { font-size: 11px !important; color: var(--text); }
+  .race-bar { display: inline-block; width: 44px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+  .race-bar > i { display: block; height: 100%; background: var(--brass); transition: width 0.6s ease; }
+}
+@media (min-width: 901px) {
+  .mission-race { display: flex; gap: 12px; align-items: center; margin: 4px 0 2px; }
+  .mr-rank { font-family: var(--display); font-size: 34px; line-height: 1; color: #fff3cf; text-shadow: 0 2px 0 #000, 0 0 18px rgba(214, 171, 82, 0.35); min-width: 64px; }
+  .mr-body { display: grid; gap: 3px; flex: 1; font-size: 12.5px; }
+  .mr-body > b { font-family: var(--display); font-size: 14px; letter-spacing: 0.03em; color: var(--brass-hi); }
+  .mr-bar { display: block; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+  .mr-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--brass-lo), var(--brass-hi)); transition: width 0.6s ease; }
+}

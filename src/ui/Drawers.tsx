@@ -1,4 +1,5 @@
 import { nationalColor } from '../map/palette';
+import { powerTable } from '../sim/power';
 import { START_YEAR } from '../sim/types';
 import { TROPHIES } from '../sim/trophies';
 import { useEffect, useRef, useState } from 'react';
@@ -54,12 +55,13 @@ export function Drawers() {
 function WorldDrawer({ onClose }: { onClose: () => void }) {
   const s = store.state!;
   const tab = store.drawer.worldTab;
-  const [metric, setMetric] = useState<'gdp' | 'gdppc' | 'pop' | 'mil' | 'land'>('gdp');
+  const [metric, setMetric] = useState<'power' | 'gdp' | 'gdppc' | 'pop' | 'mil' | 'land'>('power');
+  const pw = new Map(powerTable(s).map((r) => [r.id, r.score]));
   const [onlyImportant, setOnlyImportant] = useState(true);
   const [newsKind, setNewsKind] = useState<'all' | 'you' | 'war' | 'diplo' | 'econ'>('all');
   const alive = s.countries.filter((c) => c.alive);
-  const val = (c: (typeof alive)[number]) => metric === 'gdp' ? c.eco.gdp : metric === 'gdppc' ? c.eco.gdp / c.eco.pop : metric === 'pop' ? c.eco.pop : metric === 'mil' ? strength(c) : c.provinces.length;
-  const fmt = (v: number) => metric === 'gdp' ? fmtMoney(v) : metric === 'gdppc' ? fmtMoney(v, 1) : metric === 'pop' ? fmtNum(v) : metric === 'mil' ? fmtNum(v) : `${v}`;
+  const val = (c: (typeof alive)[number]) => metric === 'power' ? pw.get(c.id) ?? 0 : metric === 'gdp' ? c.eco.gdp : metric === 'gdppc' ? c.eco.gdp / c.eco.pop : metric === 'pop' ? c.eco.pop : metric === 'mil' ? strength(c) : c.provinces.length;
+  const fmt = (v: number) => metric === 'power' ? v.toFixed(1) : metric === 'gdp' ? fmtMoney(v) : metric === 'gdppc' ? fmtMoney(v, 1) : metric === 'pop' ? fmtNum(v) : metric === 'mil' ? fmtNum(v) : `${v}`;
   const ranked = [...alive].sort((a, b) => val(b) - val(a));
   const myRank = ranked.findIndex((c) => c.id === s.player);
   const rows = ranked.slice(0, 20);
@@ -75,10 +77,11 @@ function WorldDrawer({ onClose }: { onClose: () => void }) {
       <div style={{ height: 12 }} />
       {tab === 'rankings' && (
         <>
-          <Segmented value={metric} onChange={setMetric} label="Metric" options={[{ v: 'gdp', label: 'GDP' }, { v: 'gdppc', label: 'GDP/cap' }, { v: 'pop', label: 'Population' }, { v: 'mil', label: 'Military' }, { v: 'land', label: 'Territory' }]} />
+          <Segmented value={metric} onChange={setMetric} label="Metric" options={[{ v: 'power', label: 'Power' }, { v: 'gdp', label: 'GDP' }, { v: 'gdppc', label: 'GDP/cap' }, { v: 'pop', label: 'Population' }, { v: 'mil', label: 'Military' }, { v: 'land', label: 'Territory' }]} />
+          {metric === 'power' && <div className="faint" style={{ fontSize: 12, margin: '8px 0' }}>World power: your economy (45%), your army (35%) and your influence (20%: reputation, allies), as shares of the world's. Climb the table; first place held for five years wins the game.</div>}
           <div className="faint" style={{ fontSize: 12, margin: '8px 0' }}>World GDP {fmtMoney(worldGdp)} · your rank #{myRank + 1} of {alive.length} · your share {pct(s.countries[s.player].eco.gdp / worldGdp)}</div>
           <table className="table">
-            <thead><tr><th>#</th><th>Country</th><th style={{ textAlign: 'right' }}>{({ gdp: 'GDP', gdppc: 'GDP per person', pop: 'Population', mil: 'Strength', land: 'Provinces' } as Record<string, string>)[metric]}</th><th style={{ textAlign: 'right' }}>{metric === 'gdp' ? 'World share' : 'GDP'}</th></tr></thead>
+            <thead><tr><th>#</th><th>Country</th><th style={{ textAlign: 'right' }}>{({ power: 'Power (of 1000)', gdp: 'GDP', gdppc: 'GDP per person', pop: 'Population', mil: 'Strength', land: 'Provinces' } as Record<string, string>)[metric]}</th><th style={{ textAlign: 'right' }}>{metric === 'gdp' ? 'World share' : 'GDP'}</th></tr></thead>
             <tbody>
               {rows.map((c, i) => (
                 <tr key={c.id} className={`click ${c.id === s.player ? 'me' : ''}`} onClick={() => pick(c.id)}>
@@ -295,7 +298,7 @@ function GameSettings() {
       <label className="check"><input type="checkbox" checked={store.pauseOnWar} onChange={(e) => { store.pauseOnWar = e.target.checked; store.notify(); }} /><span><b>Pause when a war involving me starts</b></span></label>
       <div className="field"><label>Victory condition</label>
         <select value={st.victory} onChange={(e) => upd({ victory: e.target.value as VictoryMode })}>
-          <option value="none">None — endless sandbox</option><option value="economic">Economic — 30% of world GDP</option>
+          <option value="superpower">Superpower: first in world power for five years</option><option value="none">None — endless sandbox</option><option value="economic">Economic — 30% of world GDP</option>
           <option value="conquest">Conquest — 40% of world land</option><option value="hegemon">Hegemony — bloc holds 60% of world GDP</option>
         </select>
       </div>

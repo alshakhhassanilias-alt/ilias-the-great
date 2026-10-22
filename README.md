@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 203 deterministic simulation tests (Vitest) |
+| `npm test` | 206 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
@@ -61,6 +61,30 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 31: less noise, a race to win, better-looking armies
+* **The race for world power is the point of the game.** Every nation is ranked by power: its economy (45%), its
+  army (35%) and its influence (20%: reputation and allies), as shares of the world's. Your rank is the first thing in
+  the top bar, with the country just above you and how close you are to passing it; the mission card shows your next
+  milestone (the top 50, 20, 10, 5, 3, first). Each milestone you reach is a moment with a reward (reputation,
+  stability, political capital). Hold first place for five years and you win: the new default victory, and you can
+  play on. The World → Rankings table opens on Power.
+* **Far less noise.** In two minutes of play there used to be 77 pop-up messages, 28 notice cards and a breaking-news
+  banner about the world every few seconds; now it is 14, 10 and only news about you. Toasts are only for what
+  happens to you (war, land won or lost, peace, danger), two at most, never a stream. Breaking banners are only for
+  you and wars next door, and go after five seconds. One notice at a time (offers, the year in review); foreign
+  leaders' messages wait in their dossier instead of popping up; the world's reactions are one line ("3 back you · 2
+  against you") that opens on click. Decisions come about half as often: crisis stories two and a half years apart,
+  faction demands about every year and a half, cabinet quarrels every three years, and no more than one offer from
+  another country waiting at a time.
+* **A cleaner screen (desktop).** The top bar shows the race, political capital, treasury, GDP and stability (debt,
+  inflation and GDP per head are in the Economy tab). The cabinet is a list of faces and loyalty; a minister's report
+  opens when you click them. The mission card is the race and three short objectives.
+* **Armies redesigned.** Every army on the map is a round medallion in its country's colour with a helmet (infantry)
+  or a tank (armour), a ring that shows its strength (green, amber, red), a gold rim for yours and a red one for the
+  enemy, and its size on a tab underneath (they replace the small NATO boxes). Your own army groups glide from region
+  to region instead of jumping, carry a numbered pennant that flutters as they march, and their orders are drawn as a
+  curved path of marching chevrons to a pulsing target.
 
 ## Round 30: a detailed map, wars that mean something, a world that answers
 * **2,804 regions instead of 1,224, built around real towns and named after them.** Each country is divided around

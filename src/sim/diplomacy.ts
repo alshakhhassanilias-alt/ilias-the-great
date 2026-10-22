@@ -124,7 +124,7 @@ export function propose(s: GameState, geo: Geo, from: CountryId, to: CountryId, 
     // delivered as an offer to the player (AI → player)
     const key = `${from}:${kind}`;
     const last = s.offerLog[key];
-    if (!s.offers.some((o) => o.from === from && o.kind === kind) && (last === undefined || s.tick - last > 104)) {
+    if (!s.offers.some((o) => o.from === from && o.kind === kind) && s.offers.filter((o) => o.kind !== 'peace').length < 1 && (last === undefined || s.tick - last > 156)) {
       s.offers.push({ id: s.nextOfferId++, from, kind: kind as OfferKind, tick: s.tick });
       s.offerLog[key] = s.tick;
       cable(s, from, 'offer');

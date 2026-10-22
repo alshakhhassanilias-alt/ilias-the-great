@@ -113,17 +113,17 @@ export function NotesColumn() {
   const [all, setAll] = useState(false);
   const cards: { key: string; el: ReactElement }[] = [
     ...s.offers.map((o) => ({ key: `o${o.id}`, el: <OfferCard o={o} /> })),
-    ...(cableNow(s) ? [{ key: 'cable', el: <CableCard /> }] : []),
     ...(voiceNow(s) ? [{ key: 'voices', el: <VoicesCard /> }] : []),
     ...(rippleNow(s) ? [{ key: 'ripple', el: <RippleCard /> }] : []),
     ...(reviewNow(s) ? [{ key: 'review', el: <YearReview /> }] : []),
   ];
   if (!cards.length) return null;
-  const shown = all ? cards : cards.slice(0, 2);
+  // one notice at a time: the map is the game, not the paperwork
+  const shown = all ? cards : cards.slice(0, 1);
   return (
     <div className="notes-col" role="region" aria-label="Notices">
       {shown.map((x) => <div key={x.key} className="note-slot">{x.el}</div>)}
-      {cards.length > 2 && <button className="notes-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `+${cards.length - 2} more notice${cards.length > 3 ? 's' : ''}`}</button>}
+      {cards.length > 1 && <button className="notes-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `+${cards.length - 1} more`}</button>}
     </div>
   );
 }
@@ -131,11 +131,24 @@ export function NotesColumn() {
 /** How the world answered your last move: leaders' words with the change in relations, then your own press and public. */
 export function VoicesCard() {
   useStore();
+  const [open, setOpen] = useState(false);
   const s = store.state;
   if (!s) return null;
   const v = voiceNow(s);
   if (!v) return null;
   const close = () => { store.voiceSeen = v.seq; store.notify(); };
+  const back = v.voices.filter((x) => x.delta > 0).map((x) => s.countries[x.cid].name), against = v.voices.filter((x) => x.delta < 0).map((x) => s.countries[x.cid].name);
+  if (!open) return (
+    <div className="voices compact" role="status" aria-live="polite">
+      <button className="x" aria-label="Dismiss" onClick={close}>×</button>
+      <button className="voices-sum" onClick={() => setOpen(true)}>
+        <span aria-hidden="true">{v.icon}</span> <b>The world reacts</b>
+        {back.length > 0 && <span className="good"> · {back.length} back you</span>}
+        {against.length > 0 && <span className="bad"> · {against.length} against you</span>}
+        <span className="faint"> · details</span>
+      </button>
+    </div>
+  );
   return (
     <div className="voices" role="status" aria-live="polite">
       <button className="x" aria-label="Dismiss" onClick={close}>×</button>

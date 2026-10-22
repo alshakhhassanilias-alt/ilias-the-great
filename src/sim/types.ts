@@ -1,7 +1,7 @@
 export type CountryId = number;
 export type ProvId = number;
 
-export type VictoryMode = 'none' | 'economic' | 'conquest' | 'hegemon';
+export type VictoryMode = 'none' | 'superpower' | 'economic' | 'conquest' | 'hegemon';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type StartCondition = 'historical' | 'crisis' | 'prosperous';
 
@@ -44,7 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   difficulty: 'normal',
   start: 'historical',
   defensiveAlliances: true,
-  victory: 'none',
+  victory: 'superpower',
   mode: 'sandbox',
   control: { economy: 'hands', military: 'hands', diplomacy: 'hands' },
   econFocus: 'growth',

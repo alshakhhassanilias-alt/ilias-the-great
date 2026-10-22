@@ -4,10 +4,10 @@
  * is also in the Goals tab; this is the short version that is always on screen.
  */
 import { store } from '../../state/store';
-import { activeGoals, goalsDoneCount } from '../../sim/goals';
+import { activeGoals } from '../../sim/goals';
 import { PATH_LABEL, pathOf, type Path } from '../../sim/goals2';
-import { actTitles, seedOf, storyChip } from '../../sim/story';
-import { dateLabel } from '../../sim/tick';
+import { raceOf, tierLabel } from '../../sim/power';
+import { seedOf } from '../../sim/story';
 import { goalHelp, guideLevel } from '../guides';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
@@ -25,26 +25,24 @@ export function MissionCard() {
   const c = s.countries[s.player];
   const goals = activeGoals(s);
   const level = guideLevel(s);
-  const st = c.story;
-  const story = s.settings.storylines !== false;
-  const act = st?.act ?? 1;
-  const nextAct = story && act <= 4 ? actTitles(c)[act - 1] : null;
   const waiting = s.inbox.some((x) => x.id.startsWith('story'));
-  const done = goalsDoneCount(s);
   const path = pathOf(s, c);
+  const race = raceOf(s);
+  const A = race.above ? s.countries[race.above.id] : null;
   const ambition = AMBITION[path.path](REGION[c.region] ?? 'its region') || seedOf(c).ambition;
   return (
     <section className="section mission desk-only">
       <div className="mission-head">
-        <span className="mission-kicker">Your mission</span>
-        <b className="mission-aim">Make {c.name} {ambition}</b>
-        <span className="mission-path">Your path: <b>{PATH_LABEL[path.path]}</b> <span className="faint">({path.why})</span></span>
-        {story && (
-          <span className="mission-act">
-            {storyChip(c) || 'Chapter I · act I of IV'}
-            {nextAct && <> · next: <b>{nextAct.replace(/^Act [IV]+: /, '')}</b> {waiting ? <em className="mission-now">waiting in your decisions</em> : st && st.next > s.tick ? <span className="faint">around {dateLabel(st.next)}</span> : null}</>}
-          </span>
-        )}
+        <span className="mission-kicker">The race for world power</span>
+        <div className="mission-race">
+          <span className="mr-rank">#{race.rank}</span>
+          <div className="mr-body">
+            <b>{race.tier ? `Goal: ${tierLabel(race.tier)}` : race.rank === 1 ? `Hold first place: ${race.yearsTop.toFixed(1)} of 5 years` : ''}</b>
+            {A && <span>Next to pass: <b>{A.name}</b> <span className="faint">({Math.round(race.toNext * 100)}%)</span></span>}
+            {A && <i className="mr-bar"><i style={{ width: `${Math.round(race.toNext * 100)}%` }} /></i>}
+          </div>
+        </div>
+        <span className="mission-path">Make {c.name} {ambition} · <b>{PATH_LABEL[path.path]}</b>{waiting ? <em className="mission-now"> · a story decision is waiting</em> : null}</span>
       </div>
       <ol className="mission-goals">
         {goals.map((g) => {
@@ -57,7 +55,7 @@ export function MissionCard() {
               <div className="mg-body">
                 <div className="mg-top"><b>{g.title}</b><span className="mg-pct">{Math.round(p.value * 100)}%</span></div>
                 <div className="mg-bar"><i style={{ width: `${Math.round(p.value * 100)}%` }} /></div>
-                <div className="mg-meta"><span>{p.text}</span><span>🎁 {g.reward.replace('Reward: ', '')}</span></div>
+                <div className="mg-meta"><span>{p.text}</span></div>
               </div>
               {fix && (
                 <button className="btn sm mg-go" title={help?.how} onClick={() => { if (fix.run) store.act((x) => fix.run!(x, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
@@ -69,7 +67,7 @@ export function MissionCard() {
         })}
         {goals.length === 0 && <li className="faint">Every objective is complete. Set your own course.</li>}
       </ol>
-      <div className="mission-foot faint">{done} objective{done === 1 ? '' : 's'} done · new ones are made for your path as you finish</div>
+
     </section>
   );
 }
