@@ -92,6 +92,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; text-align: left;
   min-height: 108px; display: flex; flex-direction: column; gap: 4px; position: relative;
 }
+.numgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.numgrid button { min-height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); font-size: 20px; font-weight: 800; }
+.numgrid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .tcard.free { background: transparent; border-style: dashed; }
 .tcard.free .num { color: var(--muted); }
 .chip.freechip { border-style: dashed; color: var(--muted); }

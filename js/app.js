@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '8';
+  var APP_VERSION = '9';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -879,47 +879,50 @@
     render();
   };
   A.openNum = function (d) { ui.picker = null; openNum(d.n); };
-  A.editSection = function () { openSheet({ type: 'section', num: '' }); };
-  A.secKey = function (d) {
-    var s = ui.sheet;
-    if (d.k === 'C') s.num = '';
-    else if (d.k === '⌫') s.num = s.num.slice(0, -1);
-    else if (s.num.length < 4) s.num += d.k;
-    renderSheet();
-  };
-  A.secAdd = function () {
-    var n = String(ui.sheet.num || document.getElementById('sec_name').value || '').trim();
-    if (!n) return;
+  A.editSection = function () { openSheet({ type: 'section' }); };
+  // Tap a number to add it to your tables, tap again to remove. Saved instantly.
+  A.secToggle = function (d) {
+    var n = String(d.n);
+    var on = inSection(n);
+    var busy = on && S.tables.filter(function (t) { return String(t.num) === n && t.lines.length; })[0];
     commit(null, function () {
       var sec = mySection();
-      if (sec.indexOf(n) < 0) sec.push(n);
-      S.settings.section = sec;
+      S.settings.section = on ? sec.filter(function (x) { return x !== n; }) : sec.concat([n]);
     });
-    ui.sheet.num = ''; renderSheet();
-  };
-  A.secRemove = function (d) {
-    var busy = S.tables.filter(function (t) { return String(t.num) === d.n && t.lines.length; })[0];
-    commit(null, function () { S.settings.section = mySection().filter(function (x) { return x !== d.n; }); });
-    if (busy) toast('Стол ' + d.n + ' still has orders — it stays under “Other tables” until you close it');
+    if (busy) toast('Стол ' + n + ' still has orders — it stays under “Other tables” until you close it');
     renderSheet();
   };
+  function addNamedTable() {
+    var el = document.getElementById('sec_name');
+    var n = el ? el.value.trim() : '';
+    if (!n || inSection(n)) return;
+    commit(null, function () { S.settings.section = mySection().concat([n]); });
+  }
+  A.secAddName = function () { addNamedTable(); renderSheet(); };
+  A.secDone = function () { addNamedTable(); closeSheet(); render(); };
   A.secClear = function () {
     ask('Remove all your tables from the list? Open orders stay.', 'Clear my tables', function () {
       commit('My tables cleared', function () { S.settings.section = []; });
     });
   };
-  function sheetSection(s) {
+  function sheetSection() {
     var sec = mySection();
-    return '<h2>My tables this shift</h2><div class="en">They stay on the Tables screen, free or busy, until you remove them.</div>' +
-      '<div class="choices mt">' + (sec.length ? sec.map(function (n) {
-        return '<button class="chip on" data-a="secRemove" data-n="' + esc(n) + '">' + esc(n) + ' ✕</button>';
-      }).join('') : '<span class="small muted">No tables yet.</span>') + '</div>' +
-      '<div class="display mt">' + (esc(s.num) || '<span class="muted">№</span>') + '</div>' +
-      '<div class="keypad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return '<button data-a="secKey" data-k="' + n + '">' + n + '</button>'; }).join('') +
-      '<button data-a="secKey" data-k="C">C</button><button data-a="secKey" data-k="0">0</button><button data-a="secKey" data-k="⌫">⌫</button></div>' +
-      '<input class="field mt" id="sec_name" placeholder="…or a name: Бар 2, Веранда 5" autocomplete="off">' +
+    var max = 40;
+    sec.forEach(function (n) { if (/^\d+$/.test(n) && +n > max) max = Math.ceil(+n / 10) * 10; });
+    var nums = [];
+    for (var i = 1; i <= max; i++) nums.push(String(i));
+    var named = sec.filter(function (n) { return nums.indexOf(n) < 0; });
+    return '<h2>My tables this shift</h2><div class="en">Tap your table numbers. They’re saved right away and stay on the Tables screen until you remove them.</div>' +
+      '<div class="small mt"><b>' + (sec.length ? 'Selected: ' + esc(sec.slice().sort(function (a, b) { return numSort({ num: a }, { num: b }); }).join(', ')) : 'None selected yet') + '</b></div>' +
+      '<div class="numgrid mt">' + nums.map(function (n) {
+        return '<button class="' + (inSection(n) ? 'on' : '') + '" data-a="secToggle" data-n="' + n + '">' + n + '</button>';
+      }).join('') + '</div>' +
+      (named.length ? '<div class="choices mt">' + named.map(function (n) {
+        return '<button class="chip on" data-a="secToggle" data-n="' + esc(n) + '">' + esc(n) + ' ✕</button>';
+      }).join('') + '</div>' : '') +
+      '<div class="row mt"><input class="field" id="sec_name" placeholder="Table with a name: Бар 2, Веранда 5" autocomplete="off"><button class="btn" data-a="secAddName">Add</button></div>' +
       '<div class="foot">' + (sec.length ? '<button class="btn danger" data-a="secClear">Clear all</button>' : '') +
-      '<button class="btn" data-a="secAdd">+ Add</button><button class="btn primary" data-a="closeSheet">Done</button></div>';
+      '<button class="btn primary" data-a="secDone">Done' + (sec.length ? ' · ' + sec.length + (sec.length === 1 ? ' table' : ' tables') : '') + '</button></div>';
   }
   A.open = function (d) { ui.picker = null; nav('table', d.id); };
   A.newTable = function () { openSheet({ type: 'newTable', num: '', guests: null }); };

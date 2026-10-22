@@ -410,11 +410,13 @@ test('waiter flow on iPhone viewport', async (t) => {
   await t.test('my tables: stay all shift, free/busy, quantity search', async () => {
     await page.tap('[data-a="tab"][data-v="tables"]');
     await page.tap('[data-a="editSection"]');
-    for (const n of ['21', '22']) {
-      for (const k of n) await page.tap('.keypad [data-a="secKey"][data-k="' + k + '"]');
-      await page.tap('[data-a="secAdd"]');
-    }
-    await page.tap('.sheet [data-a="closeSheet"]');
+    await page.tap('.numgrid [data-n="21"]');
+    await page.tap('.numgrid [data-n="23"]');
+    await page.tap('.numgrid [data-n="23"]');          // tap again removes
+    await page.fill('#sec_name', '22');                 // typed and Done (no Add) still saves
+    await shot('21-set-tables');
+    await page.tap('[data-a="secDone"]');
+    assert.deepEqual((await state()).settings.section.sort(), ['21', '22']);
     assert.equal(await page.locator('.tcard.free').count(), 2);
     await shot('20-my-tables');
     // free table → menu opens directly; “3 пс” adds three

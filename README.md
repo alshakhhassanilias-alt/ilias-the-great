@@ -32,8 +32,8 @@ Data lives only on this phone (localStorage). Export a backup now and then:
 
 ## How a table works
 
-**My tables:** at the start of a shift tap **Set my tables** and add your
-numbers once (e.g. 5, 7, 8). They stay on the Tables screen all shift as
+**My tables:** at the start of a shift tap **Set my tables** and tap your
+numbers in the grid (e.g. 5, 7, 8). Each tap saves instantly; tap again to remove. They stay on the Tables screen all shift as
 *free* (dashed) or *busy*. Tap a free one and the menu opens straight away.
 Closing a paid table moves the order to history and the table goes back to
 free. A table you opened but left empty goes back to free by itself. Edit or
