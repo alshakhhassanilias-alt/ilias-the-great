@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '6';
+  var APP_VERSION = '7';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -399,6 +399,7 @@
       (p.cat === '★' ? '' : '<div class="strip" style="margin-top:8px">' + cats.map(function (c) {
         return '<button class="chip ' + (p.cat === c.id && !p.q ? 'on' : '') + '" data-a="pCat" data-c="' + c.id + '">' + esc(c.ru) + '</button>';
       }).join('') + '</div>') +
+      '<div class="seatrow"><button class="chip" data-a="ingrOpen">🛡 Allergy / ingredient check</button></div>' +
       (S.settings.seats ? '<div class="seatrow"><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
         return '<button class="chip ' + ((p.seat || '') === s ? 'on' : '') + '" data-a="pSeat" data-s="' + s + '">' + (s || '—') + '</button>';
       }).join('') + '</div>' : '');
@@ -459,6 +460,7 @@
       '<button class="btn primary" data-a="confirmOk">' + esc(s.ok) + '</button></div>';
     else if (s.type === 'backupText') body = sheetBackupText(s);
     else if (s.type === 'note') body = sheetNote(s);
+    else if (s.type === 'ingr') body = sheetIngr(s);
     else if (s.type === 'customLine') body = sheetCustomLine(s);
     var keepScroll = $sheet.querySelector('.sheet');
     var st = keepScroll ? keepScroll.scrollTop : 0;
@@ -569,6 +571,10 @@
     var h = '<h2>' + (it.pre ? '<span class="small muted">' + esc(it.pre) + '</span><br>' : '') + esc(it.ru) + '</h2>' +
       '<div class="en">' + esc(it.en) + '</div>' +
       '<div class="kv mt"><span>' + esc(c.ru) + ' · ' + esc(c.en) + '</span><b class="price">' + rub(it.price) + (it.w ? ' · ' + esc(it.w) : '') + '</b></div>';
+    var gl = L.guestLine(it), lang = ui.sayLang || 'ru';
+    h += '<h3>Say to the guest <span class="seg mini"><button data-a="sayLang" data-l="ru" class="' + (lang === 'ru' ? 'on' : '') + '">RU</button>' +
+      '<button data-a="sayLang" data-l="en" class="' + (lang === 'en' ? 'on' : '') + '">EN</button></span></h3>' +
+      '<div class="say">' + esc(gl[lang]) + '</div>';
     if (it.desc) h += '<h3>Composition (printed)</h3><div class="desc">' + esc(it.desc) + '</div>' + (it.descEn ? '<div class="small muted">' + esc(it.descEn) + '</div>' : '');
     (it.options || []).forEach(function (o) {
       h += '<h3>' + esc(o.label) + '</h3><div class="small">' + o.choices.map(function (x) { return esc(x.label) + (x.price != null ? ' — ' + x.price + ' ₽' : ''); }).join(' · ') + '</div>';
@@ -617,6 +623,7 @@
       }).join('') + '</div>' +
       '<h3>Table note (allergy, birthday, waiting for friend…)</h3><input class="field" id="tm_note" value="' + esc(t.note || '') + '" autocomplete="off">' +
       '<div class="foot"><button class="btn" data-a="tmSave">Save</button><button class="btn primary" data-a="closeTable">Close table (paid)</button></div>' +
+      '<button class="btn block mt" data-a="ingrOpen">🛡 Allergy / ingredient check</button>' +
       '<button class="btn ghost danger block mt" data-a="deleteTable">Delete table (opened by mistake)</button>';
   }
 
@@ -768,7 +775,7 @@
     var stop = all.filter(function (x) { return x.stop; });
     var h = '<div class="top"><h1>Menu &amp; data</h1>' + saveDot() + '</div>';
     h += '<input class="search" style="width:100%" id="msearch" type="search" placeholder="Find item to edit price / stop-list…" value="' + esc(m.q) + '" autocomplete="off">';
-    h += '<div class="strip mt">' + [['all', 'Search'], ['stop', '⛔ Stop-list (' + stop.length + ')'], ['unv', '⚠ To verify (' + unv.length + ')'], ['data', 'Backup & settings']].map(function (f) {
+    h += '<div class="strip mt">' + [['all', 'Search'], ['ingr', '🛡 Allergy check'], ['stop', '⛔ Stop-list (' + stop.length + ')'], ['unv', '⚠ To verify (' + unv.length + ')'], ['data', 'Backup & settings']].map(function (f) {
       return '<button class="chip ' + (m.filter === f[0] ? 'on' : '') + '" data-a="mFilter" data-f="' + f[0] + '">' + f[1] + '</button>';
     }).join('') + '</div>';
     h += '<div id="mlist">' + menuListHTML(all, unv, stop) + '</div>';
@@ -778,6 +785,7 @@
   function menuListHTML(all, unv, stop) {
     var m = ui.menu;
     if (m.filter === 'data') return dataHTML();
+    if (m.filter === 'ingr') return '<button class="btn primary block mt" data-a="ingrOpen">🛡 Open allergy / ingredient check</button>';
     if (m.filter === 'stop') {
       return '<div class="small muted mt">Items marked unavailable for this shift. Adding them shows a red warning.</div>' +
         (stop.length ? stop.map(function (x) { return itemRow(x, null, 'menu'); }).join('') + '<button class="btn block mt" data-a="clearStop">Clear stop-list (new shift)</button>' : '<div class="empty">Stop-list is empty.</div>');
@@ -1309,6 +1317,31 @@
   };
   function focusSoon(id) { setTimeout(function () { var e = document.getElementById(id); if (e) { e.focus(); e.setSelectionRange && e.setSelectionRange(e.value.length, e.value.length); } }, 60); }
 
+  // ---- guest answers & allergy check
+  A.sayLang = function (d) { ui.sayLang = d.l; renderSheet(); };
+  A.ingrOpen = function () { openSheet({ type: 'ingr', q: '' }); };
+  A.ingrPick = function (d) { ui.sheet.q = d.q; renderSheet(); };
+  function ingrResultsHTML(q) {
+    var r = L.ingredientCheck(L.allItems(S.menu), q);
+    if (!r) return '<div class="small muted mt">Pick a group or type an ingredient.</div>';
+    var h = '<div class="issue warn mt">Based only on the printed menu. Many dishes don’t list every ingredient, so always confirm with the kitchen before promising anything.</div>';
+    h += '<div class="section-h"><span>' + (r.group ? esc(r.group) : '“' + esc(q) + '”') + ' mentioned in ' + r.hits.length + '</span></div>';
+    h += r.hits.length ? '<ul class="list-plain">' + r.hits.map(function (x) {
+      return '<li><b>' + esc(L.displayName(x.it)) + '</b> <span class="muted small">' + rub(x.it.price) + '</span><div class="small" style="color:var(--block)">' + esc(x.words.join(', ')) + '</div></li>';
+    }).join('') + '</ul>' : '<div class="small muted">No printed name or composition mentions it.</div>';
+    h += '<div class="small muted mt">' + r.noDesc + ' dishes have no composition printed, so they can’t be checked here.</div>';
+    return h;
+  }
+  function sheetIngr(s) {
+    return '<h2>Allergy / ingredient check</h2><div class="en">Which dishes mention an ingredient in their printed name or composition.</div>' +
+      '<input class="field mt" id="ingr_q" value="' + esc(s.q) + '" placeholder="e.g. орехи, молоко, fish…" autocomplete="off">' +
+      '<div class="choices mt">' + L.INGR_GROUPS.map(function (g) {
+        var w = g.key.split(' / ')[0];
+        return '<button class="chip ' + (s.q === w ? 'on' : '') + '" data-a="ingrPick" data-q="' + esc(w) + '">' + esc(w) + '</button>';
+      }).join('') + '</div><div id="ingr_res">' + ingrResultsHTML(s.q) + '</div>' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Close</button></div>';
+  }
+
   A.confirmOk = function () { var fn = ui.sheet.fn; closeSheet(); fn(); };
   A.backdrop = function (d, el, e) { if (e.target === el) closeSheet(); };
   A.closeSheet = function () { closeSheet(); };
@@ -1324,6 +1357,7 @@
   });
   document.addEventListener('input', function (e) {
     if (e.target.id === 'note_text' && ui.sheet) ui.sheet.text = e.target.value;
+    if (e.target.id === 'ingr_q' && ui.sheet) { ui.sheet.q = e.target.value; document.getElementById('ingr_res').innerHTML = ingrResultsHTML(e.target.value); }
     if (e.target.id === 'msearch') {
       ui.menu.q = e.target.value;
       if (ui.menu.filter !== 'all') { ui.menu.filter = 'all'; }

@@ -137,6 +137,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .issue.block { background: var(--block-bg); color: var(--block); font-weight: 700; }
 .issue.warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .issue.info { background: var(--info-bg); color: var(--info); }
+.say { font-size: 17px; line-height: 1.45; padding: 12px 14px; border-radius: 12px; background: var(--info-bg); color: var(--text); font-weight: 500; -webkit-user-select: text; user-select: text; }
+.seg.mini { display: inline-flex; margin: 0 0 0 8px; padding: 2px; vertical-align: middle; }
+.seg.mini button { min-height: 26px; padding: 0 10px; font-size: 12px; }
 .issue.ok { background: transparent; color: var(--ok); border: 1px solid var(--ok); font-weight: 600; }
 .issue.tap::after { content: " ＋"; font-weight: 800; }
 .price { font-variant-numeric: tabular-nums; white-space: nowrap; }

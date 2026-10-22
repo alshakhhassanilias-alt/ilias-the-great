@@ -514,7 +514,108 @@
       return results.filter(function (r) { return r.s >= top * 0.3; }).map(function (r) { return r.it; });
     }
 
+    // ---- What to say to the guest ---------------------------------------------
+    // Built only from printed fields. Returns { ru, en } sentences.
+    function guestLine(it) {
+      if (!it) return { ru: '', en: '' };
+      var ru = [], en = [];
+      var rub = function (n) { return n.toLocaleString('ru-RU'); };
+      ru.push(it.ru + (it.desc ? ': ' + it.desc.charAt(0).toLowerCase() + it.desc.slice(1) : '') + '.');
+      en.push(it.en + (it.descEn ? ': ' + it.descEn.charAt(0).toLowerCase() + it.descEn.slice(1) : '') + '.');
+      var sizes = (it.options || []).filter(function (o) { return o.choices.some(function (c) { return c.price != null; }); })[0];
+      if (sizes) {
+        var list = sizes.choices.map(function (c) { return c.label + ' — ' + rub(c.price) + ' ₽'; }).join(', ');
+        ru.push(list + '.'); en.push(sizes.choices.map(function (c) { return c.label.replace(' мл', ' ml').replace(' л', ' L').replace('Бокал', 'Glass').replace('Бутылка', 'Bottle') + ' — ' + rub(c.price) + ' rub'; }).join(', ') + '.');
+      } else if (it.price != null) {
+        ru.push((it.w ? it.w + ', ' : '') + rub(it.price) + ' ₽.');
+        en.push((it.w ? it.w.replace(' г', ' g').replace(' мл', ' ml') + ', ' : '') + rub(it.price) + ' rubles.');
+      }
+      var choice = (it.options || []).filter(function (o) { return !o.choices.some(function (c) { return c.price != null; }) && !o.count; });
+      choice.forEach(function (o) {
+        if (o.id === 'smet') { ru.push('Можно со сметаной или без.'); en.push('With or without sour cream.'); return; }
+        ru.push('На выбор: ' + o.choices.map(function (c) { return c.label.toLowerCase(); }).join(', ') + '.');
+        en.push('Your choice of: ' + o.choices.map(function (c) { return c.label.toLowerCase(); }).join(', ') + '.');
+      });
+      (it.options || []).filter(function (o) { return o.count; }).forEach(function (o) {
+        ru.push('Любые ' + o.count + ' из: ' + o.choices.map(function (c) { return c.label.toLowerCase(); }).join(', ') + '.');
+        en.push('Any ' + o.count + ' of our infused shots.');
+      });
+      if (it.side) {
+        ru.push('Подаётся с гарниром: ' + it.side.name + '; гарнир можно заменить за +' + MENU.RULES.sideSwapPrice + ' ₽.');
+        en.push('The side can be swapped for +' + MENU.RULES.sideSwapPrice + ' rub.');
+      }
+      (it.suggest || []).forEach(function (mid) {
+        var m = MENU.MODS[mid]; if (!m) return;
+        ru.push('Рекомендуем добавить: ' + m.ru.toLowerCase() + ', +' + m.price + ' ₽.');
+        en.push('We recommend adding ' + m.en.toLowerCase() + ', +' + m.price + ' rub.');
+      });
+      var tags = it.tags || [];
+      if (tags.indexOf('pits') >= 0) { ru.push('Осторожно, могут попадаться косточки.'); en.push('Careful, there may be pits.'); }
+      if (tags.indexOf('bones') >= 0) { ru.push('Осторожно, есть кости.'); en.push('Careful, there may be fish bones.'); }
+      if (tags.indexOf('new') >= 0) { ru.push('Это новинка в меню.'); en.push('It is new on our menu.'); }
+      return { ru: ru.join(' '), en: en.join(' ') };
+    }
+
+    // ---- Ingredient / allergy check -------------------------------------------
+    // Looks only at printed names and compositions. Never claims a dish is safe.
+    var INGR_GROUPS = [
+      { key: 'Орехи / nuts', words: ['орех', 'арахис', 'миндал', 'фундук', 'фисташ', 'nut', 'peanut', 'almond', 'hazelnut', 'pistachio'] },
+      { key: 'Молочное / dairy', words: ['молок', 'молоч', 'слив', 'сметан', 'сыр', 'творог', 'творож', 'морожен', 'сулугуни', 'моцарел', 'пармезан', 'адыгейск', 'сгущ', 'крем', 'milk', 'cream', 'cheese', 'sour cream', 'mozzarella', 'parmesan', 'suluguni', 'cottage'] },
+      { key: 'Рыба / fish', words: ['рыб', 'щук', 'щуч', 'судак', 'окун', 'сельд', 'скумбр', 'уха', 'fish', 'pike', 'perch', 'herring', 'mackerel'] },
+      { key: 'Морепродукты / seafood', words: ['кревет', 'shrimp'] },
+      { key: 'Яйцо / egg', words: ['яйц', 'яйцо', 'омлет', 'глазунь', '=egg', '=eggs', 'omelet'] },
+      { key: 'Грибы / mushrooms', words: ['гриб', 'шампин', 'mushroom', 'champignon'] },
+      { key: 'Мёд / honey', words: ['мед', 'медов', 'honey'] },
+      { key: 'Свинина / pork', words: ['свин', '=сало', '=сала', 'pork', 'lard'] },
+      { key: 'Мак / poppy', words: ['=мак', 'маков', 'poppy'] },
+      { key: 'Кунжут / sesame', words: ['кунжут', 'sesame'] },
+      { key: 'Чеснок / garlic', words: ['чеснок', 'чесноч', 'garlic'] },
+    ];
+    function ingredientCheck(items, query) {
+      var q = norm(query);
+      if (!q) return null;
+      var group = INGR_GROUPS.filter(function (g) {
+        return norm(g.key).split(' ').some(function (w) { return w && (w.indexOf(q) === 0 || q.indexOf(w) === 0); }) ||
+          g.words.some(function (w) { return w.indexOf(q) === 0 || q.indexOf(w) === 0; });
+      })[0];
+      var stems = group ? group.words : [q.length >= 5 ? q.slice(0, q.length - 1) : q];
+      var hits = [], noDesc = 0;
+      items.forEach(function (it) {
+        if (it.isCustom) return;
+        var opts = (it.options || []).map(function (o) { return o.id === 'smet' ? '' : o.choices.map(function (c) { return c.label; }).join(' '); }).join(' ');
+        var text = norm(it.ru + ' ' + (it.pre || '') + ' ' + (it.desc || '') + ' ' + it.en + ' ' + (it.descEn || '') + ' ' + opts);
+        var words = text.split(' ');
+        var found = [];
+        stems.forEach(function (st) {
+          if (st.indexOf(' ') > 0) { if (text.indexOf(st) >= 0) found.push(st); return; }
+          var exact = st.charAt(0) === '=', stem = exact ? st.slice(1) : st;
+          words.forEach(function (w) { if ((exact ? w === stem : w.indexOf(stem) === 0) && found.indexOf(w) < 0) found.push(w); });
+        });
+        if (found.length) hits.push({ it: it, words: found });
+        else if (!it.desc && !it.isExtra) noDesc++;
+      });
+      // Sets / platters whose composition names a matching dish (e.g. Мясной set
+      // lists “пельмени сибирские”, which contain pork) are included too.
+      var hitIds = {}; hits.forEach(function (x) { hitIds[x.it.id] = true; });
+      var direct = hits.slice();
+      items.forEach(function (it) {
+        if (hitIds[it.id] || !it.desc || it.isCustom) return;
+        var dw = norm(it.desc).split(' ');
+        direct.forEach(function (x) {
+          if (hitIds[it.id]) return;
+          var nw = norm(x.it.ru).split(' ').filter(function (w) { return w && !STOP[w]; });
+          if (nw.length >= 2 && nw.every(function (w) { return dw.some(function (d) { return d.slice(0, 5) === w.slice(0, 5); }); })) {
+            hitIds[it.id] = true;
+            hits.push({ it: it, words: ['contains ' + x.it.ru] });
+          }
+        });
+      });
+      hits.sort(function (a, b) { return (a.it.isExtra ? 1 : 0) - (b.it.isExtra ? 1 : 0); });
+      return { group: group ? group.key : null, hits: hits, noDesc: noDesc };
+    }
+
     return {
+      guestLine: guestLine, ingredientCheck: ingredientCheck, INGR_GROUPS: INGR_GROUPS,
       uid: uid, getItem: getItem, registerCustom: registerCustom, countTotal: countTotal, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,

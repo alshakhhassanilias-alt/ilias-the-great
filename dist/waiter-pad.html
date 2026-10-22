@@ -150,6 +150,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .issue.block { background: var(--block-bg); color: var(--block); font-weight: 700; }
 .issue.warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .issue.info { background: var(--info-bg); color: var(--info); }
+.say { font-size: 17px; line-height: 1.45; padding: 12px 14px; border-radius: 12px; background: var(--info-bg); color: var(--text); font-weight: 500; -webkit-user-select: text; user-select: text; }
+.seg.mini { display: inline-flex; margin: 0 0 0 8px; padding: 2px; vertical-align: middle; }
+.seg.mini button { min-height: 26px; padding: 0 10px; font-size: 12px; }
 .issue.ok { background: transparent; color: var(--ok); border: 1px solid var(--ok); font-weight: 600; }
 .issue.tap::after { content: " ＋"; font-weight: 800; }
 .price { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1396,7 +1399,108 @@ textarea.field { min-height: 70px; }
       return results.filter(function (r) { return r.s >= top * 0.3; }).map(function (r) { return r.it; });
     }
 
+    // ---- What to say to the guest ---------------------------------------------
+    // Built only from printed fields. Returns { ru, en } sentences.
+    function guestLine(it) {
+      if (!it) return { ru: '', en: '' };
+      var ru = [], en = [];
+      var rub = function (n) { return n.toLocaleString('ru-RU'); };
+      ru.push(it.ru + (it.desc ? ': ' + it.desc.charAt(0).toLowerCase() + it.desc.slice(1) : '') + '.');
+      en.push(it.en + (it.descEn ? ': ' + it.descEn.charAt(0).toLowerCase() + it.descEn.slice(1) : '') + '.');
+      var sizes = (it.options || []).filter(function (o) { return o.choices.some(function (c) { return c.price != null; }); })[0];
+      if (sizes) {
+        var list = sizes.choices.map(function (c) { return c.label + ' — ' + rub(c.price) + ' ₽'; }).join(', ');
+        ru.push(list + '.'); en.push(sizes.choices.map(function (c) { return c.label.replace(' мл', ' ml').replace(' л', ' L').replace('Бокал', 'Glass').replace('Бутылка', 'Bottle') + ' — ' + rub(c.price) + ' rub'; }).join(', ') + '.');
+      } else if (it.price != null) {
+        ru.push((it.w ? it.w + ', ' : '') + rub(it.price) + ' ₽.');
+        en.push((it.w ? it.w.replace(' г', ' g').replace(' мл', ' ml') + ', ' : '') + rub(it.price) + ' rubles.');
+      }
+      var choice = (it.options || []).filter(function (o) { return !o.choices.some(function (c) { return c.price != null; }) && !o.count; });
+      choice.forEach(function (o) {
+        if (o.id === 'smet') { ru.push('Можно со сметаной или без.'); en.push('With or without sour cream.'); return; }
+        ru.push('На выбор: ' + o.choices.map(function (c) { return c.label.toLowerCase(); }).join(', ') + '.');
+        en.push('Your choice of: ' + o.choices.map(function (c) { return c.label.toLowerCase(); }).join(', ') + '.');
+      });
+      (it.options || []).filter(function (o) { return o.count; }).forEach(function (o) {
+        ru.push('Любые ' + o.count + ' из: ' + o.choices.map(function (c) { return c.label.toLowerCase(); }).join(', ') + '.');
+        en.push('Any ' + o.count + ' of our infused shots.');
+      });
+      if (it.side) {
+        ru.push('Подаётся с гарниром: ' + it.side.name + '; гарнир можно заменить за +' + MENU.RULES.sideSwapPrice + ' ₽.');
+        en.push('The side can be swapped for +' + MENU.RULES.sideSwapPrice + ' rub.');
+      }
+      (it.suggest || []).forEach(function (mid) {
+        var m = MENU.MODS[mid]; if (!m) return;
+        ru.push('Рекомендуем добавить: ' + m.ru.toLowerCase() + ', +' + m.price + ' ₽.');
+        en.push('We recommend adding ' + m.en.toLowerCase() + ', +' + m.price + ' rub.');
+      });
+      var tags = it.tags || [];
+      if (tags.indexOf('pits') >= 0) { ru.push('Осторожно, могут попадаться косточки.'); en.push('Careful, there may be pits.'); }
+      if (tags.indexOf('bones') >= 0) { ru.push('Осторожно, есть кости.'); en.push('Careful, there may be fish bones.'); }
+      if (tags.indexOf('new') >= 0) { ru.push('Это новинка в меню.'); en.push('It is new on our menu.'); }
+      return { ru: ru.join(' '), en: en.join(' ') };
+    }
+
+    // ---- Ingredient / allergy check -------------------------------------------
+    // Looks only at printed names and compositions. Never claims a dish is safe.
+    var INGR_GROUPS = [
+      { key: 'Орехи / nuts', words: ['орех', 'арахис', 'миндал', 'фундук', 'фисташ', 'nut', 'peanut', 'almond', 'hazelnut', 'pistachio'] },
+      { key: 'Молочное / dairy', words: ['молок', 'молоч', 'слив', 'сметан', 'сыр', 'творог', 'творож', 'морожен', 'сулугуни', 'моцарел', 'пармезан', 'адыгейск', 'сгущ', 'крем', 'milk', 'cream', 'cheese', 'sour cream', 'mozzarella', 'parmesan', 'suluguni', 'cottage'] },
+      { key: 'Рыба / fish', words: ['рыб', 'щук', 'щуч', 'судак', 'окун', 'сельд', 'скумбр', 'уха', 'fish', 'pike', 'perch', 'herring', 'mackerel'] },
+      { key: 'Морепродукты / seafood', words: ['кревет', 'shrimp'] },
+      { key: 'Яйцо / egg', words: ['яйц', 'яйцо', 'омлет', 'глазунь', '=egg', '=eggs', 'omelet'] },
+      { key: 'Грибы / mushrooms', words: ['гриб', 'шампин', 'mushroom', 'champignon'] },
+      { key: 'Мёд / honey', words: ['мед', 'медов', 'honey'] },
+      { key: 'Свинина / pork', words: ['свин', '=сало', '=сала', 'pork', 'lard'] },
+      { key: 'Мак / poppy', words: ['=мак', 'маков', 'poppy'] },
+      { key: 'Кунжут / sesame', words: ['кунжут', 'sesame'] },
+      { key: 'Чеснок / garlic', words: ['чеснок', 'чесноч', 'garlic'] },
+    ];
+    function ingredientCheck(items, query) {
+      var q = norm(query);
+      if (!q) return null;
+      var group = INGR_GROUPS.filter(function (g) {
+        return norm(g.key).split(' ').some(function (w) { return w && (w.indexOf(q) === 0 || q.indexOf(w) === 0); }) ||
+          g.words.some(function (w) { return w.indexOf(q) === 0 || q.indexOf(w) === 0; });
+      })[0];
+      var stems = group ? group.words : [q.length >= 5 ? q.slice(0, q.length - 1) : q];
+      var hits = [], noDesc = 0;
+      items.forEach(function (it) {
+        if (it.isCustom) return;
+        var opts = (it.options || []).map(function (o) { return o.id === 'smet' ? '' : o.choices.map(function (c) { return c.label; }).join(' '); }).join(' ');
+        var text = norm(it.ru + ' ' + (it.pre || '') + ' ' + (it.desc || '') + ' ' + it.en + ' ' + (it.descEn || '') + ' ' + opts);
+        var words = text.split(' ');
+        var found = [];
+        stems.forEach(function (st) {
+          if (st.indexOf(' ') > 0) { if (text.indexOf(st) >= 0) found.push(st); return; }
+          var exact = st.charAt(0) === '=', stem = exact ? st.slice(1) : st;
+          words.forEach(function (w) { if ((exact ? w === stem : w.indexOf(stem) === 0) && found.indexOf(w) < 0) found.push(w); });
+        });
+        if (found.length) hits.push({ it: it, words: found });
+        else if (!it.desc && !it.isExtra) noDesc++;
+      });
+      // Sets / platters whose composition names a matching dish (e.g. Мясной set
+      // lists “пельмени сибирские”, which contain pork) are included too.
+      var hitIds = {}; hits.forEach(function (x) { hitIds[x.it.id] = true; });
+      var direct = hits.slice();
+      items.forEach(function (it) {
+        if (hitIds[it.id] || !it.desc || it.isCustom) return;
+        var dw = norm(it.desc).split(' ');
+        direct.forEach(function (x) {
+          if (hitIds[it.id]) return;
+          var nw = norm(x.it.ru).split(' ').filter(function (w) { return w && !STOP[w]; });
+          if (nw.length >= 2 && nw.every(function (w) { return dw.some(function (d) { return d.slice(0, 5) === w.slice(0, 5); }); })) {
+            hitIds[it.id] = true;
+            hits.push({ it: it, words: ['contains ' + x.it.ru] });
+          }
+        });
+      });
+      hits.sort(function (a, b) { return (a.it.isExtra ? 1 : 0) - (b.it.isExtra ? 1 : 0); });
+      return { group: group ? group.key : null, hits: hits, noDesc: noDesc };
+    }
+
     return {
+      guestLine: guestLine, ingredientCheck: ingredientCheck, INGR_GROUPS: INGR_GROUPS,
       uid: uid, getItem: getItem, registerCustom: registerCustom, countTotal: countTotal, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
@@ -1837,7 +1941,7 @@ textarea.field { min-height: 70px; }
 (function () {
   'use strict';
 
-  var APP_VERSION = '6';
+  var APP_VERSION = '7';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -2234,6 +2338,7 @@ textarea.field { min-height: 70px; }
       (p.cat === '★' ? '' : '<div class="strip" style="margin-top:8px">' + cats.map(function (c) {
         return '<button class="chip ' + (p.cat === c.id && !p.q ? 'on' : '') + '" data-a="pCat" data-c="' + c.id + '">' + esc(c.ru) + '</button>';
       }).join('') + '</div>') +
+      '<div class="seatrow"><button class="chip" data-a="ingrOpen">🛡 Allergy / ingredient check</button></div>' +
       (S.settings.seats ? '<div class="seatrow"><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
         return '<button class="chip ' + ((p.seat || '') === s ? 'on' : '') + '" data-a="pSeat" data-s="' + s + '">' + (s || '—') + '</button>';
       }).join('') + '</div>' : '');
@@ -2294,6 +2399,7 @@ textarea.field { min-height: 70px; }
       '<button class="btn primary" data-a="confirmOk">' + esc(s.ok) + '</button></div>';
     else if (s.type === 'backupText') body = sheetBackupText(s);
     else if (s.type === 'note') body = sheetNote(s);
+    else if (s.type === 'ingr') body = sheetIngr(s);
     else if (s.type === 'customLine') body = sheetCustomLine(s);
     var keepScroll = $sheet.querySelector('.sheet');
     var st = keepScroll ? keepScroll.scrollTop : 0;
@@ -2404,6 +2510,10 @@ textarea.field { min-height: 70px; }
     var h = '<h2>' + (it.pre ? '<span class="small muted">' + esc(it.pre) + '</span><br>' : '') + esc(it.ru) + '</h2>' +
       '<div class="en">' + esc(it.en) + '</div>' +
       '<div class="kv mt"><span>' + esc(c.ru) + ' · ' + esc(c.en) + '</span><b class="price">' + rub(it.price) + (it.w ? ' · ' + esc(it.w) : '') + '</b></div>';
+    var gl = L.guestLine(it), lang = ui.sayLang || 'ru';
+    h += '<h3>Say to the guest <span class="seg mini"><button data-a="sayLang" data-l="ru" class="' + (lang === 'ru' ? 'on' : '') + '">RU</button>' +
+      '<button data-a="sayLang" data-l="en" class="' + (lang === 'en' ? 'on' : '') + '">EN</button></span></h3>' +
+      '<div class="say">' + esc(gl[lang]) + '</div>';
     if (it.desc) h += '<h3>Composition (printed)</h3><div class="desc">' + esc(it.desc) + '</div>' + (it.descEn ? '<div class="small muted">' + esc(it.descEn) + '</div>' : '');
     (it.options || []).forEach(function (o) {
       h += '<h3>' + esc(o.label) + '</h3><div class="small">' + o.choices.map(function (x) { return esc(x.label) + (x.price != null ? ' — ' + x.price + ' ₽' : ''); }).join(' · ') + '</div>';
@@ -2452,6 +2562,7 @@ textarea.field { min-height: 70px; }
       }).join('') + '</div>' +
       '<h3>Table note (allergy, birthday, waiting for friend…)</h3><input class="field" id="tm_note" value="' + esc(t.note || '') + '" autocomplete="off">' +
       '<div class="foot"><button class="btn" data-a="tmSave">Save</button><button class="btn primary" data-a="closeTable">Close table (paid)</button></div>' +
+      '<button class="btn block mt" data-a="ingrOpen">🛡 Allergy / ingredient check</button>' +
       '<button class="btn ghost danger block mt" data-a="deleteTable">Delete table (opened by mistake)</button>';
   }
 
@@ -2603,7 +2714,7 @@ textarea.field { min-height: 70px; }
     var stop = all.filter(function (x) { return x.stop; });
     var h = '<div class="top"><h1>Menu &amp; data</h1>' + saveDot() + '</div>';
     h += '<input class="search" style="width:100%" id="msearch" type="search" placeholder="Find item to edit price / stop-list…" value="' + esc(m.q) + '" autocomplete="off">';
-    h += '<div class="strip mt">' + [['all', 'Search'], ['stop', '⛔ Stop-list (' + stop.length + ')'], ['unv', '⚠ To verify (' + unv.length + ')'], ['data', 'Backup & settings']].map(function (f) {
+    h += '<div class="strip mt">' + [['all', 'Search'], ['ingr', '🛡 Allergy check'], ['stop', '⛔ Stop-list (' + stop.length + ')'], ['unv', '⚠ To verify (' + unv.length + ')'], ['data', 'Backup & settings']].map(function (f) {
       return '<button class="chip ' + (m.filter === f[0] ? 'on' : '') + '" data-a="mFilter" data-f="' + f[0] + '">' + f[1] + '</button>';
     }).join('') + '</div>';
     h += '<div id="mlist">' + menuListHTML(all, unv, stop) + '</div>';
@@ -2613,6 +2724,7 @@ textarea.field { min-height: 70px; }
   function menuListHTML(all, unv, stop) {
     var m = ui.menu;
     if (m.filter === 'data') return dataHTML();
+    if (m.filter === 'ingr') return '<button class="btn primary block mt" data-a="ingrOpen">🛡 Open allergy / ingredient check</button>';
     if (m.filter === 'stop') {
       return '<div class="small muted mt">Items marked unavailable for this shift. Adding them shows a red warning.</div>' +
         (stop.length ? stop.map(function (x) { return itemRow(x, null, 'menu'); }).join('') + '<button class="btn block mt" data-a="clearStop">Clear stop-list (new shift)</button>' : '<div class="empty">Stop-list is empty.</div>');
@@ -3144,6 +3256,31 @@ textarea.field { min-height: 70px; }
   };
   function focusSoon(id) { setTimeout(function () { var e = document.getElementById(id); if (e) { e.focus(); e.setSelectionRange && e.setSelectionRange(e.value.length, e.value.length); } }, 60); }
 
+  // ---- guest answers & allergy check
+  A.sayLang = function (d) { ui.sayLang = d.l; renderSheet(); };
+  A.ingrOpen = function () { openSheet({ type: 'ingr', q: '' }); };
+  A.ingrPick = function (d) { ui.sheet.q = d.q; renderSheet(); };
+  function ingrResultsHTML(q) {
+    var r = L.ingredientCheck(L.allItems(S.menu), q);
+    if (!r) return '<div class="small muted mt">Pick a group or type an ingredient.</div>';
+    var h = '<div class="issue warn mt">Based only on the printed menu. Many dishes don’t list every ingredient, so always confirm with the kitchen before promising anything.</div>';
+    h += '<div class="section-h"><span>' + (r.group ? esc(r.group) : '“' + esc(q) + '”') + ' mentioned in ' + r.hits.length + '</span></div>';
+    h += r.hits.length ? '<ul class="list-plain">' + r.hits.map(function (x) {
+      return '<li><b>' + esc(L.displayName(x.it)) + '</b> <span class="muted small">' + rub(x.it.price) + '</span><div class="small" style="color:var(--block)">' + esc(x.words.join(', ')) + '</div></li>';
+    }).join('') + '</ul>' : '<div class="small muted">No printed name or composition mentions it.</div>';
+    h += '<div class="small muted mt">' + r.noDesc + ' dishes have no composition printed, so they can’t be checked here.</div>';
+    return h;
+  }
+  function sheetIngr(s) {
+    return '<h2>Allergy / ingredient check</h2><div class="en">Which dishes mention an ingredient in their printed name or composition.</div>' +
+      '<input class="field mt" id="ingr_q" value="' + esc(s.q) + '" placeholder="e.g. орехи, молоко, fish…" autocomplete="off">' +
+      '<div class="choices mt">' + L.INGR_GROUPS.map(function (g) {
+        var w = g.key.split(' / ')[0];
+        return '<button class="chip ' + (s.q === w ? 'on' : '') + '" data-a="ingrPick" data-q="' + esc(w) + '">' + esc(w) + '</button>';
+      }).join('') + '</div><div id="ingr_res">' + ingrResultsHTML(s.q) + '</div>' +
+      '<div class="foot"><button class="btn" data-a="closeSheet">Close</button></div>';
+  }
+
   A.confirmOk = function () { var fn = ui.sheet.fn; closeSheet(); fn(); };
   A.backdrop = function (d, el, e) { if (e.target === el) closeSheet(); };
   A.closeSheet = function () { closeSheet(); };
@@ -3159,6 +3296,7 @@ textarea.field { min-height: 70px; }
   });
   document.addEventListener('input', function (e) {
     if (e.target.id === 'note_text' && ui.sheet) ui.sheet.text = e.target.value;
+    if (e.target.id === 'ingr_q' && ui.sheet) { ui.sheet.q = e.target.value; document.getElementById('ingr_res').innerHTML = ingrResultsHTML(e.target.value); }
     if (e.target.id === 'msearch') {
       ui.menu.q = e.target.value;
       if (ui.menu.filter !== 'all') { ui.menu.filter = 'all'; }

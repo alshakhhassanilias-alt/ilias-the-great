@@ -366,3 +366,24 @@ test('tasting set: exactly 5 shots from the tablet list, repeats allowed', () =>
   assert.deepEqual(L.lineDetail(line, it), ['Брусничная ×3, Хреновуха ×2']);
   assert.equal(L.unitPrice(line, it), 1100);
 });
+
+test('guest line: printed facts only, both languages', () => {
+  const g = L.guestLine(L.getItem('pl_sib'));
+  assert.match(g.ru, /свинина, говядина, курица/);
+  assert.match(g.ru, /640 ₽/);
+  assert.match(g.ru, /бульон/);
+  assert.match(g.en, /pork, veal, chicken/);
+  assert.match(L.guestLine(L.getItem('jc_orange')).ru, /1 л — 820 ₽/);
+  assert.match(L.guestLine(L.getItem('sv_cherry')).ru, /косточки/);
+});
+
+test('ingredient check: matches, exact words, sets that contain a match', () => {
+  const items = L.allItems(menuState);
+  const ids = (q) => L.ingredientCheck(items, q).hits.map((h) => h.it.id);
+  assert.ok(ids('орехи').includes('cf_snickers'));
+  assert.ok(!ids('свинина').includes('sl_olivier'));     // “салат” is not “сало”
+  assert.ok(ids('свинина').includes('set_meat'));        // via Пельмени сибирские
+  assert.ok(!ids('мак').includes('mn_cutlets'));         // “макароны” is not “мак”
+  assert.ok(!ids('яйцо').includes('sl_eggplant'));       // eggplant is not egg
+  assert.ok(ids('рыба').includes('v_pike'));
+});

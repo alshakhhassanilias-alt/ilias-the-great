@@ -197,6 +197,25 @@ test('waiter flow on iPhone viewport', async (t) => {
     await page.locator('.line', { hasText: 'тёплое молоко' }).locator('[data-a="dec"]').tap();
   });
 
+  await t.test('say-to-guest line and allergy check', async () => {
+    await page.tap('[data-a="openPicker"]');
+    await page.fill('#psearch', 'пельмени сибирские');
+    await page.locator('#plist [data-a="info"]').first().tap();
+    assert.match(await page.locator('.say').innerText(), /свинина, говядина, курица/);
+    await page.tap('[data-a="sayLang"][data-l="en"]');
+    assert.match(await page.locator('.say').innerText(), /pork, veal, chicken/);
+    await shot('18-say');
+    await page.tap('[data-a="closeSheet"]');
+    await page.tap('[data-a="ingrOpen"]');
+    await page.fill('#ingr_q', 'орехи');
+    assert.match(await page.locator('#ingr_res').innerText(), /Сникерс/);
+    await page.tap('[data-a="ingrPick"][data-q="Свинина"]');
+    assert.match(await page.locator('#ingr_res').innerText(), /Мясной/);
+    await shot('19-allergy');
+    await page.tap('[data-a="closeSheet"]');
+    await page.tap('[data-a="closePicker"]');
+  });
+
   await t.test('state survives a reload (app killed by iOS)', async () => {
     await page.reload();
     await page.waitForSelector('.line');

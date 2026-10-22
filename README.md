@@ -62,6 +62,14 @@ list, **+ со смет.** and **+ без**, so the choice the tablet asks for i
 **Tasting set of 5 shots** uses the tablet's 10 flavours as counters (repeats
 allowed) and is complete at exactly 5.
 
+**When a guest asks:** ⓘ on any dish shows **Say to the guest**, a ready sentence
+in Russian or English made only from the printed menu (composition, weight,
+price or sizes, сметана choice, what the menu recommends with it, pit/bone
+warnings). **🛡 Allergy / ingredient check** (menu screen, table ⋯, or
+Menu & data) lists which dishes mention an ingredient in their printed name
+or composition, including sets that contain such a dish. It always reminds you
+to confirm with the kitchen, because most dishes don't print every ingredient.
+
 **Notes:** tap ✎ on any line to write what the guest asked for ("без укропа",
 "соус отдельно"); it shows under the dish in amber and appears in Review and
 Copy text. "📝 Add table note" at the top of a table is for things like an
@@ -137,8 +145,8 @@ and you can fix prices there.
 ## Development
 
 ```
-npm test          # 31 unit tests: menu data, order logic, storage, practice grading
-npm run test:e2e  # 24 browser checks at iPhone size (needs Playwright + Chromium)
+npm test          # 33 unit tests: menu data, order logic, storage, practice grading
+npm run test:e2e  # 25 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 
