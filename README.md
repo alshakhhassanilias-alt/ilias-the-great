@@ -32,6 +32,17 @@ Data lives only on this phone (localStorage). Export a backup now and then:
 
 ## How a table works
 
+**My tables:** at the start of a shift tap **Set my tables** and add your
+numbers once (e.g. 5, 7, 8). They stay on the Tables screen all shift as
+*free* (dashed) or *busy*. Tap a free one and the menu opens straight away.
+Closing a paid table moves the order to history and the table goes back to
+free. A table you opened but left empty goes back to free by itself. Edit or
+clear the list any time with **✎ Edit my tables**. Tables outside your list
+(helping a colleague) appear under *Other tables*.
+
+**Quantity in search:** type `3 пс` and one tap adds three; the box then clears
+for the next item.
+
 1. **Tables → + New table**: type the number on the keypad, tap the guest count.
    Opening a number that is already open just opens that table, so you can't
    create a duplicate table 5.
@@ -146,7 +157,7 @@ and you can fix prices there.
 
 ```
 npm test          # 33 unit tests: menu data, order logic, storage, practice grading
-npm run test:e2e  # 25 browser checks at iPhone size (needs Playwright + Chromium)
+npm run test:e2e  # 26 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 

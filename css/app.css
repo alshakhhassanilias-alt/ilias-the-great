@@ -92,6 +92,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; text-align: left;
   min-height: 108px; display: flex; flex-direction: column; gap: 4px; position: relative;
 }
+.tcard.free { background: transparent; border-style: dashed; }
+.tcard.free .num { color: var(--muted); }
+.chip.freechip { border-style: dashed; color: var(--muted); }
 .tcard .num { font-size: 30px; font-weight: 800; line-height: 1; }
 .tcard .meta { font-size: 13px; color: var(--muted); }
 .tcard .badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }

@@ -100,6 +100,9 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; text-align: left;
   min-height: 108px; display: flex; flex-direction: column; gap: 4px; position: relative;
 }
+.tcard.free { background: transparent; border-style: dashed; }
+.tcard.free .num { color: var(--muted); }
+.chip.freechip { border-style: dashed; color: var(--muted); }
 .tcard .num { font-size: 30px; font-weight: 800; line-height: 1; }
 .tcard .meta { font-size: 13px; color: var(--muted); }
 .tcard .badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }
@@ -1934,7 +1937,7 @@ textarea.field { min-height: 70px; }
 (function () {
   'use strict';
 
-  var APP_VERSION = '7';
+  var APP_VERSION = '8';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -1984,6 +1987,28 @@ textarea.field { min-height: 70px; }
     if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
     return String(a.num).localeCompare(String(b.num));
   }
+  // “My tables”: numbers assigned for this shift. They stay on screen, free or busy.
+  function mySection() { return (S.settings.section || []).slice(); }
+  function inSection(num) { return mySection().indexOf(String(num)) >= 0; }
+  // A table in your section that was opened but left empty goes back to free.
+  function pruneEmpty(keepId) {
+    S.tables = S.tables.filter(function (t) {
+      return t.id === keepId || t.lines.length || t.note || t.guests || !inSection(t.num);
+    });
+  }
+  // “3 пс” → { n: 3, q: 'пс' }
+  function qtyQuery(q) {
+    var m = /^\s*(\d{1,2})\s*[x×*хХ]?\s+(.+)$/.exec(q || '');
+    return m && +m[1] > 0 ? { n: +m[1], q: m[2] } : { n: 1, q: q || '' };
+  }
+  function openNum(num) {
+    num = String(num);
+    var ex = S.tables.filter(function (t) { return String(t.num) === num; })[0];
+    if (ex) { nav('table', ex.id); return; }
+    var t = { id: L.uid('t'), num: num, guests: null, note: '', openedAt: Date.now(), updatedAt: Date.now(), lines: [] };
+    commit(null, function () { S.tables.push(t); ui.view = 'table'; ui.tableId = t.id; });
+    A.openPicker();
+  }
   function persistUi() { S.ui = { view: ui.view, tableId: ui.tableId }; }
 
   // Every state change goes through commit(): save immediately, offer undo.
@@ -1999,6 +2024,8 @@ textarea.field { min-height: 70px; }
   function nav(view, tableId) {
     ui.view = view;
     if (tableId !== undefined) ui.tableId = tableId;
+    pruneEmpty(view === 'table' || view === 'review' ? ui.tableId : null);
+    if (!findTable(ui.tableId)) ui.tableId = null;
     if (view !== 'review') ui.review.ticked = {};
     persistUi();
     store.save(S);
@@ -2078,19 +2105,30 @@ textarea.field { min-height: 70px; }
     return out;
   }
 
+  function tableCard(t) {
+    return '<button class="tcard" data-a="open" data-id="' + t.id + '">' +
+      '<span class="num">' + esc(t.num) + '</span>' +
+      '<span class="meta">' + (t.guests ? t.guests + ' guests · ' : '') + ago(t.openedAt) + '</span>' +
+      (t.note ? '<span class="meta">📝 ' + esc(t.note) + '</span>' : '') +
+      '<span class="badges">' + tableBadges(t) + '</span></button>';
+  }
   function viewTables() {
-    var tables = S.tables.slice().sort(numSort);
-    var h = '<div class="top"><h1>Tables <span class="sub">' + tables.length + ' open</span></h1>' + saveDot() + '</div>';
-    if (!tables.length) {
-      h += '<div class="empty">No open tables.<br>Tap <b>+ New table</b> below.</div>';
-    } else {
-      h += '<div class="grid">' + tables.map(function (t) {
-        return '<button class="tcard" data-a="open" data-id="' + t.id + '">' +
-          '<span class="num">' + esc(t.num) + '</span>' +
-          '<span class="meta">' + (t.guests ? t.guests + ' guests · ' : '') + ago(t.openedAt) + '</span>' +
-          (t.note ? '<span class="meta">📝 ' + esc(t.note) + '</span>' : '') +
-          '<span class="badges">' + tableBadges(t) + '</span></button>';
+    var sec = mySection().sort(function (a, b) { return numSort({ num: a }, { num: b }); });
+    var byNum = {}; S.tables.forEach(function (t) { byNum[String(t.num)] = t; });
+    var others = S.tables.filter(function (t) { return !inSection(t.num); }).sort(numSort);
+    var busy = sec.filter(function (n) { return byNum[n]; }).length;
+    var h = '<div class="top"><h1>' + (sec.length ? 'My tables <span class="sub">' + busy + ' busy · ' + (sec.length - busy) + ' free</span>' : 'Tables <span class="sub">' + S.tables.length + ' open</span>') + '</h1>' + saveDot() + '</div>';
+    if (sec.length) {
+      h += '<div class="grid">' + sec.map(function (n) {
+        if (byNum[n]) return tableCard(byNum[n]);
+        return '<button class="tcard free" data-a="openNum" data-n="' + esc(n) + '"><span class="num">' + esc(n) + '</span><span class="meta">free · tap to take an order</span></button>';
       }).join('') + '</div>';
+      h += '<button class="btn ghost sm mt" data-a="editSection">✎ Edit my tables</button>';
+      if (others.length) h += '<div class="section-h">Other tables</div><div class="grid">' + others.map(tableCard).join('') + '</div>';
+    } else {
+      h += '<div class="card mt"><b>Set your tables for this shift</b><div class="small muted mt">Add the table numbers you are assigned once, e.g. 5, 7, 8. They stay here all shift, free or busy, until you remove them.</div>' +
+        '<button class="btn primary block mt" data-a="editSection">Set my tables</button></div>';
+      if (others.length) h += '<div class="section-h">Open tables</div><div class="grid">' + others.map(tableCard).join('') + '</div>';
     }
     var today = S.history.filter(function (t) { return Date.now() - t.closedAt < 18 * 3600 * 1000; });
     if (S.history.length) {
@@ -2102,7 +2140,7 @@ textarea.field { min-height: 70px; }
             '<span class="muted">' + tot.count + ' items · ' + rub(tot.sum) + '</span></button></li>';
         }).join('') + '</ul>';
     }
-    h += '<div class="actionbar"><button class="btn primary grow" data-a="newTable">+ New table</button></div>';
+    h += '<div class="actionbar"><button class="btn ' + (sec.length ? '' : 'primary') + ' grow" data-a="newTable">+ ' + (sec.length ? 'Other table' : 'New table') + '</button></div>';
     return h;
   }
 
@@ -2144,8 +2182,13 @@ textarea.field { min-height: 70px; }
     var others = S.tables.slice().sort(numSort);
     var h = '<div class="top"><h1>Стол ' + esc(t.num) + ' <span class="sub">' + (t.guests ? t.guests + ' guests · ' : '') + ago(t.openedAt) + '</span></h1>' +
       '<button class="iconbtn" data-a="tableMenu" aria-label="table options">⋯</button></div>';
-    if (others.length > 1) {
-      h += '<div class="strip">' + others.map(function (o) {
+    var stripNums = mySection();
+    others.forEach(function (o) { if (stripNums.indexOf(String(o.num)) < 0) stripNums.push(String(o.num)); });
+    stripNums.sort(function (a, b) { return numSort({ num: a }, { num: b }); });
+    if (stripNums.length > 1) {
+      h += '<div class="strip">' + stripNums.map(function (n) {
+        var o = others.filter(function (x) { return String(x.num) === n; })[0];
+        if (!o) return '<button class="chip freechip" data-a="openNum" data-n="' + esc(n) + '">' + esc(n) + '</button>';
         var hasNew = o.lines.some(function (l) { return l.status === 'new'; });
         return '<button class="chip ' + (o.id === t.id ? 'on' : '') + '" data-a="open" data-id="' + o.id + '">' + (hasNew ? '<span class="dot"></span>' : '') + esc(o.num) + '</button>';
       }).join('') + '<button class="chip" data-a="newTable">+</button></div>';
@@ -2298,7 +2341,9 @@ textarea.field { min-height: 70px; }
     var all = L.allItems(S.menu);
     var h = '';
     if (p.q) {
-      var res = L.search(all, p.q, { learned: (S.searchLearn || {})[L.norm(p.q)], usage: S.usage }).slice(0, 60);
+      var qq = qtyQuery(p.q);
+      if (qq.n > 1) h += '<div class="issue info" style="margin-bottom:8px">Tap adds <b>×' + qq.n + '</b></div>';
+      var res = L.search(all, qq.q, { learned: (S.searchLearn || {})[L.norm(qq.q)], usage: S.usage }).slice(0, 60);
       if (!res.length) h += '<div class="empty">Nothing on the menu for “' + esc(p.q) + '”.</div>';
       h += res.map(function (it) { return itemRow(it, t, 'pick'); }).join('');
       h += '<button class="btn block mt" data-a="customLine">✚ Add “' + esc(p.q) + '” as a request not on the menu</button>';
@@ -2393,6 +2438,7 @@ textarea.field { min-height: 70px; }
     else if (s.type === 'backupText') body = sheetBackupText(s);
     else if (s.type === 'note') body = sheetNote(s);
     else if (s.type === 'ingr') body = sheetIngr(s);
+    else if (s.type === 'section') body = sheetSection(s);
     else if (s.type === 'customLine') body = sheetCustomLine(s);
     var keepScroll = $sheet.querySelector('.sheet');
     var st = keepScroll ? keepScroll.scrollTop : 0;
@@ -2767,6 +2813,49 @@ textarea.field { min-height: 70px; }
     if (!findTable(ui.tableId) && (ui.view === 'table' || ui.view === 'review')) ui.view = 'tables';
     render();
   };
+  A.openNum = function (d) { ui.picker = null; openNum(d.n); };
+  A.editSection = function () { openSheet({ type: 'section', num: '' }); };
+  A.secKey = function (d) {
+    var s = ui.sheet;
+    if (d.k === 'C') s.num = '';
+    else if (d.k === '⌫') s.num = s.num.slice(0, -1);
+    else if (s.num.length < 4) s.num += d.k;
+    renderSheet();
+  };
+  A.secAdd = function () {
+    var n = String(ui.sheet.num || document.getElementById('sec_name').value || '').trim();
+    if (!n) return;
+    commit(null, function () {
+      var sec = mySection();
+      if (sec.indexOf(n) < 0) sec.push(n);
+      S.settings.section = sec;
+    });
+    ui.sheet.num = ''; renderSheet();
+  };
+  A.secRemove = function (d) {
+    var busy = S.tables.filter(function (t) { return String(t.num) === d.n && t.lines.length; })[0];
+    commit(null, function () { S.settings.section = mySection().filter(function (x) { return x !== d.n; }); });
+    if (busy) toast('Стол ' + d.n + ' still has orders — it stays under “Other tables” until you close it');
+    renderSheet();
+  };
+  A.secClear = function () {
+    ask('Remove all your tables from the list? Open orders stay.', 'Clear my tables', function () {
+      commit('My tables cleared', function () { S.settings.section = []; });
+    });
+  };
+  function sheetSection(s) {
+    var sec = mySection();
+    return '<h2>My tables this shift</h2><div class="en">They stay on the Tables screen, free or busy, until you remove them.</div>' +
+      '<div class="choices mt">' + (sec.length ? sec.map(function (n) {
+        return '<button class="chip on" data-a="secRemove" data-n="' + esc(n) + '">' + esc(n) + ' ✕</button>';
+      }).join('') : '<span class="small muted">No tables yet.</span>') + '</div>' +
+      '<div class="display mt">' + (esc(s.num) || '<span class="muted">№</span>') + '</div>' +
+      '<div class="keypad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return '<button data-a="secKey" data-k="' + n + '">' + n + '</button>'; }).join('') +
+      '<button data-a="secKey" data-k="C">C</button><button data-a="secKey" data-k="0">0</button><button data-a="secKey" data-k="⌫">⌫</button></div>' +
+      '<input class="field mt" id="sec_name" placeholder="…or a name: Бар 2, Веранда 5" autocomplete="off">' +
+      '<div class="foot">' + (sec.length ? '<button class="btn danger" data-a="secClear">Clear all</button>' : '') +
+      '<button class="btn" data-a="secAdd">+ Add</button><button class="btn primary" data-a="closeSheet">Done</button></div>';
+  }
   A.open = function (d) { ui.picker = null; nav('table', d.id); };
   A.newTable = function () { openSheet({ type: 'newTable', num: '', guests: null }); };
   A.kp = function (d) {
@@ -2872,26 +2961,30 @@ textarea.field { min-height: 70px; }
     var preset = {};
     if (d.o) preset[d.o] = d.c;
     if (needsSheet(it, preset)) {
-      var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset });
+      var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset, qty: ui.picker ? qtyQuery(ui.picker.q).n : 1 });
       return openSheet({ type: 'line', mode: 'add', d: draft });
     }
     var prev = JSON.stringify(S);
     var res;
     commit(null, function () {
-      res = L.addItem(t, it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset }, S.menu);
+      var qn = ui.picker ? qtyQuery(ui.picker.q).n : 1;
+      res = L.addItem(t, it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset, qty: qn }, S.menu);
       track(it.id);
     });
     var optTxt = L.lineDetail(res.line, it)[0];
     if (d.o && optTxt) it = Object.assign({}, it, { ru: it.ru + ' (' + optTxt + ')' });
     var extra = it.side ? ' · side: ' + it.side.name + '?' : (it.suggest ? ' · offer ' + MENU.MODS[it.suggest[0]].ru.toLowerCase() : '');
-    toast('+1 ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : '') + extra, prev);
+    var added = ui.picker ? qtyQuery(ui.picker.q).n : 1;
+    toast('+' + added + ' ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : '') + extra, prev);
+    // after “3 пс” the box clears so the next item can be typed straight away
+    if (added > 1 && ui.picker) { ui.picker.q = ''; var pi = document.getElementById('psearch'); if (pi) pi.value = ''; renderPicker(); }
   };
   A.pickQ = function (d) { A.pick(d); };
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
     if (isPractice()) return;
     // Learn shortcuts: what you pick after typing a query ranks first next time.
-    var q = ui.picker && L.norm(ui.picker.q);
+    var q = ui.picker && L.norm(qtyQuery(ui.picker.q).q);
     if (q) {
       var sl = S.searchLearn = S.searchLearn || {};
       sl[q] = sl[q] || {};

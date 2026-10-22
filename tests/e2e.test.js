@@ -407,6 +407,47 @@ test('waiter flow on iPhone viewport', async (t) => {
     assert.equal((await state()).tables.length, 2);
   });
 
+  await t.test('my tables: stay all shift, free/busy, quantity search', async () => {
+    await page.tap('[data-a="tab"][data-v="tables"]');
+    await page.tap('[data-a="editSection"]');
+    for (const n of ['21', '22']) {
+      for (const k of n) await page.tap('.keypad [data-a="secKey"][data-k="' + k + '"]');
+      await page.tap('[data-a="secAdd"]');
+    }
+    await page.tap('.sheet [data-a="closeSheet"]');
+    assert.equal(await page.locator('.tcard.free').count(), 2);
+    await shot('20-my-tables');
+    // free table → menu opens directly; “3 пс” adds three
+    await page.tap('.tcard.free[data-n="21"]');
+    await page.waitForSelector('#picker');
+    await page.fill('#psearch', '3 пс');
+    await page.locator('#plist [data-a="pickQ"][data-c="yes"]').first().tap();
+    assert.equal(await page.inputValue('#psearch'), '');
+    await page.tap('[data-a="closePicker"]');
+    let st = await state();
+    let t21 = st.tables.find((x) => x.num === '21');
+    assert.equal(t21.lines[0].qty, 3);
+    assert.equal(t21.lines[0].opts.smet, 'yes');
+    // open 22, leave it empty → it goes back to free
+    await page.tap('.strip [data-a="openNum"][data-n="22"]');
+    await page.tap('[data-a="closePicker"]');
+    await page.tap('[data-a="tab"][data-v="tables"]');
+    st = await state();
+    assert.ok(!st.tables.some((x) => x.num === '22'));
+    assert.equal(await page.locator('.tcard.free[data-n="22"]').count(), 1);
+    // close 21 → stays on the list as free
+    await page.locator('.tcard', { hasText: '21' }).first().tap();
+    await page.tap('[data-a="tableMenu"]');
+    await page.tap('[data-a="closeTable"]');
+    await page.tap('[data-a="confirmOk"]');
+    assert.equal(await page.locator('.tcard.free').count(), 2);
+    // clear the list again so later checks see the old layout
+    await page.tap('[data-a="editSection"]');
+    await page.tap('[data-a="secClear"]');
+    await page.tap('[data-a="confirmOk"]');
+    assert.equal(await page.locator('.tcard.free').count(), 0);
+  });
+
   await t.test('no horizontal overflow and no JS errors', async () => {
     for (const v of ['tables', 'table', 'learn', 'menu']) {
       if (v === 'table') await page.locator('.tcard').first().tap();
