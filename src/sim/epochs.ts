@@ -185,14 +185,15 @@ function collapse(s: GameState, geo: Geo, c: Country, groups: Map<number, number
 
 // ------------------------------------------------------------------ independence of a region
 function considerIndependence(s: GameState, geo: Geo, c: Country) {
-  if (c.provinces.length < 6) return;
-  const size = Math.min(3, c.provinces.length / 12);
+  // (regions are about 2.3 times finer than the old map's, so sizes are counted in old-map regions)
+  if (c.provinces.length < 14) return;
+  const size = Math.min(3, c.provinces.length / 28);
   // borders are sticky: since 1990 only a handful of new states have been born. History speeds up as the old order
   // of the 2020s fades (a third as likely in the first decades)
   const chance = 0.006 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1) * epochPace(s);
   if (nextRand(s) >= chance) return;
   const block = peripheryOf(s, geo, c);
-  if (block.length < 2) return;
+  if (block.length < 3) return;
   if (c.isPlayer) { bidForPlayer(s, -1, block[0], block.length); return; }
   breakAway(s, geo, c, block, {});
 }
@@ -303,7 +304,7 @@ function considerUnions(s: GameState, geo: Geo) {
       if (!unionReady(s, A, B)) continue;
       // twice a year, a ready pair takes the step with a small chance: a union is a once-in-generations event
       // big old nations rarely give up their sovereignty; small neighbours more readily
-      if (nextRand(s) >= 0.005 * 6 / (6 + A.provinces.length + B.provinces.length) * epochPace(s)) continue;
+      if (nextRand(s) >= 0.005 * 14 / (14 + A.provinces.length + B.provinces.length) * epochPace(s)) continue;
       const player = A.isPlayer ? A : B.isPlayer ? B : null;
       if (player) {
         const other = player === A ? B : A;
@@ -327,7 +328,10 @@ export function unionReady(s: GameState, A: Country, B: Country): boolean {
   if (A.eco.stability < 50 || B.eco.stability < 50) return false;
   if (getRelation(s, A.id, B.id) < 85) return false;
   // no superstates by stealth: a union stays a regional power, and a country digests one union before the next
-  if (A.provinces.length + B.provinces.length > 45) return false;
+  if (A.provinces.length + B.provinces.length > 105) return false;
+  // two established nations of real size (Italy and Switzerland, Germany and the Netherlands) do not merge within a
+  // lifetime of the start; that takes a century and a half of history
+  if (Math.min(A.provinces.length, B.provinces.length) > 9 && s.tick < 150 * YEAR) return false;
   for (const X of [A, B]) if (s.tick - (s.stats[`united:${X.id}`] ?? -9999) < 30 * YEAR) return false;
   // nations that only recently became independent do not give it up again
   for (const X of [A, B]) if (s.tick - (s.stats[`founded:${X.id}`] ?? -9999) < 40 * YEAR) return false;
@@ -360,7 +364,7 @@ function retitle(s: GameState, c: Country) {
   const foreign = c.provinces.filter((p) => s.core[p] !== c.id).length;
   // a title is earned by holding other peoples for a generation, not by one lucky war
   const held = c.provinces.filter((p) => s.core[p] !== c.id && s.tick - (s.stats[`held:${p}`] ?? s.tick) > 15 * YEAR).length;
-  const imperial = c.provinces.length >= 10 && held >= Math.max(5, 0.35 * c.provinces.length);
+  const imperial = c.provinces.length >= 23 && held >= Math.max(12, 0.35 * c.provinces.length);
   const base = c.baseName ?? c.name;
   const isTitled = c.name !== base;
   if (imperial && !isTitled) {

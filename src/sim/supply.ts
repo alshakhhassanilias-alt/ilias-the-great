@@ -139,9 +139,19 @@ export function supplyNet(s: GameState, geo: Geo, cid: CountryId): SupplyNet {
   // 2. hubs: capital, the biggest connected home cities, supply-hub buildings, and coasts while the sea lanes are open
   if (linked[c.capital]) seed(c.capital, 0, 1);
   const homes = c.provinces.filter((p) => linked[p] && s.core[p] === cid && s.integ[p] >= 0.6);
-  const nCities = Math.min(6, Math.ceil(c.provinces.length / 6));
+  // regional depots: the biggest cities, spread across the country (a big country supplies its far provinces from
+  // their own regional centres, not from the capital)
+  const nCities = Math.min(12, Math.ceil(c.provinces.length / 7));
   homes.sort((a, b) => geo.provinces[b].w - geo.provinces[a].w);
-  for (const p of homes.slice(0, nCities)) seed(p, reach * 0.12, 2);
+  const hubs: ProvId[] = [];
+  for (const p of homes) {
+    if (hubs.length >= nCities) break;
+    if (hubs.some((q) => geo.dist(p, q) < 22)) continue;
+    // depots sit in real cities on open ground, not on a mountain plateau
+    if (hubs.length && (geo.provinces[p].terrain >= 0.8 || geo.provinces[p].w < 0.7)) continue;
+    hubs.push(p);
+  }
+  for (const p of hubs) seed(p, reach * 0.12, 2);
   for (const p of exclaveHubs(s, geo, cid)) if (s.owner[p] === cid && s.integ[p] >= 0.5) seed(p, reach * 0.2, 2);
   for (const p of c.provinces) {
     const lv = levelOf(s, p, 'depot');

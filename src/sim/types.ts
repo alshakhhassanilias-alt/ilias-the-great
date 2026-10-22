@@ -502,6 +502,8 @@ export interface GameState {
   resent?: Record<number, number>;
   /** coalitions formed against aggressors */
   coalitions?: { target: CountryId; members: CountryId[]; since: number }[];
+  /** what the world said about the player's last moves (see reactions.ts) */
+  voices?: import('./reactions').VoiceSet[];
 }
 /** a peace obligation: `b` pays reparations to `a`, or `b` is demilitarised by `a`, until a tick */
 export interface PeaceDeal { kind: 'rep' | 'demil'; a: CountryId; b: CountryId; until: number; share?: number; paid?: number }

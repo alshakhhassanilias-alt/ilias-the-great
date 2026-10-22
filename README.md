@@ -7,7 +7,7 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 * **No waiting, ever.** There are no construction timers, energy timers or pay-to-skip. Every decision takes effect
   immediately (money moves, capacity is built, troops are raised, war is declared *now*) or at the very next
   simulation tick. The world runs on a simulated clock you control: ⏸ pause · ▶ slow (a year in 52 s) · ▶▶ normal (26 s, the default) · ▶▶▶ fast · ⏩ very fast.
-* **Real map, dynamic borders.** Natural Earth borders, subdivided into ~1,200 named game provinces. Conquest transfers
+* **Real map, dynamic borders.** Natural Earth borders (1:10m), subdivided into ~2,800 regions built around real towns and named after them. Conquest transfers
   provinces (with their population and output) and the national borders are re-drawn live.
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
 
@@ -33,11 +33,11 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 198 deterministic simulation tests (Vitest) |
+| `npm test` | 203 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
-| `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth (~20 s) |
+| `npm run build:map` | Regenerates `src/data/generated/world.json` from Natural Earth 1:10m borders and populated places (~5 min; `WO_NE_DIR` points to the Natural Earth GeoJSON folder), then rerun `scripts/build-features.ts` |
 | `npx tsx scripts/headless-sim.ts 30 Germany` | Simulate 30 years headless; prints economies, wars, timing (`AGG=2`, `ALLIES=0` supported) |
 | `npx tsx scripts/war-test.ts Russia Ukraine 3` | War scenario harness used to tune combat pacing |
 | `npx tsx scripts/debug-country.ts 20 China,Russia` | Per-country growth-factor diagnostics |
@@ -61,6 +61,52 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 30: a detailed map, wars that mean something, a world that answers
+* **2,804 regions instead of 1,224, built around real towns and named after them.** Each country is divided around
+  its real cities (Natural Earth's 7,300 populated places): Poland is Warsaw, Katowice, Łódź, Gdańsk, Wrocław,
+  Poznań, Lublin and ten more, not "West Poland II"; Ukraine is Kyiv, Kharkiv, Odessa, Lviv... Crowded countries get
+  small regions, empty Siberia and the Sahara big ones. A region's weight (its share of the people, the economy and
+  what a war is fought over) follows its towns' population, so Moscow outweighs a Siberian district many times its
+  size. Land without a town takes its name from its neighbour and its ground ("Kutaisi Highlands", "Batumi Coast").
+* **Winding borders.** Borders between regions follow smooth, irregular lines like real ones instead of the straight
+  edges of a Voronoi diagram, and country outlines come from Natural Earth's detailed 1:10m borders, simplified along
+  shared arcs so neighbours always meet exactly.
+* **Old saves still load.** A save from the old map is laid onto the new one region by region (owners, occupation,
+  buildings, resistance and capitals follow the ground; fronts re-form within a week).
+* **Wars that take time and end for a reason.** A country is now taken region by region (Poland against Belarus:
+  four years, twelve battles, from Brest to Minsk to Mahilyow), fronts are wider, and supply comes from regional
+  depots spread across a country instead of a few big cities. A war against you never just stops: if a coup or a
+  collapse hits the enemy, its new rulers send you a peace offer with land and say why. If your own government is
+  collapsing, you decide (sue for peace, martial law, a government of national unity) instead of a dice roll ending
+  every war.
+* **Nobody watches a friend be swallowed.** When a country has lost its capital or a third of its land, a strong friend
+  that is not already fighting may enter the war to save it, whoever started it (an ally first; China will not fight
+  Russia for Kazakhstan). If you are that friend, you are asked.
+* **The world answers you.** Going to war, being attacked, taking a capital, losing ground, making peace, a crackdown at
+  home, reforms, a default, a nuclear programme or a broken treaty: the leaders who matter (your rival, your allies,
+  the great powers, the other side's friends and neighbours) each say what they think in their own words, in
+  proportion to how they feel about you and the other side, and relations move. Your own press and public answer too
+  ("Poll: 58% back the war", "Students march: not in our name"). On the desktop each round is one card with the
+  leaders' portraits; on every device it is in the news.
+* **Objectives that never run out and follow the way you play.** Your path is read from what you have actually done
+  (the Conqueror, the Strongman, the Reformer, the Trader, the Peacemaker or the Builder) and new objectives are made
+  for it from the world as it is: the next economy to overtake, the army to outgun, the big power to win over, the
+  ally to sign, the market to open, the feud to end, the enemy to defeat, the land to take back, the region to
+  dominate. A war puts its objective first. When the fixed objectives are done, generated ones carry on for ever.
+  The mission card shows your path, why, and an ambition that follows it ("Make Russia the master of Eurasia").
+* **The story notices your direction.** When your path settles (half a year as a conqueror, a strongman, a reformer, a
+  trader or a peacemaker), a turning-point decision asks what kind of nation you are making, with real effects:
+  proclaim a greater nation or offer a grand peace; more powers for the police or free elections; a new
+  constitution; a trading bloc of your own; a permanent seat in world diplomacy.
+* **Captured land changes hands visibly.** The old owner's colour holds the region while the conqueror's sweeps across
+  it from the side the attack came from, behind a bright leading edge (it used to flash over a region that had
+  already changed colour).
+* **Rules rescaled to the finer map** so history keeps its pace: about as many breakaways as before, and two
+  established nations (Italy and Switzerland, Germany and the Netherlands) no longer merge in the first century and a
+  half. An AI country waits six years before attacking the same neighbour again.
+* **Performance:** about the same as before on a CPU slowed to a quarter (11 fps during a war at top speed, 8 while
+  panning; 60 fps paused), 41–48 ms per simulated week headless.
 
 ## Round 29: less boring, and a world that makes sense
 Found by playing headless games as Poland, Brazil, the United States and Nigeria for 15 years and reading every
@@ -303,9 +349,13 @@ The static layer is drawn once into the visible canvas and moved with a GPU-comp
 Rebuilding the map assets (only needed if you change the geography; outputs are committed): download the Natural Earth files listed at the top of `scripts/build-terrain.py` and `scripts/build-features.ts` into one folder, then run `npm run build:map`, `npx tsx scripts/build-features.ts <folder>` and `python3 scripts/build-terrain.py <folder>`.
 
 ### Geography pipeline (`scripts/build-map.ts`)
-Natural Earth admin-0 (1:50m, via `world-atlas`, public domain) → Natural Earth projection → per-country
-k-means on a land-sample grid → Voronoi cells **clipped to the real border** (polygon-clipping) → province
-adjacency from shared boundary segments. Overseas dependencies (Greenland, Puerto Rico, Hong Kong …) become
+Natural Earth admin-0 (1:10m, via `world-atlas`, public domain), simplified along the topology's shared arcs →
+Natural Earth projection → per-country seeds at the capital and the largest well-spaced real towns (Natural Earth
+1:10m populated places), filled out in empty land and relaxed toward even sizes → Voronoi cells whose edges are
+given a smooth, deterministic meander (bounded so borders never cross) → **clipped to the real border**
+(polygon-clipping) → each region named after its town and weighted by its towns' population → province adjacency
+from shared boundary segments (exact matches, then geometry for the rest). `src/data/generated/oldmap.json` maps the
+old 1,224-region map onto the new one so old saves load. Overseas dependencies (Greenland, Puerto Rico, Hong Kong …) become
 overseas provinces of their parent; disputed or partly recognised entities (Taiwan, Kosovo, Palestine, Western
 Sahara …) are separate actors. At runtime, each owner's border is the *union* of its provinces, recomputed
 when territory changes hands.

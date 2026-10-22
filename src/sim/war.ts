@@ -16,6 +16,7 @@ import { addAggression, coalitionAgainst } from './coalitions';
 import { settleGoal } from './wargoals';
 import { legacyWarEnded } from './legacy';
 import { cable } from './cables';
+import { voicesOn } from './reactions';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
 import { hash01, nextRand } from './rng';
@@ -227,6 +228,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
     }
   }
   if (d === s.player) cable(s, a, 'war_on_you'); else if (a === s.player) cable(s, d, 'you_declared');
+  if (a === s.player) voicesOn(s, 'declare', d); else if (d === s.player) voicesOn(s, 'attacked', a);
   if ((a === s.player || d === s.player) && !s.inbox.some((x) => x.id === 'war_goal')) s.inbox.push({ uid: s.nextInbox++, id: 'war_goal', tick: s.tick, expires: s.tick + 6, urgent: true, data: { w: war.id, e: a === s.player ? d : a } });
   return { ok: true };
 }
@@ -359,6 +361,7 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
   if (tp && tp.provs.length && tp.to === s.player) s.stats.warWins = (s.stats.warWins ?? 0) + 1;
   const lbl = ({ status_quo: 'ceasefire on current lines', restore: 'a return to pre-war borders', demand: 'territorial concessions', concede: 'concessions by the sender', surrender: 'total surrender' } as const)[t.kind];
   logEvent(s, `${A.name} and ${B.name} signed peace (${lbl}).`, 'peace', [a, b], a === s.player || b === s.player);
+  if (a === s.player || b === s.player) voicesOn(s, 'peace', a === s.player ? b : a);
   w.attackers = w.attackers.filter((x) => x !== a && x !== b);
   w.defenders = w.defenders.filter((x) => x !== a && x !== b);
   if (!w.attackers.length || !w.defenders.length) {
@@ -372,11 +375,22 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
   A.mil.focus = []; B.mil.focus = [];
 }
 
-export function forcePeaceAll(s: GameState, geo: Geo, c: CountryId) {
+/**
+ * A government that falls sues for peace on every front. A war against the player never just stops, though: the new
+ * rulers send the player a peace offer (with concessions) and say why, and the player decides.
+ */
+export function forcePeaceAll(s: GameState, geo: Geo, c: CountryId, why = 'a new government') {
   for (const w of [...warsOf(s, c)]) {
     const side = warSideOf(w, c);
     for (const e of [...(side === 0 ? w.defenders : w.attackers)]) {
-      if (warBetween(s, c, e)) makePeace(s, geo, c, e, { kind: 'status_quo' });
+      if (!warBetween(s, c, e)) continue;
+      if (e === s.player && c !== s.player) {
+        if (!s.offers.some((o) => o.from === c && o.kind === 'peace')) s.offers.push({ id: s.nextOfferId++, from: c, kind: 'peace', terms: { kind: 'concede', share: 0.15 }, tick: s.tick });
+        logEvent(s, `🏳 ${s.countries[c].name} is in turmoil (${why}) and asks you for peace, offering land. Accept or fight on: the offer is in your notices.`, 'peace', [c, s.player], true, { big: true, prov: s.countries[c].capital });
+        cable(s, c, 'peace');
+        continue;
+      }
+      makePeace(s, geo, c, e, { kind: 'status_quo' });
     }
   }
 }
@@ -506,7 +520,7 @@ export function stepWars(s: GameState, geo: Geo) {
           }
           continue;
         }
-        const nTargets = clamp(Math.floor(Math.sqrt(off / 50000)), 1, 4);
+        const nTargets = clamp(Math.floor(Math.sqrt(off / 40000)), 1, 6);
         let chosen: Candidate[];
         if (c.isPlayer && !c.mil.autoAdvance) {
           const focus = new Set(c.mil.focus);
@@ -566,7 +580,7 @@ export function stepWars(s: GameState, geo: Geo) {
       if (Pa <= 0) continue;
       const noise = 1 + (nextRand(s) - 0.5) * 0.16;
       const ratio = (Pa * noise) / Pd;
-      const sizeScale = Math.pow(140 / Math.max(60, geo.provinces[p].area), 0.35);
+      const sizeScale = Math.pow(140 / Math.max(22, geo.provinces[p].area), 0.35);
       const nuclearBrake = E.mil.nuclear ? contrib.reduce((t, x) => t + (x.st.c.mil.nuclear ? 0.85 : 0.45) * x.pa, 0) / Pa : 1; // fear of escalation limits advances on nuclear powers
       const amph = contrib.every((x) => x.st.amphibious) ? 0.7 : 1;
       const raw = 0.055 * clamp(Math.log(ratio) + 0.25, -1.2, 1.6) * sizeScale;
@@ -615,7 +629,11 @@ export function stepWars(s: GameState, geo: Geo) {
       }
       if (best && best.progress >= 1) {
         const winner = best.by;
+        const wasCapital = p === E.capital;
         const f = transferProvince(s, geo, p, winner);
+        // the world comments on the player's conquests and losses (capitals at once, otherwise now and then)
+        if (winner === s.player) voicesOn(s, wasCapital ? 'capital' : 'conquest', e);
+        else if (e === s.player && (wasCapital || (w.taken?.[winner] ?? 0) % 5 === 4)) voicesOn(s, 'besieged', winner);
         w.gained[winner] = (w.gained[winner] ?? 0) + f;
         (w.taken ??= {})[winner] = (w.taken[winner] ?? 0) + 1;
         w.lost[e] = (w.lost[e] ?? 0) + f;

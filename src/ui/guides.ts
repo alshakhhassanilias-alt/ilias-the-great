@@ -85,7 +85,28 @@ export function goalHelp(id: string, s: GameState, c: Country, geo: Geo): { how:
     victory: () => ({ how: 'Take land, then offer peace with "demand territory" once your war score is high.' }),
     navy: () => ({ how: 'Buy warships in the Military tab, or build the Carrier Fleet megaproject.' }),
   };
+  if (id.startsWith('d:')) return dynHelp(id, s, c);
   return (H[id] ?? (() => ({ how: '' })))();
+}
+
+/** Help for objectives generated for the player's path (goals2.ts). */
+function dynHelp(id: string, s: GameState, c: Country): { how: string; fix?: Fix } {
+  const [, kind, a] = id.split(':');
+  const t = Number(a), T = s.countries[t];
+  const open = (tab: Tab, sel = c.id) => ({ open: () => { store.select(sel, null, true); store.setTab(tab); } });
+  switch (kind) {
+    case 'overtake': case 'rich': return { how: 'Invest in factories, infrastructure and technology; keep taxes moderate and stay out of costly wars.', fix: { label: 'Build factories (1% of GDP)', run: (g) => buildProject(g, g.player, 'industry', 0.01) } };
+    case 'tech': return { how: 'Fund education and the technology fund law, or a tech megaproject.', fix: { label: 'Open the economy', tab: 'economy' } };
+    case 'outgun': case 'hegemon': return { how: 'Recruit troops, buy equipment and start weapons programmes in the Military tab.', fix: { label: 'Open the military', tab: 'military' } };
+    case 'friend': case 'thaw': return { how: `Sign deals, send aid and vote with ${T?.name ?? 'them'} at the Assembly; a summit helps.`, fix: T ? { label: `Talk to ${T.name}`, ...open('diplomacy', t) } : undefined };
+    case 'ally': return { how: `Relations with ${T?.name} are good enough to ask. Sweeten it at the table if they hesitate.`, fix: negoFix(s, { id: t }, 'alliance', 'Negotiate an alliance with') };
+    case 'trade': return { how: `${T?.name} is open to a trade deal; offer one at the negotiating table.`, fix: negoFix(s, { id: t }, 'trade', 'Negotiate trade with') };
+    case 'beat': case 'capital': case 'reclaim': return { how: 'Mass your armies on one front, back them with air strikes and keep supply lines short.', fix: { label: 'Open the war room', tab: 'military' } };
+    case 'prestige': return { how: 'Reputation grows with aid, mediation, keeping treaties and staying at peace.', fix: { label: 'Open diplomacy', tab: 'diplomacy' } };
+    case 'order': return { how: 'Stability follows growth, jobs, prices and the factions\' mood: give the angriest faction something.', fix: { label: 'Open politics', tab: 'politics' } };
+    case 'bloc': return { how: 'Invite friendly countries into your organisation from the Diplomacy tab.', fix: { label: 'Open diplomacy', tab: 'diplomacy' } };
+  }
+  return { how: '' };
 }
 
 function bestAlly(s: GameState, c: Country, geo: Geo): number | null {

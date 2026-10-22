@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { store } from '../../state/store';
 import { Meter, Section } from '../widgets';
-import { activeGoals, GOALS } from '../../sim/goals';
+import { activeGoals, goalById } from '../../sim/goals';
 import { dateLabel } from '../../sim/tick';
 import { ProjectsMini } from './Projects';
 import { NationPath } from './NationPath';
@@ -40,7 +40,7 @@ export function GoalsTab() {
         {level === 'none' && <><b>Guides: off</b> (Hard). No hints. Read the numbers and decide for yourself.</>}
       </div>
 
-      <Section title="Objectives" hint={`${done.length}/${GOALS.length} done · new ones appear as you finish`}>
+      <Section title="Objectives" hint={`${done.length} done · new ones appear as you finish, made for the way you play`}>
         <div className="goal-cards">
           {goals.map((g) => {
             const p = g.progress(s, c);
@@ -98,7 +98,7 @@ export function GoalsTab() {
         {showDone && (
           <div className="card" style={{ marginTop: 6 }}>
             {done.length === 0 && <div className="faint">None yet.</div>}
-            {done.map(([id, tick]) => { const g = GOALS.find((x) => x.id === id); return g ? <div className="why-row" key={id}><span>✓ {g.title}</span><span className="faint">{dateLabel(tick)}</span></div> : null; })}
+            {done.map(([id, tick]) => { const g = goalById(s, id); return g ? <div className="why-row" key={id}><span>✓ {g.title}</span><span className="faint">{dateLabel(tick)}</span></div> : null; })}
           </div>
         )}
       </Section>

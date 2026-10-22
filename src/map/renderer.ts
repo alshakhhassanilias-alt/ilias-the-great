@@ -79,7 +79,7 @@ function grainTile(size = 192): HTMLCanvasElement {
 }
 const UI_FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
 
-interface Effect { prov: number; t0: number; color: string; kind: 'capture' | 'lost' | 'ping'; ox?: number; oy?: number; mine?: boolean }
+interface Effect { prov: number; t0: number; color: string; kind: 'capture' | 'lost' | 'ping'; ox?: number; oy?: number; mine?: boolean; /** the old owner's colour, held under the sweep */ from?: string }
 
 function tile(size: number, draw: (c: CanvasRenderingContext2D) => void): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -403,7 +403,7 @@ export class MapRenderer {
           const geo = this.geom.geo;
           const src = geo.adj[p].find((q) => state.owner[q] === state.owner[p]);
           const o = geo.provinces[src ?? p].seed;
-          this.effects.push({ prov: p, t0: now, color: this.colorFor(state, state.owner[p]), kind: prev === state.player ? 'lost' : 'capture', ox: o[0], oy: o[1], mine: state.owner[p] === state.player || prev === state.player });
+          this.effects.push({ prov: p, t0: now, color: this.colorFor(state, state.owner[p]), from: prev >= 0 ? this.colorFor(state, prev) : undefined, kind: prev === state.player ? 'lost' : 'capture', ox: o[0], oy: o[1], mine: state.owner[p] === state.player || prev === state.player });
           if (this.quality === 2) { const sd = geo.provinces[p].seed; this.fx.capture(sd[0], sd[1], this.colorFor(state, state.owner[p]), now); }
         }
       }
@@ -917,11 +917,18 @@ export class MapRenderer {
       const bb = gp.bbox;
       const ox = e.ox ?? gp.seed[0], oy = e.oy ?? gp.seed[1];
       const R = Math.max(Math.hypot(bb[2] - ox, bb[3] - oy), Math.hypot(bb[0] - ox, bb[1] - oy), Math.hypot(bb[2] - ox, bb[1] - oy), Math.hypot(bb[0] - ox, bb[3] - oy));
-      const sweep = Math.min(1, t / 0.32), ease = 1 - (1 - sweep) * (1 - sweep);
-      // 1. the conqueror's colour sweeps across the region from the attack side, with a bright leading edge
+      // the sweep takes about a second; a smooth ease-in-out reads as an advance, not a pop
+      const sweep = Math.min(1, t / 0.4), ease = sweep < 0.5 ? 2 * sweep * sweep : 1 - Math.pow(-2 * sweep + 2, 2) / 2;
+      // 1. the old owner's colour holds the region while the conqueror's sweeps across it from the attack side,
+      // behind a bright leading edge (the base map underneath has already changed hands)
       ctx.save();
       ctx.clip(path, 'evenodd');
-      ctx.globalAlpha = t < 0.32 ? 0.78 : 0.78 * Math.max(0, 1 - (t - 0.32) / 0.5);
+      if (e.from && sweep < 1) {
+        // about as opaque as the base map's own colours, so the terrain still shows through
+        ctx.globalAlpha = 0.72;
+        ctx.fillStyle = e.from; ctx.fill(path, 'evenodd');
+      }
+      ctx.globalAlpha = t < 0.4 ? 0.85 : 0.85 * Math.max(0, 1 - (t - 0.4) / 0.45);
       ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.arc(ox, oy, R * ease + 0.01, 0, 6.283); ctx.fill();
       if (sweep < 1) {

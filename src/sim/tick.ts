@@ -19,6 +19,7 @@ import { setInTick } from './relations';
 import type { Geo } from './geo';
 import { stepEconomiesGen } from './economy';
 import { stepWars, sampleWars, forcePeaceAll, logEvent } from './war';
+import { pushInbox } from './events';
 import { stepPartisans } from './specops';
 import { setTransfer, stepOccupation } from './occupation';
 import { stepCampaigns } from './campaigns';
@@ -41,7 +42,7 @@ import { stepReview, stepTrophies } from './trophies';
 import { stepUnrest } from './unrest';
 import { rollPlayerEvent, stepAssembly, stepWorldEvents } from './events';
 import { stepPolitics } from './politics';
-import { stepGoals } from './goals';
+import { stepGoals, turningPoint } from './goals';
 import { alliesOf } from './relations';
 import { START_YEAR, TICKS_PER_YEAR, type GameState } from './types';
 import { transferProvince } from './war';
@@ -64,12 +65,14 @@ export function dateLabel(tick: number): string {
 function checkInstability(s: GameState, geo: Geo) {
   for (const c of s.countries) {
     if (!c.alive || c.eco.stability >= 8) continue;
+    // the player is not overthrown by a dice roll: a collapse is a decision they get to make (events10.ts)
+    if (c.id === s.player) { if (!s.inbox.some((x) => x.id === 'home_collapse') && s.tick - (s.stats.collapseAsk ?? -999) > 26 && pushInbox(s, 'home_collapse', {}, 4)) s.stats.collapseAsk = s.tick; continue; }
     if (nextRand(s) < 0.02) {
       c.eco.stability = 40;
       c.mil.exhaustion = Math.min(c.mil.exhaustion, 0.3);
       c.eco.inflation = Math.min(c.eco.inflation, 0.1);
-      logEvent(s, `Political upheaval in ${c.name}: the government fell and a transitional regime sued for peace in all wars.`, 'danger', [c.id], c.id === s.player);
-      forcePeaceAll(s, geo, c.id);
+      logEvent(s, `Political upheaval in ${c.name}: the government fell and a transitional regime sued for peace in all wars.`, 'danger', [c.id], c.id === s.player, c.id === s.player ? { big: true } : undefined);
+      forcePeaceAll(s, geo, c.id, 'its government has fallen');
     }
   }
 }
@@ -182,6 +185,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCalendar(s);
   rollPlayerEvent(s, geo);
   stepGoals(s);
+  turningPoint(s, (id) => !!pushInbox(s, id, {}, 20));
   stepLegacy(s, geo);
   checkVictory(s, geo);
 }

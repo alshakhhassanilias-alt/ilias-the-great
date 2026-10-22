@@ -195,7 +195,8 @@ import { EVENTS2 } from './events2';
 import { finalizeResolution, proposeResolution } from './politics';
 import { EVENTS3 } from './events3';
 import { EVENTS9 } from './events9';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...storyEvents()];
+import { EVENTS10 } from './events10';
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...storyEvents()];
 export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
 
 export const INBOX_MAX = 4;
@@ -297,7 +298,7 @@ const WORLD: { id: string; w: number; run: (s: GameState, c: Country, geo: Geo) 
   { id: 'scandal', w: 1, run: (_s, c) => { stab(c, -4); return `Corruption scandal rocks the government of ${c.name}`; } },
   { id: 'boom', w: 1, run: (_s, c) => { c.eco.tfp *= 1.01; stab(c, 3); return `Tech boom lifts ${c.name}'s economy`; } },
   { id: 'deposit', w: 0.7, run: (_s, c) => { c.eco.energyCap *= 1.05; return `${c.name} announces a huge new energy discovery`; } },
-  { id: 'coup', w: 0.5, run: (s, c, geo) => { if (c.eco.stability > 45 || (c.gov === 'D' && c.eco.stability > 22)) return null; c.eco.stability = 40; forcePeaceAll(s, geo, c.id); changeGov(s, c, 'A', 'the army seizes power and suspends the constitution'); return null; } },
+  { id: 'coup', w: 0.5, run: (s, c, geo) => { if (c.eco.stability > 45 || (c.gov === 'D' && c.eco.stability > 22)) return null; c.eco.stability = 40; forcePeaceAll(s, geo, c.id, 'the army has seized power'); changeGov(s, c, 'A', 'the army seizes power and suspends the constitution'); return null; } },
   // regimes fall too: a weak autocracy can be swept away by its own people, a failing democracy by a strongman
   { id: 'revolution', w: 0.45, run: (s, c) => {
     if (c.gov === 'D' || c.gov === 'F' || c.eco.stability > 32) return null;

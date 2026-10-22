@@ -2639,3 +2639,70 @@ describe('round 29: wars need a cause, clubs keep their identity, messages fit t
     expect(lines.some((x) => /Do not test us/.test(x))).toBe(false);
   });
 });
+
+// round 30: a detailed map, wars that end for a reason, a world that answers, goals that follow you
+import { voicesOn } from '../src/sim/reactions';
+import { stepCoalitions } from '../src/sim/coalitions';
+import { forcePeaceAll } from '../src/sim/war';
+import { pathOf as playerPath, dynGoal } from '../src/sim/goals2';
+import { activeGoals as activeGoals30, goalById } from '../src/sim/goals';
+import { addRec as addRec30 } from '../src/sim/minds';
+import { applyTreaty as applyTreaty30 } from '../src/sim/diplomacy';
+
+describe('round 30: regions around real towns, wars with reasons, voices, adaptive goals', () => {
+  it('the map has about 2,800 regions built around real towns, weighted by their people', () => {
+    expect(geo.provinces.length).toBeGreaterThan(2500);
+    const pl = geo.provinces.filter((p) => p.country0 === id('Poland'));
+    expect(pl.length).toBeGreaterThanOrEqual(15);
+    const names = pl.map((p) => p.name);
+    for (const n of ['Warsaw', 'Katowice', 'Gdańsk', 'Wrocław', 'Lublin']) expect(names).toContain(n);
+    const ru = geo.provinces.filter((p) => p.country0 === id('Russia'));
+    const moscow = ru.find((p) => p.name === 'Moscow')!, yak = ru.find((p) => p.name === 'Yakutsk')!;
+    expect(moscow.w).toBeGreaterThan(yak.w); // Moscow outweighs a Siberian district many times its size
+  });
+  it('declaring war makes the world speak, and it moves relations', () => {
+    const s = fresh('Poland');
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    const v = (s.voices ?? []).find((x) => x.kind === 'declare');
+    expect(v).toBeTruthy();
+    expect(v!.voices.length).toBeGreaterThanOrEqual(3);
+    expect(v!.voices.some((x) => x.cid === id('Russia') && x.tone === 'angry')).toBe(true); // Belarus's friend
+    expect(v!.home.length).toBeGreaterThan(0);
+    expect(voicesOn(s, 'repress')?.voices.some((x) => s.countries[x.cid].gov === 'D' && x.delta < 0)).toBe(true);
+  });
+  it('a friend steps in when a country is being overrun', () => {
+    const s = fresh('Brazil', { defensiveAlliances: false });
+    const A = s.countries[id('Belarus')], D = s.countries[id('Lithuania')], F = s.countries[id('Poland')];
+    applyTreaty30(s, D.id, F.id, 'alliance', true);
+    declareWar(s, geo, A.id, D.id);
+    const w = s.wars.find((x) => x.attackers.includes(A.id))!;
+    transferProvince(s, geo, D.capital, A.id);
+    let joined = false;
+    for (let i = 0; i < 12 && !joined; i++) { s.tick = 4 * (i * 7 + 1) + 1; for (const k of Object.keys(s.stats)) if (k.startsWith('interv:')) delete s.stats[k]; stepCoalitions(s, geo); joined = w.defenders.includes(F.id); }
+    expect(joined).toBe(true);
+    expect(s.log.some((l) => l.text.includes('INTERVENTION'))).toBe(true);
+  });
+  it('a war against you never just stops: a coup in the enemy capital becomes a peace offer', () => {
+    const s = fresh('Poland');
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    forcePeaceAll(s, geo, id('Belarus'), 'the army has seized power');
+    expect(areAtWar(s, s.player, id('Belarus'))).toBe(true);
+    expect(s.offers.some((o) => o.from === id('Belarus') && o.kind === 'peace')).toBe(true);
+  });
+  it('objectives follow the war and the path you take, and never run out', () => {
+    const s = fresh('Poland');
+    actDeclareWar(s, geo, s.player, id('Belarus'));
+    run(s, 8);
+    expect(s.goalsActive.some((g) => g.startsWith('d:beat:'))).toBe(true);
+    const c = s.countries[s.player];
+    addRec30(s, c.id, 'conquest', 4);
+    expect(playerPath(s, c).path).toBe('conqueror');
+    // with every fixed objective done, generated ones keep coming
+    for (const g of GOALS) s.goalsDone[g.id] = 0;
+    s.goalsActive = [];
+    expect(activeGoals30(s).length).toBe(3);
+    expect(s.goalsActive.every((g) => g.startsWith('d:'))).toBe(true);
+    expect(goalById(s, s.goalsActive[0])?.title).toBeTruthy();
+    expect(dynGoal(s, 'd:overtake:9999:0')).toBeNull();
+  });
+});

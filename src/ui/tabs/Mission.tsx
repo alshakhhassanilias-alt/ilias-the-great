@@ -4,13 +4,20 @@
  * is also in the Goals tab; this is the short version that is always on screen.
  */
 import { store } from '../../state/store';
-import { activeGoals, GOALS } from '../../sim/goals';
+import { activeGoals, goalsDoneCount } from '../../sim/goals';
+import { PATH_LABEL, pathOf, type Path } from '../../sim/goals2';
 import { actTitles, seedOf, storyChip } from '../../sim/story';
 import { dateLabel } from '../../sim/tick';
 import { goalHelp, guideLevel } from '../guides';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
 const THEME_ICON: Record<string, string> = { economy: '📈', politics: '🏛', military: '⚔' };
+const REGION: Record<string, string> = { EU: 'Europe', RU: 'Eurasia', ME: 'the Middle East', AF: 'Africa', SA: 'South Asia', EA: 'East Asia', SEA: 'Southeast Asia', LA: 'Latin America', NA: 'North America', OC: 'Oceania' };
+/** The ambition follows the road the player is actually on once it is clear (otherwise the nation's own story). */
+const AMBITION: Record<Path, (region: string) => string> = {
+  conqueror: (r) => `the master of ${r}`, strongman: () => 'a fortress no one dares to touch', reformer: (r) => `the model democracy of ${r}`,
+  trader: () => 'the trading crossroads of the world', peacemaker: (r) => `the peacemaker of ${r}`, builder: () => '',
+};
 
 export function MissionCard() {
   const s = store.state!;
@@ -23,12 +30,15 @@ export function MissionCard() {
   const act = st?.act ?? 1;
   const nextAct = story && act <= 4 ? actTitles(c)[act - 1] : null;
   const waiting = s.inbox.some((x) => x.id.startsWith('story'));
-  const done = Object.keys(s.goalsDone).length;
+  const done = goalsDoneCount(s);
+  const path = pathOf(s, c);
+  const ambition = AMBITION[path.path](REGION[c.region] ?? 'its region') || seedOf(c).ambition;
   return (
     <section className="section mission desk-only">
       <div className="mission-head">
         <span className="mission-kicker">Your mission</span>
-        <b className="mission-aim">Make {c.name} {seedOf(c).ambition}</b>
+        <b className="mission-aim">Make {c.name} {ambition}</b>
+        <span className="mission-path">Your path: <b>{PATH_LABEL[path.path]}</b> <span className="faint">({path.why})</span></span>
         {story && (
           <span className="mission-act">
             {storyChip(c) || 'Chapter I · act I of IV'}
@@ -59,7 +69,7 @@ export function MissionCard() {
         })}
         {goals.length === 0 && <li className="faint">Every objective is complete. Set your own course.</li>}
       </ol>
-      <div className="mission-foot faint">{done} of {GOALS.length} objectives done · each pays out at once, and a new one takes its place</div>
+      <div className="mission-foot faint">{done} objective{done === 1 ? '' : 's'} done · new ones are made for your path as you finish</div>
     </section>
   );
 }

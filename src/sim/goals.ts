@@ -12,6 +12,7 @@ import { alliesOf, areAtWar, getRelation, isAtWar, partnersOf, sanctionLevel } f
 import { computeBlocs } from './politics';
 import { hash01 } from './rng';
 import type { Country, GameState } from './types';
+import { dynCandidates, dynGoal, dynKey, dynKind, pathOf, type Path } from './goals2';
 
 export interface GoalProgress { value: number; text: string } // value 0..1
 export interface Goal {
@@ -130,38 +131,99 @@ const fiscalBal = (s: GameState, c: Country) => { const f = fiscalNow(c, s); ret
 
 function relevant(g: Goal, s: GameState, c: Country) { return !g.when || g.when(s, c); }
 
+/** A goal by id: one of the fixed objectives above, or one generated for the player's path (goals2.ts). */
+export function goalById(s: GameState, id: string): Goal | undefined {
+  return GOALS.find((g) => g.id === id) ?? dynGoal(s, id) ?? undefined;
+}
 export function activeGoals(s: GameState): Goal[] {
   if (!s.goalsActive.length && s.countries[s.player]?.alive) refill(s, s.countries[s.player]);
-  return s.goalsActive.map((id) => GOALS.find((g) => g.id === id)!).filter(Boolean);
+  return s.goalsActive.map((id) => goalById(s, id)).filter((g): g is Goal => !!g);
 }
+/** How many objectives the player has completed (fixed and generated). */
+export const goalsDoneCount = (s: GameState) => Object.keys(s.goalsDone).length;
 
-/** Keep three relevant, unfinished goals active, mixing themes so the list does not feel repetitive. */
+/**
+ * Keep three objectives going. A pressing problem (a deficit, an angry faction, a bitter enemy, a war) comes first;
+ * after that, objectives made for the player's path (conqueror, reformer, trader...) are mixed with the fixed ones,
+ * and once those run out the generated ones carry on for ever.
+ */
 const URGENT = new Set(['balance', 'winback', 'reconcile']);
 function refill(s: GameState, c: Country) {
-  s.goalsActive = s.goalsActive.filter((id) => s.goalsDone[id] === undefined);
-  while (s.goalsActive.length < 3) {
-    const have = new Set(s.goalsActive.map((id) => GOALS.find((g) => g.id === id)!.theme));
+  // drop finished goals, and generated ones whose target has gone
+  s.goalsActive = s.goalsActive.filter((id) => s.goalsDone[id] === undefined && !!goalById(s, id) && !stale(s, id));
+  let guard = 0;
+  while (s.goalsActive.length < 3 && guard++ < 6) {
+    const act = s.goalsActive.map((id) => goalById(s, id)!).filter(Boolean);
+    const have = new Set(act.map((g) => g.theme));
+    const haveKinds = new Set(s.goalsActive.filter((id) => id.startsWith('d:')).map(dynKind));
+    const haveKeys = new Set(s.goalsActive.map(dynKey));
     // never hand out a goal that is already (almost) achieved: it would complete instantly and mean nothing
-    const pool = GOALS.filter((g) => s.goalsDone[g.id] === undefined && !s.goalsActive.includes(g.id) && relevant(g, s, c) && g.progress(s, c).value < 0.9);
-    if (!pool.length) break;
-    // a pressing problem (a deficit, an angry faction, a bitter enemy) comes first: the objective helps you fix it
-    pool.sort((a, b) => (URGENT.has(b.id) ? 1 : 0) - (URGENT.has(a.id) ? 1 : 0) || (have.has(a.theme) ? 1 : 0) - (have.has(b.theme) ? 1 : 0) || hash01('goal', a.id, c.id, s.goalsActive.length) - hash01('goal', b.id, c.id, s.goalsActive.length));
-    s.goalsActive.push(pool[0].id);
+    const fixed = GOALS.filter((g) => s.goalsDone[g.id] === undefined && !s.goalsActive.includes(g.id) && relevant(g, s, c) && g.progress(s, c).value < 0.9);
+    const urgent = fixed.find((g) => URGENT.has(g.id));
+    if (urgent) { s.goalsActive.push(urgent.id); continue; }
+    const dyn = dynCandidates(s).filter(([id]) => !haveKinds.has(dynKind(id)) && !haveKeys.has(dynKey(id)) && !recentlyDone(s, dynKey(id)))
+      .map(([id, w]) => ({ id, w, g: dynGoal(s, id) })).filter((x) => x.g && x.g.progress(s, c).value < 0.85);
+    // a war or occupied land always comes first; otherwise generated and fixed objectives alternate
+    const pressing = dyn.filter((x) => x.w >= 4).sort((a, b) => b.w - a.w)[0];
+    const nDyn = s.goalsActive.filter((id) => id.startsWith('d:')).length;
+    const wantDyn = pressing || !fixed.length || nDyn < 2;
+    if (wantDyn && dyn.length) {
+      const pickD = pressing ?? dyn.sort((a, b) => (b.w * (have.has(b.g!.theme) ? 0.6 : 1) + hash01('dg', b.id, s.tick) * 0.8) - (a.w * (have.has(a.g!.theme) ? 0.6 : 1) + hash01('dg', a.id, s.tick) * 0.8))[0];
+      s.goalsActive.push(pickD.id);
+      dynGoal(s, pickD.id)!.progress(s, c); // fix its starting point now
+      continue;
+    }
+    if (!fixed.length) break;
+    fixed.sort((a, b) => (have.has(a.theme) ? 1 : 0) - (have.has(b.theme) ? 1 : 0) || hash01('goal', a.id, c.id, s.goalsActive.length) - hash01('goal', b.id, c.id, s.goalsActive.length));
+    s.goalsActive.push(fixed[0].id);
   }
 }
+/**
+ * When the player's path changes and holds for half a year, the story asks what kind of nation they are making
+ * (events10.ts). At most once every three years.
+ */
+export function turningPoint(s: GameState, push: (id: string) => boolean) {
+  const c = s.countries[s.player];
+  if (!c?.alive || s.tick % 4 !== 2) return;
+  const { path } = pathOf(s, c);
+  const was = s.stats.pathNow;
+  const idx = PATHS.indexOf(path);
+  if (was !== idx) { s.stats.pathNow = idx; s.stats.pathSince = s.tick; return; }
+  if (path === 'builder' || s.tick - (s.stats.pathSince ?? s.tick) < 26) return;
+  if (s.stats[`pathAsked:${path}`] !== undefined || s.tick - (s.stats.pathAsked ?? -999) < 156) return;
+  if (push(`path_${path}`)) { s.stats[`pathAsked:${path}`] = s.tick; s.stats.pathAsked = s.tick; }
+}
+const PATHS: Path[] = ['conqueror', 'strongman', 'reformer', 'trader', 'peacemaker', 'builder'];
+/** a generated goal lapses after four years, a war goal when that war is over, a reconquest goal when nothing is left to take */
+function stale(s: GameState, id: string): boolean {
+  if (!id.startsWith('d:')) return false;
+  const [, kind, a, t] = id.split(':');
+  if (s.tick - Number(t) > 208) return true;
+  if (kind === 'beat') return !s.wars.some((w) => (w.attackers.includes(s.player) && w.defenders.includes(Number(a))) || (w.defenders.includes(s.player) && w.attackers.includes(Number(a))));
+  return false;
+}
+/** the same kind and target is not set again for a few years */
+const recentlyDone = (s: GameState, key: string) => Object.entries(s.goalsDone).some(([id, t]) => dynKey(id) === key && s.tick - t < 156);
 
 export function stepGoals(s: GameState) {
   const c = s.countries[s.player];
   if (!c.alive) return;
   if (isAtWar(s, c.id)) s.stats.lastWar = s.tick;
+  // a new war pushes its objective to the front at once
+  if (isAtWar(s, c.id) && !s.goalsActive.some((id) => id.startsWith('d:beat:')) && s.goalsActive.length >= 3 && s.tick % 4 === 0) {
+    const old = s.goalsActive.findIndex((id) => !id.startsWith('d:beat:') && !id.startsWith('d:reclaim:'));
+    if (old >= 0) s.goalsActive.splice(old, 1);
+  }
   if (s.tick % 4 !== 0 && s.goalsActive.length >= 3) return;
   refill(s, c);
-  for (const g of GOALS) {
-    if (s.goalsDone[g.id] !== undefined) continue;
-    if (!s.goalsActive.includes(g.id)) continue; // only active goals can complete: keeps the list meaningful
+  for (const id of [...s.goalsActive]) {
+    if (s.goalsDone[id] !== undefined) continue;
+    const g = goalById(s, id);
+    if (!g) continue;
     if (g.progress(s, c).value >= 1) {
-      s.goalsDone[g.id] = s.tick;
+      s.goalsDone[id] = s.tick;
       g.pay(c, s);
+      for (const k of Object.keys(s.stats)) if (k.startsWith(`g0:${id}`) || k.startsWith(`g1:${id}`)) delete s.stats[k];
       gainPC(s, 6);
       logEvent(s, `Objective complete: ${g.title}. ${g.reward.replace('Reward: ', 'You received ')}`, 'info', [s.player], true);
     }

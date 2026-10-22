@@ -98,6 +98,7 @@ function OfferCard({ o }: { o: GameState['offers'][number] }) {
 
 /** the newest unread message, unless it is the covering note of an offer (the offer card already quotes it) */
 const cableNow = (s: GameState) => [...(s.cables ?? [])].reverse().find((x) => x.seq > store.cableSeen && s.tick - x.tick < 10 && !s.offers.some((o) => o.from === x.from && o.tick === x.tick));
+const voiceNow = (s: GameState) => [...(s.voices ?? [])].reverse().find((v) => v.seq > store.voiceSeen && s.tick - v.tick <= 20);
 const rippleNow = (s: GameState) => { const r = s.lastRipple; return r && (r.a === s.player || r.b === s.player) && store.rippleSeen !== `${r.tick}:${r.a}:${r.b}:${r.kind}` && s.tick - r.tick <= 26; };
 const reviewNow = (s: GameState) => !!s.review && store.reviewSeen < s.review.tick && s.tick - s.review.tick <= 12;
 
@@ -113,6 +114,7 @@ export function NotesColumn() {
   const cards: { key: string; el: ReactElement }[] = [
     ...s.offers.map((o) => ({ key: `o${o.id}`, el: <OfferCard o={o} /> })),
     ...(cableNow(s) ? [{ key: 'cable', el: <CableCard /> }] : []),
+    ...(voiceNow(s) ? [{ key: 'voices', el: <VoicesCard /> }] : []),
     ...(rippleNow(s) ? [{ key: 'ripple', el: <RippleCard /> }] : []),
     ...(reviewNow(s) ? [{ key: 'review', el: <YearReview /> }] : []),
   ];
@@ -122,6 +124,36 @@ export function NotesColumn() {
     <div className="notes-col" role="region" aria-label="Notices">
       {shown.map((x) => <div key={x.key} className="note-slot">{x.el}</div>)}
       {cards.length > 2 && <button className="notes-more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `+${cards.length - 2} more notice${cards.length > 3 ? 's' : ''}`}</button>}
+    </div>
+  );
+}
+
+/** How the world answered your last move: leaders' words with the change in relations, then your own press and public. */
+export function VoicesCard() {
+  useStore();
+  const s = store.state;
+  if (!s) return null;
+  const v = voiceNow(s);
+  if (!v) return null;
+  const close = () => { store.voiceSeen = v.seq; store.notify(); };
+  return (
+    <div className="voices" role="status" aria-live="polite">
+      <button className="x" aria-label="Dismiss" onClick={close}>×</button>
+      <h4><span aria-hidden="true">{v.icon}</span> {v.title}</h4>
+      {v.lead && <div className="voices-lead">{v.lead}</div>}
+      <ul className="voices-list">
+        {v.voices.map((x) => {
+          const C = s.countries[x.cid];
+          return (
+            <li key={x.cid} className={`tone-${x.tone}`}>
+              <Portrait f={faceFor(C, C.leader?.name ?? C.name, 'leader')} size={34} title={C.leader?.name ?? C.name} />
+              <div className="vq"><b>{C.leader?.name ?? C.name}</b> <span className="faint">{C.name}</span><div className="vq-text">“{x.text}”</div></div>
+              {x.delta !== 0 && <span className={`vq-d ${x.delta > 0 ? 'good' : 'bad'}`} title="Change in relations with you">{x.delta > 0 ? '+' : ''}{x.delta}</span>}
+            </li>
+          );
+        })}
+      </ul>
+      {v.home.length > 0 && <div className="voices-home">{v.home.map((h, i) => <div key={i}>{h}</div>)}</div>}
     </div>
   );
 }

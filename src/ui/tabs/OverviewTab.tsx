@@ -10,7 +10,7 @@ import { Portrait, faceFor } from '../art/Portrait';
 import { getRelation, isAtWar, warsOf } from '../../sim/relations';
 import { strengthIndex } from '../../sim/military';
 import { warScore } from '../../sim/war';
-import { activeGoals, GOALS } from '../../sim/goals';
+import { activeGoals } from '../../sim/goals';
 import { popGrowthRate } from '../../sim/economy';
 import { traitById, grudgesOf } from '../../sim/leaders';
 import { dateLabel } from '../../sim/tick';

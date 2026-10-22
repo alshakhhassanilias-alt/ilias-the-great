@@ -47,7 +47,7 @@ export const ARCS: ArcDef[] = [
     id: 'separatists', title: 'Separatist Movement', icon: '🏴', stages: 3,
     weight: () => 1,
     trigger: (s, c, geo) => {
-      if (c.provinces.length < 5) return null;
+      if (c.provinces.length < 11) return null;
       const r = c.politics?.factions.find((f) => f.id === 'regions');
       if (!r || (r.mood > 42 && c.eco.occupation < 0.08)) return null;
       const cap = c.capital;

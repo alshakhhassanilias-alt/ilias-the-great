@@ -231,7 +231,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
   for (const t of targets) {
     const T = s.countries[t];
     if (!T.alive || areAtWar(s, c.id, t) || hasAlliance(s, c.id, t)) continue;
-    if (s.tick - (s.stats[`pair:${c.id}>${t}`] ?? -9999) < 182) continue; // no serial conquest of the same victim: a breathing space of 3.5 years
+    if (s.tick - (s.stats[`pair:${c.id}>${t}`] ?? -9999) < 312) continue; // no serial conquest of the same victim: a breathing space of six years
     const rel = getRelation(s, c.id, t);
     // no war without a cause: a claim, a feud, a grudge, a plan aimed at them, or a case made at home. Weakness and a
     // hawkish temper decide whether, not whom: friends and neighbours with nothing between them are left alone

@@ -15,6 +15,10 @@ export interface RawProvince {
   territory?: string;
   capital?: boolean;
   edges?: { n: number; pts: number[] }[];
+  /** the real town the region is built around (build-map.ts) */
+  name?: string;
+  /** people living in its towns, thousands (build-map.ts) */
+  pop?: number;
 }
 export interface RawWorld {
   width: number;
@@ -61,10 +65,16 @@ export function buildGeo(raw: RawWorld, provCity?: Record<number, string>): Geo 
     const ids: number[] = [];
     const total = c.provinces.reduce((s, p) => s + p.area, 0) || 1;
     const avg = total / c.provinces.length;
+    // a region's weight (its share of the people, the economy and the war's stakes) follows its towns where we know
+    // them, and its size: Moscow outweighs a Siberian district many times its area
+    const popTot = c.provinces.reduce((s, p) => s + (p.territory ? 0 : p.pop ?? 0), 0);
+    const popAvg = popTot / Math.max(1, c.provinces.filter((p) => !p.territory).length);
     for (const p of c.provinces) {
       const id = provinces.length;
-      let w = (0.55 + 0.45 * Math.min(2, p.area / avg)) * (0.75 + 0.5 * hash01(c.name, id));
-      if (p.capital) w *= 2.2;
+      const areaPart = 0.55 + 0.45 * Math.min(2, p.area / avg);
+      const popPart = popTot > 0 ? Math.min(5, (0.25 * popAvg + (p.pop ?? 0)) / (1.25 * popAvg)) : 1;
+      let w = (0.35 * areaPart + 0.65 * popPart) * (0.85 + 0.3 * hash01(c.name, id));
+      if (p.capital) w *= popTot > 0 ? 1.4 : 2.2;
       if (p.territory) w *= 0.35;
       provinces.push({
         id, country0: ci, seed: p.seed, area: p.area, bbox: p.bbox, terrain: p.terrain, coast: p.coast ?? 0,
@@ -74,10 +84,31 @@ export function buildGeo(raw: RawWorld, provCity?: Record<number, string>): Geo 
     }
     provs0.push(ids);
     nameRegions(c.name, ids.map((i) => provinces[i]));
+    // regions built around a real town carry its name; the rest take the biggest town inside them, or a compass name
+    const used = new Set<string>();
+    c.provinces.forEach((p, k) => { if (p.name && !p.territory) { provinces[ids[k]].name = p.name; used.add(p.name); } });
+    if (provCity) for (const id of ids) { const P = provinces[id], n = provCity[id]; if (!P.territory && n && !c.provinces[id - ids[0]].name && !used.has(n)) { P.name = n; used.add(n); } }
   });
-  if (provCity) for (const p of provinces) if (!p.territory && provCity[p.id]) p.name = provCity[p.id];
   const adj: number[][] = provinces.map(() => []);
   for (const [a, b] of raw.adjacency) { adj[a].push(b); adj[b].push(a); }
+  // regions with no town of their own take their name from a neighbouring town and their ground
+  // ("Kutaisi Highlands", "Batumi Coast") instead of a compass name with a numeral
+  const real = new Set<number>();
+  raw.countries.forEach((c, ci) => c.provinces.forEach((p, k) => { if (p.name || provCity?.[provs0[ci][k]]) real.add(provs0[ci][k]); }));
+  for (const ids of provs0) {
+    const used = new Set(ids.map((i) => provinces[i].name));
+    for (const id of ids) {
+      const P = provinces[id];
+      if (real.has(id) || P.territory || ids.length === 1) continue;
+      const nb = adj[id].filter((q) => real.has(q) && provinces[q].country0 === P.country0).sort((a, b) => provinces[b].w - provinces[a].w);
+      for (const q of nb) {
+        const base = provinces[q].name;
+        const kind = P.coast > 0.35 ? 'Coast' : P.terrain >= 0.6 ? 'Highlands' : P.terrain >= 0.4 ? 'Uplands' : 'Hinterland';
+        const nm = `${base} ${kind}`;
+        if (!used.has(nm)) { used.add(nm); P.name = nm; break; }
+      }
+    }
+  }
   return {
     width: raw.width,
     height: raw.height,

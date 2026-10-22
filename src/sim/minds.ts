@@ -12,6 +12,7 @@
  *               door fears a warmonger; a democrat ideologue despises a crackdown; a mercantilist hates sanctions and
  *               defaults. Judgement feeds their decisions (deals, votes, sanctions, coalitions, war) and their words.
  */
+import { voicesOn, type VoiceKind } from './reactions';
 import type { Geo } from './geo';
 import { clamp } from './util';
 import { hash01 } from './rng';
@@ -27,10 +28,13 @@ import type { Country, CountryId, Drive, GameState, Leader, Mood, Record_ } from
 export type RecKey = keyof Record_;
 const EMPTY: Record_ = { aggr: 0, conquest: 0, betray: 0, loyal: 0, sanction: 0, repress: 0, reform: 0, aid: 0, defaulted: 0, nuke: 0 };
 export const recOf = (s: GameState, id: CountryId): Record_ => s.rec?.[id] ?? EMPTY;
+const VOICED: Partial<Record<RecKey, VoiceKind>> = { repress: 'repress', reform: 'reform', aid: 'aid', defaulted: 'defaulted', nuke: 'nuke', betray: 'betray' };
 export function addRec(s: GameState, id: CountryId, k: RecKey, v: number) {
   if (id < 0) return;
   const r = ((s.rec ??= {})[id] ??= { ...EMPTY });
   r[k] = clamp(r[k] + v, 0, 12);
+  // what the player does at home and abroad is noticed: the leaders who care say so (see reactions.ts)
+  if (id === s.player && v >= 0.3 && VOICED[k]) voicesOn(s, VOICED[k]!);
   // in Legacy, what you do in office is also yours personally: it follows you out of office and back in
   const L = s.legacy;
   if (id === s.player && L && s.settings.mode === 'legacy' && L.status === 'office') { const p = (L.rec ??= { ...EMPTY }); p[k] = clamp(p[k] + v, 0, 12); }

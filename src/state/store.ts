@@ -109,6 +109,8 @@ class Store {
   /** Legacy: newest term newspaper already read, and whether the history book was closed */
   termSeen = 0;
   cableSeen = 0;
+  /** the last round of world reactions the player has dismissed */
+  voiceSeen = 0;
   bookSeen = false;
   get sound() { return audio.enabled; }
   setSound(on: boolean) { setSound(on); this.notify(); }
@@ -193,6 +195,7 @@ class Store {
     this.lastHist = s.warHistory?.length ?? 0;
     this.termSeen = s.stats.reviewTerm ?? 0;
     this.cableSeen = s.stats.cableSeq ?? 0;
+    this.voiceSeen = s.stats.voiceSeq ?? 0;
     this.bookSeen = false;
     this.achSent = new Set();
     this.splash = null; this.callouts = [];
