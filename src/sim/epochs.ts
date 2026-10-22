@@ -127,10 +127,14 @@ export function peripheryOf(s: GameState, geo: Geo, c: Country): number[] {
 }
 
 // ------------------------------------------------------------------ pressure
+/** The world of the 2020s is settled; the map starts to move as decades pass (0.3 at the start, 1 after 60 years) and
+ * keeps loosening over the centuries (2 after about 150 years), so that in 500 years the map is unrecognisable. */
+export const epochPace = (s: GameState) => Math.min(2, 0.3 + 0.7 * s.tick / (60 * YEAR));
 /** How shaky the centre is, as a multiplier on the chance that a region breaks away (1 = an ordinary year). */
 function weakness(s: GameState, c: Country): number {
   const st = c.eco.stability;
-  let k = st < 20 ? 6 : st < 35 ? 2.5 : st < 50 ? 1 : 0.35;
+  // a stable, well-run state almost never loses a region (Quebec and Scotland voted to stay); a failing one does
+  let k = st < 20 ? 6 : st < 35 ? 2.5 : st < 50 ? 1 : st < 65 ? 0.2 : 0.04;
   if (isAtWar(s, c.id)) k *= 1.5;
   if (c.mil.exhaustion > 0.6) k *= 1.6;
   const lost = s.stats[`lostWar:${c.id}`];
@@ -183,7 +187,9 @@ function collapse(s: GameState, geo: Geo, c: Country, groups: Map<number, number
 function considerIndependence(s: GameState, geo: Geo, c: Country) {
   if (c.provinces.length < 6) return;
   const size = Math.min(3, c.provinces.length / 12);
-  const chance = 0.008 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1);
+  // borders are sticky: since 1990 only a handful of new states have been born. History speeds up as the old order
+  // of the 2020s fades (a third as likely in the first decades)
+  const chance = 0.006 * size * weakness(s, c) * (c.gov === 'D' ? 0.6 : 1) * epochPace(s);
   if (nextRand(s) >= chance) return;
   const block = peripheryOf(s, geo, c);
   if (block.length < 2) return;
@@ -297,7 +303,7 @@ function considerUnions(s: GameState, geo: Geo) {
       if (!unionReady(s, A, B)) continue;
       // twice a year, a ready pair takes the step with a small chance: a union is a once-in-generations event
       // big old nations rarely give up their sovereignty; small neighbours more readily
-      if (nextRand(s) >= 0.005 * 6 / (6 + A.provinces.length + B.provinces.length)) continue;
+      if (nextRand(s) >= 0.005 * 6 / (6 + A.provinces.length + B.provinces.length) * epochPace(s)) continue;
       const player = A.isPlayer ? A : B.isPlayer ? B : null;
       if (player) {
         const other = player === A ? B : A;
@@ -352,7 +358,9 @@ export function unite(s: GameState, geo: Geo, keep: Country, join: Country, forc
 // ------------------------------------------------------------------ imperial titles
 function retitle(s: GameState, c: Country) {
   const foreign = c.provinces.filter((p) => s.core[p] !== c.id).length;
-  const imperial = c.provinces.length >= 8 && foreign >= Math.max(4, 0.35 * c.provinces.length);
+  // a title is earned by holding other peoples for a generation, not by one lucky war
+  const held = c.provinces.filter((p) => s.core[p] !== c.id && s.tick - (s.stats[`held:${p}`] ?? s.tick) > 15 * YEAR).length;
+  const imperial = c.provinces.length >= 10 && held >= Math.max(5, 0.35 * c.provinces.length);
   const base = c.baseName ?? c.name;
   const isTitled = c.name !== base;
   if (imperial && !isTitled) {
@@ -397,7 +405,9 @@ export function newNationName(s: GameState, geo: Geo, P: Country, provs: number[
   // "East Canada" only for land that borders the rest of the country; an island gets a name of its own
   const rest = new Set(P.provinces.filter((p) => !provs.includes(p)));
   const attached = provs.some((p) => geo.adj[p].some((q) => rest.has(q)));
-  if (attached) candidates.push(`${dir} ${shortName(P.baseName ?? P.name)}`);
+  // (never "North South Sudan": a name that already has a direction gets a name of its own)
+  const pn = shortName(P.baseName ?? P.name);
+  if (attached && !/\b(North|South|East|West|Central|Upper|Lower)\b/.test(pn)) candidates.push(`${dir} ${pn}`);
   candidates.push(form.replace('{X}', coined(r, P.region, city)), `${city} Free State`);
   return candidates.find((n) => !taken.has(n) && n.length <= 30) ?? `${form.replace('{X}', coined(r, P.region, city + s.tick))}`;
 }

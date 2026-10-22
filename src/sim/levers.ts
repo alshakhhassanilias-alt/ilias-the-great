@@ -191,12 +191,12 @@ export function stepFiscalRule(s: GameState) {
     if (dTax > 0) setBudget(s, c.id, k, b[k] + dTax);
     if (dSoc > 0) setBudget(s, c.id, 'social', b.social - dSoc);
     const after = budgetReport(s, c).balancePct;
-    logEvent(s, `💼 Fiscal rule: ${fin} ${dTax > 0 ? `raises ${k === 'taxVat' ? 'VAT' : 'income tax'} to ${(b[k] * 100).toFixed(1)}%` : ''}${dTax > 0 && dSoc > 0 ? ' and ' : ''}${dSoc > 0 ? `trims public services by ${(dSoc * 100).toFixed(2)} points of GDP` : ''}. Balance ${was} → ${(after * 100).toFixed(1)}% of GDP.`, 'econ', [c.id]);
+    logEvent(s, `💼 Budget rule: ${[dTax > 0 ? `${k === 'taxVat' ? 'VAT' : 'income tax'} up to ${(b[k] * 100).toFixed(1)}%` : '', dSoc > 0 ? 'services trimmed' : ''].filter(Boolean).join(', ')}. Balance ${was} → ${(after * 100).toFixed(1)}% of GDP.`, 'econ', [c.id]);
   } else if (gap < -0.012 && B.cash > 0.06 * e.gdp) {
     const k: 'taxVat' | 'taxIncome' = b.taxIncome > b.taxVat * 1.4 ? 'taxIncome' : 'taxVat';
     const d = Math.min((Math.min(-gap - 0.008, 0.004) * e.gdp / perPoint(k)) * 0.01, b[k] - BUDGET_LIMITS[k][0]);
     if (d <= 0) return;
     setBudget(s, c.id, k, b[k] - d);
-    logEvent(s, `💼 Fiscal rule: with a surplus and ${fmtMoney(B.cash)} in the treasury, ${fin} cuts ${k === 'taxVat' ? 'VAT' : 'income tax'} to ${(b[k] * 100).toFixed(1)}%.`, 'econ', [c.id]);
+    logEvent(s, `💼 Budget rule: a surplus, so ${k === 'taxVat' ? 'VAT' : 'income tax'} is cut to ${(b[k] * 100).toFixed(1)}%.`, 'econ', [c.id]);
   }
 }

@@ -19,6 +19,7 @@ import { SituationSection } from './Situation';
 import { DoctrinesSection } from './Doctrines';
 import { ProvincePanel } from './ProvincePanel';
 import { CharacterSection } from './Character';
+import { MissionCard } from './Mission';
 
 const TIP = {
   gdp: 'Gross domestic product: the total value of everything the economy produces in a year (nominal US dollars).',
@@ -51,6 +52,7 @@ export function OverviewTab({ id }: { id: number }) {
 
   return (
     <>
+      {mine && <MissionCard />}
       {mine && <CabinetSection />}
 
       {mine && <SituationSection />}

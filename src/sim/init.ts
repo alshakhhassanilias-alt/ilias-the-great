@@ -110,7 +110,7 @@ function initEconomy(B: CountryBase, coastal: boolean): { eco: Economy; budget: 
     infra: infra0, tech: tech0,
     energyCap: 0, energyDemand: 0, foodCap: 0, foodDemand: 0, energyUnmet: 0, foodUnmet: 0,
     debt: debtRatio * gdp, cash: 0.05 * gdp, reserves: 0.12 * gdp, avgRate: 0.03,
-    inflation: infl0, unemployment: 0, uNat: clamp(0.045 + 0.05 * rn('u') + (gdppc < 3000 ? 0.02 : 0), 0.03, 0.14),
+    inflation: infl0, unemployment: 0, uNat: UNEMP_2024[B.name] ?? clamp(0.045 + 0.05 * rn('u') + (gdppc < 3000 ? 0.02 : 0), 0.03, 0.14),
     monetary: 0, openness: clamp(0.95 * Math.pow(Math.max(B.gdpB, 0.5), -0.19), 0.1, 1.2), goodsBias: (rn('gb') - 0.5) * 0.04,
     exports: 0, imports: 0, tradeIndex: 1, sanctionShare: 0, blockade: 0,
     stability: stab0, damage: 0, savings: 0.2, baseGrowth: g0, baseSocial: 0, baseEdu: edu,
@@ -205,6 +205,18 @@ function pickHues(geo: Geo, nCountries: number): number[] {
   }
   return hues;
 }
+
+/** Unemployment rates around 2023–24 (ILO, national statistics; rounded), the natural rate each country starts from. */
+const UNEMP_2024: Record<string, number> = {
+  'United States of America': 0.039, China: 0.052, Japan: 0.026, Germany: 0.032, India: 0.045, 'United Kingdom': 0.042, France: 0.074,
+  Italy: 0.068, Canada: 0.058, Brazil: 0.075, Russia: 0.032, 'South Korea': 0.028, Australia: 0.039, Mexico: 0.028, Spain: 0.118,
+  Indonesia: 0.05, Netherlands: 0.037, 'Saudi Arabia': 0.049, Turkey: 0.088, Switzerland: 0.041, Poland: 0.029, Taiwan: 0.034,
+  Argentina: 0.065, Sweden: 0.081, Belgium: 0.056, Ireland: 0.043, Israel: 0.034, Thailand: 0.01, Norway: 0.04, Austria: 0.054,
+  Nigeria: 0.05, Egypt: 0.07, Iran: 0.087, 'South Africa': 0.32, Pakistan: 0.056, Bangladesh: 0.051, Vietnam: 0.021, Philippines: 0.031,
+  Colombia: 0.1, Chile: 0.087, Greece: 0.105, Portugal: 0.064, Finland: 0.08, Denmark: 0.05, Ukraine: 0.13, Kazakhstan: 0.047,
+  Ethiopia: 0.035, Kenya: 0.056, Morocco: 0.13, Algeria: 0.12, Peru: 0.068, Venezuela: 0.06, 'New Zealand': 0.045, Singapore: 0.02,
+  Malaysia: 0.033, Iraq: 0.155, Jordan: 0.21, Tunisia: 0.16, Georgia: 0.14, Armenia: 0.13, Serbia: 0.09,
+};
 
 export function createGame(geo: Geo, settings: Settings, player: number): GameState {
   setGeoRef(geo);

@@ -74,7 +74,7 @@ export function App() {
       if (!s || store.preview) { music.setMood('menu'); music.setDuck(false); return; }
       const c = s.countries[s.player];
       const atWar = s.wars.some((w) => w.attackers.includes(s.player) || w.defenders.includes(s.player));
-      const tense = (s.crisis && s.crisis.id !== 'boom') || c.eco.stability < 38 || s.inbox.some((x) => x.urgent);
+      const tense = (s.crisis && s.crisis.id !== 'boom' && s.crisis.id !== 'pandemic') || c.eco.stability < 38 || s.inbox.some((x) => x.urgent);
       music.setMood(atWar ? 'war' : tense ? 'tension' : 'peace');
       music.setDuck(store.speed === 0 || store.drawer.open !== 'none');
     }, 1500);

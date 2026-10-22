@@ -17,7 +17,7 @@ import type { Geo } from './geo';
 import { RIVALRIES, CLAIMS, COUNTRY_BASE } from '../data/countryData';
 import { STORIES, type EconKind, type IssueKind } from '../data/stories';
 import { hash01, nextRand } from './rng';
-import { clamp, fmtMoney, keyOf } from './util';
+import { clamp, fmtMoney, grievance, keyOf, lowerFirst } from './util';
 import { logEvent } from './log';
 import { NAME_TO_ID, addRelation, areAtWar, getRelation, isAtWar, orgsOf } from './relations';
 import { neighborsOf } from './diplomacy';
@@ -49,7 +49,7 @@ interface Fx {
 const fmtFx = (f: Fx) => {
   const o: string[] = [];
   if (f.cash) o.push(f.cash < 0 ? `Costs ${(-f.cash * 100).toFixed(1)}% of GDP` : `Gain ${(f.cash * 100).toFixed(1)}% of GDP`);
-  if (f.pc) o.push(`Costs ${-f.pc} political capital`);
+  if (f.pc) o.push(f.pc < 0 ? `Costs ${-f.pc} political capital` : `Political capital +${f.pc}`);
   if (f.stab) o.push(`stability ${f.stab > 0 ? '+' : ''}${f.stab}`);
   if (f.rep) o.push(`reputation ${f.rep > 0 ? '+' : ''}${f.rep}`);
   if (f.rival) o.push(`relations with your rival ${f.rival > 0 ? '+' : ''}${f.rival}`);
@@ -273,7 +273,6 @@ export function storyRival(s: GameState, c: Country, geo: Geo): CountryId {
   return nb[0] ?? -1;
 }
 
-const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const pathLine = (st: StoryState | undefined) => (st?.arch ? `You have walked the road of ${ARCH_LABEL[st.arch]}. ` : '');
 const opt = (o: Opt, act: number, idx: number): EventOption => ({ label: o[0], hint: fmtFx(o[2]), enabled: (_s, c) => !o[2].pc || (c.politics?.pc ?? 100) >= -o[2].pc, why: () => `Needs ${-(o[2].pc ?? 0)} political capital`, apply: (s, c, d) => choose(s, c, act, idx, o[2], d, o[3]) });
@@ -300,7 +299,7 @@ export function storyEvents(): EventDef[] {
       : ['A deal behind closed doors', '', { cash: -0.004, rival: 20, fac: { business: 6, nationalists: -4 } }, 'A quiet bargain: money and concessions, no cameras.'];
     out.push({
       id: `story2_${a}`, icon: '📖', title: 'Act II: The Neighbour', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
-      text: (s, c, d) => { const r = d.rv >= 0 ? s.countries[d.rv] : null; const claim = r && CLAIMS.some(([x, y]) => (x === c.name && y === r.name) || (y === c.name && x === r.name)); return `${pathLine(c.story)}${whyLine(c)}Now ${r ? `${r.name} ${claim ? 'and the land you both claim' : 'and the old enmity between you'}` : 'your neighbourhood'} will test you. Relations stand at ${r ? getRelation(s, c.id, r.id).toFixed(0) : '?'}. ${brief(s, c, 2, d.rv ?? -1)} ${a === 'reform' ? 'As a reformer you can take it to an international court.' : a === 'iron' ? 'As the iron hand you can prepare for war.' : 'As a pragmatist you can strike a quiet deal.'}`; },
+      text: (s, c, d) => { const r = d.rv >= 0 ? s.countries[d.rv] : null; const claim = r && CLAIMS.some(([x, y]) => (x === c.name && y === r.name) || (y === c.name && x === r.name)); return `${pathLine(c.story)}${whyLine(c)}Now ${r ? `${r.name} ${claim ? 'and the land you both claim' : getRelation(s, c.id, r.id) < -30 ? 'and the old enmity between you' : getRelation(s, c.id, r.id) < 10 ? 'and the cold distrust between you' : 'and its ambitions'}` : 'your neighbourhood'} will test you. Relations stand at ${r ? getRelation(s, c.id, r.id).toFixed(0) : '?'}. ${brief(s, c, 2, d.rv ?? -1)} ${a === 'reform' ? 'As a reformer you can take it to an international court.' : a === 'iron' ? 'As the iron hand you can prepare for war.' : 'As a pragmatist you can strike a quiet deal.'}`; },
       options: [...base, extra].map((o, i) => opt(o, 2, i)),
       lapse: (s, c, d) => choose(s, c, 2, -1, { rival: -5 }, d, 'You let it drift; the tension grows.'),
     });
@@ -455,7 +454,7 @@ export function actTrigger(s: GameState, geo: Geo, c: Country, st: StoryState): 
     if (!R?.alive) return null;
     const war = s.wars.find((w) => w.attackers[0] === R.id && w.start > sn.t);
     if (war) return `${R.name} has just gone to war with ${s.countries[war.defenders[0]].name}`;
-    if (R.goal && R.goal.target === c.id && R.goal.since > sn.t) return `${R.name}'s government has made you its aim: ${R.goal.text.charAt(0).toLowerCase() + R.goal.text.slice(1)}`;
+    if (R.goal && R.goal.target === c.id && R.goal.since > sn.t) return `${R.name}'s government has made you its aim: ${lowerFirst(R.goal.text)}`;
     if (sn.troops > 0 && R.mil.troops > sn.troops * 1.15) return `${R.name} has grown its army by ${pct(R.mil.troops / sn.troops - 1)}`;
     const rel = getRelation(s, c.id, R.id);
     if (rel < sn.rel - 12) return `relations with ${R.name} have fallen to ${rel.toFixed(0)}`;
@@ -519,16 +518,16 @@ export function brief(s: GameState, c: Country, act: number, rv: number): string
     const R = rv >= 0 ? s.countries[rv] : null;
     if (!R) return '';
     const g = (s.grudges?.[`${R.id}>${c.id}`] ?? []).slice().sort((a, b) => b.w - a.w)[0];
-    return `${R.name}${R.leader ? `, led by ${R.leader.name} (${R.leader.traits.join(' and ')})` : ''}: ${troopsTxt(R.mil.troops)} troops to your ${troopsTxt(c.mil.troops)}, an economy of ${money(R.eco.gdp)} to your ${money(e.gdp)}.${R.goal?.target === c.id ? ` Their declared aim: ${R.goal.text.charAt(0).toLowerCase()}${R.goal.text.slice(1)}.` : ''}${g ? ` They still hold it against you that you ${g.why}.` : ''}`;
+    return `${R.name}${R.leader ? `, led by ${R.leader.name} (${R.leader.traits.join(' and ')})` : ''}: ${troopsTxt(R.mil.troops)} troops to your ${troopsTxt(c.mil.troops)}, an economy of ${money(R.eco.gdp)} to your ${money(e.gdp)}.${R.goal?.target === c.id ? ` Their declared aim: ${lowerFirst(R.goal.text)}.` : ''}${g ? ` They still hold it against you that you ${grievance(g.why, 'them')}.` : ''}`;
   }
   if (act === 3) {
     const k = seedOf(c).econ;
     const sector = k === 'oil' ? `you produce ${pct(e.energyCap / Math.max(1, e.energyDemand))} of the energy you use, at ${s.market.priceE.toFixed(2)}× the starting price` : k === 'farms' ? `farms grow ${pct(e.foodCap / Math.max(1, e.foodDemand))} of the food the country eats` : k === 'tech' || k === 'industry' ? `technology stands at ${Math.round(e.tech)}/100` : k === 'services' || k === 'tourism' ? `trade is ${pct(e.openness)} of the economy` : `aid and remittances keep ${money(e.gdp * 0.05)} a year flowing in`;
-    return `The economy: ${money(e.gdp)}, growing ${p1(e.growth)} a year, unemployment ${p1(e.unemployment)}; ${sector}.`;
+    return `The economy: ${money(e.gdp)}, ${e.growth >= 0 ? `growing ${p1(e.growth)}` : `shrinking ${p1(-e.growth)}`} a year, unemployment ${p1(e.unemployment)}; ${sector}.`;
   }
   const o = c.orient ?? 0;
   const courting = s.countries.filter((x) => x.alive && x.id !== c.id && isMajor(s, x.id) && getRelation(s, c.id, x.id) > 30).slice(0, 3).map((x) => x.name);
-  return `Where you stand: ${o > 0.3 ? 'in the Western camp' : o < -0.3 ? 'in the Eastern camp' : 'between the camps'} (${o >= 0 ? '+' : ''}${o.toFixed(2)}), the West holds ${pct(s.stats.westShare ?? 0.5)} of world power${courting.length ? `, and ${courting.join(', ')} count you as a friend` : ''}.`;
+  return `Where you stand: ${o > 0.3 ? 'in the Western camp' : o < -0.3 ? 'in the Eastern camp' : 'between the camps'} (${o >= 0 ? '+' : ''}${o.toFixed(2)}), the West holds ${pct(s.stats.westShare ?? 0.5)} of world power${courting.length ? `, and ${courting.join(', ')} ${courting.length === 1 ? 'counts' : 'count'} you as a friend` : ''}.`;
 }
 
 const whyLine = (c: Country) => (c.story?.why ? `${cap(c.story.why)}. ` : '');

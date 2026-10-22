@@ -258,7 +258,7 @@ export function InboxTray() {
                     {place && <span className="place-chip" title="Where it is happening">📍 {place}</span>}
                   </div>
                 )}
-                <p className="event-text">{def.text(s, c, it.data)}</p>
+                <EventText text={def.text(s, c, it.data)} />
                 {adv && <div className="advice-line">💬 <b>{who!.name.split(' ')[0]}</b> recommends <i>{def.options[adv.idx].label}</i>: {adv.why}.</div>}
                 <div className="event-options">
                   {def.options.map((o, i) => {
@@ -271,7 +271,7 @@ export function InboxTray() {
                     );
                   })}
                 </div>
-                {(() => { const lp = lapseOf(it.uid); return <div className="lapse-line"><b>If you let it lapse ({dateLabel(it.expires)}):</b> {lp.text}{lp.fx.length > 0 && <span className="lapse-fx"> {lp.fx.join(' · ')}</span>}</div>; })()}
+                {(() => { const lp = lapseOf(it.uid); const fx = lp.fx.filter((f) => !lp.text.toLowerCase().includes(f.toLowerCase())); return <div className="lapse-line"><b>If you let it lapse ({dateLabel(it.expires)}):</b> {lp.text}{fx.length > 0 && <span className="lapse-fx"> {fx.join(' · ')}</span>}</div>; })()}
                 <button className="linkbtn" onClick={() => store.openInbox(null)}>Decide later{store.holdWhileReading ? ' (the clock is held while this is open)' : ' (the game keeps running)'}</button>
               </div>
               );
@@ -280,6 +280,22 @@ export function InboxTray() {
         );
       })}
     </div>
+  );
+}
+
+/** A decision's story. On the desktop a long one shows its first lines, and the rest on request (the phone shows all). */
+function EventText({ text }: { text: string }) {
+  const [more, setMore] = useState(false);
+  const parts = text.match(/[^.!?]+[.!?]+["”']?\s*|[^.!?]+$/g) ?? [text];
+  let short = '';
+  for (const p of parts) { if (short.length >= 110) break; short += p; }
+  short = short.trim();
+  if (short.length >= text.trim().length - 20) return <p className="event-text">{text}</p>;
+  return (
+    <>
+      <p className="event-text mob-only">{text}</p>
+      <p className="event-text desk-only">{more ? text : short} <button className="linkbtn more-btn" onClick={() => setMore(!more)}>{more ? 'Less' : 'More…'}</button></p>
+    </>
   );
 }
 

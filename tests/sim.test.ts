@@ -106,6 +106,7 @@ describe('economy responds to policy', () => {
     const s = fresh('Norway');
     const c = s.countries[id('Norway')];
     c.eco.cash = 1e13; // avoid borrowing
+    c.eco.debt = 0; // and the surplus sweep that repays debt
     const before = c.eco.cash;
     tick(s, geo);
     const flow = (c.eco.revenue - c.eco.spending) * DT;
@@ -1939,7 +1940,7 @@ describe('round 18: national storylines for every country, steered by the player
   it('after the ending a new chapter opens, built from where the country stands then', () => {
     const s = fresh('Japan', { randomEvents: false });
     const c = s.countries[s.player];
-    playStory(s, [0, 0, 0, 4], 52 * 8);
+    playStory(s, [0, 0, 0, 4], 52 * 6);
     expect(c.story!.act).toBe(5);
     c.eco.damage = 0.3;
     expect(issueNow(s, c)).toBe('rebuild');
@@ -2587,5 +2588,54 @@ describe('round 28: nations are born, unite and fall; the game can start in 2021
     run(s, 52 * 3);
     expect(gy.eco.tfpTrend).toBeLessThan(t0);
     expect(fmtMoney(2e15)).toMatch(/quadrillion/);
+  });
+});
+
+// round 29: a world that makes sense
+import { eligible } from '../src/sim/alignment';
+import { epochPace } from '../src/sim/epochs';
+import { grievance, lowerFirst } from '../src/sim/util';
+import { cable } from '../src/sim/cables';
+
+describe('round 29: wars need a cause, clubs keep their identity, messages fit the relationship', () => {
+  it('BRICS takes no Western loyalists and no micro-states; EU members join no other trade bloc', () => {
+    const s = fresh('Brazil');
+    const brics = s.orgs!.find((o) => o.key === 'brics')!;
+    const C = (n: string) => s.countries[id(n)];
+    expect(eligible(s, brics, C('France'))).toBe(false); // in the EU's customs union, and the other camp
+    expect(eligible(s, brics, C('Canada'))).toBe(false); // the Western camp
+    expect(eligible(s, brics, C('Vanuatu'))).toBe(false); // too small for a club of giants
+    expect(eligible(s, brics, C('Indonesia'))).toBe(true); // a big non-aligned economy fits
+  });
+  it('accession takes years: a candidate applies first and is voted on only after the wait', () => {
+    const s = fresh('Brazil');
+    const eu = s.orgs!.find((o) => o.key === 'eu')!;
+    const ua = id('Ukraine');
+    s.stats[`cand:${eu.id}:${ua}`] = 0;
+    run(s, 52 * 3);
+    expect(eu.members).not.toContain(ua); // a union takes about a decade
+  });
+  it('the map is settled at the start and loosens over the centuries', () => {
+    const s = fresh('Brazil');
+    expect(epochPace(s)).toBeCloseTo(0.3);
+    s.tick = 52 * 60;
+    expect(epochPace(s)).toBeCloseTo(1);
+    s.tick = 52 * 400;
+    expect(epochPace(s)).toBe(2);
+  });
+  it('messages read right: acronyms stay capitalised, grievances are told in the right voice', () => {
+    expect(lowerFirst('LNG terminals')).toBe('LNG terminals');
+    expect(lowerFirst('Deter Russia')).toBe('deter Russia');
+    expect(grievance('imposed sanctions on it', 'us')).toBe('imposed sanctions on us');
+    expect(grievance('seized its land', 'them')).toBe('seized their land');
+  });
+  it('a friendly new leader does not threaten you', () => {
+    const s = fresh('Poland');
+    const cz = s.countries[id('Czechia')];
+    cz.leader!.traits = ['hawk', 'strongman'];
+    for (let t = 0; t < 20; t++) { s.tick = t; cable(s, cz.id, 'new_leader'); }
+    const lines = (s.cables ?? []).filter((x) => x.from === cz.id).map((x) => x.text);
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.some((x) => /Do not test us/.test(x))).toBe(false);
   });
 });

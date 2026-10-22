@@ -357,7 +357,7 @@ function complete(s: GameState, c: Country, n: NatNode) {
   c.nat.done.push(n.id);
   applyFx(s, c, n.fx);
   const mine = c.id === s.player;
-  const text = n.news ? `${c.name}: ${n.news}` : mine ? `🏛 NATIONAL PROJECT COMPLETE: ${n.title}. ${n.desc}` : `${n.icon} ${c.name} completes "${n.title}": ${n.desc.charAt(0).toLowerCase()}${n.desc.slice(1)}`;
+  const text = n.news ? `${c.name}: ${n.news}` : mine ? `🏛 NATIONAL PROJECT COMPLETE: ${n.title}. ${n.desc}` : `${n.icon} ${c.name} completes "${n.title}". ${n.desc}`;
   logEvent(s, text, n.news ? 'danger' : 'info', [c.id], mine || isMajor(s, c.id), { big: mine || !!n.news, prov: c.capital });
 }
 

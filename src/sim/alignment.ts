@@ -290,13 +290,21 @@ function* stepOrgs(s: GameState): Generator<void> {
     }
     if (!s.orgs.includes(o)) continue;
     if (o.members.length < 3) { dissolveOrg(s, o, 'too few members'); continue; }
-    // applications: the best-placed outsider may apply (rarely); the members vote
+    // accession takes years: a candidate applies, waits (a union a decade, a club two years, a pact one), then the
+    // members vote, provided it still qualifies
+    const wait = (o.kind === 'union' ? 9 : o.kind === 'economic' ? 2 : 1) * 52;
+    const ready = s.countries.find((c) => c.alive && !c.isPlayer && !o.members.includes(c.id) && s.stats[`cand:${o.id}:${c.id}`] !== undefined && s.tick - s.stats[`cand:${o.id}:${c.id}`] >= wait);
+    if (ready) {
+      delete s.stats[`cand:${o.id}:${ready.id}`];
+      if (eligible(s, o, ready) && avgRelation(s, ready.id, o.members) >= 0 && admitted(o, applicationVotes(s, o, ready.id))) joinOrg(s, o, ready.id, 'the members voted it in');
+      continue;
+    }
+    // applications: the best-placed outsider may apply (rarely)
     if (nextRand(s) > 0.15) continue;
     const need = o.kind === 'defence' ? 55 : o.kind === 'union' ? 60 : 40;
     const regions = new Map<string, number>();
     for (const m of o.members) regions.set(s.countries[m].region, (regions.get(s.countries[m].region) ?? 0) + 1);
-    const cands = s.countries.filter((c) => c.alive && !c.isPlayer && !o.members.includes(c.id)
-      && (o.camp === 0 || (c.orient ?? 0) * o.camp > 0.2)
+    const cands = s.countries.filter((c) => c.alive && !c.isPlayer && !o.members.includes(c.id) && s.stats[`cand:${o.id}:${c.id}`] === undefined && eligible(s, o, c)
       // unions and pacts are regional: most members, or at least a fifth, share the applicant's region
       && (regions.get(c.region) ?? 0) >= o.members.length * (o.kind === 'union' ? 0.5 : 0.2)
       && (o.kind !== 'economic' || orgsOf(s, c.id).filter((x) => x.kind === 'economic').length < 2)
@@ -308,10 +316,29 @@ function* stepOrgs(s: GameState): Generator<void> {
       && !o.members.some((m) => areAtWar(s, c.id, m)))
       .map((c) => ({ c, r: avgRelation(s, c.id, o.members) })).filter((x) => x.r >= need).sort((a, b) => b.r - a.r);
     const pick = cands[0];
-    if (pick && admitted(o, applicationVotes(s, o, pick.c.id))) joinOrg(s, o, pick.c.id, 'the members voted it in');
+    if (pick && admitted(o, applicationVotes(s, o, pick.c.id))) {
+      s.stats[`cand:${o.id}:${pick.c.id}`] = s.tick;
+      logEvent(s, `${o.icon} ${pick.c.name} applies to join ${o.name}. Accession takes ${o.kind === 'union' ? 'about ten years' : o.kind === 'economic' ? 'two years' : 'a year'}.`, 'diplo', [pick.c.id, ...o.members.slice(0, 3)], touchesPlayer(s, o, pick.c.id));
+    }
   }
   evolveOrgs(s);
 }
+
+/** Members' average orientation: a club's real camp, whatever it was founded as. */
+const campOf = (s: GameState, o: Org) => o.members.reduce((t, m) => t + (s.countries[m]?.orient ?? 0), 0) / Math.max(1, o.members.length);
+/** Does a country belong in this organisation at all? (its camp, its other memberships) */
+export function eligible(s: GameState, o: Org, c: Country): boolean {
+  const oc = c.orient ?? 0;
+  if (o.camp !== 0 && oc * o.camp <= 0.2) return false;
+  // a non-aligned club (BRICS) takes those who sit near its members, not the other camp's loyalists
+  if (o.camp === 0 && Math.abs(oc - campOf(s, o)) > 0.6) return false;
+  // members of a customs union (the EU) trade as one: they do not join other trade blocs
+  if (o.kind === 'economic' && inUnion(s, c.id)) return false;
+  // a club of big economies has no seat for a micro-state
+  if (o.kind === 'economic' && c.eco.gdp < 0.002 * o.members.reduce((t, m) => t + (s.countries[m]?.eco.gdp ?? 0), 0)) return false;
+  return true;
+}
+export const inUnion = (s: GameState, id: CountryId) => orgsOf(s, id).some((x) => x.kind === 'union');
 
 /** Countries with a long tradition of military neutrality: they join a defence pact only if attacked. */
 const NEUTRAL = new Set(ids(['Switzerland', 'Austria', 'Ireland', 'Malta', 'Liechtenstein', 'Costa Rica', 'Turkmenistan', 'Mongolia']));
@@ -325,7 +352,7 @@ export function threatened(s: GameState, c: Country, geo = geoRefGet()): boolean
 
 /** Great powers outside any defence pact may build one with their friends, especially against a shared rival. */
 function maybeFoundPact(s: GameState) {
-  if ((s.orgs ?? []).length >= 12 || nextRand(s) > 0.25) return;
+  if ((s.orgs ?? []).length >= 10 || nextRand(s) > 0.25) return;
   const inDefence = (id: CountryId) => orgsOf(s, id).some((o) => o.kind === 'defence');
   const bigs = s.countries.filter((c) => c.alive && !c.isPlayer && !inDefence(c.id) && !isAtWar(s, c.id)).sort((a, b) => strength(b) - strength(a)).slice(0, 20);
   for (const F of bigs) {
@@ -337,6 +364,7 @@ function maybeFoundPact(s: GameState) {
     const local = friends.filter((f) => f.region === F.region);
     const kind: Org['kind'] = threat && local.length >= 2 ? 'defence' : 'economic';
     if (kind === 'defence') { friends.length = 0; friends.push(...local); }
+    if (kind === 'economic') { if (inUnion(s, F.id)) continue; const free = friends.filter((f) => !inUnion(s, f.id)); if (free.length < 2) continue; friends.length = 0; friends.push(...free); }
     // no second club with the same friends
     if (kind === 'economic' && (s.orgs ?? []).some((o) => o.members.includes(F.id) && o.kind === 'economic' && friends.filter((f) => o.members.includes(f.id)).length >= friends.length / 2)) continue;
     foundOrg(s, F.id, kind, friends.map((f) => f.id));

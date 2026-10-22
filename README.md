@@ -6,7 +6,7 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 
 * **No waiting, ever.** There are no construction timers, energy timers or pay-to-skip. Every decision takes effect
   immediately (money moves, capacity is built, troops are raised, war is declared *now*) or at the very next
-  simulation tick. The world runs on a simulated clock you control: ⏸ pause · ▶ slow (a year in ~1m45s) · ▶▶ normal · ▶▶▶ fast · ⏩ very fast.
+  simulation tick. The world runs on a simulated clock you control: ⏸ pause · ▶ slow (a year in 52 s) · ▶▶ normal (26 s, the default) · ▶▶▶ fast · ⏩ very fast.
 * **Real map, dynamic borders.** Natural Earth borders, subdivided into ~1,200 named game provinces. Conquest transfers
   provinces (with their population and output) and the national borders are re-drawn live.
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 187 deterministic simulation tests (Vitest) |
+| `npm test` | 198 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
@@ -61,6 +61,47 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 29: less boring, and a world that makes sense
+Found by playing headless games as Poland, Brazil, the United States and Nigeria for 15 years and reading every
+headline, decision, message and number the player sees.
+* **The music no longer stops.** It used to play once and go silent for good: a cancelled track was taken for a
+  refusal to play, and changes of mood cut tracks off mid-load. Now a watchdog keeps a track playing at all times,
+  moves on when one ends or fails, waits a few seconds before following a new mood, never repeats a track twice in a
+  row, and its fades work in a background tab. The 2021 pandemic no longer makes the score tense.
+* **Wars need a cause.** AI countries used to attack anyone weaker ("Vietnam declares war on Laos", "Turkey on
+  Jordan"). Now there has to be a claim, a feud, a grudge, a plan aimed at the target or a case made at home, and
+  never against a friend. War breaks out at flashpoints (Taiwan, Georgia, Guyana, Western Sahara, Algeria and
+  Morocco): 4–5 wars in 15 years instead of 20–24. Great powers arm the victim; they arm an aggressor only if it is a close friend
+  fighting a declared enemy (no more Germany arming Turkey against Jordan).
+* **Clubs keep their identity.** BRICS no longer fills up with France, Germany, Canada and Vanuatu: a non-aligned
+  club takes countries that sit near its members, not the other camp's loyalists or micro-states, and members of a
+  customs union (the EU) join no other trade bloc and do not found rival ones. **Joining takes years:** a country
+  applies (it is in the news), waits (about ten years for the EU, two for a club, one for an alliance) and then the
+  members vote. No more Norway and the UK joining the EU in 2021 and 2022.
+* **The map is settled at the start and loosens with time.** In the first decades new nations are born and unions
+  formed about a third as often (a stable, well-run state like Canada almost never loses a region; a failing one
+  does); after a century or two history moves twice as fast as it did. Empires earn their titles by holding other
+  peoples for fifteen years, not after one war. No more "North South Sudan".
+* **Messages fit the relationship.** A strongman who likes you no longer writes "Do not test us"; offers sound as
+  warm as relations really are; grievances are told in the right voice ("imposed sanctions on us", not "on it");
+  "the old enmity" only where there is one; the generals name your real rival, not China for Poland.
+* **Numbers that make sense.** Unemployment starts from each country's real rate (the US at 3.9%, Spain at 11.8%, South
+  Africa at 32%) and moves with the business cycle instead of sitting flat for decades. Governments no longer hoard
+  trillions in cash while they owe money: a surplus beyond a working buffer repays debt. Decision texts say
+  "shrinking 0.9% a year", not "growing -0.9%", and "Gains 10 political capital", not "Costs -10".
+* **Something to play for, always on screen (desktop).** A mission card tops your country's panel: the nation's
+  ambition ("Make Poland a leading power of Europe"), the act of its story you are in and what comes next, and your
+  three current objectives with progress bars, rewards and a one-click "Do it" or "Go".
+* **Faster.** The clock runs twice as fast at every speed (a year in 26 seconds at Normal), and a new game starts
+  at Normal instead of Slow.
+* **Less to read (desktop).** Long decisions show their first lines with "More…" for the rest; ministers' briefings
+  stay at two lines until you open them; the budget rule's notices are one line.
+* **Tested over 500 years** (a headless game from 2021): the first decades stay close to the world we know (4% of
+  the land changed hands by 2070); by 2519, 76 nations had been born and 3 restored, 41 unions formed, a third of the
+  world's land had changed hands, and 234 nations stood (199 at the start). A slow leak in the birth rate that let
+  the United States reach a billion people is fixed: family policy nudges births but no longer compounds for
+  centuries, and the world's population levels off near 11.5 billion.
 
 ## Round 28: centuries of history, and a 2021 start
 Play for decades or for a thousand years: the map changes the way it always has.

@@ -11,7 +11,7 @@
  */
 import type { Geo } from './geo';
 import { nextRand } from './rng';
-import { clamp, fmtMoney } from './util';
+import { clamp, fmtMoney, lowerFirst } from './util';
 import { strength } from './military';
 import { neighborsOf, applyTreaty, evaluateProposal, PROPOSAL_LABEL, type Proposal, liftSanction, cancelTreaty } from './diplomacy';
 import { addRelation, alliesOf, areAtWar, getRelation, getTreaty, hasGuarantee, isAtWar, sanctionLevel } from './relations';
@@ -404,7 +404,7 @@ export function negotiate(s: GameState, geo: Geo, them: CountryId, t: Terms, acc
     }
   }
   const worst = [...st.factors].sort((a, b) => a.pts - b.pts)[0];
-  cable(s, them, 'treaty_no', worst && worst.pts < -5 ? `What stands in the way: ${worst.label.charAt(0).toLowerCase()}${worst.label.slice(1)}.` : undefined);
+  cable(s, them, 'treaty_no', worst && worst.pts < -5 ? `What stands in the way: ${lowerFirst(worst.label)}.` : undefined);
   if (M.patience <= 0) addGrudge(s, them, s.player, 'pressed it too hard at the table', 3);
   return { ok: false, outcome: 'refused', message: `${T.name} refuses (the odds were ${(st.p * 100).toFixed(0)}%).${M.patience <= 0 ? ' Its patience is exhausted for half a year.' : ` Patience left: ${M.patience}.`}`, why: top };
 }

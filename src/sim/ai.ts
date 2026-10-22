@@ -10,7 +10,7 @@ import { grudgeScore } from './leaders';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
 import { hash01, nextRand } from './rng';
-import { clamp } from './util';
+import { clamp, lowerFirst } from './util';
 import {
   alliesOf, areAtWar, enemiesOf, getRelation, guarantorsOf, hasAlliance, hasNap, hasTrade, isAtWar, partnersOf, sanctionLevel, warBetween, warsOf,
 } from './relations';
@@ -233,6 +233,11 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     if (!T.alive || areAtWar(s, c.id, t) || hasAlliance(s, c.id, t)) continue;
     if (s.tick - (s.stats[`pair:${c.id}>${t}`] ?? -9999) < 182) continue; // no serial conquest of the same victim: a breathing space of 3.5 years
     const rel = getRelation(s, c.id, t);
+    // no war without a cause: a claim, a feud, a grudge, a plan aimed at them, or a case made at home. Weakness and a
+    // hawkish temper decide whether, not whom: friends and neighbours with nothing between them are left alone
+    const claim0 = claimStrength(c.id, t), grudge = grudgeScore(s, c.id, t), op0 = opinionOf(s, c.id, t).v;
+    const hasCause = claim0 > 0.3 || rel < -40 || grudge > 25 || op0 < -30 || planWarPull(s, c, t) > 0.1 || !!s.stats[`cb:${c.id}>${t}`];
+    if (!hasCause || rel > 20) continue;
     const as = assessAttack(s, geo, c, T);
     const ratio = as.ratio;
     const need = 1.5 - 0.5 * Math.min(1, c.ai.aggression);
@@ -257,7 +262,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
     if (desire > 0.45 && !isAtWar(s, c.id) && (!c.intent.startsWith('Eyeing') || desire > 0.5)) c.intent = `Eyeing ${T.name} (${ratio.toFixed(1)} times its strength)`;
     if (desire > 0.62 && (!best || desire > best.desire)) {
       const why: string[] = [];
-      if (planWarPull(s, c, t) > 0.1 && c.goal) why.push(`its aim: ${c.goal.text.charAt(0).toLowerCase() + c.goal.text.slice(1)}`);
+      if (planWarPull(s, c, t) > 0.1 && c.goal) why.push(`its aim: ${lowerFirst(c.goal.text)}`);
       if (opinionOf(s, c.id, t).v < -15) why.push(`${c.leader?.name ?? 'its leader'} has judged ${T.name}'s record and does not like it`);
       if (claim > 0.3) why.push('old territorial claims');
       if (rel < -40) why.push('deep hostility');
@@ -268,7 +273,7 @@ function considerWar(s: GameState, geo: Geo, c: Country) {
       best = { t, desire, why: why.slice(0, 3).join(', ') || 'opportunism' };
     }
   }
-  if (best && rand(s) < 0.07 * Math.min(1.6, best.desire / 0.62)) {
+  if (best && rand(s) < 0.05 * Math.min(1.6, best.desire / 0.62)) {
     // against the player, a credible threat first takes the form of an ultimatum
     if (best.t === s.player && rand(s) < 0.65 && !s.scheduled.some((x) => x.id === 'ultimatum')) {
       c.lastWarDecl = s.tick;

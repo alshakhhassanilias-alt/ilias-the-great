@@ -120,7 +120,11 @@ export function demographicTrend(s: GameState, c: Country): number {
 }
 export function popGrowthRate(c: Country, s: GameState): number {
   let g = demographicTrend(s, c);
-  g += clamp((c.budget.social / Math.max(c.eco.baseSocial, 0.01) - 1) * 0.004, -0.004, 0.004);
+  // family policy nudges births up or down, but does not compound for centuries: the nudge fades as the population
+  // doubles (or halves) against what the same land held at the start
+  const ref = c.baseline.pop * Math.max(1, c.provinces.length) / Math.max(1, c.baseline.provinces), r = c.eco.pop / Math.max(1, ref);
+  const soc = clamp((c.budget.social / Math.max(c.eco.baseSocial, 0.01) - 1) * 0.004, -0.004, 0.004);
+  g += soc * (soc > 0 ? clamp(2 - r, 0, 1) : clamp(2 * r - 1, 0, 1));
   g -= 0.05 * c.eco.foodUnmet;
   g -= 0.002 * Math.max(0, 50 - c.eco.stability) / 50;
   return g;
@@ -263,7 +267,10 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.potential = pot;
   const f = factors(c, priceE);
   const slump = 1 - clamp(demandSide(f) / e.prev.F0, 0, 1);
-  const uTarget = clamp(e.uNat + 0.6 * slump + 0.1 * e.occupation, 0.01, 0.6);
+  // Okun's law: growth below its trend puts people out of work, a boom pulls them back in
+  e.prev.gTrend = (e.prev.gTrend ?? e.growth) + (e.growth - (e.prev.gTrend ?? e.growth)) * DT / 6;
+  const okun = clamp(-0.5 * (e.growth - e.prev.gTrend), -0.02, 0.05);
+  const uTarget = clamp(e.uNat + 0.6 * slump + 0.1 * e.occupation + okun, 0.01, 0.6);
   e.unemployment += (uTarget - e.unemployment) * (1 - Math.exp(-DT * 2.5));
 
   const prevReal = e.realGdp;
@@ -350,6 +357,9 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
       logEvent(s, `🏦 The treasury is empty. From now on the deficit (${fmtMoney(spending - revenue)} a year) is covered by borrowing, and one-off costs are borrowed too. Raise taxes or cut spending in the Economy tab to stop the debt growing.`, 'danger', [c.id], true);
     }
   } else if (e.dry && e.cash > 0.01 * e.gdp) e.dry = false;
+  // governments do not sit on piles of cash while they owe money: a surplus beyond a working buffer repays debt
+  const buffer = (c.isPlayer ? 0.08 : 0.04) * e.gdp;
+  if (e.cash > buffer && e.debt > 0) { const pay = Math.min(e.debt, (e.cash - buffer) * 0.25); e.cash -= pay; e.debt -= pay; record(s, c, 'Surplus used to repay debt', -pay, 0); }
   // debt crisis: when the debt can no longer be serviced (very high, or interest eating a large share of revenue), the
   // country defaults and restructures down to a level it can carry, as real defaulters do (Greece 2012, Argentina,
   // Zambia). Markets stay wary for years (the rate premium fades as stability returns).

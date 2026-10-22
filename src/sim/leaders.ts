@@ -6,7 +6,7 @@ import { backlashDue, crisisOf, stepDebtCrisis, turningLeader } from './turns';
 import { changeGov } from './alignment';
 import { cable } from './cables';
 import type { Geo } from './geo';
-import { clamp } from './util';
+import { clamp, lowerFirst } from './util';
 import { nationalName } from './names';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
@@ -145,7 +145,7 @@ export function* stepLeadersGen(s: GameState, geo: Geo): Generator<void> {
     for (const k of Object.keys(s.grudges ?? {})) if (k.startsWith(`${c.id}>`)) for (const g of s.grudges[k]) g.w *= 0.6;
     c.goal = choosePlan(s, geo, c, true);
     const how = fell ? 'as the old regime falls' : turmoil ? 'after a collapse of the government' : free ? 'after an election' : old && years > 15 ? 'after the old ruler’s death' : 'in a palace shake-up';
-    logEvent(s, `🆕 ${c.name}: ${c.leader!.name} (${traitsText(c.leader!)}) takes over ${how}, ${c.leader!.mandate}. Aim: ${c.goal.text.charAt(0).toLowerCase() + c.goal.text.slice(1)}.`, 'diplo', [c.id], isMajor(s, c.id) || isAtWar(s, c.id));
+    logEvent(s, `🆕 ${c.name}: ${c.leader!.name} (${traitsText(c.leader!)}) takes over ${how}, ${c.leader!.mandate}. Aim: ${lowerFirst(c.goal.text)}.`, 'diplo', [c.id], isMajor(s, c.id) || isAtWar(s, c.id));
     if (turned) logEvent(s, `🔓 ${c.name.toUpperCase()} TURNS: ${c.leader!.name} breaks with the old line, ${c.leader!.mandate}.`, 'diplo', [c.id], true, isMajor(s, c.id) ? { big: true, prov: c.capital } : undefined);
     if (isMajor(s, c.id) || neighborsOf(s, geo, s.player).includes(c.id)) cable(s, c.id, 'new_leader');
   }

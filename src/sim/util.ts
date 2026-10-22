@@ -40,3 +40,8 @@ const SHORT: Record<string, string> = {
 export const shortName = (n: string) => SHORT[n] ?? n;
 /** The name a country's national data is filed under: its original name, even after the country is renamed. */
 export const keyOf = (c: { key?: string; name: string }) => c.key ?? c.name;
+
+/** Lower-case the first letter for use mid-sentence, leaving acronyms (LNG, BRICS) alone. */
+export const lowerFirst = (t: string) => (/^[A-Z][A-Z]/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1));
+/** A grievance recorded as "imposed sanctions on it", told by the victim ("on us") or about them ("on them"). */
+export const grievance = (why: string, voice: 'us' | 'them') => why.replace(/\bits\b/g, voice === 'us' ? 'our' : 'their').replace(/\bit\b/g, voice);

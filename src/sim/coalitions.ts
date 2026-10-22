@@ -81,7 +81,8 @@ function backSides(s: GameState, w: War) {
   for (const G of s.countries) {
     if (!G.alive || !isMajor(s, G.id) || warSideOf(w, G.id) >= 0 || G.id === s.player) continue;
     const ra = getRelation(s, G.id, A), rd = getRelation(s, G.id, D);
-    const side = rd > 30 && ra < 0 ? D : ra > 30 && rd < 0 ? A : -1;
+    // patrons arm a friend that was attacked; an aggressor only when it is a close friend fighting a declared enemy
+    const side = rd > 30 && ra < 0 ? D : ra > 55 && rd < -35 ? A : -1;
     // a country fighting off an invasion with close friends among the great powers gets far more (Ukraine: tens of
     // billions a year) than one side of a war the patrons merely prefer
     const victim = side === D && rd > 50;

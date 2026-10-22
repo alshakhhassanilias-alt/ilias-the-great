@@ -9,7 +9,7 @@
  * when it stalls: the government gives up and picks something else. A new leader brings a new aim.
  */
 import type { Geo } from './geo';
-import { clamp } from './util';
+import { clamp, lowerFirst } from './util';
 import { nextRand } from './rng';
 import { logEvent } from './log';
 import { claimStrength } from './war';
@@ -18,7 +18,7 @@ import { applyTreaty, evaluateProposal, imposeSanction, liftSanction, neighborsO
 import { strength } from './military';
 import { isMajor } from './drama';
 import { aggOf } from './coalitions';
-import { admitted, applicationVotes, foundOrg, joinOrg, threatened } from './alignment';
+import { admitted, applicationVotes, eligible, foundOrg, inUnion, threatened } from './alignment';
 import { agendaOf, commitOf, moodOf, opinionOf } from './minds';
 import { issueUltimatum, memberValue } from './membership';
 import { canStart, runsOf, startProject } from './projects';
@@ -63,7 +63,7 @@ const hasNuclearFriend = (s: GameState, c: Country) => alliesOf(s, c.id).some((a
 function bestOrgToJoin(s: GameState, c: Country): { o: Org; v: number } | null {
   let best: { o: Org; v: number } | null = null;
   for (const o of s.orgs ?? []) {
-    if (o.members.includes(c.id) || o.members.length < 3) continue;
+    if (o.members.includes(c.id) || o.members.length < 3 || !eligible(s, o, c)) continue;
     if (o.camp !== 0 && (c.orient ?? 0) * o.camp < 0.3) continue;
     if (o.kind === 'defence' && (orgsOf(s, c.id).some((x) => x.kind === 'defence') || !threatened(s, c))) continue;
     // blocs are regional (BRICS aside): enough members must share the applicant's region
@@ -114,7 +114,7 @@ export function choosePlan(s: GameState, geo: Geo, c: Country, fresh = false): N
   }
   if (isMajor(s, c.id) && commitOf(c) > -0.1 && a.prestige + a.ideology > 0.38 && !(s.orgs ?? []).some((o) => o.founder === c.id && o.members.includes(c.id))) {
     const friends = s.countries.filter((x) => x.alive && x.id !== c.id && !x.isPlayer && getRelation(s, c.id, x.id) > 45 && strength(x) < strength(c)).length;
-    if (friends >= 3) add('bloc', -1, 'Build its own bloc', (a.prestige + a.ideology) * 0.9);
+    if (friends >= 3 && !inUnion(s, c.id)) add('bloc', -1, 'Build its own bloc', (a.prestige + a.ideology) * 0.9);
   }
   // the troublemaker: whoever alarms this government most (aggression, contempt, power), the player included
   let alarm = 0, who = -1;
@@ -138,7 +138,7 @@ export function choosePlan(s: GameState, geo: Geo, c: Country, fresh = false): N
   if (cur && !fresh && cur.kind === best.kind && cur.target === best.target && (cur.ref ?? -1) === (best.ref ?? -1)) { cur.text = best.text; return cur; }
   const g: NatGoal = { kind: best.kind, target: best.target, ref: best.ref, text: best.text, since: s.tick, progress: 0, best: 0, patience: 1, step: 0 };
   s.stats[`plan:${best.kind}`] = (s.stats[`plan:${best.kind}`] ?? 0) + 1;
-  if (s.tick > 0 && best.kind !== 'growth' && best.kind !== 'recover') news(s, c, `🎯 ${c.leader ? `${c.leader.name} of ` : ''}${c.name} sets a long-term aim: ${best.text.charAt(0).toLowerCase() + best.text.slice(1)}.`, best.target === s.player);
+  if (s.tick > 0 && best.kind !== 'growth' && best.kind !== 'recover') news(s, c, `🎯 ${c.leader ? `${c.leader.name} of ` : ''}${c.name} sets a long-term aim: ${lowerFirst(best.text)}.`, best.target === s.player);
   return g;
 }
 
@@ -218,14 +218,18 @@ export function pursuePlan(s: GameState, geo: Geo, c: Country) {
     case 'join': {
       const o = s.orgs?.find((x) => x.id === g.ref);
       if (!o) break;
+      if (o.members.includes(c.id)) { finish(s, c, true, `🤝 ${c.name} achieves its aim: it is a member of ${o.name}.`); return; }
       court(o.members.slice().sort((a, b) => strength(s.countries[b]) - strength(s.countries[a])), 1.2);
       if (o.kind === 'defence' && c.budget.military < 0.02) { c.budget.military += 0.001; c.eco.prev.mil0 = Math.max(c.eco.prev.mil0 ?? 0, c.budget.military); }
+      // a candidate waits out its accession talks (the members vote when they end, in stepOrgs)
+      if (s.stats[`cand:${o.id}:${c.id}`] !== undefined) { g.note = 'a candidate: accession talks under way'; break; }
+      if (!eligible(s, o, c)) { g.patience = (g.patience ?? 1) - 0.34; g.note = 'no longer a fit for its members'; break; }
       if (g.step >= 9 && g.step % 6 === 3 && !isAtWar(s, c.id)) {
         const votes = applicationVotes(s, o, c.id);
         const yes = votes.filter((v) => v.yes).length;
         // no government applies in public to be humiliated: it waits until most members are on side
         if (!admitted(o, votes) && yes < votes.length * 0.75) { g.patience = (g.patience ?? 1) - 0.12; g.note = `waiting for support (${yes} of ${votes.length} members would say yes)`; break; }
-        if (admitted(o, votes)) { joinOrg(s, o, c.id, 'its application was accepted'); finish(s, c, true, `🤝 ${c.name} achieves its aim: it joins ${o.name}.`); return; }
+        if (admitted(o, votes)) { s.stats[`cand:${o.id}:${c.id}`] = s.tick; news(s, c, `${o.icon} ${c.name} applies to join ${o.name}, and the members open accession talks.`, o.members.includes(s.player)); g.note = 'a candidate: accession talks under way'; break; }
         const no = votes.filter((v) => !v.yes).map((v) => name(s, v.m));
         g.patience = (g.patience ?? 1) - 0.34;
         g.note = `turned down (${no.slice(0, 3).join(', ')}${no.length > 3 ? ` +${no.length - 3}` : ''} voted no)`;
@@ -240,10 +244,13 @@ export function pursuePlan(s: GameState, geo: Geo, c: Country) {
       break;
     }
     case 'bloc': {
-      const friends = s.countries.filter((x) => x.alive && x.id !== c.id && !x.isPlayer && getRelation(s, c.id, x.id) > 45 && strength(x) < strength(c) && !orgsOf(s, x.id).some((o) => o.kind !== 'economic' && (o.camp * (c.orient ?? 0) < -0.2 || o.members.includes(c.id))))
+      // a bloc is built among neighbours of the same camp; members of a customs union (the EU) have one already
+      const friends = s.countries.filter((x) => x.alive && x.id !== c.id && !x.isPlayer && getRelation(s, c.id, x.id) > 45 && strength(x) < strength(c) && x.region === c.region && !inUnion(s, x.id)
+        && Math.abs((x.orient ?? 0) - (c.orient ?? 0)) < 0.6 && !orgsOf(s, x.id).some((o) => o.kind !== 'economic' && (o.camp * (c.orient ?? 0) < -0.2 || o.members.includes(c.id))))
         .sort((a, b) => getRelation(s, c.id, b.id) - getRelation(s, c.id, a.id)).slice(0, 5);
       court(friends.map((f) => f.id), 1);
-      if (g.step >= 12 && friends.length >= 2 && (s.orgs ?? []).length < 16) {
+      if (inUnion(s, c.id)) { finish(s, c, false, `${c.name} settles for the union it already belongs to.`); return; }
+      if (g.step >= 12 && friends.length >= 2 && (s.orgs ?? []).length < 11) {
         const threat = mainThreat(s, geo, c);
         const local = friends.filter((f) => f.region === c.region);
         const kind = threat.th > 0.35 && local.length >= 2 ? 'defence' : local.length >= 3 ? 'union' : 'economic';

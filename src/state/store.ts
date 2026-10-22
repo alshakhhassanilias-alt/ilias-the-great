@@ -23,16 +23,16 @@ import { dateLabel } from '../sim/tick';
 
 export type Tab = 'overview' | 'politics' | 'goals' | 'economy' | 'military' | 'diplomacy';
 export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
-/** Ticks (weeks) per real second. Deliberately gentle: a year takes ~1m45s at Slow, 52s at Normal. */
+/** Ticks (weeks) per real second: a year takes 52s at Slow, 26s at Normal, 13s at Fast. */
 export const SPEEDS = [
   { label: 'Pause', tps: 0, hint: 'paused' },
-  { label: 'Slow', tps: 0.5, hint: '1 week per 2 s' },
-  { label: 'Normal', tps: 1, hint: '1 week per second' },
-  { label: 'Fast', tps: 2.5, hint: '2-3 weeks per second' },
-  { label: 'Very fast', tps: 6, hint: '6 weeks per second' },
+  { label: 'Slow', tps: 1, hint: '1 week per second' },
+  { label: 'Normal', tps: 2, hint: '2 weeks per second' },
+  { label: 'Fast', tps: 4, hint: '4 weeks per second' },
+  { label: 'Very fast', tps: 8, hint: '8 weeks per second' },
   { label: 'Centuries', tps: 60, hint: 'as fast as your computer allows: watch history unfold' },
 ] as const;
-export const DEFAULT_SPEED = 1;
+export const DEFAULT_SPEED = 2;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
 export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }

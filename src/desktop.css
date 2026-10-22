@@ -407,3 +407,29 @@
   /* the news ticker starts where the clock ends, however wide the clock is */
   .ticker { left: calc(var(--timebox-w, 300px) + 24px); }
 }
+
+/* ---- the mission card: what you are playing for, always at the top of your country's panel ---- */
+@media (min-width: 901px) {
+  .mission { margin: 2px 0 14px; padding: 12px 12px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(180deg, rgba(214, 171, 82, 0.1), rgba(214, 171, 82, 0.02)); box-shadow: inset 0 1px 0 rgba(255, 232, 185, 0.08); }
+  .mission-head { display: grid; gap: 2px; margin-bottom: 8px; }
+  .mission-kicker { font-family: var(--cond); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--brass); }
+  .mission-aim { font-family: var(--display); font-size: 16px; letter-spacing: 0.03em; color: #f6ecd3; line-height: 1.25; }
+  .mission-act { font-size: 12px; color: var(--muted); }
+  .mission-act b { color: var(--text); font-weight: 600; }
+  .mission-now { font-style: normal; color: var(--amber); margin-left: 4px; }
+  .mission-goals { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+  .mission-goals li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 4px; background: rgba(0, 0, 0, 0.22); border-left: 3px solid var(--gc, var(--brass)); }
+  .mg-icon { font-size: 15px; text-align: center; }
+  .mg-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .mg-pct { font-family: var(--cond); color: var(--gc, var(--brass)); }
+  .mg-bar { height: 5px; margin: 4px 0 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+  .mg-bar i { display: block; height: 100%; background: var(--gc, var(--brass)); transition: width 0.6s ease; }
+  .mg-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--faint); }
+  .mg-go { white-space: nowrap; }
+  .mission-foot { margin-top: 7px; font-size: 11px; }
+  /* less to read: each minister's line stays to two lines until you open them */
+  .minister:not(.open) .min-say { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+}
+@media (min-width: 901px) {
+  .event-text .more-btn { display: inline; margin: 0 0 0 2px; padding: 0; font-size: inherit; vertical-align: baseline; }
+}

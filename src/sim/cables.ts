@@ -5,13 +5,13 @@
  * Template choice uses a hash, not the game's random stream, so cables never change how the world plays out.
  */
 import { hash01 } from './rng';
-import { clamp } from './util';
+import { clamp, grievance, lowerFirst } from './util';
 import { addRelation, getRelation, isAtWar } from './relations';
 import type { Cable, Country, GameState } from './types';
 
 export type CableKind = 'war_on_you' | 'you_declared' | 'sanctioned' | 'sanctions_you' | 'treaty_yes' | 'treaty_no' | 'declined_offer' | 'accepted_offer' | 'peace' | 'new_leader' | 'taunt' | 'warm' | 'offer';
 
-type T = (o: { me: Country; you: Country; them: string; youName: string; kind?: string }) => string;
+type T = (o: { s: GameState; me: Country; you: Country; them: string; youName: string; kind?: string }) => string;
 const LINES: Record<CableKind, { mood: Cable['mood']; hawk: T[]; dove: T[]; any: T[] }> = {
   war_on_you: { mood: 'angry',
     hawk: [(o) => `${o.you.name} ignored every warning. Now our army will settle it.`, (o) => `We did not want this war. ${o.youName} left us no choice. It will be short.`],
@@ -56,14 +56,14 @@ const LINES: Record<CableKind, { mood: Cable['mood']; hawk: T[]; dove: T[]; any:
   taunt: { mood: 'cold',
     hawk: [(o) => `Our satellites see your exercises. ${o.me.name}'s are bigger.`, (o) => `${o.you.name} talks of security. We remember what you did last time.`, () => 'Your newspapers call us a threat. Good. Let them stay afraid.'],
     dove: [() => 'Our countries keep drifting apart. I fear where this ends.'],
-    any: [(o) => `${o.me.name} is watching your choices closely.`, (o) => `My ministers ask why ${o.you.name} is arming. I have no answer for them.`] },
+    any: [(o) => `${o.me.name} is watching your choices closely.`, (o) => `My ministers read every speech ${o.youName} gives. They do not like what they read.`] },
   warm: { mood: 'warm',
     hawk: [(o) => `${o.me.name} has few real friends. ${o.you.name} is one of them.`],
     dove: [() => 'Our peoples have so much in common. Let us keep building on it.'],
     any: [() => 'Our trade grows every quarter. My compliments to your ministers.', (o) => `Whatever happens in the world, ${o.me.name} stands with ${o.you.name}.`] },
   offer: { mood: 'warm',
     hawk: [(o) => `${o.me.name} needs strong partners, and so does ${o.you.name}. Let us put it on paper.`, () => 'We do not sign with everyone. We would sign with you.', (o) => `Strength comes in pairs. ${o.me.name} has chosen its partner; the pen is on your desk.`],
-    dove: [() => 'I believe we can do great things together. Will you sign?', () => 'My people and yours already trade, study and marry. Our governments should catch up.', (o) => `A small step, but ${o.me.name} would like to take it with ${o.you.name}.`],
+    dove: [() => 'I believe we can do great things together. Will you sign?', (o) => getRelation(o.s, o.me.id, o.you.id) > 40 ? 'My people and yours already trade, study and marry. Our governments should catch up.' : `${o.me.name} and ${o.you.name} have kept their distance too long. Let us begin.`, (o) => `A small step, but ${o.me.name} would like to take it with ${o.you.name}.`],
     any: [(o) => `${o.me.name} would like to put our relations on a firmer footing.`, () => 'Our officials have done the work. It only needs two signatures now.', (o) => `${o.me.name} has a proposal. We think it serves us both.`] },
 };
 
@@ -81,27 +81,27 @@ function factFor(s: GameState, me: Country, you: Country, kind: CableKind): stri
   const rel = Math.round(getRelation(s, me.id, you.id));
   const ratio = me.mil.troops / Math.max(1, you.mil.troops);
   switch (kind) {
-    case 'war_on_you': return grudge ? `We have not forgotten that you ${grudge.why}.` : me.goal?.target === you.id ? `${me.goal.text}: that is our aim, and we will reach it.` : `We have ${big(me.mil.troops)} soldiers under arms. You have ${big(you.mil.troops)}.`;
+    case 'war_on_you': return grudge ? `We have not forgotten that you ${grievance(grudge.why, 'us')}.` : me.goal?.target === you.id ? `${me.goal.text}: that is our aim, and we will reach it.` : `We have ${big(me.mil.troops)} soldiers under arms. You have ${big(you.mil.troops)}.`;
     case 'you_declared': return ratio > 1 ? `${big(me.mil.troops)} of our soldiers are waiting for yours.` : `You may have ${big(you.mil.troops)} soldiers to our ${big(me.mil.troops)}, but every one of ours is defending home.`;
     case 'sanctioned': return `Our trade with you was worth about ${money(Math.min(me.eco.gdp, you.eco.gdp) * 0.012)} a year. Now it is worth nothing to either of us.`;
-    case 'sanctions_you': return grudge ? `This is because you ${grudge.why}.` : `Relations between us stand at ${rel}. That is your doing.`;
+    case 'sanctions_you': return grudge ? `This is because you ${grievance(grudge.why, 'us')}.` : `Relations between us stand at ${rel}. That is your doing.`;
     case 'treaty_yes': return me.leader?.mandate ? `I came to power ${me.leader.mandate}; this agreement fits that promise.` : `Relations between us now stand at ${rel}.`;
-    case 'treaty_no': return grudge ? `Frankly, we still remember that you ${grudge.why}.` : rel < 0 ? `With relations at ${rel}, my cabinet would not even read it.` : '';
+    case 'treaty_no': return grudge ? `Frankly, we still remember that you ${grievance(grudge.why, 'us')}.` : rel < 0 ? `With relations at ${rel}, my cabinet would not even read it.` : '';
     case 'peace': { const mine = war ? Math.round(war.casualties[me.id] ?? 0) : 0; return mine > 1000 ? `${big(mine)} of our soldiers were killed or wounded in this war. We will not forget their names.` : ''; }
-    case 'new_leader': return [me.leader?.mandate ? `I came to power ${me.leader.mandate}.` : '', me.goal ? `My aim: ${me.goal.text.charAt(0).toLowerCase()}${me.goal.text.slice(1)}.` : ''].filter(Boolean).join(' ');
+    case 'new_leader': return [me.leader?.mandate ? `I came to power ${me.leader.mandate}.` : '', me.goal ? `My aim: ${lowerFirst(me.goal.text)}.` : ''].filter(Boolean).join(' ');
     case 'taunt': {
       const opts = [
         me.eco.growth > you.eco.growth + 0.01 ? `Our economy grew ${pctTxt(me.eco.growth)} last year. Yours: ${pctTxt(you.eco.growth)}.` : '',
         ratio > 1.3 ? `We have ${big(me.mil.troops)} soldiers. You have ${big(you.mil.troops)}. Do the arithmetic.` : '',
-        grudge ? `And we remember that you ${grudge.why}.` : '',
+        grudge ? `And we remember that you ${grievance(grudge.why, 'us')}.` : '',
         you.eco.inflation > 0.06 ? `Prices in your country rose ${pctTxt(you.eco.inflation)} this year. Our people notice.` : '',
         you.eco.stability < 45 ? `Your own people do not trust you: stability ${Math.round(you.eco.stability)} of 100.` : '',
       ].filter(Boolean);
       return opts.length ? opts[Math.floor(hash01('tf', me.id, s.tick) * opts.length)] : `Relations between us stand at ${rel}.`;
     }
-    case 'offer': return `We bring an economy of ${money(me.eco.gdp)}${me.mil.troops > 50000 ? ` and ${big(me.mil.troops)} soldiers` : ''} to the table, and relations between us already stand at ${rel}.`;
+    case 'offer': return `We bring an economy of ${money(me.eco.gdp)}${me.mil.troops > 50000 ? ` and ${big(me.mil.troops)} soldiers` : ''} to the table${rel >= 40 ? `, and relations between us already stand at ${rel}` : rel >= 10 ? `. Relations stand at ${rel}: this would be a start` : `. Relations stand at only ${rel}, and we want to change that`}.`;
     case 'declined_offer': return `Relations between us stand at ${rel}. They could have been better.`;
-    case 'accepted_offer': return me.goal ? `It fits what we are working toward: ${me.goal.text.charAt(0).toLowerCase()}${me.goal.text.slice(1)}.` : '';
+    case 'accepted_offer': return me.goal ? `It fits what we are working toward: ${lowerFirst(me.goal.text)}.` : '';
     case 'warm': return rel > 60 ? `Relations between us stand at ${rel}: the best in years.` : '';
     default: return '';
   }
@@ -116,11 +116,15 @@ export function cable(s: GameState, from: number, kind: CableKind, extra?: strin
   const me = s.countries[from], you = s.countries[s.player];
   const L = LINES[kind];
   const tr = me.leader?.traits ?? [];
-  const pool = tr.some((t) => HAWKISH.has(t)) && hash01('cb', from, s.tick) < 0.75 ? L.hawk : tr.some((t) => DOVISH.has(t)) && hash01('cd', from, s.tick) < 0.75 ? L.dove : L.any;
+  // a hawk is a hawk toward rivals; to a friend even a strongman writes as a friend (no "do not test us" to an ally)
+  const rel = getRelation(s, from, s.player);
+  const friendly = L.mood === 'warm' || (kind === 'new_leader' && rel > 25);
+  const hawkish = tr.some((t) => HAWKISH.has(t)) && !friendly, dovish = tr.some((t) => DOVISH.has(t)) || (friendly && kind === 'new_leader');
+  const pool = hawkish && hash01('cb', from, s.tick) < 0.75 ? L.hawk : dovish && hash01('cd', from, s.tick) < 0.75 ? L.dove : L.any;
   const fn = pool[Math.floor(hash01('ct', from, s.tick, kind) * pool.length)];
   const youName = s.legacy?.leader ?? `${you.name}'s government`;
   s.stats.cableSeq = (s.stats.cableSeq ?? 0) + 1;
-  const text = [fn({ me, you, them: me.leader?.name ?? me.name, youName }), extra ?? factFor(s, me, you, kind)].filter(Boolean).join(' ');
+  const text = [fn({ s, me, you, them: me.leader?.name ?? me.name, youName }), extra ?? factFor(s, me, you, kind)].filter(Boolean).join(' ');
   (s.cables ??= []).push({ tick: s.tick, from, text, mood: L.mood, seq: s.stats.cableSeq });
   if (s.cables.length > 30) s.cables.splice(0, s.cables.length - 30);
 }
