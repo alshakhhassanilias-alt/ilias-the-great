@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '5';
+  var APP_VERSION = '6';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -325,6 +325,21 @@
     var q = mode === 'pick' ? inOrderQty(t, it.id) : 0;
     var price = it.price == null ? '?' : (it.options && it.options.some(function (o) { return o.choices.some(function (c) { return c.price != null; }); }) ? 'от ' : '') + it.price.toLocaleString('ru-RU');
     var action = mode === 'pick' ? 'pick' : 'editItem';
+    var quick = mode === 'pick' && (it.options || []).filter(function (o) { return o.quick; })[0];
+    if (quick) {
+      return '<div class="irow ' + (it.stop ? 'stop' : '') + '">' +
+        '<span class="stripe" style="background:' + catColor(it.cat) + '"></span>' +
+        '<button data-a="pick" data-id="' + it.id + '" style="all:unset;display:flex;flex:1;min-width:0;cursor:pointer">' +
+          '<span class="ic">' + esc(it.icons || '') + '</span>' +
+          '<span class="main">' + (it.pre ? '<span class="pre">' + esc(it.pre) + '</span>' : '') +
+            '<span class="ru">' + (q ? '<span class="tag new">×' + q + '</span>' : '') + tags + esc(it.ru) + '</span><div class="en">' + esc(it.en) + '</div>' +
+            '<div class="w"><b class="p">' + price + '</b> · ' + esc(it.w) + '</div></span>' +
+        '</button>' +
+        '<span class="quick">' + quick.choices.map(function (c) {
+          return '<button data-a="pickQ" data-id="' + it.id + '" data-o="' + quick.id + '" data-c="' + c.id + '">' + esc(c.short || c.label) + '</button>';
+        }).join('') + '</span>' +
+        '<button class="info" data-a="info" data-id="' + it.id + '" aria-label="details">ⓘ</button></div>';
+    }
     return '<div class="irow ' + (it.stop ? 'stop' : '') + '">' +
       '<span class="stripe" style="background:' + catColor(it.cat) + '"></span>' +
       '<button class="irow-hit" data-a="' + action + '" data-id="' + it.id + '" style="all:unset;display:flex;flex:1;min-width:0;cursor:pointer">' +
@@ -421,7 +436,7 @@
   }
 
   // ---------------------------------------------------------------- sheets
-  function openSheet(s) { ui.sheet = s; renderSheet(); }
+  function openSheet(s) { ui.sheet = s; $toast.hidden = true; renderSheet(); }
   // In-app confirmation (native confirm() is blocked in some web views and is
   // easy to tap through on iOS). `fn` runs only when the user taps OK.
   function ask(msg, okLabel, fn) { openSheet({ type: 'confirm', msg: msg, ok: okLabel, fn: fn }); }
@@ -469,6 +484,16 @@
 
     (it.options || []).forEach(function (opt) {
       var sel = d.opts[opt.id];
+      if (opt.count) {
+        var n = L.countTotal(sel);
+        h += '<h3>' + esc(opt.label) + ' — ' + n + ' of ' + opt.count + '</h3><div class="counts">' + opt.choices.map(function (c) {
+          var v = (sel || {})[c.id] || 0;
+          return '<div class="crow ' + (v ? 'on' : '') + '"><button class="iconbtn" data-a="lCnt" data-o="' + opt.id + '" data-c="' + c.id + '" data-d="-1"' + (v ? '' : ' disabled') + '>−</button>' +
+            '<span class="cl">' + esc(c.label) + '</span><span class="cv">' + v + '</span>' +
+            '<button class="iconbtn" data-a="lCnt" data-o="' + opt.id + '" data-c="' + c.id + '" data-d="1"' + (n < opt.count ? '' : ' disabled') + '>+</button></div>';
+        }).join('') + '</div>';
+        return;
+      }
       h += '<h3>' + esc(opt.label) + (opt.required ? ' *' : '') + (opt.want ? ' — choose ' + opt.want + ' (' + ((sel || []).length) + ')' : '') + (opt.multi && !opt.want ? ' — one or more' : '') + '</h3><div class="choices">' +
         opt.choices.map(function (c) {
           var on = opt.multi ? (sel || []).indexOf(c.id) >= 0 : sel === c.id;
@@ -896,25 +921,32 @@
   A.pSeat = function (d) { ui.picker.seat = d.s === '' ? '' : +d.s; renderPicker(); };
   function clearSearch() { ui.picker.q = ''; var i = document.getElementById('psearch'); if (i) { i.value = ''; i.blur(); } }
 
-  function needsSheet(it) { return (it.options || []).some(function (o) { return o.required; }); }
+  function needsSheet(it, opts) {
+    return (it.options || []).some(function (o) { return (o.required || o.count) && !(opts && opts[o.id] != null); });
+  }
 
   A.pick = function (d) {
     var it = item(d.id), t = cur();
     if (!t || !it) return;
-    if (it.stop && !d.force) return ask(it.ru + ' is on the STOP-LIST. Add anyway?', 'Add anyway', function () { A.pick({ id: d.id, force: true }); });
-    if (needsSheet(it)) {
-      var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null });
+    if (it.stop && !d.force) return ask(it.ru + ' is on the STOP-LIST. Add anyway?', 'Add anyway', function () { A.pick(Object.assign({}, d, { force: true })); });
+    var preset = {};
+    if (d.o) preset[d.o] = d.c;
+    if (needsSheet(it, preset)) {
+      var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset });
       return openSheet({ type: 'line', mode: 'add', d: draft });
     }
     var prev = JSON.stringify(S);
     var res;
     commit(null, function () {
-      res = L.addItem(t, it.id, { seat: ui.picker && ui.picker.seat || null }, S.menu);
+      res = L.addItem(t, it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset }, S.menu);
       track(it.id);
     });
+    var optTxt = L.lineDetail(res.line, it)[0];
+    if (d.o && optTxt) it = Object.assign({}, it, { ru: it.ru + ' (' + optTxt + ')' });
     var extra = it.side ? ' · side: ' + it.side.name + '?' : (it.suggest ? ' · offer ' + MENU.MODS[it.suggest[0]].ru.toLowerCase() : '');
     toast('+1 ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : '') + extra, prev);
   };
+  A.pickQ = function (d) { A.pick(d); };
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
     if (isPractice()) return;
@@ -951,6 +983,20 @@
       s.d.opts[d.o] = s.d.opts[d.o] === d.c ? null : d.c;
       if (s.d.opts[d.o] == null) delete s.d.opts[d.o];
     }
+    renderSheet();
+  };
+  A.lCnt = function (d) {
+    var s = ui.sheet, it = item(s.d.itemId);
+    var opt = it.options.filter(function (o) { return o.id === d.o; })[0];
+    var cur0 = s.d.opts[d.o] || {}, next = {};
+    var total = L.countTotal(cur0);
+    // rebuild in menu order so identical sets compare equal
+    opt.choices.forEach(function (c) {
+      var v = cur0[c.id] || 0;
+      if (c.id === d.c) v = Math.max(0, v + (+d.d > 0 && total >= opt.count ? 0 : +d.d));
+      if (v) next[c.id] = v;
+    });
+    s.d.opts[d.o] = next;
     renderSheet();
   };
   A.lQty = function (d) { var s = ui.sheet; s.d.qty = Math.max(1, s.d.qty + (+d.d)); renderSheet(); };

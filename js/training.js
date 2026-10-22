@@ -159,6 +159,13 @@
         var line = { itemId: it.id, qty: rng() < 0.7 ? 1 : 2, opts: {}, mods: {}, sideSwap: null };
         var words = [];
         (it.options || []).forEach(function (o) {
+          if (o.count) {
+            var cnt = {};
+            for (var k = 0; k < o.count; k++) { var cc = o.choices[Math.floor(rng() * o.choices.length)]; cnt[cc.id] = (cnt[cc.id] || 0) + 1; }
+            line.opts[o.id] = cnt;
+            words.push(o.choices.filter(function (c) { return cnt[c.id]; }).map(function (c) { return c.label + (cnt[c.id] > 1 ? ' ×' + cnt[c.id] : ''); }).join(', '));
+            return;
+          }
           if (!o.required) return;
           if (o.multi) {
             var want = o.want || 1;
@@ -195,6 +202,10 @@
       return ka.every(function (k) {
         var x = a[k], y = b[k];
         if (Array.isArray(x) || Array.isArray(y)) return JSON.stringify((x || []).slice().sort()) === JSON.stringify((y || []).slice().sort());
+        if (x && y && typeof x === 'object') {
+          var keys = Object.keys(x).concat(Object.keys(y));
+          return keys.every(function (q) { return (x[q] || 0) === (y[q] || 0); });
+        }
         return x === y;
       });
     }

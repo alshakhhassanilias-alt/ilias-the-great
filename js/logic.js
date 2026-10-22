@@ -65,7 +65,7 @@
       var price = item.price;
       (item.options || []).forEach(function (opt) {
         var sel = line.opts && line.opts[opt.id];
-        if (sel == null || opt.multi) return;
+        if (sel == null || opt.multi || opt.count) return;
         var ch = opt.choices.filter(function (c) { return c.id === sel; })[0];
         if (ch && ch.price != null) price = ch.price;
       });
@@ -159,6 +159,11 @@
       (item.options || []).forEach(function (opt) {
         var sel = line.opts && line.opts[opt.id];
         var empty = sel == null || (Array.isArray(sel) && sel.length === 0);
+        if (opt.count) {
+          var n = countTotal(sel);
+          if (n !== opt.count) out.push({ level: 'block', code: 'opt:' + opt.id, text: 'Choose ' + opt.count + ' (' + n + ' so far)' });
+          return;
+        }
         if (opt.required && empty) out.push({ level: 'block', code: 'opt:' + opt.id, text: 'Choose ' + opt.label.toLowerCase() });
         if (opt.want && Array.isArray(sel) && sel.length && sel.length !== opt.want) {
           out.push({ level: 'warn', code: 'want:' + opt.id, text: sel.length + ' of ' + opt.want + ' chosen' });
@@ -229,11 +234,21 @@
 
     function sum(lines) { return lines.reduce(function (a, l) { return a + l.qty; }, 0); }
 
+    function countTotal(sel) {
+      var n = 0;
+      Object.keys(sel || {}).forEach(function (k) { n += sel[k] || 0; });
+      return n;
+    }
     function optionText(line, item) {
       var parts = [];
       (item && item.options || []).forEach(function (opt) {
         var sel = line.opts && line.opts[opt.id];
         if (sel == null) return;
+        if (opt.count) {
+          var bits = opt.choices.filter(function (c) { return sel[c.id]; }).map(function (c) { return c.label + (sel[c.id] > 1 ? ' ×' + sel[c.id] : ''); });
+          if (bits.length) parts.push(bits.join(', '));
+          return;
+        }
         var ids = Array.isArray(sel) ? sel : [sel];
         var labels = ids.map(function (id) {
           var ch = opt.choices.filter(function (c) { return c.id === id; })[0];
@@ -500,7 +515,7 @@
     }
 
     return {
-      uid: uid, getItem: getItem, registerCustom: registerCustom, allItems: allItems, isDrink: isDrink, displayName: displayName,
+      uid: uid, getItem: getItem, registerCustom: registerCustom, countTotal: countTotal, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
       lineDetail: lineDetail, sortedLines: sortedLines, summaryText: summaryText, markSent: markSent,

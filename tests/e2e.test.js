@@ -65,14 +65,29 @@ test('waiter flow on iPhone viewport', async (t) => {
     await page.fill('#psearch', 'пельм сиб');
     await page.waitForSelector('#plist .irow');
     await shot('03-search');
-    const first = page.locator('#plist [data-a="pick"]').first();
+    const first = page.locator('#plist .irow').first();
     assert.match(await first.innerText(), /Пельмени сибирские/);
-    await first.tap();
-    await first.tap();
+    await first.locator('[data-a="pickQ"][data-c="yes"]').tap();
+    await first.locator('[data-a="pickQ"][data-c="yes"]').tap();
     const s = await state();
     assert.equal(s.tables[0].lines.length, 1);
     assert.equal(s.tables[0].lines[0].qty, 2);
     assert.equal(s.tables[0].lines[0].itemId, 'pl_sib');
+    assert.equal(s.tables[0].lines[0].opts.smet, 'yes');
+  });
+
+  await t.test('tasting set counter like the tablet', async () => {
+    await page.fill('#psearch', 'дегустационный сет');
+    await page.locator('#plist [data-a="pick"]').first().tap();
+    await page.waitForSelector('.crow');
+    assert.equal(await page.locator('.crow').count(), 10);
+    const plus = (c) => page.tap('[data-a="lCnt"][data-c="' + c + '"][data-d="1"]');
+    await plus('c1'); await plus('c1'); await plus('c1'); await plus('c9');
+    assert.equal(await page.locator('[data-a="lSave"]').isDisabled(), true);
+    await plus('c9');
+    assert.equal(await page.locator('[data-a="lCnt"][data-c="c2"][data-d="1"]').isDisabled(), true);
+    await shot('17-shot-set');
+    await page.tap('[data-a="closeSheet"]');
   });
 
   await t.test('shortcut search learns what you pick', async () => {
@@ -202,7 +217,7 @@ test('waiter flow on iPhone viewport', async (t) => {
     assert.ok(s.tables[0].lines.every((l) => l.status === 'sent'));
     await page.tap('[data-a="openPicker"]');
     await page.fill('#psearch', 'пельмени сибирские');
-    await page.locator('#plist [data-a="pick"]').first().tap();
+    await page.locator('#plist [data-a="pickQ"][data-c="yes"]').first().tap();
     await page.tap('[data-a="closePicker"]');
     assert.match(await page.locator('#app').innerText(), /already entered ×2/);
     s = await state();

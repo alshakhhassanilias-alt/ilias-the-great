@@ -57,6 +57,11 @@ Data lives only on this phone (localStorage). Export a backup now and then:
    separately as "Not in POS yet".
 6. **⋯ → Close table (paid)** moves it to history (kept 7 days, can be reopened).
 
+**Сметана:** every vareniki and pelmeni dish shows two buttons in the menu
+list, **+ со смет.** and **+ без**, so the choice the tablet asks for is one tap.
+**Tasting set of 5 shots** uses the tablet's 10 flavours as counters (repeats
+allowed) and is complete at exactly 5.
+
 **Notes:** tap ✎ on any line to write what the guest asked for ("без укропа",
 "соус отдельно"); it shows under the dish in amber and appears in Review and
 Copy text. "📝 Add table note" at the top of a table is for things like an
@@ -132,8 +137,8 @@ and you can fix prices there.
 ## Development
 
 ```
-npm test          # 29 unit tests: menu data, order logic, storage, practice grading
-npm run test:e2e  # 23 browser checks at iPhone size (needs Playwright + Chromium)
+npm test          # 31 unit tests: menu data, order logic, storage, practice grading
+npm run test:e2e  # 24 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 

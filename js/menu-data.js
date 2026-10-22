@@ -462,7 +462,11 @@
     options: [pick('flavor', 'Flavor', ['Брусника', 'Облепиха', 'Малина', 'Смородина', 'Клюква', 'Вишня', 'Персик', 'Мандарин'])] });
   I('shots', 'st_horse', 'С ароматным хреном', 'Shot with horseradish', 275, '40 мл', { icons: '🥃🌶', tags: ['alc'] });
   I('shots', 'st_set', 'Дегустационный сет — 5 любых шотов', 'Tasting set — 5 any shots', 1100, '5×40 мл', { icons: '🥃×5', tags: ['alc'],
-    options: [pick('flavor', 'Choose 5', ['Брусника', 'Облепиха', 'Малина', 'Смородина', 'Клюква', 'Вишня', 'Персик', 'Мандарин', 'Хрен'], { multi: true, want: 5 })],
+    // Flavours exactly as the restaurant tablet lists them (group “А_Безлимит Настоек”,
+    // minimum 5, maximum 5; the same flavour may be taken several times).
+    options: [pick('flavor', '5 shots', ['Абрикосовая', 'Брусничная', 'Вишневая', 'Клюквенная', 'Малиновая', 'Мандариновая',
+      'Облепиховая', 'Персиковая', 'Смородиновая', 'Хреновуха'], { count: 5 })],
+    note: 'Tablet: modifier group “А_Безлимит Настоек”, exactly 5, repeats allowed. Абрикосовая is on the tablet but not in the printed single-shot list.',
     unverified: 'Menu has a “**” footnote on this set that is not legible on the photo.' });
 
   // ===== Vodka (40 мл) =====
@@ -506,6 +510,16 @@
   LQ('lq_limoncello', 'Лимончелло', 'Limoncello', 250);
   LQ('ap_bianco', 'Бьянко', 'Garrone Bianco', 450, '80 мл');
   LQ('ap_extradry', 'Экстра Драй', 'Garrone Extra Dry', 450, '80 мл');
+
+  // ---- Сметана choice --------------------------------------------------------
+  // Every vareniki and pelmeni dish is entered on the tablet with or without
+  // sour cream (no price change stated). The picker shows both as one-tap buttons.
+  var SMET_CATS = { vareniki: 1, pot: 1, sets: 1, sweetvar: 1, pelmeni: 1 };
+  ITEMS.forEach(function (it) {
+    if (!SMET_CATS[it.cat]) return;
+    it.options = [{ id: 'smet', label: 'Сметана', required: true, quick: true, choices: [
+      { id: 'yes', label: 'со сметаной', short: '+ со смет.' }, { id: 'no', label: 'без сметаны', short: '+ без' }] }].concat(it.options || []);
+  });
 
   // ---- Section prefixes ----------------------------------------------------
   // `ru` stays exactly as printed; `pre` is the section it is printed under,

@@ -336,3 +336,33 @@ test('custom request line: resolvable, priced, in summary', () => {
   line.custom.price = null; L.registerCustom(line);
   assert.ok(L.lineIssues(line, L.getItem('cl_test1')).some((i) => i.code === 'price'));
 });
+
+test('сметана choice is required on every vareniki/pelmeni dish', () => {
+  const cats = ['vareniki', 'pot', 'sets', 'sweetvar', 'pelmeni'];
+  for (const it of MENU.ITEMS.filter((i) => cats.includes(i.cat))) {
+    const o = it.options && it.options[0];
+    assert.equal(o && o.id, 'smet', it.id);
+  }
+  const t = table();
+  const { line } = L.addItem(t, 'pl_sib', {}, menuState);
+  assert.ok(L.lineIssues(line, L.getItem('pl_sib')).some((i) => i.level === 'block' && i.code === 'opt:smet'));
+  line.opts.smet = 'no';
+  assert.deepEqual(L.lineDetail(line, L.getItem('pl_sib')), ['без сметаны']);
+  assert.equal(L.unitPrice(line, L.getItem('pl_sib')), 640);
+  // with / without are separate lines
+  L.addItem(t, 'pl_sib', { opts: { smet: 'yes' } }, menuState);
+  L.addItem(t, 'pl_sib', { opts: { smet: 'yes' } }, menuState);
+  assert.equal(t.lines.length, 2);
+  assert.equal(t.lines[1].qty, 2);
+});
+
+test('tasting set: exactly 5 shots from the tablet list, repeats allowed', () => {
+  const it = L.getItem('st_set');
+  assert.equal(it.options[0].choices.length, 10);
+  const line = L.newLine('st_set', { opts: { flavor: { c1: 2, c9: 1 } } });
+  assert.ok(L.lineIssues(line, it).some((i) => i.code === 'opt:flavor' && /3 so far/.test(i.text)));
+  line.opts.flavor = { c1: 3, c9: 2 };
+  assert.ok(!L.lineIssues(line, it).some((i) => i.level === 'block'));
+  assert.deepEqual(L.lineDetail(line, it), ['Брусничная ×3, Хреновуха ×2']);
+  assert.equal(L.unitPrice(line, it), 1100);
+});

@@ -1,9 +1,9 @@
 /* Offline support. Online: always fetch fresh files (bypassing the 10-minute
  * browser cache). Offline: serve the last good copy. Bump VERSION on release. */
-var VERSION = 'waiter-v5';
+var VERSION = 'waiter-v6';
 var FILES = [
   './', './index.html', './manifest.webmanifest',
-  './css/app.css?v=5', './js/menu-data.js?v=5', './js/logic.js?v=5', './js/store.js?v=5', './js/training.js?v=5', './js/app.js?v=5',
+  './css/app.css?v=6', './js/menu-data.js?v=6', './js/logic.js?v=6', './js/store.js?v=6', './js/training.js?v=6', './js/app.js?v=6',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
 ];
 
