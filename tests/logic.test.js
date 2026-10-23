@@ -387,3 +387,26 @@ test('ingredient check: matches, exact words, sets that contain a match', () => 
   assert.ok(!ids('яйцо').includes('sl_eggplant'));       // eggplant is not egg
   assert.ok(ids('рыба').includes('v_pike'));
 });
+
+test('search preselects choices named in the query', () => {
+  const pick = (q) => { const it = L.search(L.allItems(menuState), q)[0]; return [it.id, L.matchChoices(it, q)]; };
+  assert.deepEqual(pick('сок яблочный 1л'), ['jc_apple', { size: '1000' }]);
+  assert.deepEqual(pick('саперави бутылка'), ['wn_saperavi', { size: '750' }]);
+  assert.deepEqual(pick('байкал без газа'), ['wt_baikal', { gas: 'c1' }]);
+  assert.deepEqual(pick('блины вишневое'), ['blini', { top: 'c2' }]);
+  assert.deepEqual(L.matchChoices(L.getItem('so_machine'), 'кола'), { flavor: 'c2' });
+  assert.deepEqual(L.matchChoices(L.getItem('pl_sib'), 'пельмени'), {});
+});
+
+test('blini: one topping from the tablet list, asked not forced', () => {
+  const it = L.getItem('blini');
+  assert.equal(it.options[0].choices.length, 11);
+  assert.ok(!it.unverified);
+  const line = L.newLine('blini');
+  const iss = L.lineIssues(line, it);
+  assert.ok(iss.some((i) => i.code === 'ask:top' && i.level === 'warn'));
+  assert.ok(!iss.some((i) => i.level === 'block'));
+  line.opts.top = 'c5';
+  assert.deepEqual(L.lineDetail(line, it), ['Мёд 40 г']);
+  assert.equal(L.unitPrice(line, it), 390);
+});

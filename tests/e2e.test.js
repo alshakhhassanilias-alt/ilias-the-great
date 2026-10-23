@@ -103,14 +103,34 @@ test('waiter flow on iPhone viewport', async (t) => {
     await page.locator('#plist [data-a="pick"]').first().innerText().then((txt) => assert.ok(txt.includes(name.replace(/^(варёные|NEW|STOP|⚠ check|★)\s*/, '').slice(0, 10)), txt + ' vs ' + name));
     // undo the extra line so later checks see the same order as before
     await page.tap('[data-a="undo"]');
-    await page.tap('[data-a="pClear"]');
+    await page.tap('[data-a="pClearText"]');
   });
 
   await t.test('wrong keyboard layout search works', async () => {
     await page.fill('#psearch', ',jhom');   // “борщ” typed on EN layout
     await page.waitForSelector('#plist .irow');
     assert.match(await page.locator('#plist .irow').first().innerText(), /борщ/i);
-    await page.tap('[data-a="pClear"]');
+    await page.tap('[data-a="pClearText"]');
+  });
+
+  await t.test('search box: ✕ clears, typing after a pick starts fresh, − removes', async () => {
+    await page.fill('#psearch', 'солянка');
+    await page.waitForSelector('[data-a="pClearText"]:not([hidden])');
+    await page.tap('[data-a="pClearText"]');
+    assert.equal(await page.inputValue('#psearch'), '');
+    await page.fill('#psearch', 'солянка');
+    await page.locator('#plist [data-a="pick"]').first().tap();
+    assert.equal(await page.locator('#psearch.armed').count(), 1);
+    await page.locator('#psearch').press('End');
+    await page.keyboard.type('у');               // typing replaces the old text
+    assert.equal(await page.inputValue('#psearch'), 'у');
+    await page.fill('#psearch', 'солянка');
+    assert.match(await page.locator('#plist .irow').first().innerText(), /\b1\b/);
+    await page.locator('#plist [data-a="pickMinus"]').first().tap();
+    assert.equal(await page.locator('#plist [data-a="pickMinus"]').count(), 0);
+    const s = await state();
+    assert.ok(!s.tables[0].lines.some((l) => l.itemId === 'sp_solyanka'));
+    await page.tap('[data-a="pClearText"]');
   });
 
   await t.test('juice needs a size before it can be added', async () => {

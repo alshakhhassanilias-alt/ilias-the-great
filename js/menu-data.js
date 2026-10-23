@@ -172,8 +172,11 @@
   I('breakfast', 'curdballs', 'Жареные творожные шарики с соусом дюшес', 'Fried curd balls with duchess sauce', 520, '160/30 г', { tags: ['breakfast'], icons: '🧆', alsoIn: ['desserts'], mods: SWEET,
     note: 'Same dish is printed on the Breakfast page and the Dessert page.' });
   I('breakfast', 'blini', 'Блины с добавками на выбор', 'Pancakes with toppings to choose', 390, '90/40 г', { tags: ['breakfast'], icons: '🥞', alsoIn: ['pancakes'], mods: SWEET,
-    options: [pick('top', 'Topping', ['Мед', 'Сгущенка', 'Вареная сгущенка', 'Шоколадный соус', 'Ванильный соус', 'Карамельный соус', 'Домашнее варенье', 'Сметана'], { multi: true })],
-    unverified: 'Menu does not say how many toppings are included in 390 ₽ — ask the kitchen/manager.' });
+    // Toppings exactly as the tablet lists them (group “Добавки к блинам”, minimum 0, maximum 1).
+    options: [pick('top', 'Добавка (1 входит)', ['Вареная сгущенка 40 г', 'Варенье абрикосовое 40 г', 'Варенье вишневое 40 г',
+      'Варенье клубничное 40 г', 'Варенье малиновое 40 г', 'Мёд 40 г', 'Сгущенка 40 г', 'Сметана 40 г',
+      'Соус ванильный 40 г', 'Соус карамельный 40 г', 'Соус шоколадный 40 г'], { required: false, ask: true })],
+    note: 'Tablet: one topping of choice (0–1) from “Добавки к блинам”. More toppings = paid extras below.' });
 
   // ===== Vareniki (plate) =====
   I('vareniki', 'v_lamb', 'Вареники с томлёной бараниной и запеченным картофелем', 'Vareniki with slow-cooked lamb and roasted potatoes', 690, '210 г', { tags: ['new'], icons: '🐑🥔', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
@@ -565,7 +568,7 @@
     { title: 'Chicken & mushroom vareniki', ids: ['v_chickmush', 'pot_chickmeat'], diff: 'Plate 560 ₽ · pot with MEAT поджарка 640 ₽.' },
     { title: 'Sweet vareniki with cottage cheese', ids: ['sv_raisin', 'sv_poppy'], diff: 'Raisins 420 ₽ · poppy-seed dough with dried apricots 440 ₽.' },
     { title: 'Cherry: vareniki vs posikunchiki', ids: ['sv_cherry', 'sv_posik'], diff: 'Vareniki with cherry 540 ₽, 200 г · Посикунчики 450 ₽, 160 г. Both: warn about pits (косточки).' },
-    { title: 'Pancakes', ids: ['blini', 'pc_cherry'], diff: 'With toppings of choice 390 ₽ (ask which topping) · with cottage cheese, cherry & salted caramel 450 ₽.' },
+    { title: 'Pancakes', ids: ['blini', 'pc_cherry'], diff: 'With one topping of choice 390 ₽ (ask which) · with cottage cheese, cherry & salted caramel 450 ₽.' },
     { title: 'Fried potatoes vs pork', ids: ['mn_friedpot', 'mn_friedpotpork', 'mn_pork'], diff: 'Potatoes+onion+mushroom 465 · potatoes+pork+mushroom 640 · pork tenderloin with wedges 820.' },
     { title: 'Draniki', ids: ['mn_draniki', 'mn_zucchini'], diff: 'Potato draniki 390 ₽ · Zucchini draniki with chicken fillet & champignon sauce 740 ₽.' },
     { title: 'Cutlets', ids: ['mn_cutlets', 'mn_chickcut', 'mn_kiev', 'mn_pikecut'], diff: 'Homemade cutlets + pasta in dill 595 · chicken cutlets with cheese 570 · Chicken Kiev 690 · pike cutlets + vegetable puree 685.' },

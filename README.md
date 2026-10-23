@@ -40,6 +40,16 @@ free. A table you opened but left empty goes back to free by itself. Edit or
 clear the list any time with **✎ Edit my tables**. Tables outside your list
 (helping a colleague) appear under *Other tables*.
 
+**Search box:** ✕ inside the box clears it in one tap. After you add something,
+just start typing the next dish; the old text is replaced automatically (it
+turns grey to show this). Items already in the order show **−** in the results
+to take one off. Search also understands choices and sizes: "кола" selects the
+Кола flavour of the soda machine, "сок яблочный 1л" the 1 L size, "саперави
+бутылка" the bottle, "блины вишневое" the cherry jam topping.
+
+**Blini:** one topping is included (tablet group "Добавки к блинам", 0–1), from
+the tablet's 11 toppings. Extra toppings are the paid sweet extras.
+
 **Quantity in search:** type `3 пс` and one tap adds three; the box then clears
 for the next item.
 
@@ -141,7 +151,6 @@ These came from reading the photos, not from a generic template.
 Marked ⚠ in the app. All of them are listed under **Menu & data → ⚠ To verify**,
 and you can fix prices there.
 
-- **Blini with toppings (390)**: how many toppings are included is not printed.
 - **Side swap +35**: which dishes it applies to is not printed.
 - **Tasting set of 5 shots**: has a `**` footnote that is not legible.
 - **Винегрет 200/45 г**: the photo shows herring on bread next to it, but what
@@ -156,8 +165,8 @@ and you can fix prices there.
 ## Development
 
 ```
-npm test          # 33 unit tests: menu data, order logic, storage, practice grading
-npm run test:e2e  # 26 browser checks at iPhone size (needs Playwright + Chromium)
+npm test          # 35 unit tests: menu data, order logic, storage, practice grading
+npm run test:e2e  # 27 browser checks at iPhone size (needs Playwright + Chromium)
 npm run build     # dist/waiter-pad.html single-file build
 ```
 

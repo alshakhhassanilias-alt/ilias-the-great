@@ -165,6 +165,11 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .picker { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
 .picker .head { padding: calc(var(--safe-t) + 8px) 16px 6px; background: var(--bg); border-bottom: 1px solid var(--line); }
 .searchrow { display: flex; gap: 8px; }
+.sbox { position: relative; flex: 1; display: flex; }
+.sbox .search { padding-right: 48px; }
+.search.armed { color: var(--muted); }
+.sclear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--panel-2); color: var(--text); font-size: 16px; font-weight: 800; }
+.irow .minus { flex: none; width: 44px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--block); font-size: 26px; font-weight: 800; }
 .search {
   flex: 1; min-height: var(--tap); border-radius: 12px; border: 1px solid var(--line); background: var(--panel); padding: 0 14px;
 }
@@ -468,8 +473,11 @@ textarea.field { min-height: 70px; }
   I('breakfast', 'curdballs', 'Жареные творожные шарики с соусом дюшес', 'Fried curd balls with duchess sauce', 520, '160/30 г', { tags: ['breakfast'], icons: '🧆', alsoIn: ['desserts'], mods: SWEET,
     note: 'Same dish is printed on the Breakfast page and the Dessert page.' });
   I('breakfast', 'blini', 'Блины с добавками на выбор', 'Pancakes with toppings to choose', 390, '90/40 г', { tags: ['breakfast'], icons: '🥞', alsoIn: ['pancakes'], mods: SWEET,
-    options: [pick('top', 'Topping', ['Мед', 'Сгущенка', 'Вареная сгущенка', 'Шоколадный соус', 'Ванильный соус', 'Карамельный соус', 'Домашнее варенье', 'Сметана'], { multi: true })],
-    unverified: 'Menu does not say how many toppings are included in 390 ₽ — ask the kitchen/manager.' });
+    // Toppings exactly as the tablet lists them (group “Добавки к блинам”, minimum 0, maximum 1).
+    options: [pick('top', 'Добавка (1 входит)', ['Вареная сгущенка 40 г', 'Варенье абрикосовое 40 г', 'Варенье вишневое 40 г',
+      'Варенье клубничное 40 г', 'Варенье малиновое 40 г', 'Мёд 40 г', 'Сгущенка 40 г', 'Сметана 40 г',
+      'Соус ванильный 40 г', 'Соус карамельный 40 г', 'Соус шоколадный 40 г'], { required: false, ask: true })],
+    note: 'Tablet: one topping of choice (0–1) from “Добавки к блинам”. More toppings = paid extras below.' });
 
   // ===== Vareniki (plate) =====
   I('vareniki', 'v_lamb', 'Вареники с томлёной бараниной и запеченным картофелем', 'Vareniki with slow-cooked lamb and roasted potatoes', 690, '210 г', { tags: ['new'], icons: '🐑🥔', form: 'тарелка', mods: VAR_MODS, suggest: VAR_SUGGEST });
@@ -861,7 +869,7 @@ textarea.field { min-height: 70px; }
     { title: 'Chicken & mushroom vareniki', ids: ['v_chickmush', 'pot_chickmeat'], diff: 'Plate 560 ₽ · pot with MEAT поджарка 640 ₽.' },
     { title: 'Sweet vareniki with cottage cheese', ids: ['sv_raisin', 'sv_poppy'], diff: 'Raisins 420 ₽ · poppy-seed dough with dried apricots 440 ₽.' },
     { title: 'Cherry: vareniki vs posikunchiki', ids: ['sv_cherry', 'sv_posik'], diff: 'Vareniki with cherry 540 ₽, 200 г · Посикунчики 450 ₽, 160 г. Both: warn about pits (косточки).' },
-    { title: 'Pancakes', ids: ['blini', 'pc_cherry'], diff: 'With toppings of choice 390 ₽ (ask which topping) · with cottage cheese, cherry & salted caramel 450 ₽.' },
+    { title: 'Pancakes', ids: ['blini', 'pc_cherry'], diff: 'With one topping of choice 390 ₽ (ask which) · with cottage cheese, cherry & salted caramel 450 ₽.' },
     { title: 'Fried potatoes vs pork', ids: ['mn_friedpot', 'mn_friedpotpork', 'mn_pork'], diff: 'Potatoes+onion+mushroom 465 · potatoes+pork+mushroom 640 · pork tenderloin with wedges 820.' },
     { title: 'Draniki', ids: ['mn_draniki', 'mn_zucchini'], diff: 'Potato draniki 390 ₽ · Zucchini draniki with chicken fillet & champignon sauce 740 ₽.' },
     { title: 'Cutlets', ids: ['mn_cutlets', 'mn_chickcut', 'mn_kiev', 'mn_pikecut'], diff: 'Homemade cutlets + pasta in dill 595 · chicken cutlets with cheese 570 · Chicken Kiev 690 · pike cutlets + vegetable puree 685.' },
@@ -1049,6 +1057,7 @@ textarea.field { min-height: 70px; }
           return;
         }
         if (opt.required && empty) out.push({ level: 'block', code: 'opt:' + opt.id, text: 'Choose ' + opt.label.toLowerCase() });
+        if (opt.ask && !opt.required && empty) out.push({ level: 'warn', code: 'ask:' + opt.id, text: 'Which ' + opt.label.toLowerCase() + '?' });
         if (opt.want && Array.isArray(sel) && sel.length && sel.length !== opt.want) {
           out.push({ level: 'warn', code: 'want:' + opt.id, text: sel.length + ' of ' + opt.want + ' chosen' });
         }
@@ -1285,6 +1294,7 @@ textarea.field { min-height: 70px; }
             (catIndex[it.cat] ? catIndex[it.cat].ru + ' ' + catIndex[it.cat].en : '')).split(' ').filter(Boolean),
           main: main,                                   // significant words of the printed name
           en2: norm(it.en).split(' ').filter(function (w) { return w && !STOP[w]; }),
+          choice: norm((it.options || []).map(function (o) { return o.id === 'smet' ? '' : o.choices.map(function (c) { return c.label; }).join(' '); }).join(' ')).split(' ').filter(function (w) { return w && !/^\d/.test(w); }),
         };
         h.looseName = h.name.map(loose);
         try { Object.defineProperty(it, '_hay', { value: h, enumerable: false }); } catch (e) { /* frozen */ }
@@ -1351,15 +1361,17 @@ textarea.field { min-height: 70px; }
 
     function scoreItem(it, q) {
       var h = haystack(it);
-      var tokens = q.split(' ').filter(Boolean);
+      var all = unitNorm(q).split(' ').filter(Boolean);
+      var tokens = all.filter(function (t) { return !UNIT.test(t); });
+      if (!tokens.length) tokens = all;
       var total = 0;
       for (var i = 0; i < tokens.length; i++) {
         var t = tokens[i];
-        var s = Math.max(tokenScore(t, h.name, 5, h.looseName), tokenScore(t, h.pre, 3.5), tokenScore(t, h.en, 4), tokenScore(t, h.rest, 1));
+        var s = Math.max(tokenScore(t, h.name, 5, h.looseName), tokenScore(t, h.pre, 3.5), tokenScore(t, h.en, 4), tokenScore(t, h.choice, 3.5), tokenScore(t, h.rest, 1));
         if (!s) { total = 0; break; }
         total += s;
       }
-      var compact = q.replace(/ /g, '');
+      var compact = tokens.join('');
       var seg = Math.max(segScore(compact, h.main), segScore(compact, h.en2) - 1);
       if (tokens.length === 1 && h.main.length === 2) seg = Math.max(seg, segScore(compact, [h.main[1], h.main[0]]) - 0.5);
       if (tokens.length === 2) {
@@ -1368,6 +1380,42 @@ textarea.field { min-height: 70px; }
       }
       return Math.max(total, seg);
     }
+
+    // If the query names one of an item's choices (“кола”, “клубничное”), return
+    // { optionId: choiceId } so tapping the result preselects it.
+    function matchChoices(it, query) {
+      var qn = ' ' + unitNorm(norm(qtyStrip(query))) + ' ';
+      var toks = qn.trim().split(' ').filter(function (t) { return t.length >= 3; });
+      var out = {};
+      if (!it) return out;
+      // sizes / glass / bottle written in the query (“сок 1 л”, “вино бокал”)
+      (it.options || []).forEach(function (o) {
+        if (o.multi || o.count) return;
+        var hit = o.choices.filter(function (c) { var l = unitNorm(norm(c.label)); return l.length >= 2 && qn.indexOf(' ' + l + ' ') >= 0; });
+        if (!hit.length) hit = o.choices.filter(function (c) { var l = norm(c.label).split(' ')[0]; return /[а-я]/.test(l) && l.length >= 4 && qn.indexOf(' ' + l + ' ') >= 0; });
+        if (hit.length === 1) out[o.id] = hit[0].id;
+      });
+      if (!toks.length) return out;
+      var nameWords = norm(it.ru + ' ' + it.en + ' ' + (it.pre || '')).split(' ');
+      var rest = toks.filter(function (t) { return !nameWords.some(function (w) { return w.indexOf(t) === 0; }); });
+      if (!rest.length) return out;
+      (it.options || []).forEach(function (o) {
+        if (o.multi || o.count || out[o.id]) return;
+        var hit = o.choices.filter(function (c) {
+          var cw = norm(c.label).split(' ');
+          return rest.every(function (t) { return cw.some(function (w) {
+            if (w.indexOf(t) === 0) return true;
+            var cp = commonPrefix(t, w);
+            return cp >= 5 && cp >= t.length - 3;          // клубничное ≈ клубничный
+          }); });
+        });
+        if (hit.length === 1) out[o.id] = hit[0].id;
+      });
+      return out;
+    }
+    function unitNorm(s) { return s.replace(/(\d)(мл|л|г)(?![а-я])/g, '$1 $2'); }
+    var UNIT = /^(\d+([.,]\d+)?|мл|л|г|литр|литра)$/;
+    function qtyStrip(q) { return String(q || '').replace(/^\s*\d{1,2}\s*[x×*хХ]?\s+/, ''); }
 
     // opts: { learned: {itemId: count} for this exact query, usage: {itemId: count} }
     function search(items, query, opts) {
@@ -1499,7 +1547,7 @@ textarea.field { min-height: 70px; }
     }
 
     return {
-      guestLine: guestLine, ingredientCheck: ingredientCheck, INGR_GROUPS: INGR_GROUPS,
+      guestLine: guestLine, matchChoices: matchChoices, ingredientCheck: ingredientCheck, INGR_GROUPS: INGR_GROUPS,
       uid: uid, getItem: getItem, registerCustom: registerCustom, countTotal: countTotal, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
@@ -1940,7 +1988,7 @@ textarea.field { min-height: 70px; }
 (function () {
   'use strict';
 
-  var APP_VERSION = '9';
+  var APP_VERSION = '10';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -2301,6 +2349,15 @@ textarea.field { min-height: 70px; }
     if (it.unverified) tags += '<span class="tag unv">⚠ check</span>';
     if (S.favorites.indexOf(it.id) >= 0) tags += '<span class="tag">★</span>';
     var q = mode === 'pick' ? inOrderQty(t, it.id) : 0;
+    var minus = q ? '<button class="minus" data-a="pickMinus" data-id="' + it.id + '" aria-label="remove one">−</button>' : '';
+    if (mode === 'pick' && ui.picker && ui.picker.q) {
+      var mc = L.matchChoices(it, ui.picker.q);
+      Object.keys(mc).forEach(function (oid) {
+        var o = it.options.filter(function (x) { return x.id === oid; })[0];
+        var c = o.choices.filter(function (x) { return x.id === mc[oid]; })[0];
+        tags += '<span class="tag form">→ ' + esc(c.label) + '</span>';
+      });
+    }
     var price = it.price == null ? '?' : (it.options && it.options.some(function (o) { return o.choices.some(function (c) { return c.price != null; }); }) ? 'от ' : '') + it.price.toLocaleString('ru-RU');
     var action = mode === 'pick' ? 'pick' : 'editItem';
     var quick = mode === 'pick' && (it.options || []).filter(function (o) { return o.quick; })[0];
@@ -2315,7 +2372,7 @@ textarea.field { min-height: 70px; }
         '</button>' +
         '<span class="quick">' + quick.choices.map(function (c) {
           return '<button data-a="pickQ" data-id="' + it.id + '" data-o="' + quick.id + '" data-c="' + c.id + '">' + esc(c.short || c.label) + '</button>';
-        }).join('') + '</span>' +
+        }).join('') + '</span>' + minus +
         '<button class="info" data-a="info" data-id="' + it.id + '" aria-label="details">ⓘ</button></div>';
     }
     return '<div class="irow ' + (it.stop ? 'stop' : '') + '">' +
@@ -2326,7 +2383,7 @@ textarea.field { min-height: 70px; }
           '<span class="ru">' + tags + esc(it.ru) + '</span><div class="en">' + esc(it.en) + '</div></span>' +
         '<span class="side">' + (q ? '<span class="inorder">' + q + '</span>' : '<span class="p">' + price + '</span>') +
           '<span class="w">' + esc(it.w) + '</span></span>' +
-      '</button>' +
+      '</button>' + minus +
       '<button class="info" data-a="info" data-id="' + it.id + '" aria-label="details">ⓘ</button></div>';
   }
 
@@ -2379,10 +2436,9 @@ textarea.field { min-height: 70px; }
       (p.cat === '★' ? '' : '<div class="strip" style="margin-top:8px">' + cats.map(function (c) {
         return '<button class="chip ' + (p.cat === c.id && !p.q ? 'on' : '') + '" data-a="pCat" data-c="' + c.id + '">' + esc(c.ru) + '</button>';
       }).join('') + '</div>') +
-      '<div class="seatrow"><button class="chip" data-a="ingrOpen">🛡 Allergy / ingredient check</button></div>' +
-      (S.settings.seats ? '<div class="seatrow"><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
+      (S.settings.seats ? '<div class="seatrow"><button class="chip" data-a="ingrOpen" aria-label="allergy check">🛡</button><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
         return '<button class="chip ' + ((p.seat || '') === s ? 'on' : '') + '" data-a="pSeat" data-s="' + s + '">' + (s || '—') + '</button>';
-      }).join('') + '</div>' : '');
+      }).join('') + '</div>' : '<div class="seatrow"><button class="chip" data-a="ingrOpen">🛡 Allergy check</button></div>');
   }
 
   function renderPicker() {
@@ -2393,21 +2449,31 @@ textarea.field { min-height: 70px; }
       el = document.createElement('div');
       el.id = 'picker'; el.className = 'picker';
       el.innerHTML = '<div class="head"><div class="searchrow">' +
-        '<input id="psearch" class="search" type="search" placeholder="Search: пс, пельм, borsch…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
-        '<button class="iconbtn" data-a="pClear" aria-label="clear">✕</button></div><div id="pchips"></div></div>' +
+        '<div class="sbox"><input id="psearch" class="search" type="text" inputmode="search" placeholder="Search: пс, пельм, borsch…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">' +
+        '<button class="sclear" data-a="pClearText" aria-label="clear text" hidden>✕</button></div>' +
+        '<button class="iconbtn" data-a="closePicker" aria-label="close menu">⌄</button></div><div id="pchips"></div></div>' +
         '<div class="list" id="plist"></div>' +
         '<div class="foot"><button class="btn primary" data-a="closePicker" id="pdone"></button></div>';
       document.body.appendChild(el);
       var inp = el.querySelector('#psearch');
       inp.value = ui.picker.q || '';
       inp.addEventListener('input', function () {
+        // After adding something, typing starts a new search instead of
+        // appending to the old text.
+        var armed = ui.picker.armed;
+        if (armed != null) {
+          if (inp.value.length > armed.length && inp.value.indexOf(armed) === 0) inp.value = inp.value.slice(armed.length).replace(/^\s+/, '');
+          ui.picker.armed = null;
+        }
         ui.picker.q = inp.value;
+        syncSearchBox();
         document.getElementById('pchips').innerHTML = pickerChipsHTML();
         document.getElementById('plist').innerHTML = pickerListHTML();
         document.getElementById('plist').scrollTop = 0;
       });
     }
     document.getElementById('pchips').innerHTML = pickerChipsHTML();
+    syncSearchBox();
     var list = document.getElementById('plist');
     var st = list.scrollTop;
     list.innerHTML = pickerListHTML();
@@ -2954,17 +3020,32 @@ textarea.field { min-height: 70px; }
     clearSearch(); renderPicker(); document.getElementById('plist').scrollTop = 0;
   };
   A.pSeat = function (d) { ui.picker.seat = d.s === '' ? '' : +d.s; renderPicker(); };
+  function syncSearchBox() {
+    var inp = document.getElementById('psearch'), x = $('[data-a="pClearText"]');
+    if (!inp) return;
+    if (x) x.hidden = !inp.value;
+    inp.classList.toggle('armed', ui.picker && ui.picker.armed != null);
+  }
+  function $(sel) { return document.querySelector(sel); }
+  function armSearch() {
+    if (ui.picker && ui.picker.q) { ui.picker.armed = ui.picker.q; syncSearchBox(); }
+  }
+  A.pClearText = function () {
+    var inp = document.getElementById('psearch');
+    ui.picker.q = ''; ui.picker.armed = null; inp.value = '';
+    renderPicker(); inp.focus();
+  };
   function clearSearch() { ui.picker.q = ''; var i = document.getElementById('psearch'); if (i) { i.value = ''; i.blur(); } }
 
   function needsSheet(it, opts) {
-    return (it.options || []).some(function (o) { return (o.required || o.count) && !(opts && opts[o.id] != null); });
+    return (it.options || []).some(function (o) { return (o.required || o.count || o.ask) && !(opts && opts[o.id] != null); });
   }
 
   A.pick = function (d) {
     var it = item(d.id), t = cur();
     if (!t || !it) return;
     if (it.stop && !d.force) return ask(it.ru + ' is on the STOP-LIST. Add anyway?', 'Add anyway', function () { A.pick(Object.assign({}, d, { force: true })); });
-    var preset = {};
+    var preset = ui.picker && ui.picker.q ? L.matchChoices(it, ui.picker.q) : {};
     if (d.o) preset[d.o] = d.c;
     if (needsSheet(it, preset)) {
       var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset, qty: ui.picker ? qtyQuery(ui.picker.q).n : 1 });
@@ -2984,8 +3065,22 @@ textarea.field { min-height: 70px; }
     toast('+' + added + ' ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : '') + extra, prev);
     // after “3 пс” the box clears so the next item can be typed straight away
     if (added > 1 && ui.picker) { ui.picker.q = ''; var pi = document.getElementById('psearch'); if (pi) pi.value = ''; renderPicker(); }
+    else armSearch();
   };
   A.pickQ = function (d) { A.pick(d); };
+  // Take one off the most recently added not-yet-entered line of this item.
+  A.pickMinus = function (d) {
+    var t = cur(), it = item(d.id);
+    var ls = t.lines.filter(function (l) { return l.itemId === d.id && l.status === 'new'; }).sort(function (a, b) { return b.addedAt - a.addedAt; });
+    if (!ls.length) return;
+    var l = ls[0], prev = JSON.stringify(S), left = 0;
+    commit(null, function () {
+      if (l.qty > 1) l.qty--; else t.lines = t.lines.filter(function (x) { return x !== l; });
+      t.updatedAt = Date.now();
+      left = inOrderQty(t, d.id);
+    });
+    toast('−1 ' + it.ru + (left ? ' (×' + left + ' left)' : ' removed'), prev);
+  };
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
     if (isPractice()) return;
@@ -3090,6 +3185,7 @@ textarea.field { min-height: 70px; }
         track(x.itemId);
       });
       toast('+' + x.qty + ' ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : ''), prev);
+      armSearch();
     } else {
       commit('Saved', function () {
         t.lines = t.lines.map(function (l) { return l.id === s.id ? x : l; });

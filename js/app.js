@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '9';
+  var APP_VERSION = '10';
   var MENU = window.MENU;
   var L = window.createLogic(MENU);
   var T = window.createTrainer(MENU, L);
@@ -363,6 +363,15 @@
     if (it.unverified) tags += '<span class="tag unv">⚠ check</span>';
     if (S.favorites.indexOf(it.id) >= 0) tags += '<span class="tag">★</span>';
     var q = mode === 'pick' ? inOrderQty(t, it.id) : 0;
+    var minus = q ? '<button class="minus" data-a="pickMinus" data-id="' + it.id + '" aria-label="remove one">−</button>' : '';
+    if (mode === 'pick' && ui.picker && ui.picker.q) {
+      var mc = L.matchChoices(it, ui.picker.q);
+      Object.keys(mc).forEach(function (oid) {
+        var o = it.options.filter(function (x) { return x.id === oid; })[0];
+        var c = o.choices.filter(function (x) { return x.id === mc[oid]; })[0];
+        tags += '<span class="tag form">→ ' + esc(c.label) + '</span>';
+      });
+    }
     var price = it.price == null ? '?' : (it.options && it.options.some(function (o) { return o.choices.some(function (c) { return c.price != null; }); }) ? 'от ' : '') + it.price.toLocaleString('ru-RU');
     var action = mode === 'pick' ? 'pick' : 'editItem';
     var quick = mode === 'pick' && (it.options || []).filter(function (o) { return o.quick; })[0];
@@ -377,7 +386,7 @@
         '</button>' +
         '<span class="quick">' + quick.choices.map(function (c) {
           return '<button data-a="pickQ" data-id="' + it.id + '" data-o="' + quick.id + '" data-c="' + c.id + '">' + esc(c.short || c.label) + '</button>';
-        }).join('') + '</span>' +
+        }).join('') + '</span>' + minus +
         '<button class="info" data-a="info" data-id="' + it.id + '" aria-label="details">ⓘ</button></div>';
     }
     return '<div class="irow ' + (it.stop ? 'stop' : '') + '">' +
@@ -388,7 +397,7 @@
           '<span class="ru">' + tags + esc(it.ru) + '</span><div class="en">' + esc(it.en) + '</div></span>' +
         '<span class="side">' + (q ? '<span class="inorder">' + q + '</span>' : '<span class="p">' + price + '</span>') +
           '<span class="w">' + esc(it.w) + '</span></span>' +
-      '</button>' +
+      '</button>' + minus +
       '<button class="info" data-a="info" data-id="' + it.id + '" aria-label="details">ⓘ</button></div>';
   }
 
@@ -441,10 +450,9 @@
       (p.cat === '★' ? '' : '<div class="strip" style="margin-top:8px">' + cats.map(function (c) {
         return '<button class="chip ' + (p.cat === c.id && !p.q ? 'on' : '') + '" data-a="pCat" data-c="' + c.id + '">' + esc(c.ru) + '</button>';
       }).join('') + '</div>') +
-      '<div class="seatrow"><button class="chip" data-a="ingrOpen">🛡 Allergy / ingredient check</button></div>' +
-      (S.settings.seats ? '<div class="seatrow"><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
+      (S.settings.seats ? '<div class="seatrow"><button class="chip" data-a="ingrOpen" aria-label="allergy check">🛡</button><span class="lbl">Guest:</span>' + ['', 1, 2, 3, 4, 5, 6, 7, 8].map(function (s) {
         return '<button class="chip ' + ((p.seat || '') === s ? 'on' : '') + '" data-a="pSeat" data-s="' + s + '">' + (s || '—') + '</button>';
-      }).join('') + '</div>' : '');
+      }).join('') + '</div>' : '<div class="seatrow"><button class="chip" data-a="ingrOpen">🛡 Allergy check</button></div>');
   }
 
   function renderPicker() {
@@ -455,21 +463,31 @@
       el = document.createElement('div');
       el.id = 'picker'; el.className = 'picker';
       el.innerHTML = '<div class="head"><div class="searchrow">' +
-        '<input id="psearch" class="search" type="search" placeholder="Search: пс, пельм, borsch…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">' +
-        '<button class="iconbtn" data-a="pClear" aria-label="clear">✕</button></div><div id="pchips"></div></div>' +
+        '<div class="sbox"><input id="psearch" class="search" type="text" inputmode="search" placeholder="Search: пс, пельм, borsch…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">' +
+        '<button class="sclear" data-a="pClearText" aria-label="clear text" hidden>✕</button></div>' +
+        '<button class="iconbtn" data-a="closePicker" aria-label="close menu">⌄</button></div><div id="pchips"></div></div>' +
         '<div class="list" id="plist"></div>' +
         '<div class="foot"><button class="btn primary" data-a="closePicker" id="pdone"></button></div>';
       document.body.appendChild(el);
       var inp = el.querySelector('#psearch');
       inp.value = ui.picker.q || '';
       inp.addEventListener('input', function () {
+        // After adding something, typing starts a new search instead of
+        // appending to the old text.
+        var armed = ui.picker.armed;
+        if (armed != null) {
+          if (inp.value.length > armed.length && inp.value.indexOf(armed) === 0) inp.value = inp.value.slice(armed.length).replace(/^\s+/, '');
+          ui.picker.armed = null;
+        }
         ui.picker.q = inp.value;
+        syncSearchBox();
         document.getElementById('pchips').innerHTML = pickerChipsHTML();
         document.getElementById('plist').innerHTML = pickerListHTML();
         document.getElementById('plist').scrollTop = 0;
       });
     }
     document.getElementById('pchips').innerHTML = pickerChipsHTML();
+    syncSearchBox();
     var list = document.getElementById('plist');
     var st = list.scrollTop;
     list.innerHTML = pickerListHTML();
@@ -1016,17 +1034,32 @@
     clearSearch(); renderPicker(); document.getElementById('plist').scrollTop = 0;
   };
   A.pSeat = function (d) { ui.picker.seat = d.s === '' ? '' : +d.s; renderPicker(); };
+  function syncSearchBox() {
+    var inp = document.getElementById('psearch'), x = $('[data-a="pClearText"]');
+    if (!inp) return;
+    if (x) x.hidden = !inp.value;
+    inp.classList.toggle('armed', ui.picker && ui.picker.armed != null);
+  }
+  function $(sel) { return document.querySelector(sel); }
+  function armSearch() {
+    if (ui.picker && ui.picker.q) { ui.picker.armed = ui.picker.q; syncSearchBox(); }
+  }
+  A.pClearText = function () {
+    var inp = document.getElementById('psearch');
+    ui.picker.q = ''; ui.picker.armed = null; inp.value = '';
+    renderPicker(); inp.focus();
+  };
   function clearSearch() { ui.picker.q = ''; var i = document.getElementById('psearch'); if (i) { i.value = ''; i.blur(); } }
 
   function needsSheet(it, opts) {
-    return (it.options || []).some(function (o) { return (o.required || o.count) && !(opts && opts[o.id] != null); });
+    return (it.options || []).some(function (o) { return (o.required || o.count || o.ask) && !(opts && opts[o.id] != null); });
   }
 
   A.pick = function (d) {
     var it = item(d.id), t = cur();
     if (!t || !it) return;
     if (it.stop && !d.force) return ask(it.ru + ' is on the STOP-LIST. Add anyway?', 'Add anyway', function () { A.pick(Object.assign({}, d, { force: true })); });
-    var preset = {};
+    var preset = ui.picker && ui.picker.q ? L.matchChoices(it, ui.picker.q) : {};
     if (d.o) preset[d.o] = d.c;
     if (needsSheet(it, preset)) {
       var draft = L.newLine(it.id, { seat: ui.picker && ui.picker.seat || null, opts: preset, qty: ui.picker ? qtyQuery(ui.picker.q).n : 1 });
@@ -1046,8 +1079,22 @@
     toast('+' + added + ' ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : '') + extra, prev);
     // after “3 пс” the box clears so the next item can be typed straight away
     if (added > 1 && ui.picker) { ui.picker.q = ''; var pi = document.getElementById('psearch'); if (pi) pi.value = ''; renderPicker(); }
+    else armSearch();
   };
   A.pickQ = function (d) { A.pick(d); };
+  // Take one off the most recently added not-yet-entered line of this item.
+  A.pickMinus = function (d) {
+    var t = cur(), it = item(d.id);
+    var ls = t.lines.filter(function (l) { return l.itemId === d.id && l.status === 'new'; }).sort(function (a, b) { return b.addedAt - a.addedAt; });
+    if (!ls.length) return;
+    var l = ls[0], prev = JSON.stringify(S), left = 0;
+    commit(null, function () {
+      if (l.qty > 1) l.qty--; else t.lines = t.lines.filter(function (x) { return x !== l; });
+      t.updatedAt = Date.now();
+      left = inOrderQty(t, d.id);
+    });
+    toast('−1 ' + it.ru + (left ? ' (×' + left + ' left)' : ' removed'), prev);
+  };
   A.pickFromInfo = function (d) { closeSheet(); A.pick(d); };
   function track(id) {
     if (isPractice()) return;
@@ -1152,6 +1199,7 @@
         track(x.itemId);
       });
       toast('+' + x.qty + ' ' + it.ru + (res.merged ? ' (×' + res.line.qty + ')' : ''), prev);
+      armSearch();
     } else {
       commit('Saved', function () {
         t.lines = t.lines.map(function (l) { return l.id === s.id ? x : l; });

@@ -157,6 +157,11 @@ input, textarea, select { font-size: 16px; } /* prevents iOS zoom */
 .picker { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
 .picker .head { padding: calc(var(--safe-t) + 8px) 16px 6px; background: var(--bg); border-bottom: 1px solid var(--line); }
 .searchrow { display: flex; gap: 8px; }
+.sbox { position: relative; flex: 1; display: flex; }
+.sbox .search { padding-right: 48px; }
+.search.armed { color: var(--muted); }
+.sclear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--panel-2); color: var(--text); font-size: 16px; font-weight: 800; }
+.irow .minus { flex: none; width: 44px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--block); font-size: 26px; font-weight: 800; }
 .search {
   flex: 1; min-height: var(--tap); border-radius: 12px; border: 1px solid var(--line); background: var(--panel); padding: 0 14px;
 }

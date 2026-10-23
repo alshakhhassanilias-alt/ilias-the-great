@@ -165,6 +165,7 @@
           return;
         }
         if (opt.required && empty) out.push({ level: 'block', code: 'opt:' + opt.id, text: 'Choose ' + opt.label.toLowerCase() });
+        if (opt.ask && !opt.required && empty) out.push({ level: 'warn', code: 'ask:' + opt.id, text: 'Which ' + opt.label.toLowerCase() + '?' });
         if (opt.want && Array.isArray(sel) && sel.length && sel.length !== opt.want) {
           out.push({ level: 'warn', code: 'want:' + opt.id, text: sel.length + ' of ' + opt.want + ' chosen' });
         }
@@ -401,6 +402,7 @@
             (catIndex[it.cat] ? catIndex[it.cat].ru + ' ' + catIndex[it.cat].en : '')).split(' ').filter(Boolean),
           main: main,                                   // significant words of the printed name
           en2: norm(it.en).split(' ').filter(function (w) { return w && !STOP[w]; }),
+          choice: norm((it.options || []).map(function (o) { return o.id === 'smet' ? '' : o.choices.map(function (c) { return c.label; }).join(' '); }).join(' ')).split(' ').filter(function (w) { return w && !/^\d/.test(w); }),
         };
         h.looseName = h.name.map(loose);
         try { Object.defineProperty(it, '_hay', { value: h, enumerable: false }); } catch (e) { /* frozen */ }
@@ -467,15 +469,17 @@
 
     function scoreItem(it, q) {
       var h = haystack(it);
-      var tokens = q.split(' ').filter(Boolean);
+      var all = unitNorm(q).split(' ').filter(Boolean);
+      var tokens = all.filter(function (t) { return !UNIT.test(t); });
+      if (!tokens.length) tokens = all;
       var total = 0;
       for (var i = 0; i < tokens.length; i++) {
         var t = tokens[i];
-        var s = Math.max(tokenScore(t, h.name, 5, h.looseName), tokenScore(t, h.pre, 3.5), tokenScore(t, h.en, 4), tokenScore(t, h.rest, 1));
+        var s = Math.max(tokenScore(t, h.name, 5, h.looseName), tokenScore(t, h.pre, 3.5), tokenScore(t, h.en, 4), tokenScore(t, h.choice, 3.5), tokenScore(t, h.rest, 1));
         if (!s) { total = 0; break; }
         total += s;
       }
-      var compact = q.replace(/ /g, '');
+      var compact = tokens.join('');
       var seg = Math.max(segScore(compact, h.main), segScore(compact, h.en2) - 1);
       if (tokens.length === 1 && h.main.length === 2) seg = Math.max(seg, segScore(compact, [h.main[1], h.main[0]]) - 0.5);
       if (tokens.length === 2) {
@@ -484,6 +488,42 @@
       }
       return Math.max(total, seg);
     }
+
+    // If the query names one of an item's choices (“кола”, “клубничное”), return
+    // { optionId: choiceId } so tapping the result preselects it.
+    function matchChoices(it, query) {
+      var qn = ' ' + unitNorm(norm(qtyStrip(query))) + ' ';
+      var toks = qn.trim().split(' ').filter(function (t) { return t.length >= 3; });
+      var out = {};
+      if (!it) return out;
+      // sizes / glass / bottle written in the query (“сок 1 л”, “вино бокал”)
+      (it.options || []).forEach(function (o) {
+        if (o.multi || o.count) return;
+        var hit = o.choices.filter(function (c) { var l = unitNorm(norm(c.label)); return l.length >= 2 && qn.indexOf(' ' + l + ' ') >= 0; });
+        if (!hit.length) hit = o.choices.filter(function (c) { var l = norm(c.label).split(' ')[0]; return /[а-я]/.test(l) && l.length >= 4 && qn.indexOf(' ' + l + ' ') >= 0; });
+        if (hit.length === 1) out[o.id] = hit[0].id;
+      });
+      if (!toks.length) return out;
+      var nameWords = norm(it.ru + ' ' + it.en + ' ' + (it.pre || '')).split(' ');
+      var rest = toks.filter(function (t) { return !nameWords.some(function (w) { return w.indexOf(t) === 0; }); });
+      if (!rest.length) return out;
+      (it.options || []).forEach(function (o) {
+        if (o.multi || o.count || out[o.id]) return;
+        var hit = o.choices.filter(function (c) {
+          var cw = norm(c.label).split(' ');
+          return rest.every(function (t) { return cw.some(function (w) {
+            if (w.indexOf(t) === 0) return true;
+            var cp = commonPrefix(t, w);
+            return cp >= 5 && cp >= t.length - 3;          // клубничное ≈ клубничный
+          }); });
+        });
+        if (hit.length === 1) out[o.id] = hit[0].id;
+      });
+      return out;
+    }
+    function unitNorm(s) { return s.replace(/(\d)(мл|л|г)(?![а-я])/g, '$1 $2'); }
+    var UNIT = /^(\d+([.,]\d+)?|мл|л|г|литр|литра)$/;
+    function qtyStrip(q) { return String(q || '').replace(/^\s*\d{1,2}\s*[x×*хХ]?\s+/, ''); }
 
     // opts: { learned: {itemId: count} for this exact query, usage: {itemId: count} }
     function search(items, query, opts) {
@@ -615,7 +655,7 @@
     }
 
     return {
-      guestLine: guestLine, ingredientCheck: ingredientCheck, INGR_GROUPS: INGR_GROUPS,
+      guestLine: guestLine, matchChoices: matchChoices, ingredientCheck: ingredientCheck, INGR_GROUPS: INGR_GROUPS,
       uid: uid, getItem: getItem, registerCustom: registerCustom, countTotal: countTotal, allItems: allItems, isDrink: isDrink, displayName: displayName,
       unitPrice: unitPrice, lineTotal: lineTotal, tableTotal: tableTotal,
       newLine: newLine, addItem: addItem, lineIssues: lineIssues, tableIssues: tableIssues,
