@@ -62,6 +62,17 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 32: smoothness again
+
+The detailed map from round 30 made every full redraw of the map slow (it stroked every border on Earth at full
+detail, even when you were zoomed in on one country), and round 31's armies kept the map redrawing even when the
+game was paused. Now:
+
+- the map only draws the borders that are on screen, with simplified lines when zoomed out (redraws are 2 to 4 times
+  faster; the long freezes while panning, zooming or when land changes hands are mostly gone);
+- your army groups are drawn once into small images and copied each frame, and nothing animates while paused;
+- the hovered country's outline is built once instead of every frame, and artillery effects are lighter.
+
 ## Round 31: less noise, a race to win, better-looking armies
 * **The race for world power is the point of the game.** Every nation is ranked by power: its economy (45%), its
   army (35%) and its influence (20%: reputation and allies), as shares of the world's. Your rank is the first thing in

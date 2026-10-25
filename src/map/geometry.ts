@@ -9,7 +9,11 @@ import type { GameState } from '../sim/types';
 type Pt = [number, number];
 type MPoly = Pt[][][];
 
-export interface EdgePath { n: number; path: Path2D }
+export interface EdgePath { n: number; path: Path2D; bbox: [number, number, number, number]; lod: Path2D[] }
+/** Simplified copies of every boundary run (tolerances in map units), so a zoomed-out map strokes far fewer points. */
+export const EDGE_TOL = [0.8, 0.4, 0.2];
+/** The coarsest copy whose error stays under about a CSS pixel at this scale (CSS px per map unit); -1 = full detail. */
+export const edgeLod = (pxPerUnit: number) => { for (let i = 0; i < EDGE_TOL.length; i++) if (EDGE_TOL[i] * pxPerUnit <= 1) return i; return -1; };
 export interface LabelInfo { anchor: Pt; w: number; h: number; area: number }
 /** A curved label baseline through a country's main landmass: v(t) = a·t² + b·t + c in the (u, n) frame around (mx, my). */
 export interface LabelCurve { mx: number; my: number; ux: number; uy: number; nx: number; ny: number; t0: number; len: number; a: number; b: number; c: number; thick: number; area: number }
@@ -41,10 +45,25 @@ export class MapGeometry {
     this.provPaths = geo.provinces.map((p) => pathOf(toMPoly(p.poly)));
     this.edgePaths = geo.provinces.map((p) => p.edges.map((e) => {
       const path = new Path2D();
+      const bbox: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
       for (let i = 0; i < e.pts.length; i += 2) {
-        if (i === 0) path.moveTo(e.pts[0] / 10, e.pts[1] / 10); else path.lineTo(e.pts[i] / 10, e.pts[i + 1] / 10);
+        const x = e.pts[i] / 10, y = e.pts[i + 1] / 10;
+        if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+        if (x < bbox[0]) bbox[0] = x; if (y < bbox[1]) bbox[1] = y; if (x > bbox[2]) bbox[2] = x; if (y > bbox[3]) bbox[3] = y;
       }
-      return { n: e.n, path };
+      // radial-distance simplification: keep a point once it is far enough from the last kept one (and always the ends,
+      // so runs still meet exactly)
+      const lod = EDGE_TOL.map((tol) => {
+        const q = new Path2D(), n = e.pts.length;
+        let lx = e.pts[0] / 10, ly = e.pts[1] / 10;
+        q.moveTo(lx, ly);
+        for (let i = 2; i < n; i += 2) {
+          const x = e.pts[i] / 10, y = e.pts[i + 1] / 10;
+          if (i === n - 2 || Math.abs(x - lx) + Math.abs(y - ly) >= tol) { q.lineTo(x, y); lx = x; ly = y; }
+        }
+        return q;
+      });
+      return { n: e.n, path, bbox, lod };
     }));
     const c = document.createElement('canvas');
     c.width = c.height = 1;

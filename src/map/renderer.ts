@@ -8,7 +8,7 @@
  * a GPU-composited CSS transform while the player pans or zooms, then re-rendered crisply once the view
  * settles. Per-frame overlays (hover, selection, fronts, effects, labels) are cheap and drawn on top.
  */
-import { MapGeometry, type LabelCurve } from './geometry';
+import { MapGeometry, edgeLod, type EdgePath, type LabelCurve } from './geometry';
 import type { GameState } from '../sim/types';
 import { getRelation, areAtWar, hasAlliance } from '../sim/relations';
 import { strengthIndex } from '../sim/military';
@@ -151,17 +151,12 @@ export class MapRenderer {
   private colorSnap: string[] = [];
   private effects: Effect[] = [];
   private ownersVersion = 0;
-  private pathsVersion = -1;
-  private coastPath = new Path2D();
-  private landBorderPath = new Path2D();
-  private innerPath = new Path2D();
   private stripeCache = new Map<string, CanvasPattern>();
   private fronts: CanvasPattern | null = null;
   private terrain: HTMLImageElement | null = null;
   private riverPaths: Path2D[] = [];
   private lakePath = new Path2D();
   private curves = new Map<number, { v: number; c: LabelCurve | null }>();
-  private frontline: { key: string; path: Path2D } = { key: '', path: new Path2D() };
   private capCity = new Map<number, number>(); // province -> index into FEAT.cities of its national capital
   private grain: CanvasPattern | null = null;
   private landPath = new Path2D();
@@ -604,30 +599,11 @@ export class MapRenderer {
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (x + m), dpr * (y + m));
     this.stats.imageMs = performance.now() - ti;
 
-    // combined edge paths (rebuilt only when ownership changes)
-    if (this.pathsVersion !== this.ownersVersion) {
-      this.pathsVersion = this.ownersVersion;
-      const coastP = new Path2D(), landP = new Path2D(), innerP = new Path2D();
-      const own = state.owner;
-      for (let p = 0; p < nP; p++) {
-        for (const e of this.geom.edgePaths[p]) {
-          if (e.n < 0) coastP.addPath(e.path);
-          else if (own[e.n] === own[p]) innerP.addPath(e.path);
-          else landP.addPath(e.path);
-        }
-      }
-      this.coastPath = coastP; this.landBorderPath = landP; this.innerPath = innerP;
-    }
+    // border paths for the regions in view only, simplified to what this zoom can show (stroking the whole world's
+    // borders at full detail was most of the cost of a redraw)
     const provs: number[] = [];
     for (let p = 0; p < nP; p++) if (vis(p)) provs.push(p);
-    const P = state.player;
-    const showSides = !this.plain && this.mode === 'political';
-    const sp = showSides ? this.sidePaths(state) : null;
-    this.paintMap(ctx, state, k, zoomIn, provs, {
-      inner: this.innerPath, coast: this.coastPath, land: this.landBorderPath, ally: sp?.ally ?? null, enemy: sp?.enemy ?? null,
-      player: (!this.plain || this.selected === P) && state.countries[P]?.alive ? this.outlinePath(state, P) : null,
-      front: state.wars.length ? this.frontlinePath(state) : null,
-    });
+    this.paintMap(ctx, state, k, zoomIn, provs, this.borderPaths(state, provs, edgeLod(k), [vx0 - 8 / k, vy0 - 8 / k, vx1 + 8 / k, vy1 + 8 / k]));
     this.dirtyProvs.clear();
     this.baseSideKey = this.sideKey(state);
     this.baseTerrainOff = [sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc];
@@ -694,10 +670,16 @@ export class MapRenderer {
 
     // 5. faint region lines (fade in as you zoom)
     const innerA = clamp(0.1 + (zoomIn - 1) * 0.08, 0.1, 0.42);
-    ctx.strokeStyle = `rgba(28,20,12,${innerA})`; ctx.lineWidth = 0.75 / k;
-    ctx.setLineDash([2.2 / k, 1.6 / k]);
-    ctx.stroke(paths.inner);
-    ctx.setLineDash([]);
+    ctx.lineWidth = 0.75 / k;
+    if (zoomIn < 1.4) { /* the whole world: region lines would be a faint haze */ } else if (zoomIn < 2) {
+      // far out the dashes are too faint and fine to tell apart, and dashing thousands of runs is slow: a fainter solid line
+      ctx.strokeStyle = `rgba(28,20,12,${(innerA * 0.6).toFixed(3)})`; ctx.stroke(paths.inner);
+    } else {
+      ctx.strokeStyle = `rgba(28,20,12,${innerA})`;
+      ctx.setLineDash([2.2 / k, 1.6 / k]);
+      ctx.stroke(paths.inner);
+      ctx.setLineDash([]);
+    }
 
     // 6. coastlines: soft light rim, then a crisp dark edge
     ctx.strokeStyle = 'rgba(190,225,240,0.16)'; ctx.lineWidth = 3.4 / k; ctx.stroke(paths.coast);
@@ -774,25 +756,7 @@ export class MapRenderer {
     const wx0 = (px0 / dpr - bv.x) / k, wy0 = (py0 / dpr - bv.y) / k, wx1 = (px1 / dpr - bv.x) / k, wy1 = (py1 / dpr - bv.y) / k;
     const provs: number[] = [];
     for (let p = 0; p < geo.provinces.length; p++) { const b = geo.provinces[p].bbox; if (!(b[2] < wx0 || b[0] > wx1 || b[3] < wy0 || b[1] > wy1)) provs.push(p); }
-    const own = state.owner, P = state.player;
-    const inner = new Path2D(), coast = new Path2D(), land = new Path2D(), ally = new Path2D(), enemy = new Path2D(), player = new Path2D(), front = new Path2D();
-    const showSides = !this.plain && this.mode === 'political';
-    const en = new Set<number>(), al = new Set<number>();
-    if (showSides) for (const c of state.countries) { if (!c.alive || c.id === P) continue; if (areAtWar(state, c.id, P)) en.add(c.id); else if (hasAlliance(state, c.id, P)) al.add(c.id); }
-    const sides = state.wars.map((w) => [new Set(w.attackers), new Set(w.defenders)] as const);
-    const showPlayer = (!this.plain || this.selected === P) && state.countries[P]?.alive;
-    const outlineOf = (S: Set<number> | number, a: number, b: number) => { const has = (c: number) => (typeof S === 'number' ? c === S : S.has(c)); return (has(a) && (b < 0 || own[b] !== a)) || (b >= 0 && has(own[b]) && own[b] !== a); };
-    for (const p of provs) {
-      const a = own[p];
-      for (const e of this.geom.edgePaths[p]) {
-        if (e.n < 0) coast.addPath(e.path); else if (own[e.n] === a) inner.addPath(e.path); else land.addPath(e.path);
-        if (showSides && outlineOf(al, a, e.n)) ally.addPath(e.path);
-        if (showSides && outlineOf(en, a, e.n)) enemy.addPath(e.path);
-        if (showPlayer && outlineOf(P, a, e.n)) player.addPath(e.path);
-        if (e.n >= 0 && own[e.n] !== a) { const b = own[e.n]; if (sides.some(([A, D]) => (A.has(a) && D.has(b)) || (D.has(a) && A.has(b)))) front.addPath(e.path); }
-      }
-    }
-    this.paintMap(ctx, state, k, k / this.fitK, provs, { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null });
+    this.paintMap(ctx, state, k, k / this.fitK, provs, this.borderPaths(state, provs, edgeLod(k), [wx0 - 8 / k, wy0 - 8 / k, wx1 + 8 / k, wy1 + 8 / k]));
     ctx.restore();
     this.labelsStale = true;
     this.baseHardDirty = false;
@@ -802,56 +766,55 @@ export class MapRenderer {
     return true;
   }
 
+  /**
+   * Every border line the base layer strokes, for the given regions: region lines, coasts, national borders, the
+   * player's allies, enemies and realm, and the frontlines. Runs outside the box are skipped; lod picks the simplified
+   * copy of each run (see EDGE_TOL).
+   */
+  private borderPaths(state: GameState, provs: number[], lod: number, box: [number, number, number, number]) {
+    const own = state.owner, P = state.player;
+    const inner = new Path2D(), coast = new Path2D(), land = new Path2D(), ally = new Path2D(), enemy = new Path2D(), player = new Path2D(), front = new Path2D();
+    const showSides = !this.plain && this.mode === 'political';
+    const en = new Set<number>(), al = new Set<number>();
+    if (showSides) for (const c of state.countries) { if (!c.alive || c.id === P) continue; if (areAtWar(state, c.id, P)) en.add(c.id); else if (hasAlliance(state, c.id, P)) al.add(c.id); }
+    const sides = state.wars.map((w) => [new Set(w.attackers), new Set(w.defenders)] as const);
+    const showPlayer = (!this.plain || this.selected === P) && !!state.countries[P]?.alive;
+    const outlineOf = (S: Set<number> | number, a: number, b: number) => { const has = (c: number) => (typeof S === 'number' ? c === S : S.has(c)); return (has(a) && (b < 0 || own[b] !== a)) || (b >= 0 && has(own[b]) && own[b] !== a); };
+    const [x0, y0, x1, y1] = box;
+    for (const p of provs) {
+      const a = own[p];
+      for (const e of this.geom.edgePaths[p]) {
+        const bb = e.bbox;
+        if (bb[2] < x0 || bb[0] > x1 || bb[3] < y0 || bb[1] > y1) continue;
+        const path = lod >= 0 ? e.lod[lod] : e.path;
+        if (e.n < 0) coast.addPath(path); else if (own[e.n] === a) inner.addPath(path); else land.addPath(path);
+        if (showSides && al.size && outlineOf(al, a, e.n)) ally.addPath(path);
+        if (showSides && en.size && outlineOf(en, a, e.n)) enemy.addPath(path);
+        if (showPlayer && outlineOf(P, a, e.n)) player.addPath(path);
+        if (sides.length && e.n >= 0 && own[e.n] !== a) { const b = own[e.n]; if (sides.some(([A, D]) => (A.has(a) && D.has(b)) || (D.has(a) && A.has(b)))) front.addPath(path); }
+      }
+    }
+    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null };
+  }
+
   // ------------------------------------------------------------------ overlays
-  private outline(ctx: CanvasRenderingContext2D, state: GameState, c: number) { ctx.stroke(this.outlinePath(state, c)); }
+  private hoverPath: { key: string; path: Path2D } = { key: '', path: new Path2D() };
+  private hoverFill: { key: string; path: Path2D } = { key: '', path: new Path2D() };
   /** A country's whole outline as one path (border runs can be stored on either side of a border). */
-  private outlinePath(state: GameState, c: number, into = new Path2D()): Path2D {
+  private outlinePath(state: GameState, c: number, into = new Path2D(), lod = -1): Path2D {
     const geo = this.geom.geo, owner = state.owner;
     const seen = new Set<number>();
+    const pick = (e: EdgePath) => (lod >= 0 ? e.lod[lod] : e.path);
     for (const p of state.countries[c].provinces) {
-      for (const e of this.geom.edgePaths[p]) if (e.n < 0 || owner[e.n] !== c) into.addPath(e.path);
+      for (const e of this.geom.edgePaths[p]) if (e.n < 0 || owner[e.n] !== c) into.addPath(pick(e));
       for (const q of geo.adj[p]) {
         if (owner[q] === c || seen.has(q)) continue;
         seen.add(q);
-        for (const e of this.geom.edgePaths[q]) if (e.n === p) into.addPath(e.path);
+        for (const e of this.geom.edgePaths[q]) if (e.n === p) into.addPath(pick(e));
       }
     }
     return into;
   }
-  private sides: { key: string; enemy: Path2D; ally: Path2D } = { key: '', enemy: new Path2D(), ally: new Path2D() };
-  private sidePaths(state: GameState) {
-    const P = state.player, en: number[] = [], al: number[] = [];
-    for (const c of state.countries) {
-      if (!c.alive || c.id === P) continue;
-      if (areAtWar(state, c.id, P)) en.push(c.id); else if (hasAlliance(state, c.id, P)) al.push(c.id);
-    }
-    const key = `${this.ownersVersion}|${en.join(',')}|${al.join(',')}`;
-    if (this.sides.key !== key) {
-      const enemy = new Path2D(), ally = new Path2D();
-      for (const c of en) this.outlinePath(state, c, enemy);
-      for (const c of al) this.outlinePath(state, c, ally);
-      this.sides = { key, enemy, ally };
-    }
-    return this.sides;
-  }
-  /** Lines where two warring sides meet (rebuilt only when ownership or the set of wars changes). */
-  private frontlinePath(state: GameState): Path2D {
-    const key = `${this.ownersVersion}|${state.wars.map((w) => `${w.id}:${w.attackers.join(',')}/${w.defenders.join(',')}`).join(';')}`;
-    if (this.frontline.key === key) return this.frontline.path;
-    const path = new Path2D();
-    const geo = this.geom.geo, owner = state.owner;
-    for (const w of state.wars) {
-      const A = new Set(w.attackers), D = new Set(w.defenders);
-      for (const a of w.attackers) for (const p of state.countries[a]?.provinces ?? []) {
-        for (const e of this.geom.edgePaths[p]) if (e.n >= 0 && D.has(owner[e.n])) path.addPath(e.path);
-        for (const q of geo.adj[p]) if (D.has(owner[q])) for (const e of this.geom.edgePaths[q]) if (e.n === p) path.addPath(e.path);
-      }
-      void A;
-    }
-    this.frontline = { key, path };
-    return path;
-  }
-
   /** The selected country: a soft wash and a crisp outline. Drawn on the name layer, once per selection (it pans and
    *  zooms with the map like the names), so picking a country never redraws the whole map. */
   private drawSelection(ctx: CanvasRenderingContext2D, state: GameState) {
@@ -881,14 +844,16 @@ export class MapRenderer {
     const geo = this.geom.geo;
     const P = state.player;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    const fill = (c: number, style: string) => {
-      ctx.fillStyle = style;
-      for (const p of state.countries[c].provinces) ctx.fill(this.geom.provPaths[p], 'evenodd');
-    };
 
     if (this.hoverOwner >= 0 && this.hoverOwner !== this.selected && state.countries[this.hoverOwner]?.alive) {
-      fill(this.hoverOwner, 'rgba(255,250,235,0.12)');
-      ctx.strokeStyle = 'rgba(255,250,235,0.8)'; ctx.lineWidth = 1.3 / k; this.outline(ctx, state, this.hoverOwner);
+      const fk = `${this.hoverOwner}|${this.ownersVersion}`;
+      if (this.hoverFill.key !== fk) { const f = new Path2D(); for (const p of state.countries[this.hoverOwner].provinces) f.addPath(this.geom.provPaths[p]); this.hoverFill = { key: fk, path: f }; }
+      ctx.fillStyle = 'rgba(255,250,235,0.12)'; ctx.fill(this.hoverFill.path, 'evenodd');
+      ctx.strokeStyle = 'rgba(255,250,235,0.8)'; ctx.lineWidth = 1.3 / k;
+      // the hovered country's outline, built once per country, owner change and level of detail (not every frame)
+      const lod = edgeLod(k), hk = `${this.hoverOwner}|${this.ownersVersion}|${lod}`;
+      if (this.hoverPath.key !== hk) this.hoverPath = { key: hk, path: this.outlinePath(state, this.hoverOwner, new Path2D(), lod) };
+      ctx.stroke(this.hoverPath.path);
     }
     if (!this.lctx) this.drawSelection(ctx, state); // (no name layer: the selection is drawn with the overlay)
     if (this.selectedProv !== null) {
@@ -1029,7 +994,7 @@ export class MapRenderer {
       pos[0] += (goal[0] - pos[0]) * f; pos[1] += (goal[1] - pos[1]) * f;
       const moving = Math.hypot(goal[0] - pos[0], goal[1] - pos[1]) * V.k > 0.6;
       if (moving) this.armiesMoving = true;
-      const sx = pos[0] * V.k + V.x, sy = pos[1] * V.k + V.y + (moving ? Math.sin(now / 90) * 1.2 : 0);
+      const sx = pos[0] * V.k + V.x, sy = pos[1] * V.k + V.y;
       const sel = this.selectedArmy === a.id;
       const oc = ORDER_COL[a.order] ?? '#fff';
       // objective: a gently curved path of marching chevrons to a pulsing target ring
@@ -1048,7 +1013,7 @@ export class MapRenderer {
         ctx.globalAlpha = 1;
         // chevrons marching along the curve
         const nCh = Math.max(2, Math.floor(L / 26));
-        const phase = (now / 900) % 1;
+        const phase = this.running ? (now / 900) % 1 : 0.5;
         for (let j = 0; j < nCh; j++) {
           const u = (j + phase) / nCh;
           if (u < 0.12 || u > 0.9) continue;
@@ -1061,34 +1026,29 @@ export class MapRenderer {
           ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4.5); ctx.lineTo(-1, 0); ctx.lineTo(-3, 4.5); ctx.closePath(); ctx.fill(); ctx.stroke();
           ctx.restore();
         }
-        const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+        const pulse = this.running ? 0.5 + 0.5 * Math.sin(now / 260) : 0.6;
         ctx.strokeStyle = oc; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.5 + 0.4 * pulse;
         ctx.beginPath(); ctx.arc(tx, ty, 8 + 3 * pulse, 0, 6.283); ctx.stroke();
         ctx.globalAlpha = 0.25 * (1 - pulse);
         ctx.beginPath(); ctx.arc(tx, ty, 14 + 6 * pulse, 0, 6.283); ctx.stroke();
         ctx.restore();
-        this.armiesMoving = true;
+        if (this.running) this.armiesMoving = true; // the chevrons march only while the clock runs
       }
       if (!Number.isFinite(sx) || !Number.isFinite(sy)) return; // an army without a valid position this frame
-      ctx.save();
-      if (sel) { ctx.shadowColor = oc; ctx.shadowBlur = 18; }
       const C = state.countries[P];
-      drawToken(ctx, sx, sy, 15, col, C.mil.equipArmy / Math.max(1, C.mil.troops) > 140000, Math.max(0, Math.min(1, C.mil.readiness * (1 - C.mil.exhaustion))), 'mine');
-      ctx.shadowBlur = 0;
-      // a pennant with the army's number and an order badge
-      const fx = sx + 11, fy = sy - 22;
-      ctx.strokeStyle = 'rgba(20,12,4,0.9)'; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(sx + 9, sy - 9); ctx.lineTo(fx, fy - 6); ctx.stroke();
-      const wave = moving ? Math.sin(now / 120) * 1.5 : Math.sin(now / 400) * 0.6;
-      ctx.fillStyle = oc;
-      ctx.beginPath(); ctx.moveTo(fx, fy - 6); ctx.lineTo(fx + 18, fy - 3 + wave); ctx.lineTo(fx, fy + 3); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(20,12,4,0.85)'; ctx.lineWidth = 0.8; ctx.stroke();
-      ctx.fillStyle = '#1a1006'; ctx.font = `700 8px ${UI_FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(ROMAN[i] ?? String(i + 1), fx + 2, fy - 1.5);
+      if (sel) {
+        // the selected army: a soft halo (a plain ring, far cheaper than a canvas shadow redrawn every frame)
+        ctx.strokeStyle = oc; ctx.globalAlpha = 0.35; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(sx, sy, 21, 0, 6.283); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       const gen = C.generals?.find((x) => x.id === a.general && x.status === 'active');
-      if (gen) { const st = '★'.repeat(Math.min(5, 1 + Math.floor(gen.xp / 25))); ctx.font = `700 8px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText(st, sx + 0.6, sy - 21.4); ctx.fillStyle = '#ffd36a'; ctx.fillText(st, sx, sy - 22); }
-      troopTab(ctx, sx, sy + 21, ORDER_WORD[a.order] ?? a.order);
-      ctx.restore();
+      const stars = gen ? Math.min(5, 1 + Math.floor(gen.xp / 25)) : 0;
+      this.blitArmy(ctx, sx, sy, {
+        color: col, armor: C.mil.equipArmy / Math.max(1, C.mil.troops) > 140000,
+        org: Math.max(0, Math.min(1, C.mil.readiness * (1 - C.mil.exhaustion))),
+        num: ROMAN[i] ?? String(i + 1), orderCol: oc, word: ORDER_WORD[a.order] ?? a.order, stars,
+      });
       this.armyHits.push({ id: a.id, x: sx, y: sy });
     });
     for (const id of [...this.armyPos.keys()]) if (!armies.some((a) => a.id === id)) this.armyPos.delete(id);
@@ -1650,12 +1610,42 @@ export class MapRenderer {
     return { sx, sy, cx, cy, hx, hy };
   }
 
+  private armySprites = new Map<string, HTMLCanvasElement>();
+  /** The player's army groups, drawn once into sprites (token, pennant with the number, the general's stars, the order). */
+  private blitArmy(ctx: CanvasRenderingContext2D, sx: number, sy: number, a: { color: string; armor: boolean; org: number; num: string; orderCol: string; word: string; stars: number }) {
+    const key = `${a.color}|${a.armor ? 1 : 0}|${Math.round(a.org * 29)}|${a.num}|${a.orderCol}|${a.word}|${a.stars}|${this.dpr}`;
+    const W = 72, H = 66, ox = 36, oy = 34;
+    let sp = this.armySprites.get(key);
+    if (!sp) {
+      if (this.armySprites.size > 60) this.armySprites.clear();
+      sp = document.createElement('canvas');
+      sp.width = Math.ceil(W * this.dpr); sp.height = Math.ceil(H * this.dpr);
+      const g = sp.getContext('2d')!;
+      g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      const x = ox, y = oy;
+      drawToken(g, x, y, 15, a.color, a.armor, a.org, 'mine');
+      // a pennant with the army's number in the colour of its order
+      const fx = x + 11, fy = y - 22;
+      g.strokeStyle = 'rgba(20,12,4,0.9)'; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(x + 9, y - 9); g.lineTo(fx, fy - 6); g.stroke();
+      g.fillStyle = a.orderCol;
+      g.beginPath(); g.moveTo(fx, fy - 6); g.lineTo(fx + 18, fy - 3); g.lineTo(fx, fy + 3); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(20,12,4,0.85)'; g.lineWidth = 0.8; g.stroke();
+      g.fillStyle = '#1a1006'; g.font = `700 8px ${UI_FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(a.num, fx + 2, fy - 1.5);
+      if (a.stars) { const st = '★'.repeat(a.stars); g.textAlign = 'center'; g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillText(st, x + 0.6, y - 21.4); g.fillStyle = '#ffd36a'; g.fillText(st, x, y - 22); }
+      troopTab(g, x, y + 21, a.word);
+      this.armySprites.set(key, sp);
+    }
+    ctx.drawImage(sp, Math.round((sx - ox) * this.dpr) / this.dpr, Math.round((sy - oy) * this.dpr) / this.dpr, W, H);
+  }
+
   private counterSprites = new Map<string, HTMLCanvasElement>();
   /** Counters are drawn once into small sprites (keyed by everything they show) and then just copied each frame. */
   private blitCounter(ctx: CanvasRenderingContext2D, sx: number, sy: number, c: { color: string; troops: number; org: number; armor: boolean; enemy: boolean; mine: boolean; gen?: number }, k: number) {
     const showLabel = k > this.fitK * 5 && c.troops > 0;
     const divs = Math.max(1, Math.round(c.troops / 10000));
-    const key = `${c.gen ?? 0}|${c.color}|${divs}|${c.armor ? 1 : 0}|${Math.round(Math.max(0, Math.min(1, c.org)) * 29)}|${c.mine ? 1 : 0}${c.enemy ? 1 : 0}|${showLabel ? fmtNum(c.troops, 0) : ''}|${this.dpr}`;
+    const key = `${c.gen ?? 0}|${c.color}|${divs}|${c.armor ? 1 : 0}|${Math.round(Math.max(0, Math.min(1, c.org)) * 29)}|${c.mine ? 1 : 0}${c.enemy ? 1 : 0}|${counterLabel(c.troops, showLabel)}|${this.dpr}`;
     let sp = this.counterSprites.get(key);
     const W = 52, H = 56, ox = 26, oy = 24; // sprite box around the token's centre (room for the stars, the shadow and the size tab)
     if (!sp) {
@@ -1682,7 +1672,7 @@ export class MapRenderer {
       ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText('★'.repeat(c.gen), sx + 0.6, sy - 15.4);
       ctx.fillStyle = '#ffd36a'; ctx.fillText('★'.repeat(c.gen), sx, sy - 16);
     }
-    const label = k > this.fitK * 5 && c.troops ? fmtNum(c.troops, 0) : c.troops >= 1000 ? `${Math.round(c.troops / 1000)}K` : '';
+    const label = counterLabel(c.troops, k > this.fitK * 5);
     if (label) troopTab(ctx, sx, sy + 15, label);
   }
 
@@ -1954,6 +1944,16 @@ export function drawToken(ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.5, r * 0.45, r * 0.22, -0.5, 0, 6.283); ctx.fill();
   unitGlyph(ctx, x, y + 0.5, r * 0.78, armor);
+}
+/** An army's size on its tab: exact when zoomed right in, otherwise two significant figures (so the cached sprite
+ *  does not have to be redrawn every week as the number ticks). */
+function counterLabel(troops: number, exact: boolean) {
+  if (!troops) return '';
+  if (exact) return fmtNum(troops, 0);
+  if (troops < 1000) return '';
+  if (troops >= 1e6) return `${(troops / 1e6).toFixed(troops >= 1e7 ? 0 : 1)}M`;
+  const kk = troops / 1000, mag = kk >= 100 ? 10 : 1;
+  return `${Math.round(kk / mag) * mag}K`;
 }
 /** A small dark tab with white text (an army's size, a name) centred under a token. */
 export function troopTab(ctx: CanvasRenderingContext2D, x: number, y: number, label: string) {

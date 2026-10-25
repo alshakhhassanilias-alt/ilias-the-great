@@ -66,7 +66,7 @@ export class Fx {
 
   /** one artillery shell landing */
   shell(x: number, y: number, now: number, power = 1) {
-    if (this.parts.length > 260) return;
+    if (this.parts.length > 170) return;
     const r = Math.random;
     this.parts.push({ kind: FLASH, x, y, vx: 0, vy: 0, t0: now, life: 260 + 140 * r(), s: (22 + 14 * r()) * power, c: '' });
     this.parts.push({ kind: RING, x, y, vx: 0, vy: 0, t0: now, life: 480, s: (28 + 14 * r()) * power, c: 'rgba(255,236,200,' });
@@ -75,7 +75,7 @@ export class Fx {
       const a = -Math.PI * (0.15 + 0.7 * r()), v = 70 + 110 * r();
       this.parts.push({ kind: SPARK, x, y, vx: Math.cos(a) * v * (r() < 0.5 ? -1 : 1), vy: Math.sin(a) * v, t0: now, life: 380 + 260 * r(), s: 1, c: r() < 0.5 ? '#ffd27a' : '#ff9a4a' });
     }
-    for (let i = 0; i < 2; i++) this.parts.push({ kind: SMOKE, x: x + (r() - 0.5) * 0.5, y, vx: 4 + 6 * r(), vy: -(6 + 8 * r()), t0: now + 60 + i * 120, life: 2000 + 1000 * r(), s: (14 + 10 * r()) * power, c: '' });
+    this.parts.push({ kind: SMOKE, x: x + (r() - 0.5) * 0.5, y, vx: 4 + 6 * r(), vy: -(6 + 8 * r()), t0: now + 60, life: 2000 + 1000 * r(), s: (16 + 10 * r()) * power, c: '' });
     if (r() < 0.4) this.parts.push({ kind: EMBER, x, y, vx: (r() - 0.5) * 12, vy: -(10 + 14 * r()), t0: now, life: 900 + 600 * r(), s: 1.4, c: '#ff8a3a' });
   }
   /** a region changes hands: a ring and a fountain of sparks in the conqueror's colour */
