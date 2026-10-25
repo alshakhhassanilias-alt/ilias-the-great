@@ -164,3 +164,28 @@
 .ld-wars { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
 .ld-wars li { padding: 3px 0; border-top: 1px dashed var(--line-soft); }
 .ld-wars li span { display: inline-block; min-width: 86px; opacity: .7; }
+
+/* why the polls say what they say */
+.poll-break { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 6px 0 12px; }
+.poll-break > div { border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: 8px; padding: 8px 10px; background: rgba(255,255,255,.02); }
+.poll-break h5 { margin: 0 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.poll-break ul { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 2px; }
+.poll-break li { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.poll-break li b { font-variant-numeric: tabular-nums; }
+
+/* the leader as a person */
+.persona { display: grid; gap: 10px; margin: 8px 0 12px; }
+.persona-top { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.persona-top > div { display: grid; gap: 3px; min-width: 120px; }
+.persona-top small { font-size: 11.5px; }
+.persona-top b { font-size: 22px; }
+.persona-skills { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.skill { display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: 8px; padding: 6px 8px; }
+.skill b { font-size: 18px; }
+.skill .bar, .skill small { grid-column: 1 / -1; }
+.skill small { font-size: 11px; }
+.bar.thin { height: 4px; }
+.deeds { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.deeds li { display: flex; gap: 8px; align-items: center; font-size: 12.5px; opacity: 0.7; }
+.deeds li.got { opacity: 1; color: var(--accent, #f2b84b); }
+.deeds li b { min-width: 34px; text-align: right; }

@@ -13,6 +13,7 @@ import type { Budget } from '../../sim/types';
 import { partnersOf, sanctionLevel } from '../../sim/relations';
 import { fog } from '../format';
 import { ProjectsSection } from './Projects';
+import { IndustrySection } from './Industry';
 import { TreasurySection } from './Treasury';
 import { fundingText } from '../../sim/treasury';
 
@@ -44,6 +45,7 @@ export function EconomyTab({ id }: { id: number }) {
   return (
     <>
       {mine && <AutopilotBanner area="economy" />}
+      <IndustrySection id={id} />
       <Section title="Why is the economy moving?" hint={`growth ${signedPct(e.growth)}`}>
         <Note>{growthNarrative(c)}</Note>
         <div className="card" style={{ marginTop: 8 }}>

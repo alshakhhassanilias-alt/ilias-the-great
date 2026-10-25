@@ -22,6 +22,9 @@ import { nationalName } from './names';
 import { avgLoyalty } from './cabinet';
 import { isAtWar, getRelation } from './relations';
 import { setBudget } from './actions';
+import { researchLasting } from './research';
+import { minority, pillarsLost, stepCoalition } from './coalition';
+import { charismaPc } from './persona';
 import type { Eff } from './doctrines';
 import type { Budget, Country, Faction, FactionId, GameState, InboxItem, Politics } from './types';
 
@@ -231,7 +234,10 @@ export function factionTarget(s: GameState, c: Country, f: Faction): { target: n
   }
   // rising expectations: the longer you govern, the more every faction expects
   const years = s.legacy?.status === 'office' ? (s.tick - s.legacy.termStart) / 52 : s.tick / 52;
-  add('Expectations rise over time', -Math.min(10, years * 2.2));
+  add('Expectations rise over time', -Math.min(6, years * 1.5));
+  // a seat at the table: partners in government (or pillars of the regime) are kinder; the opposition is harsher
+  const G = P.gov;
+  if (G) add(G.partners.includes(f.id) ? (free(c) ? 'In your government' : 'A pillar of the regime') : free(c) ? 'In opposition' : '', G.partners.includes(f.id) ? 5 : free(c) ? -2 : 0);
   if (Math.abs(f.mem) >= 0.5) add('Recent decisions', f.mem);
   const target = clamp(50 + parts.reduce((t, p) => t + p.v, 0), 0, 100);
   return { target, parts: parts.sort((a, b2) => Math.abs(b2.v) - Math.abs(a.v)) };
@@ -269,6 +275,12 @@ export function pcIncome(s: GameState, c: Country, appr: number): { v: number; p
   if (c.gov !== 'D') parts.push({ label: 'Unchecked power', v: 0.1 });
   if (hasLaw(c, 'presidential')) parts.push({ label: 'Presidential powers', v: 0.08 });
   if (hasLaw(c, 'term_limits')) parts.push({ label: 'Term limits', v: -0.05 });
+  if (minority(c)) parts.push({ label: 'Minority government', v: -0.2 });
+  const chp = charismaPc(s);
+  if (Math.abs(chp) > 0.001) parts.push({ label: 'Your charisma', v: chp });
+  if (pillarsLost(c)) parts.push({ label: 'Pillars of the regime lost', v: -0.15 * pillarsLost(c) });
+  const rpc = c.rs ? researchLasting(c).pc : 0;
+  if (rpc) parts.push({ label: 'Research (digital government)', v: rpc });
   return { v: parts.reduce((t, p) => t + p.v, 0), parts };
 }
 
@@ -282,9 +294,9 @@ export function forecast(c: Country, law: Law, whip: number): Forecast {
     const p = 1 / (1 + Math.exp(-((f.mood - 50) / 13 + lean / 7)));
     return { id: f.id, seats: f.support, p };
   });
-  let yes = by.reduce((t, x) => t + (x.seats / 100) * x.p, 0) + whip * 0.008 + (mode === 'rigged' ? 0.1 : 0);
+  let yes = by.reduce((t, x) => t + (x.seats / 100) * x.p, 0) + whip * 0.008 + (mode === 'rigged' ? 0.1 : 0) - (minority(c) ? 0.1 : 0);
   if (mode === 'decree') yes = 1;
-  const cmult = (hasLaw(c, 'federal') && law.id !== 'federal' ? 1.1 : 1) * (hasLaw(c, 'presidential') && law.id !== 'presidential' ? 0.85 : 1);
+  const cmult = (hasLaw(c, 'federal') && law.id !== 'federal' ? 1.1 : 1) * (hasLaw(c, 'presidential') && law.id !== 'presidential' ? 0.85 : 1) * (P.lawMult ?? 1);
   return { yes: clamp(yes, 0, 1), by, mode, cost: Math.round(law.pc * (mode === 'decree' ? 1.3 : 1) * cmult) };
 }
 
@@ -364,6 +376,14 @@ export function stepPolitics(s: GameState, appr: number) {
   P.stab = clamp(st, -14, 10);
   P.appr = clamp(ap, -12, 10);
   if (!inPower) return;
+  // the coalition (or the regime's power base): demands, walkouts, confidence votes
+  stepCoalition(s, (why) => {
+    const L = s.legacy;
+    if (L && s.settings.mode === 'legacy' && L.status === 'office') {
+      if (free(c)) { L.nextVote = Math.min(L.nextVote, s.tick + 8); logEvent(s, `🗳 ${why} Early elections in eight weeks.`, 'danger', [c.id], true, { big: true, prov: c.capital }); }
+      else s.stats.fallDue = 1; // legacy.ts removes the leader
+    } else logEvent(s, `💥 GOVERNMENT CRISIS: ${why} A new ${free(c) ? 'coalition' : 'ruling circle'} is cobbled together (stability −6, political capital −15).`, 'danger', [c.id], true, { big: true, prov: c.capital });
+  });
   // a faction in revolt hurts every week until it ends
   const U = P.unrest;
   if (U && s.tick < U.until) {

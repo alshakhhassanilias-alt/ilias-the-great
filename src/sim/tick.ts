@@ -14,6 +14,9 @@ import { stepNations } from './nations';
 import { stepPolitics as stepDomestic } from './domestic';
 import { stepArcs } from './arcs';
 import { approval } from './approval';
+import { stepResearch } from './research';
+import { stepIndustry } from './industry';
+import { stepInfluence } from './influence';
 import { stepCables } from './cables';
 import { setInTick } from './relations';
 import type { Geo } from './geo';
@@ -137,6 +140,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepAutopilot(s, geo);
   stepCabinet(s);
   stepDomestic(s, approval(s, s.countries[s.player]));
+  if (s.stats.apprBoost) s.stats.apprBoost = Math.abs(s.stats.apprBoost) < 0.05 ? 0 : s.stats.apprBoost * 0.96;
   stepFiscalRule(s);
   stepTracks(s);
   stepLoans(s);
@@ -175,6 +179,9 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepRival(s, geo);
   mark('stepRival'); yield;
   stepDoctrines(s);
+  stepResearch(s);
+  stepIndustry(s);
+  stepInfluence(s);
   mark('stepDoctrines'); yield;
   yield* stepLeadersGen(s, geo);
   stepTrophies(s, geo);

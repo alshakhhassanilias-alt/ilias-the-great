@@ -51,7 +51,7 @@ export function laborUsed(c: Country): number {
   return Math.max(1, e.laborForce * (1 - e.unemployment) - c.mil.troops * 0.9);
 }
 
-export interface Factors { infra: number; energy: number; trade: number; stab: number; tax: number; war: number }
+export interface Factors { infra: number; energy: number; trade: number; stab: number; tax: number; war: number; research: number; industry: number }
 export function factors(c: Country, priceE: number): Factors {
   const e = c.eco;
   return {
@@ -62,9 +62,13 @@ export function factors(c: Country, priceE: number): Factors {
     stab: stabilityFactor(e.prev.stabOut ?? e.stability),
     tax: taxFactor(c.budget, e.collection),
     war: 1 - 0.5 * e.damage,
+    // the research race: an edge for out-researching the world since the start, a lag for trailing it (research.ts)
+    research: e.prev.rsF ?? 1,
+    // industries built (and what they fetch on world markets) against the world's average build-up (industry.ts)
+    industry: e.prev.indF ?? 1,
   };
 }
-const prodFactors = (f: Factors) => f.infra * f.energy * f.trade * f.stab * f.tax * f.war;
+const prodFactors = (f: Factors) => f.infra * f.energy * f.trade * f.stab * f.tax * f.war * f.research * f.industry;
 export const demandSide = (f: Factors) => f.energy * Math.min(1, f.trade) * f.stab * f.tax * f.war;
 
 export function potentialOutput(c: Country, priceE: number, tfp = c.eco.tfp): number {
@@ -125,6 +129,8 @@ export function popGrowthRate(c: Country, s: GameState): number {
   const ref = c.baseline.pop * Math.max(1, c.provinces.length) / Math.max(1, c.baseline.provinces), r = c.eco.pop / Math.max(1, ref);
   const soc = clamp((c.budget.social / Math.max(c.eco.baseSocial, 0.01) - 1) * 0.004, -0.004, 0.004);
   g += soc * (soc > 0 ? clamp(2 - r, 0, 1) : clamp(2 * r - 1, 0, 1));
+  // medicine and longevity research (research.ts) add a little, fading the same way as family policy
+  if (c.eco.popGrowthMod) g += c.eco.popGrowthMod * clamp(2 - r, 0, 1);
   g -= 0.05 * c.eco.foodUnmet;
   g -= 0.002 * Math.max(0, 50 - c.eco.stability) / 50;
   return g;
@@ -338,7 +344,8 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   e.damage = Math.max(0, e.damage - 0.012 * DT * 52 * 0.25);
 
   // ---- fiscal ----
-  const revenue = e.gdp * e.collection * diffTax * taxBurden(b) * (e.prev.revMult ?? 1);
+  // taxes, plus mining and arms export earnings (industry.ts) and the dividends of a sphere of influence (influence.ts)
+  const revenue = e.gdp * e.collection * diffTax * taxBurden(b) * (e.prev.revMult ?? 1) + (e.prev.exportInc ?? 0) + (e.prev.sphereInc ?? 0);
   const mkt = marketRate(e) - (cb ? 0.005 : 0) + charRate(c) - (e.prev.chR0 ?? 0);
   e.avgRate += (mkt - e.avgRate) * 0.2 * DT * 5;
   e.interest = e.debt * e.avgRate;
@@ -410,13 +417,15 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     stability: Math.log(f.stab),
     taxes: Math.log(f.tax),
     war: Math.log(f.war),
+    research: Math.log(f.research),
+    industry: Math.log(f.industry),
   };
   for (const key of Object.keys(lnNow)) {
     const prev = e.prev['ln_' + key];
     if (prev !== undefined) e.explain[key] = (e.explain[key] ?? 0) * 0.9 + 0.1 * ((lnNow[key] - prev) / DT);
     e.prev['ln_' + key] = lnNow[key];
   }
-  e.explain.convergence = (e.explain.convergence ?? 0) * 0.9 + 0.1 * (g - ((c.eco.explain.capital ?? 0) + (e.explain.labor ?? 0) + (e.explain.tfp ?? 0) + (e.explain.infra ?? 0) + (e.explain.energy ?? 0) + (e.explain.trade ?? 0) + (e.explain.stability ?? 0) + (e.explain.taxes ?? 0) + (e.explain.war ?? 0)));
+  e.explain.convergence = (e.explain.convergence ?? 0) * 0.9 + 0.1 * (g - ((c.eco.explain.capital ?? 0) + (e.explain.labor ?? 0) + (e.explain.tfp ?? 0) + (e.explain.infra ?? 0) + (e.explain.energy ?? 0) + (e.explain.trade ?? 0) + (e.explain.stability ?? 0) + (e.explain.taxes ?? 0) + (e.explain.war ?? 0) + (e.explain.research ?? 0) + (e.explain.industry ?? 0)));
 }
 
 export function stepEconomies(s: GameState, geo: Geo) {

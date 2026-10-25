@@ -108,7 +108,10 @@
   .tab-ic { display: inline-flex; }
   .tab-ic .ic { width: 16px; height: 16px; }
   .tabs { gap: 2px; padding: 10px 8px 0; overflow: visible; }
-  .tabs button { flex: 1 1 auto; justify-content: center; gap: 5px; padding: 9px 6px 10px; letter-spacing: 0.08em; font-size: 13px; }
+  .tabs button { flex: 1 1 auto; justify-content: center; gap: 4px; padding: 9px 4px 10px; letter-spacing: 0.04em; font-size: 12px; min-width: 0; }
+  /* seven tabs: only the open one shows its icon, so every label fits */
+  .tabs button:not(.on) .tab-ic { display: none; }
+  .tabs button .tab-ic .ic { width: 14px; height: 14px; }
   .tabs button.on .tab-ic { filter: drop-shadow(0 0 5px rgba(245, 218, 143, 0.55)); }
   .side-body { padding: 16px 18px 32px; }
 

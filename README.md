@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 206 deterministic simulation tests (Vitest) |
+| `npm test` | 219 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
@@ -61,6 +61,41 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 33: depth that never runs out
+
+Players said everything maxed out (economy, military), politics and diplomacy felt pointless, courses just pointed
+back where you came from, and Legacy felt like Sandbox with a name and rigged polls. This round adds four open-ended
+races and rebuilds Legacy:
+
+- **Research** (new tab, `research.ts`): five ladders (industry, energy, digital, society, defence) of ten named
+  technologies each, with either-or choices on rungs 3, 6 and 9, then endless frontier research. Every country
+  researches; knowledge others already hold is cheaper, so leading is expensive and following cheap. What counts is
+  your distance to the world's frontier: close it and output gains on the world, fall behind and it loses ground; the
+  first to master a technology earns a fading innovator's premium. Defence rungs make your forces stronger than an
+  enemy a rung below. Levers: the education budget, crash grants, industrial espionage.
+- **Industries and world markets** (Economy tab, `industry.ts`): eight sectors, each with a world price that follows
+  supply and demand (plus booms and gluts), a world ranking and a share. Investment programmes add capacity, each level
+  dearer; advanced sectors need research and energy. Each level pays off in output and in its own way (food, energy,
+  technology, cheaper weapons, tax collection, export earnings). Every country builds, so the yardstick is the world.
+- **Influence and spheres** (Diplomacy tab, Spheres map mode, `influence.ts`): powers hold influence in every country
+  through trade, alliances, size and money; investment, aid, arms deals, culture and backing a party buy more. The
+  country where you clearly lead joins your sphere: it votes with you in the Assembly, accepts your treaties more
+  readily, drifts toward your camp, pays you a dividend and adds to your world power. The great powers compete for
+  clients all game long.
+- **Coalition government** (Politics tab, `coalition.ts`): your majority rests on partners who each hold you to a
+  concrete demand with a deadline (a law, a budget line, a number). Deliver for capital and loyalty; miss twice and
+  they walk out. A minority government passes laws less easily, earns less capital, loses approval and faces
+  confidence votes. Regimes have pillars instead, and losing two endangers the leader.
+- **Legacy as its own game** (`persona.ts`, `events11.ts`): your leader ages, has health and four skills (charisma,
+  administration, diplomacy, command) that grow with what you actually do and pay off; a party rival grows while you
+  are unpopular and can challenge you; fourteen career deeds; a three-step campaign (theme, the televised debate, the
+  final push); scandals, health scares, an attempt on your life; a successor who can carry on after you. Polls are fair
+  and fully explained: growth is judged against the country's own normal, and a steady government polls about even.
+  In opposition no government decisions reach you, and you have more ways to fight back.
+- **Courses**: a country firmly in a camp can now *lead* it (summit, carry the load, win the neighbours, take the
+  lead), and a turn just completed cannot be reversed for ten years.
+- **Objectives** now also come from research, industries and influence, so they never run dry.
 
 ## Round 32: smoothness again
 

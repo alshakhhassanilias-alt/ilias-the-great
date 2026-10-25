@@ -14,6 +14,9 @@ import { recOf } from './minds';
 import { orgsOf } from './relations';
 import { hash01 } from './rng';
 import type { Country, CountryId, GameState } from './types';
+import { BRANCHES, branchStanding, ensureResearch } from './research';
+import { SECTORS, sectorStanding, type SectorId } from './industry';
+import { clientsOf, patronOf, standings } from './influence';
 
 export type Path = 'conqueror' | 'strongman' | 'reformer' | 'trader' | 'peacemaker' | 'builder';
 export const PATH_LABEL: Record<Path, string> = { conqueror: 'the Conqueror', strongman: 'the Strongman', reformer: 'the Reformer', trader: 'the Trader', peacemaker: 'the Peacemaker', builder: 'the Builder' };
@@ -144,6 +147,29 @@ export function dynGoal(s: GameState, id: string): Goal | null {
       return { id, theme: 'politics', title: 'Order at home', desc: `Raise stability to ${tgt}.`, reward: 'Reward: 0.5% of GDP · readiness +3%',
         progress: (_s2, c2) => ({ value: clamp(c2.eco.stability / tgt, 0, 1), text: `${c2.eco.stability.toFixed(0)} / ${tgt}` }), pay: both(cash(0.005), (c2) => { c2.mil.readiness = clamp(c2.mil.readiness + 0.03, 0, 1); }) };
     }
+    case 'breakthrough': {
+      const g0 = base(s, id, () => ensureResearch(c).got ?? 0);
+      return { id, theme: 'economy', title: 'Three breakthroughs', desc: 'Master three more technologies (Research tab).', reward: 'Reward: 0.6% of GDP · technology +2',
+        progress: (_s2, c2) => { const n = (c2.rs?.got ?? 0) - g0; return { value: clamp(n / 3, 0, 1), text: `${Math.max(0, n)} / 3` }; }, pay: both(cash(0.006), (c2) => { c2.eco.tech = clamp(c2.eco.tech + 2, 5, 100); }) };
+    }
+    case 'frontier': {
+      const b = arg % 5;
+      return { id, theme: 'economy', title: `At the frontier: ${BRANCHES[b].short.toLowerCase()}`, desc: `Catch up with the world's most advanced countries in ${BRANCHES[b].name.toLowerCase()} research.`, reward: 'Reward: reputation +3 · 0.5% of GDP',
+        progress: (s2, c2) => { const st = branchStanding(s2, c2, b); return { value: st.lv >= st.frontier ? 1 : clamp(st.lv / Math.max(1, st.frontier), 0, 0.99), text: `rung ${st.lv} of ${st.frontier}` }; }, pay: both(cash(0.005), rep(3)) };
+    }
+    case 'sector': {
+      const sec = SECTORS[arg % SECTORS.length];
+      const r0 = base(s, id, () => sectorStanding(s, c, sec.id as SectorId).rank || 99);
+      const tgt = Math.max(1, r0 <= 5 ? r0 - 1 : Math.min(r0 - 3, 10));
+      return { id, theme: 'economy', title: `The world's #${tgt} ${sec.maker}`, desc: `Climb the world ranking in ${sec.name.toLowerCase()} from #${r0} to #${tgt} (Economy → Industries).`, reward: 'Reward: 0.8% of GDP',
+        progress: (s2, c2) => { const r = sectorStanding(s2, c2, sec.id as SectorId).rank || 99; return { value: r <= tgt ? 1 : clamp((r0 - r) / Math.max(1, r0 - tgt), 0, 0.99), text: `#${r} now` }; }, pay: cash(0.008) };
+    }
+    case 'client': {
+      if (!T?.alive) return null;
+      return { id, theme: 'politics', title: `Win over ${T.name}`, desc: `Bring ${T.name} into your sphere of influence (its Diplomacy tab → Influence).`, reward: 'Reward: reputation +3 · political capital +10',
+        progress: (s2) => { const st = standings(s2, arg); const me = st.find((x) => x.id === s2.player); const ph = patronOf(s2, arg); return { value: ph?.patron === s2.player ? 1 : clamp((me?.share ?? 0) / 0.4, 0, 0.99), text: ph?.patron === s2.player ? 'in your sphere' : `${Math.round((me?.share ?? 0) * 100)}% of the influence` }; },
+        pay: both(rep(3), (c2) => { if (c2.politics) c2.politics.pc = Math.min(100, c2.politics.pc + 10); }) };
+    }
     case 'bloc': {
       const o = (s.orgs ?? []).find((x) => x.id === arg);
       if (!o) return null;
@@ -197,7 +223,12 @@ export function dynCandidates(s: GameState): [string, number][] {
     out.push([`d:hegemon:0:${t}`, 2]);
   }
   out.push([`d:rich:0:${t}`, W('rich', { builder: 3, reformer: 2.5, trader: 2 }, 1)]);
-  out.push([`d:tech:0:${t}`, W('tech', { builder: 2.5, reformer: 2 }, 1)]);
+  if (c.eco.tech < 90) out.push([`d:tech:0:${t}`, W('tech', { builder: 1.5, reformer: 1.2 }, 0.6)]);
+  // research, industries and influence: the races that never end
+  out.push([`d:breakthrough:0:${t}`, W('breakthrough', { builder: 2.5, reformer: 2.5, trader: 1.5 }, 1.2)]);
+  { const rs = ensureResearch(c); const lag = [0, 1, 2, 3, 4].map((b) => ({ b, gap: branchStanding(s, c, b).frontier - rs.lv[b] })).filter((x) => x.gap >= 1 && x.gap <= 3).sort((a, b) => a.gap - b.gap)[0]; if (lag) out.push([`d:frontier:${lag.b}:${t}`, W('frontier', { reformer: 2, builder: 2, conqueror: lag.b === 4 ? 2 : 0.6 }, 1)]); }
+  { const best = SECTORS.map((x, i) => ({ i, r: sectorStanding(s, c, x.id).rank })).filter((x) => x.r > 1 && x.r <= 25).sort((a, b) => a.r - b.r)[0]; if (best) out.push([`d:sector:${best.i}:${t}`, W('sector', { trader: 3, builder: 2.5 }, 1.2)]); }
+  { const mine = clientsOf(s, c.id); const tgt = all.filter((x) => !mine.includes(x.id) && x.eco.gdp < c.eco.gdp && (x.region === c.region || getRelation(s, c.id, x.id) > 30)).map((x) => ({ x, sh: standings(s, x.id).find((y) => y.id === c.id)?.share ?? 0 })).sort((a, b) => b.sh - a.sh)[0]; if (tgt) out.push([`d:client:${tgt.x.id}:${t}`, W('client', { peacemaker: 2.5, trader: 2.5, conqueror: 2, strongman: 2 }, 1.3)]); }
   out.push([`d:prestige:0:${t}`, W('prestige', { reformer: 2.5, peacemaker: 2.5 }, 0.8)]);
   if (c.eco.stability < 82) out.push([`d:order:0:${t}`, W('order', { strongman: 3 }, 1)]);
   const mine = orgsOf(s, c.id).find((o) => o.founder === c.id);

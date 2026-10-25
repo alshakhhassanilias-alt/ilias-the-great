@@ -3,6 +3,8 @@ import { isMajor } from './drama';
 import { cable } from './cables';
 import { addGrudge } from './leaders';
 import { mods } from './doctrines';
+import { patronCached } from './influence';
+import { dipAccept } from './persona';
 import type { Geo } from './geo';
 import {
   addRelation, alliesOf, areAtWar, ensureTreaty, touchTreaties, getRelation, getTreaty, isAtWar, sanctionLevel, setSanction, warsOf, enemiesOf,
@@ -57,6 +59,8 @@ export function evaluateProposal(s: GameState, geo: Geo, from: CountryId, to: Co
   const op = T.isPlayer ? { v: 0, reasons: [] as { label: string }[] } : opinionOf(s, to, from);
   if (Math.abs(op.v) >= 6) { score += op.v / 120; if (op.reasons[0]) reasons.push(`${T.leader?.name ?? T.name} ${op.v < 0 ? 'holds it against you that' : 'likes that'} you ${asYou(op.reasons[0].label)}`); }
   let needed = 0.15;
+  if (patronCached(s, to) === from) { score += 0.3; reasons.push(`${T.name} is in your sphere of influence`); }
+  if (from === s.player) { const da = dipAccept(s); if (Math.abs(da) > 0.001) { score += da; reasons.push(`Your diplomacy (${da > 0 ? '+' : ''}${(da * 100).toFixed(0)})`); } }
   const ratio = strength(F) / Math.max(1, strength(T));
   const neighbors = areNeighbors(s, geo, from, to);
   switch (kind) {

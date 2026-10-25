@@ -219,7 +219,7 @@ export function VictoryBanner() {
 export function MapModes() {
   useStore();
   const modes: { v: typeof store.mapMode; label: string }[] = [
-    { v: 'political', label: 'Political' }, { v: 'blocs', label: 'Blocs' }, { v: 'diplomacy', label: 'Relations' }, { v: 'wealth', label: 'Wealth' }, { v: 'power', label: 'Power' }, { v: 'stability', label: 'Stability' },
+    { v: 'political', label: 'Political' }, { v: 'blocs', label: 'Blocs' }, { v: 'spheres', label: 'Spheres' }, { v: 'diplomacy', label: 'Relations' }, { v: 'wealth', label: 'Wealth' }, { v: 'power', label: 'Power' }, { v: 'stability', label: 'Stability' },
   ];
   const gradients: Record<string, [string, string, string]> = {
     diplomacy: ['linear-gradient(90deg,#b43232,#46506a,#3cbe82)', 'hostile', 'friendly'],

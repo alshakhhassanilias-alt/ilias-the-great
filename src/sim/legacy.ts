@@ -12,7 +12,7 @@ import type { Geo } from './geo';
 import type { AgendaPick, Country, GameState, LegacyState, TermRecord, WarRecord } from './types';
 import { START_YEAR, TICKS_PER_YEAR } from './types';
 import { agendaById, dealHand } from './agenda';
-import { approval } from './events3';
+import { approval } from './approval';
 import { avgLoyalty, ensureCabinet } from './cabinet';
 import { personName } from './leaders';
 import { strength } from './military';
@@ -23,6 +23,7 @@ import { nextRand } from './rng';
 import { pushInbox } from './events';
 import { forcePeaceAll } from './war';
 import { geoRefGet } from './geoRef';
+import { charismaVote, lawCostMult, personaOf, stepPersona } from './persona';
 
 export const TERM = 208; // four years
 export const titleFor = (gov: string) => (gov === 'D' ? 'President' : gov === 'F' ? 'Prime Minister' : gov === 'M' ? 'Sovereign' : gov === 'C' ? 'General Secretary' : 'Chairman');
@@ -76,7 +77,7 @@ export function scoreParts(s: GameState): Record<string, number> {
 }
 export const totalScore = (parts: Record<string, number>) => Object.values(parts).reduce((t, v) => t + v, 0);
 export function grade(score: number) { return score >= 900 ? 'S' : score >= 600 ? 'A' : score >= 350 ? 'B' : score >= 150 ? 'C' : score >= 0 ? 'D' : 'F'; }
-export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises (kept − broken)', wars: 'Wars you fought', aims: 'War aims', terms: 'Mandates' };
+export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises (kept − broken)', deeds: 'Deeds for the history books', wars: 'Wars you fought', aims: 'War aims', terms: 'Mandates', heir: 'Your successor' };
 /** What each part of the score measures, in one line (shown under the bar). */
 export function partHint(s: GameState, k: string): string {
   const L = s.legacy!;
@@ -91,6 +92,8 @@ export function partHint(s: GameState, k: string): string {
     case 'wars': return wars.length ? `${wars.length} war${wars.length > 1 ? 's' : ''} you were a party to while in office: won +45, lost −45, draw 0. Wars between other countries never count.` : 'You have fought no wars in office. Wars between other countries never count, so peace keeps this at 0.';
     case 'aims': return 'War aims you declared: achieved +18/+30, failed −15/−30.';
     case 'terms': return 'Re-elected +25 · defeated −20 · comeback +40.';
+    case 'deeds': return 'Career deeds achieved (see the list below).';
+    case 'heir': return 'Your chosen successor won the election after you stepped down: +80; lost: −20.';
   }
   return '';
 }
@@ -155,8 +158,13 @@ export function stepLegacy(s: GameState, geo: Geo) {
         logEvent(s, `🏅 PROMISE KEPT: ${card.title}. Your legacy grows (+${card.points}).`, 'info', [s.player], true, { big: true, prov: c.capital });
       }
     }
-    // the campaign starts eight weeks before the vote
-    if (s.tick === L.nextVote - 8 && !s.inbox.some((x) => x.id.startsWith('legacy_'))) pushInbox(s, isFree(c.gov) ? 'legacy_campaign' : 'legacy_loyalty', {}, 8);
+    // the campaign: three decisions in the last twelve weeks (strategy, the debate, the final push); a regime's congress
+    // is decided by the ruling circle instead
+    if (isFree(c.gov)) {
+      if (s.tick === L.nextVote - 12) pushInbox(s, 'legacy_camp1', {}, 4);
+      if (s.tick === L.nextVote - 8) pushInbox(s, 'legacy_debate', {}, 4);
+      if (s.tick === L.nextVote - 4) pushInbox(s, 'legacy_final', {}, 4);
+    } else if (s.tick === L.nextVote - 8 && !s.inbox.some((x) => x.id.startsWith('legacy_'))) pushInbox(s, 'legacy_loyalty', {}, 8);
     if (s.tick >= L.nextVote) holdVote(s);
     // a collapse of the state removes you from power
     if (c.eco.stability < 6 && nextRand(s) < 0.03) {
@@ -175,20 +183,35 @@ export function stepLegacy(s: GameState, geo: Geo) {
     if (L.status === 'office') closeTerm(s, 'ended', 'The era closes with you still in power.');
     endLegacy(s, `${L.maxYear}: the era ends. ${L.leader}'s place in history is decided.`);
   }
+  stepPersona(s);
+  if (s.stats.healthEnd) { s.stats.healthEnd = 0; const why = L.endReason ?? `${L.leader}'s health gives out.`; L.endReason = undefined; if (L.status === 'office') closeTerm(s, 'ended', why); endLegacy(s, why); return; }
+  if (s.stats.challengeDue) { s.stats.challengeDue = 0; if (L.status === 'office') pushInbox(s, 'legacy_challenge', {}, 6); }
+  if (s.stats.fallDue) { s.stats.fallDue = 0; if (L.status === 'office') overthrow(s, 'The pillars of the regime turned against the leader.'); }
+  if (c.politics) c.politics.lawMult = lawCostMult(s);
   L.score = totalScore(scoreParts(s));
   void geo;
 }
 
-/** Vote share at an election (or loyalty at a party congress). */
-export function voteShare(s: GameState): number {
+/** Vote share at an election (or loyalty at a party congress), with every part the player can see. */
+export function voteParts(s: GameState): { key: string; label: string; v: number }[] {
   const L = s.legacy, c = s.countries[s.player];
-  const kept = L ? L.agenda.filter((a) => a.done).length : 0, failed = L ? L.agenda.length - kept : 0;
-  const fatigue = Math.max(0, (L?.term ?? 1) - 2) * 2.5;
-  const diff = s.settings.difficulty === 'easy' ? 4 : s.settings.difficulty === 'hard' ? -4 : 0;
-  const cab = c.cabinet?.length ? clamp((avgLoyalty(c) - 50) * 0.08, -3, 2) : 0; // a divided cabinet leaks against you
-  // elections are fought against an opposition that grows stronger the longer you rule
-  const opposition = 1.5 * Math.max(0, (L?.term ?? 1) - 1);
-  return clamp(50 + (approval(s, c) - 50) * 0.6 + 3.5 * kept - 2 * failed - fatigue - opposition + diff + cab + (s.stats.campaign ?? 0), 2, 95);
+  const kept = L ? L.agenda.filter((a) => a.done).length : 0, failed = L ? L.agenda.filter((a) => a.failed).length : 0;
+  const diff = s.settings.difficulty === 'easy' ? 3 : s.settings.difficulty === 'hard' ? -3 : 0;
+  const cab = c.cabinet?.length ? clamp((avgLoyalty(c) - 50) * 0.06, -3, 2) : 0; // a divided cabinet leaks against you
+  const parts = [
+    { key: 'base', label: 'Even race', v: 50 },
+    { key: 'approval', label: 'Your government’s approval', v: (approval(s, c) - 50) * 0.7 },
+    { key: 'promises', label: 'Promises kept and broken', v: 3.5 * kept - 2.5 * failed },
+    { key: 'fatigue', label: 'Voters ready for a change', v: -Math.max(0, (L?.term ?? 1) - 2) * 2 },
+    { key: 'cabinet', label: 'Cabinet unity', v: cab },
+    { key: 'charisma', label: 'Your personal appeal (charisma)', v: charismaVote(s) },
+    { key: 'campaign', label: 'Your campaign', v: s.stats.campaign ?? 0 },
+  ];
+  if (diff) parts.push({ key: 'difficulty', label: 'Difficulty', v: diff });
+  return parts.filter((p) => Math.abs(p.v) > 0.05 || p.key === 'base');
+}
+export function voteShare(s: GameState): number {
+  return clamp(voteParts(s).reduce((t, p) => t + p.v, 0), 2, 95);
 }
 
 function holdVote(s: GameState) {
@@ -199,7 +222,7 @@ function holdVote(s: GameState) {
     const card = agendaById(a.id);
     judge(L, a, card.progress(s, c, a).value >= 0.999 || (!!card.atTermEnd && card.progress(s, c, a).value >= 0.98));
   }
-  const share = clamp(voteShare(s) + (nextRand(s) - 0.5) * 10, 1, 97);
+  const share = clamp(voteShare(s) + (nextRand(s) - 0.5) * 6, 1, 97); // polls are rarely off by more than three points
   s.stats.campaign = 0;
   s.stats.lastVote = share;
   const free = isFree(c.gov);
@@ -241,7 +264,9 @@ function goIntoOpposition(s: GameState, share: number) {
     forcePeaceAll(s, geo, c.id);
     logEvent(s, `🕊 The new government of ${L.opposition.gov} signs ceasefires on every front.`, 'peace', [c.id], true);
   }
-  s.inbox = s.inbox.filter((x) => !x.urgent);
+  // the government's in-tray goes with the government
+  s.inbox = s.inbox.filter((x) => x.id.startsWith('legacy_') || x.id.startsWith('opp_'));
+  s.offers = s.offers.filter((o) => o.kind === 'peace');
   freshStart(s);
 }
 
@@ -301,6 +326,8 @@ export const OPP_ACTIONS: { id: string; label: string; exile: string; desc: stri
   { id: 'expose', label: 'Expose the government', exile: 'Leak regime secrets', desc: 'Support + more the worse the economy · stability −2', cd: 12, gain: 0 },
   { id: 'coalition', label: 'Build a coalition', exile: 'Win over the generals', desc: 'Support +6', cd: 26, gain: 6 },
   { id: 'abroad', label: 'Win friends abroad', exile: 'Secure foreign backing', desc: 'Support +2 · your next vote +3', cd: 20, gain: 2 },
+  { id: 'shadow', label: 'Publish a shadow budget', exile: 'Publish a programme for the day after', desc: 'Support +2, more the worse the economy is doing', cd: 26, gain: 0 },
+  { id: 'protest', label: 'Lead street protests', exile: 'Stir up unrest', desc: 'Support +5 · stability −3 · 20% risk: a backlash (support −3)', cd: 16, gain: 0 },
 ];
 export function actOpposition(s: GameState, id: string) {
   const L = s.legacy, c = s.countries[s.player];
@@ -312,6 +339,8 @@ export function actOpposition(s: GameState, id: string) {
   let gain = a.gain;
   if (id === 'expose') { gain = clamp(2 + (50 - approval(s, c)) * 0.15, 1, 8); c.eco.stability = Math.max(0, c.eco.stability - 2); }
   if (id === 'abroad') s.stats.campaign = (s.stats.campaign ?? 0) + 3;
+  if (id === 'shadow') gain = clamp(2 + (c.eco.baseGrowth - c.eco.growth) * 150 + (c.eco.inflation > 0.05 ? 2 : 0), 1, 7);
+  if (id === 'protest') { c.eco.stability = Math.max(0, c.eco.stability - 3); gain = nextRand(s) < 0.2 ? -3 : 5; }
   L.opposition.support = clamp(L.opposition.support + gain, 5, 85);
   return { ok: true, message: `Support for you rises to ${L.opposition.support.toFixed(0)}%.` };
 }
@@ -329,8 +358,19 @@ export function actForceVote(s: GameState) {
 export function actRetire(s: GameState) {
   const L = s.legacy;
   if (!L || L.status === 'ended') return { ok: false, message: 'No career to end' };
-  if (L.status === 'office') closeTerm(s, 'retired', `${L.leader} steps down at a time of their choosing.`);
-  endLegacy(s, `${L.leader} retires from public life.`);
+  const heir = personaOf(s)?.heir;
+  if (L.status === 'office') {
+    closeTerm(s, 'retired', `${L.leader} steps down at a time of their choosing.`);
+    // a chosen successor runs on your record: the closer you leave it to a good result, the better their chances
+    if (heir && isFree(s.countries[s.player].gov)) {
+      const share = clamp(voteShare(s) - 2 + (nextRand(s) - 0.5) * 8, 1, 97);
+      const won = share >= 50;
+      L.parts.heir = won ? 80 : -20;
+      L.chronicle.push({ tick: s.tick, text: won ? `${heir} wins the election with ${share.toFixed(0)}%: the work goes on.` : `${heir} loses the election (${share.toFixed(0)}%).` });
+      logEvent(s, `🗳 ${won ? `${heir}, ${L.leader}'s successor, wins with ${share.toFixed(1)}%!` : `${heir}, ${L.leader}'s successor, is defeated (${share.toFixed(1)}%).`}`, won ? 'info' : 'danger', [s.player], true, { big: true });
+    }
+  }
+  endLegacy(s, `${L.leader} retires from public life${heir ? `, leaving the cause to ${heir}` : ''}.`);
   return { ok: true, message: 'The history books are written.' };
 }
 

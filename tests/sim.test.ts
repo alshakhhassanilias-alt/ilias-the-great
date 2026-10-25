@@ -1322,12 +1322,15 @@ describe('round 13: domestic politics, political capital, laws, crisis arcs', ()
     const s = fresh('Poland');
     const c = s.countries[s.player];
     const P = c.politics!;
+    // the same country left alone, to compare against
+    const ctrl = fresh('Poland');
     c.budget.social += 0.03; c.budget.military = Math.max(0.002, c.budget.military - 0.012);
-    run(s, 40);
+    run(s, 40); run(ctrl, 40);
     const lab = P.factions.find((f) => f.id === 'labour')!, mil = P.factions.find((f) => f.id === 'military')!;
     expect(factionTarget(s, c, lab).parts.some((p) => /Public services/.test(p.label) && p.v > 5)).toBe(true);
     expect(factionTarget(s, c, mil).parts.some((p) => /Defence budget/.test(p.label) && p.v < -5)).toBe(true);
-    expect(mil.mood).toBeLessThan(45);
+    // (being in the coalition softens the army's mood a little, so it is judged against the untouched country)
+    expect(mil.mood).toBeLessThan(ctrl.countries[ctrl.player].politics!.factions.find((f) => f.id === 'military')!.mood - 6);
     expect(c.eco.stabParts.factions).toBeDefined();
     expect(P.pc).toBeGreaterThan(40); // political capital trickles in
   });
@@ -1800,7 +1803,9 @@ describe('round 17: every country can change course; alliances live and evolve',
     const s = fresh('Germany');
     for (const c of s.countries.filter((x) => x.alive)) {
       const ks = coursesFor(s, c, geo);
-      expect(ks.map((k) => k.id)).toEqual(['west', 'east', 'third', 'region']);
+      // the four turns for everyone, and for a country firmly in a camp a fifth: to lead it
+      expect(ks.map((k) => k.id).filter((x) => x !== 'lead')).toEqual(['west', 'east', 'third', 'region']);
+      if (Math.abs(c.orient ?? 0) >= 0.6) expect(ks[0].id).toBe('lead');
       for (const k of ks) { expect(k.title.length).toBeGreaterThan(3); for (const st of k.stages) { expect(st.title).not.toMatch(/undefined|NaN/); expect(st.desc).not.toMatch(/undefined|NaN/); } }
       if (c.provinces.length > 3) expect(ks.filter((k) => k.ok).length, c.name).toBeGreaterThanOrEqual(2);
     }
@@ -2736,5 +2741,183 @@ describe('round 31: the race for world power', () => {
     const s = fresh('United States of America');
     for (let t = 1; t <= 52 * 5 + 8; t += 4) { s.tick = t; stepRace(s); }
     expect(s.victory?.achieved).toBe(true);
+  });
+});
+
+// round 33: depth that never runs out
+import { BRANCHES, actEspionage, actResearchGrant, actSetResearch, ensureResearch, isChoice, pickKey, researchPoints, rungCost, stepResearch, techAt, worldResearch } from '../src/sim/research';
+import { SECTORS, actExpandSector, ensureIndustry, expansionOf, industryFactor, marketOf, sectorStanding } from '../src/sim/industry';
+import { clientsOf, doInfluence, patronOf, quoteAction, standings, stepInfluence } from '../src/sim/influence';
+import { actInvite, demandDef, demandProgress, ensureCoalition, minority, seatsOf } from '../src/sim/coalition';
+import { approvalParts } from '../src/sim/approval';
+import { voteParts } from '../src/sim/legacy';
+import { DEEDS, personaOf } from '../src/sim/persona';
+
+describe('round 33: research, industries, influence, coalitions, a fairer Legacy', () => {
+  it('research: five ladders, choices that close the other road, and knowledge others hold is cheaper', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const rs = ensureResearch(c);
+    expect(BRANCHES.length).toBe(5);
+    expect(rs.lv.every((v) => v >= 0)).toBe(true);
+    expect(researchPoints(s, c).v).toBeGreaterThan(0.3);
+    // a rung few countries hold costs more than one most already have
+    const w = worldResearch(s);
+    const b = 2;
+    const cheap = rungCost(s, c, b);
+    w.known[b][rs.lv[b] + 1] = 0;
+    expect(rungCost(s, c, b)).toBeGreaterThan(cheap);
+    // a choice rung needs a road picked; picking one fixes it
+    rs.lv[0] = 2;
+    expect(isChoice(3)).toBe(true);
+    expect(actSetResearch(s, 0).ok).toBe(false);
+    expect(actSetResearch(s, 0, 1).ok).toBe(true);
+    expect(rs.pick[pickKey(0, 3)]).toBe(1);
+    expect(techAt(0, 3, undefined, rs).name).toBe('Heavy Engineering');
+    // past the tenth rung research goes on for ever
+    expect(techAt(1, 14).name).toMatch(/4$/);
+  });
+  it('research completes, applies its effects, and grants and espionage speed it up', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const rs = ensureResearch(c);
+    actSetResearch(s, 1, 0);
+    const lv0 = rs.lv[1], cap0 = c.eco.energyCap;
+    c.eco.cash = 1e12;
+    expect(actResearchGrant(s).ok).toBe(true);
+    expect(actResearchGrant(s).ok).toBe(false); // once a quarter
+    rs.acc[1] = rungCost(s, c, 1) + 0.01;
+    s.tick++; stepResearch(s);
+    expect(rs.lv[1]).toBe(lv0 + 1);
+    if (techAt(1, rs.lv[1], undefined, rs).fx.energy) expect(c.eco.energyCap).toBeGreaterThan(cap0);
+    // stealing is possible only from someone who has it; caught means a scandal
+    const r = actEspionage(s, 0.99);
+    expect(typeof r.message).toBe('string');
+  });
+  it('the AI researches too: the frontier moves, and nothing is ever "maxed"', () => {
+    const s = fresh('Germany');
+    const f0 = worldResearch(s).frontier.reduce((t, v) => t + v, 0);
+    run(s, 52 * 4);
+    const f1 = worldResearch(s).frontier.reduce((t, v) => t + v, 0);
+    expect(f1).toBeGreaterThan(f0);
+    for (const c of s.countries.filter((x) => x.alive).slice(0, 30)) expect(Number.isFinite(c.eco.prev.rsF ?? 1)).toBe(true);
+  });
+  it('industries: world prices, ranks, and expansion that costs more at every level', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    run(s, 4);
+    const m = marketOf(s);
+    for (const sec of SECTORS) expect(m.price[sec.id]).toBeGreaterThan(0.3);
+    const st = sectorStanding(s, c, 'manuf');
+    expect(st.rank).toBeGreaterThan(0);
+    c.eco.cash = 1e12;
+    const x0 = expansionOf(s, c, 'agri');
+    expect(x0.why).toBeNull();
+    expect(actExpandSector(s, 'agri').ok).toBe(true);
+    expect(expansionOf(s, c, 'agri').why).toBe('Already expanding');
+    const ind = ensureIndustry(c);
+    const lv = ind.lv.agri, food = c.eco.foodCap;
+    run(s, x0.weeks + 1);
+    expect(ind.lv.agri).toBeGreaterThan(lv + 0.9);
+    expect(c.eco.foodCap).toBeGreaterThan(food);
+    ind.lv.agri += 1; // the next level is dearer
+    expect(expansionOf(s, c, 'agri').cost).toBeGreaterThan(x0.cost);
+    expect(industryFactor(s, c)).toBeGreaterThan(0.85);
+  });
+  it('advanced industries need the research and the energy behind them', () => {
+    const s = fresh('Nigeria');
+    const c = s.countries[s.player];
+    ensureResearch(c).lv[2] = 0;
+    ensureIndustry(c).lv.tech = 6;
+    expect(expansionOf(s, c, 'tech').why).toMatch(/research|workforce/);
+  });
+  it('influence: spending wins a sphere, which votes with you and pays you', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    c.eco.cash = 1e12;
+    const t = id('Lithuania');
+    stepInfluence(s);
+    const before = standings(s, t).find((x) => x.id === s.player)?.v ?? 0;
+    expect(quoteAction(s, c, s.countries[t], 'invest').why).toBeNull();
+    expect(doInfluence(s, s.player, t, 'invest', 0).ok).toBe(true);
+    expect(doInfluence(s, s.player, t, 'invest', 0).ok).toBe(false); // cooldown
+    expect(standings(s, t).find((x) => x.id === s.player)!.v).toBeGreaterThan(before);
+    (s.inf![t])[s.player] = 120; // pile it on
+    expect(patronOf(s, t)?.patron).toBe(s.player);
+    s.tick = 2; stepInfluence(s);
+    expect(clientsOf(s, s.player)).toContain(t);
+    expect(c.eco.prev.sphereInc).toBeGreaterThan(0);
+  });
+  it('the great powers court the world: spheres form without the player', () => {
+    const s = fresh('Iceland');
+    run(s, 52 * 3);
+    const n = s.countries.filter((x) => x.alive && x.id !== s.player).reduce((t, x) => t + clientsOf(s, x.id).length, 0);
+    expect(n).toBeGreaterThan(3);
+  });
+  it('coalitions: partners make demands with deadlines; missing them costs you the majority', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const G = ensureCoalition(s, c)!;
+    expect(seatsOf(c, G.partners)).toBeGreaterThanOrEqual(50);
+    run(s, 20);
+    expect(G.demands.length).toBeGreaterThan(0);
+    const d = G.demands[0];
+    expect(demandDef(d.id)).toBeTruthy();
+    expect(demandProgress(s, c, d)).toBeGreaterThanOrEqual(0);
+    // ignore every demand for long enough and partners walk out
+    run(s, 52 * 5);
+    expect((G.broken ?? 0) + (c.politics!.gov?.broken ?? 0)).toBeGreaterThan(0);
+  });
+  it('a minority government passes laws less easily, and inviting a faction costs capital', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const G = ensureCoalition(s, c)!;
+    G.partners = [G.partners[0]];
+    expect(minority(c)).toBe(true);
+    expect(approvalParts(s, c).some((p) => p.key === 'minority')).toBe(true);
+    const out = c.politics!.factions.filter((f) => !G.partners.includes(f.id)).sort((a, b) => b.mood - a.mood)[0];
+    out.mood = 60; c.politics!.pc = 50;
+    expect(actInvite(s, out.id).ok).toBe(true);
+    expect(c.politics!.pc).toBe(35);
+  });
+  it('Legacy: a steady government polls about even, and every part of the poll is shown', () => {
+    const s = fresh('Brazil', { mode: 'legacy' });
+    const c = s.countries[s.player];
+    c.eco.stability = 72; c.eco.growth = c.eco.baseGrowth; c.eco.inflation = 0.025;
+    const a = approval(s, c);
+    expect(a).toBeGreaterThan(46);
+    expect(a).toBeLessThan(62);
+    const vp = voteParts(s);
+    expect(vp[0].v).toBe(50);
+    expect(Math.abs(vp.reduce((t, p) => t + p.v, 0) - voteShare(s))).toBeLessThan(0.01);
+  });
+  it('Legacy: out of power, the government’s decisions are not yours', () => {
+    const s = fresh('Poland', { mode: 'legacy' });
+    s.legacy!.status = 'opposition';
+    s.legacy!.opposition = { support: 40, since: 0, attempts: 0, gov: 'Someone' };
+    s.inbox = [];
+    run(s, 52);
+    expect(s.inbox.every((x) => x.id.startsWith('legacy_') || x.id.startsWith('opp_'))).toBe(true);
+  });
+  it('Legacy: the leader ages, has skills, a rival and deeds to chase', () => {
+    const s = fresh('Germany', { mode: 'legacy' });
+    s.legacy!.hand = [];
+    const p = personaOf(s)!;
+    const age = p.age;
+    expect(Object.values(p.skills).every((v) => v >= 1 && v <= 10)).toBe(true);
+    run(s, 53);
+    expect(p.age).toBe(age + 1);
+    expect(DEEDS.length).toBeGreaterThan(10);
+    expect(p.rival.name.length).toBeGreaterThan(3);
+  });
+  it('a country that just completed a turn cannot turn straight back, and can lead its camp instead', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    c.orient = 0.9;
+    (c.coursesDone ??= []).push('west'); s.stats[`courseAt:${c.id}:west`] = s.tick;
+    const ks = coursesFor(s, c, geo);
+    expect(ks[0].id).toBe('lead');
+    expect(ks[0].ok).toBe(true);
+    expect(ks.find((k) => k.id === 'east')!.ok).toBe(false);
   });
 });

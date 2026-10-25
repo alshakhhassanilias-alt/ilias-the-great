@@ -239,7 +239,7 @@ export interface Country {
   /** national path: completed projects and the one under way */
   nat?: { done: string[]; active?: { id: string; start: number; until: number } };
   /** a change of foreign-policy course under way: West, East, a third way, or leading the region */
-  course?: { id: 'west' | 'east' | 'third' | 'region'; stage: number; until: number; started: number; leaders: number[]; old: number[]; neighbors: number[]; org?: number; name?: string };
+  course?: { id: 'west' | 'east' | 'third' | 'region' | 'lead'; stage: number; until: number; started: number; leaders: number[]; old: number[]; neighbors: number[]; org?: number; name?: string };
   /** the national storyline: next act, when it comes, choices made, path, rival, ending */
   story?: { act: number; next: number; path: number[]; arch?: 'reform' | 'iron' | 'pragmatic'; rival?: number; ending?: string; ch?: number; issue?: string; past?: { ch: number; ending: string; arch: string; issue: string; path: number[]; tick: number }[];
     /** reactive acts: the act waits (from `next`) for something to happen, or until `due`; `why` is what happened; `snap` the world when the last act closed */
@@ -258,6 +258,10 @@ export interface Country {
   origin?: { tick: number; from: CountryId; how: 'independence' | 'revival' | 'union' | 'collapse'; formerly?: string };
   /** the name before an imperial title or a union renamed it */
   baseName?: string;
+  /** research: rungs climbed in each of the five branches (see research.ts) */
+  rs?: import('./research').Research;
+  /** industries: capacity in each of the eight sectors (see industry.ts) */
+  ind?: import('./industry').Industry;
 }
 
 export type FactionId = 'labour' | 'business' | 'military' | 'nationalists' | 'liberals' | 'regions';
@@ -277,6 +281,10 @@ export interface Politics {
   lastArc: number;
   /** a change of political system under way (see regime.ts) */
   reform?: { path: string; stage: number; next: number; since: number; note?: string };
+  /** the government: coalition partners (or the regime's pillars) and their demands (see coalition.ts) */
+  gov?: import('./coalition').Coalition;
+  /** multiplier on the capital laws cost (the leader's administration skill in Legacy) */
+  lawMult?: number;
   /** last week's change in each faction's mood, and the stability/approval it adds */
   stab: number;
   appr: number;
@@ -504,6 +512,14 @@ export interface GameState {
   coalitions?: { target: CountryId; members: CountryId[]; since: number }[];
   /** what the world said about the player's last moves (see reactions.ts) */
   voices?: import('./reactions').VoiceSet[];
+  /** world markets for the eight industrial sectors: prices, shares, booms and gluts (see industry.ts) */
+  mkt?: import('./industry').MarketState;
+  /** influence each power holds in each country: inf[target][power] (see influence.ts) */
+  inf?: Record<number, Record<number, number>>;
+  /** spheres of influence as of the last monthly update: target -> patron (see influence.ts) */
+  sph?: Record<number, number>;
+  /** the world's research: who knows what, the frontier, the leaders (refreshed monthly; see research.ts) */
+  rsw?: import('./research').WorldResearch;
 }
 /** a peace obligation: `b` pays reparations to `a`, or `b` is demilitarised by `a`, until a tick */
 export interface PeaceDeal { kind: 'rep' | 'demil'; a: CountryId; b: CountryId; until: number; share?: number; paid?: number }
@@ -551,6 +567,8 @@ export interface LegacyState {
   traits?: [string, string];
   /** what you did yourself, as the world remembers it: it follows you out of office and back in */
   rec?: Record_;
+  /** the leader as a person: age, health, skills, the party rival, career deeds (see persona.ts) */
+  persona?: import('./persona').Persona;
 }
 
 export type ArmyOrder = 'advance' | 'hold' | 'encircle' | 'raid' | 'defend';

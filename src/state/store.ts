@@ -21,8 +21,8 @@ import type { Ask } from '../ui/SystemScreens';
 import { prefs, setPrefs } from '../prefs';
 import { dateLabel } from '../sim/tick';
 
-export type Tab = 'overview' | 'politics' | 'goals' | 'economy' | 'military' | 'diplomacy';
-export type MapMode = 'political' | 'blocs' | 'diplomacy' | 'wealth' | 'power' | 'stability';
+export type Tab = 'overview' | 'politics' | 'goals' | 'research' | 'economy' | 'military' | 'diplomacy';
+export type MapMode = 'political' | 'blocs' | 'spheres' | 'diplomacy' | 'wealth' | 'power' | 'stability';
 /** Ticks (weeks) per real second: a year takes 52s at Slow, 26s at Normal, 13s at Fast. */
 export const SPEEDS = [
   { label: 'Pause', tps: 0, hint: 'paused' },

@@ -7,6 +7,7 @@ import { EVENTS4 } from './events4';
 import { EVENTS5 } from './events5';
 import { EVENTS6 } from './events6';
 import { EVENTS8 } from './events8';
+import { EVENTS11 } from './events11';
 import { EVENTS7, rememberChoice } from './events7';
 import { storyEvents } from './story';
 import type { Geo } from './geo';
@@ -196,7 +197,7 @@ import { finalizeResolution, proposeResolution } from './politics';
 import { EVENTS3 } from './events3';
 import { EVENTS9 } from './events9';
 import { EVENTS10 } from './events10';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...storyEvents()];
+export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...storyEvents()];
 export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
 
 export const INBOX_MAX = 4;
@@ -207,6 +208,8 @@ const NORMAL_TTL = 40;
 export function pushInbox(s: GameState, id: string, data: D, ttl?: number): InboxItem | null {
   const def = eventById(id);
   if (!def) return null;
+  // out of power (Legacy opposition or exile) the government's decisions are not yours: only your own campaign's are
+  if (s.legacy && s.settings.mode === 'legacy' && s.legacy.status !== 'office' && !id.startsWith('legacy_') && !id.startsWith('opp_')) return null;
   const urgent = !!def.urgent;
   const it: InboxItem = { uid: s.nextInbox++, id, tick: s.tick, expires: s.tick + (ttl ?? def.ttl ?? (urgent ? URGENT_TTL : NORMAL_TTL)), urgent, data };
   s.inbox.push(it);

@@ -13,6 +13,8 @@ export const DRIVER_LABEL: Record<string, string> = {
   stability: 'Political stability',
   taxes: 'Tax burden',
   war: 'War damage & mobilisation',
+  research: 'Research race (ahead of or behind the world)',
+  industry: 'Industries and world markets',
   convergence: 'Adjustment lag (output catching up)',
 };
 

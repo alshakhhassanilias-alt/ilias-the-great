@@ -246,6 +246,24 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
     const tgt = await pg.evaluate((id) => window.__store.state.armies.find((a) => a.id === id).target, info.h.id);
     check('armies: dragging an army onto an enemy region sets its objective', tgt === info.cap, `(target ${tgt})`);
   }
+  // round 33: research, industries, influence, the coalition
+  await pg.evaluate(() => { const st = window.__store; st.setSpeed(0); st.select(st.state.player, null, false); st.setTab('research'); });
+  await sleep(500);
+  check('research: the tab shows five branches', (await pg.locator('.rs-branch').count()) === 5);
+  const pick = pg.locator('.rs-go').first();
+  if (await pick.count()) { await pick.click(); await sleep(200); }
+  else { await pg.locator('.rs-alt').first().click(); await sleep(200); }
+  check('research: picking a technology sets the current research', (await pg.evaluate(() => window.__store.state.countries[window.__store.state.player].rs.cur)) >= 0);
+  await pg.evaluate(() => window.__store.setTab('economy')); await sleep(400);
+  check('industries: eight sectors with world ranks', (await pg.locator('.ind-card').count()) === 8);
+  await pg.evaluate(() => window.__store.setTab('politics')); await sleep(400);
+  check('politics: the coalition panel lists the partners', (await pg.locator('.coal-card').count()) >= 1);
+  await pg.evaluate(() => { const st = window.__store; const id = st.state.countries.findIndex((c) => c.name === 'Lithuania'); st.select(id, null, true); st.setTab('diplomacy'); });
+  await sleep(500);
+  check('influence: a foreign country shows who holds sway there', (await pg.locator('.inf-acts .btn').count()) === 5);
+  await pg.evaluate(() => window.__store.setMapMode('spheres')); await sleep(400);
+  check('influence: the Spheres map mode is available', (await pg.evaluate(() => window.__store.mapMode)) === 'spheres');
+  await pg.evaluate(() => window.__store.setMapMode('political'));
   await pg.close();
 }
 // ---------------- mobile ----------------

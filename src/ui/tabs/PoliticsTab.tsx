@@ -5,6 +5,7 @@ import { Portrait, faceFor } from '../art/Portrait';
 import { FACTIONS, LAWS, PERK, REVOLT, actPassLaw, actRepealLaw, clout, factionMeta, factionTarget, forecast, hasLaw, lawById, moodColor, moodLabel, pcIncome, type Law } from '../../sim/domestic';
 import { arcById } from '../../sim/arcs';
 import { approval } from '../../sim/approval';
+import { CoalitionSection } from './Coalition';
 import { LeverList } from './Levers';
 import { RegimeSection } from './Regime';
 import { dateLabel } from '../../sim/tick';
@@ -54,6 +55,7 @@ export function PoliticsTab() {
   const open = (l: Law) => { setSel(sel === l.id ? null : l.id); setWhip(0); };
   return (
     <>
+      <CoalitionSection />
       <Section title="Political capital" hint={mode}>
         <div className="pc-card">
           <div className="pc-big"><b>{Math.floor(P.pc)}</b><small>/ 100</small></div>

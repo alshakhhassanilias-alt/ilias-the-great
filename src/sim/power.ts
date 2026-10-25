@@ -4,6 +4,7 @@
  * with a reward; hold first place for five years and you are the world's superpower (a victory you can play on from).
  */
 import { strength } from './military';
+import { sphereWeight } from './influence';
 import { alliesOf } from './relations';
 import { logEvent } from './log';
 import { clamp } from './util';
@@ -16,7 +17,8 @@ let cache: { st: GameState; tick: number; rows: PowerRow[]; rank: Map<number, nu
 export function powerTable(s: GameState): PowerRow[] {
   if (cache && cache.st === s && cache.tick === s.tick) return cache.rows;
   const alive = s.countries.filter((c) => c.alive);
-  const inf = (c: Country) => (c.reputation / 100) * Math.sqrt(Math.max(0, c.eco.gdp)) * (1 + 0.12 * Math.min(10, alliesOf(s, c.id).length));
+  // influence: standing (reputation × size × allies) plus the countries in its sphere
+  const inf = (c: Country) => (c.reputation / 100) * Math.sqrt(Math.max(0, c.eco.gdp)) * (1 + 0.12 * Math.min(10, alliesOf(s, c.id).length)) + 0.6 * sphereWeight(s, c.id);
   let tg = 0, tm = 0, ti = 0;
   const raw = alive.map((c) => { const g = c.eco.gdp, m = strength(c), i = inf(c); tg += g; tm += m; ti += i; return { c, g, m, i }; });
   const rows = raw.map(({ c, g, m, i }) => {

@@ -23,6 +23,9 @@ export const IconDiplomacy = () => (
 export const IconPolitics = () => (
   <I><path d="M3 9h18L12 4z" fill="currentColor" fillOpacity="0.2" /><path d="M5 9v8M9.5 9v8M14.5 9v8M19 9v8" /><path d="M3 20h18M4 17h16" /></I>
 );
+export const IconResearch = () => (
+  <I><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" /><path d="M7.5 15h9" /><path d="M8 17.5h8l-1 2H9z" fill="currentColor" fillOpacity="0.25" /></I>
+);
 export const TAB_ICONS: Record<string, () => ReactElement> = {
-  overview: IconOverview, politics: IconPolitics, goals: IconGoals, economy: IconEconomy, military: IconMilitary, diplomacy: IconDiplomacy,
+  overview: IconOverview, politics: IconPolitics, goals: IconGoals, research: IconResearch, economy: IconEconomy, military: IconMilitary, diplomacy: IconDiplomacy,
 };

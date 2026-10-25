@@ -4,6 +4,7 @@ import { TradeWeapons } from './TradeWar';
 import { useState } from 'react';
 import { WorldJudgement } from './Minds';
 import { CoursesSection } from './Courses';
+import { InfluenceSection, SphereSection } from './Influence';
 import { AlignmentSection, OrgsSection, OrientBar, orientLabel } from './Alignment';
 import { GOV_LABEL } from '../../sim/alignment';
 import { govName } from '../../sim/domestic';
@@ -119,6 +120,7 @@ export function DiplomacyTab({ id }: { id: number }) {
         </Section>
       )}
 
+      <InfluenceSection id={id} />
       <Section title="Their outlook">
         <div className="card" style={{ fontSize: 13 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{c.intent || 'Going about its business'}</div>
@@ -239,6 +241,7 @@ function OwnDiplomacy() {
   return (
     <>
       <AutopilotBanner area="diplomacy" />
+      <SphereSection />
       <AlignmentSection />
       <WorldJudgement />
       <CoursesSection />

@@ -827,3 +827,83 @@ html.calm *, html.calm *::before, html.calm *::after { animation-duration: 0.001
 .pc-full { margin-top: 6px; font-size: 12px; color: #f2c14e; }
 .linkish { background: none; border: none; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
 .head-origin { font-size: 11.5px; opacity: .75; margin-top: 2px; font-style: italic; }
+
+/* ---------------------------------------------------------------- research */
+.rs-top { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+@media (max-width: 520px) { .rs-top { grid-template-columns: 1fr; } }
+.rs-edge, .rs-now { display: grid; gap: 3px; border: 1px solid var(--line-soft); border-radius: 8px; padding: 8px 10px; background: rgba(255, 255, 255, 0.02); }
+.rs-edge small, .rs-now small { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.rs-edge b, .rs-now b { font-size: 15px; }
+.rs-edge .faint, .rs-now .faint { font-size: 12px; }
+.rs-parts { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; font-size: 12.5px; }
+.rs-parts li { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); }
+.rs-parts li b { color: var(--text); font-variant-numeric: tabular-nums; }
+.rs-branch { border-left: 3px solid var(--bc, var(--line)); }
+.rs-branch.on { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bc) 45%, transparent); }
+.rs-bhead { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; color: inherit; text-align: left; padding: 2px 0 6px; cursor: pointer; }
+.rs-bhead b { display: block; font-size: 14px; }
+.rs-bhead small { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.35; }
+.rs-bicon { font-size: 20px; width: 26px; text-align: center; }
+.rs-lv { min-width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; border: 2px solid var(--bc, var(--line)); color: var(--bc, var(--text)); }
+.rs-go { margin: 0 0 6px 36px; }
+.rs-choice { display: grid; gap: 6px; margin: 2px 0 8px 36px; }
+.rs-choice > small { color: var(--accent); font-size: 11.5px; }
+.rs-alt { display: grid; gap: 2px; text-align: left; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: inherit; cursor: pointer; }
+.rs-alt:hover { border-color: var(--bc, var(--accent)); background: rgba(255, 255, 255, 0.06); }
+.rs-alt span { font-size: 12px; color: var(--muted); }
+.rs-alt small { font-size: 11.5px; color: var(--teal); }
+.rs-ladder { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.rs-ladder li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 6px; border-radius: 6px; }
+.rs-ladder li.done { opacity: 0.8; }
+.rs-ladder li.next { background: rgba(255, 255, 255, 0.05); box-shadow: inset 2px 0 0 var(--bc, var(--accent)); }
+.rs-ladder li.later { opacity: 0.55; }
+.rs-ladder b { font-size: 13px; display: block; }
+.rs-ladder small { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.rs-fx { color: var(--teal); }
+.rs-n { min-width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.06); color: var(--muted); flex: none; }
+.rs-ladder li.done .rs-n { background: var(--bc, var(--teal)); color: #10161c; }
+
+/* ---------------------------------------------------------------- industries */
+.ind-intro { font-size: 12px; margin: 0 0 8px; }
+.ind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.ind-card { display: grid; gap: 5px; border: 1px solid var(--line-soft); border-radius: 8px; padding: 8px 9px; background: rgba(255, 255, 255, 0.025); align-content: start; }
+.ind-card.run { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.ind-head { display: flex; gap: 8px; align-items: flex-start; }
+.ind-head b { display: block; font-size: 13px; }
+.ind-head small { display: block; font-size: 11px; color: var(--muted); line-height: 1.3; }
+.ind-icon { font-size: 18px; }
+.ind-lv { font-weight: 700; font-size: 13px; padding: 2px 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.ind-price { display: flex; justify-content: space-between; font-size: 12px; gap: 6px; flex-wrap: wrap; }
+.ind-pay { font-size: 11px; line-height: 1.3; }
+.ind-foot { display: flex; justify-content: space-between; font-size: 11.5px; }
+.ind-leaders { font-size: 10.5px; }
+.ind-card .btn.sm small { white-space: normal; }
+
+/* ---------------------------------------------------------------- influence */
+.inf-intro { font-size: 12px; margin: 0 0 8px; }
+.inf-bars { display: grid; gap: 5px; margin-bottom: 6px; }
+.inf-row { display: grid; grid-template-columns: 130px 1fr 34px; gap: 8px; align-items: center; font-size: 12.5px; }
+.inf-row.me .inf-name { color: var(--accent); font-weight: 700; }
+.inf-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.inf-name { display: flex; gap: 6px; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.inf-name i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.inf-acts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; margin-top: 6px; }
+.inf-acts .btn small { white-space: normal; }
+.inf-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.inf-sub { margin: 8px 0 4px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.inf-near { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px; }
+.inf-powers { font-size: 11.5px; margin-top: 8px; }
+
+/* ---------------------------------------------------------------- coalition */
+.coal-intro { font-size: 12px; margin: 0 0 8px; }
+.coal-seats { position: relative; display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 4px 0 8px; background: rgba(255, 255, 255, 0.05); }
+.coal-seats i { display: block; height: 100%; }
+.coal-half { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #fff; opacity: 0.8; }
+.coal-list { display: grid; gap: 8px; }
+.coal-card { border: 1px solid var(--line-soft); border-left: 3px solid var(--fc); border-radius: 8px; padding: 8px 10px; display: grid; gap: 5px; background: rgba(255, 255, 255, 0.02); }
+.coal-head { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.coal-mood { font-size: 11.5px; font-weight: 700; }
+.coal-pat { font-size: 10px; letter-spacing: 1px; color: var(--accent); }
+.coal-dem { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+.coal-drop { justify-self: start; font-size: 11px; }
+.coal-out { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; }

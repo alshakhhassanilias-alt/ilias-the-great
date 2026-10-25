@@ -14,6 +14,8 @@ import { getRelation, areAtWar, hasAlliance } from '../sim/relations';
 import { strengthIndex } from '../sim/military';
 import { clamp, fmtNum, shortName } from '../sim/util';
 import type { MapMode } from '../state/store';
+import { clientsOf, patronCached } from '../sim/influence';
+import { nationalHsl } from './palette';
 import { computeBlocs } from '../sim/politics';
 import { BDEF, type BType } from '../sim/buildings';
 import { airSuperiority } from '../sim/war';
@@ -357,6 +359,14 @@ export class MapRenderer {
         const { blocs, of } = computeBlocs(state);
         const b = of.get(c);
         return b === undefined ? 'hsl(215,8%,46%)' : `hsl(${(b * 67 + 20) % 360},62%,${c === blocs[b].leader ? 50 : 42}%)`;
+      }
+      case 'spheres': {
+        // spheres of influence: each power's clients in a lighter shade of its colour, the powers themselves in full
+        if (clientsOf(state, c).length) return c === P ? 'hsl(45,92%,50%)' : nationalColor(C);
+        const pat = patronCached(state, c);
+        if (pat === undefined) return 'hsl(215,8%,30%)';
+        if (pat === P) return 'hsl(45,80%,70%)';
+        { const [h, sat, l] = nationalHsl(state.countries[pat]); return `hsl(${h},${Math.round(sat * 0.6)}%,${Math.min(82, l + 20)}%)`; }
       }
       case 'diplomacy': return c === P ? 'hsl(45,90%,52%)' : ramp(REL, (getRelation(state, c, P) + 100) / 200);
       case 'wealth': return ramp(WEALTH, (Math.log10(Math.max(300, C.eco.gdp / Math.max(C.eco.pop, 1))) - 2.5) / 2.3);

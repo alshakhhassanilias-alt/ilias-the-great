@@ -105,6 +105,9 @@ function dynHelp(id: string, s: GameState, c: Country): { how: string; fix?: Fix
     case 'prestige': return { how: 'Reputation grows with aid, mediation, keeping treaties and staying at peace.', fix: { label: 'Open diplomacy', tab: 'diplomacy' } };
     case 'order': return { how: 'Stability follows growth, jobs, prices and the factions\' mood: give the angriest faction something.', fix: { label: 'Open politics', tab: 'politics' } };
     case 'bloc': return { how: 'Invite friendly countries into your organisation from the Diplomacy tab.', fix: { label: 'Open diplomacy', tab: 'diplomacy' } };
+    case 'breakthrough': case 'frontier': return { how: 'Pick what your scientists work on, raise the education budget, fund crash grants, or steal a blueprint.', fix: { label: 'Open research', tab: 'research' } };
+    case 'sector': return { how: 'Expand the industry with investment programmes; it pays most when the world price is high.', fix: { label: 'Open industries', tab: 'economy' } };
+    case 'client': return { how: `Invest, send aid, sell arms or fund friends in ${T?.name ?? 'their'} politics until you hold the most influence there.`, fix: T ? { label: `Influence ${T.name}`, ...open('diplomacy', t) } : undefined };
   }
   return { how: '' };
 }

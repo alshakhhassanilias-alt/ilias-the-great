@@ -27,15 +27,20 @@ import { isMajor } from './drama';
 import { applicationVotes, admitted, foundOrg, initialOrientOf, joinOrg, leaveOrg, orientTarget, threatened } from './alignment';
 import { cleanName, orgName } from './blocs';
 import type { Country, CountryId, FactionId, GameState, Org } from './types';
+import { addInfluence, clientsOf } from './influence';
 
-export type CourseId = 'west' | 'east' | 'third' | 'region';
+export type CourseId = 'west' | 'east' | 'third' | 'region' | 'lead';
 export interface CourseFx {
   orient?: number; hostile?: number; relTarget?: number; relOld?: number; relNeighbors?: number; relOrg?: number;
   fac?: Partial<Record<FactionId, number>>; stab?: number; rep?: number; lift?: boolean; treaty?: Proposal[]; treatyNeighbors?: Proposal;
   capital?: number; tfp?: number; energy?: number; milTech?: number; infra?: number; collection?: number;
   /** leave organisations of the camp you are turning away from */
   breakOld?: boolean;
-  finale?: 'join' | 'found-camp' | 'found-neutral' | 'found-region';
+  /** raise the defence budget by this share of GDP (for good) */
+  defence?: number;
+  /** influence won in the smaller countries around you that are not yet in your sphere */
+  influence?: number;
+  finale?: 'join' | 'found-camp' | 'found-neutral' | 'found-region' | 'lead';
 }
 export interface CourseStage { title: string; desc: string; weeks: number; pc: number; cost: number; fx: CourseFx }
 export interface Course { id: CourseId; icon: string; title: string; intro: string; stages: CourseStage[]; dir: number; ok: boolean; why?: string; leaders: CountryId[]; old: CountryId[]; neighbors: CountryId[]; org?: Org }
@@ -185,6 +190,30 @@ export function coursesFor(s: GameState, c: Country, geo: Geo): Course[] {
     const t = titled('region', 'Lead your region', st);
     out.push({ id: 'region', icon: '🧭', title: t.title, intro: t.intro ?? `Bind your neighbours together around ${city}.`, stages: t.stages, dir: 0, ok: nbrs.length >= 2, why: nbrs.length >= 2 ? undefined : 'You need at least two neighbours at peace with you', leaders: [], old: [], neighbors: nbrs });
   }
+  // ---- Lead the camp: for a country firmly in one, the next chapter is leadership, not another turn
+  if (Math.abs(o) >= 0.6) {
+    const dir = Math.sign(o), campName = dir > 0 ? 'the West' : 'the East';
+    const camp = (dir > 0 ? west : east).filter((x) => x !== c.id);
+    const org = orgsOf(s, c.id).find((x) => x.camp === dir) ?? orgsOf(s, c.id).find((x) => x.kind === 'defence');
+    const city = placeName(c.capital);
+    const st: CourseStage[] = [
+      { title: `A summit of ${campName} in ${city}`, desc: `Host the leaders of ${campName}${camp.length ? ` (${camp.slice(0, 3).map((x) => nm(s, x)).join(', ')})` : ''}: set the agenda instead of following it.`, weeks: 10, pc: 10, cost: 0.001, fx: { relTarget: 8, rep: 3, fac: { liberals: 2, nationalists: 2 } } },
+      { title: 'Carry more of the load', desc: `Raise defence spending by half a point of GDP for good${org ? ` and fund ${org.name}'s common projects` : ''}. The others notice who pays.`, weeks: 16, pc: 10, cost: 0.002, fx: { defence: 0.005, relOrg: 10, rep: 2, fac: { military: 6, labour: -3 } } },
+      { title: 'Bring the neighbours into the fold', desc: 'Investment, scholarships and security guarantees for the smaller countries around you: influence where it counts.', weeks: 16, pc: 15, cost: 0.003, fx: { influence: 22, relNeighbors: 5 } },
+      { title: `Take the lead of ${campName}`, desc: `The capitals of ${campName} look to ${city} first: influence across the camp, and a voice that carries.`, weeks: 14, pc: 15, cost: 0.001, fx: { finale: 'lead', rep: 4 } },
+    ];
+    const led = s.stats[`campLead:${c.id}`] !== undefined;
+    out.unshift({ id: 'lead', icon: '🏛', title: `Lead ${campName}`, intro: `You are firmly in ${campName}. The next chapter is not another turn: it is to lead it.`, stages: st, dir, ok: !led, why: led ? `You already lead ${campName}` : undefined, leaders: camp.slice(0, 4), old: [], neighbors: nbrs, org });
+  }
+  // ---- no whiplash: a country that has just completed a turn cannot turn straight back
+  const doneAt = (id: CourseId) => ((c.coursesDone ?? []).includes(id) ? s.stats[`courseAt:${c.id}:${id}`] ?? -9999 : -9999);
+  for (const k of out) {
+    if (!k.ok) continue;
+    const opp = k.id === 'west' ? 'east' : k.id === 'east' ? 'west' : null;
+    const since = opp ? s.tick - doneAt(opp) : Math.min(s.tick - doneAt('west'), s.tick - doneAt('east'));
+    const lock = opp ? 520 : k.id === 'third' ? 156 : 0;
+    if (lock && since < lock) { k.ok = false; k.why = `You completed a turn the other way ${(since / 52).toFixed(1)} years ago: reversing it now would tear the country apart (possible again in ${((lock - since) / 52).toFixed(1)} years). Lead your camp or your region instead.`; }
+  }
   return out;
 }
 
@@ -213,6 +242,20 @@ function applyFx(s: GameState, c: Country, fx: CourseFx, k: { leaders: CountryId
   if (fx.infra) e.infra = clamp(e.infra + fx.infra, 5, 100);
   if (fx.milTech) c.mil.milTech = clamp(c.mil.milTech + fx.milTech, 5, 110);
   if (fx.collection) e.collection = clamp(e.collection + fx.collection, 0.4, 0.98);
+  if (fx.defence) c.budget.military = clamp(c.budget.military + fx.defence, 0, 0.25);
+  if (fx.influence) {
+    const mine = clientsOf(s, c.id);
+    const targets = s.countries.filter((x) => x.alive && x.id !== c.id && !mine.includes(x.id) && x.eco.gdp < c.eco.gdp && !areAtWar(s, c.id, x.id) && getRelation(s, c.id, x.id) > -10 && (k.neighbors.includes(x.id) || x.region === c.region))
+      .sort((a, b) => getRelation(s, c.id, b.id) - getRelation(s, c.id, a.id)).slice(0, 3);
+    for (const x of targets) addInfluence(s, x.id, c.id, fx.influence);
+    if (targets.length) notes.push(`influence in ${targets.map((x) => x.name).join(', ')}`);
+  }
+  if (fx.finale === 'lead') {
+    s.stats[`campLead:${c.id}`] = s.tick;
+    const members = s.countries.filter((x) => x.alive && x.id !== c.id && (x.orient ?? 0) * k.dir > 0.4 && x.eco.gdp < c.eco.gdp).sort((a, b) => b.eco.gdp - a.eco.gdp).slice(0, 8);
+    for (const x of members) { addInfluence(s, x.id, c.id, 12); addRelation(s, c.id, x.id, 4); }
+    notes.push(`${c.name} now leads its camp`);
+  }
   if (fx.lift) for (const x of s.countries) if (x.alive && x.id !== c.id && (x.orient ?? 0) > 0.3 && sanctionLevel(s, x.id, c.id) > 0 && getRelation(s, x.id, c.id) > -45) { liftSanction(s, x.id, c.id); notes.push(`${x.name} lifts its sanctions`); }
   for (const kind of fx.treaty ?? []) {
     // with the leading powers of the camp; the third way trades with one power of each camp

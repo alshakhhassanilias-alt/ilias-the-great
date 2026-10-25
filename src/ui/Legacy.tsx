@@ -6,8 +6,10 @@ import { Portrait, faceFor } from './art/Portrait';
 import { useState } from 'react';
 import { store, useStore } from '../state/store';
 import { AGENDA, actAgendaAction, agendaById, type AgendaCat } from '../sim/agenda';
-import { OPP_ACTIONS, PART_LABEL, partHint, actChooseAgenda, actForceVote, actOpposition, actRetire, continueAsSandbox, epithet, grade, isFree, ordinal, scoreParts, totalScore, voteShare } from '../sim/legacy';
+import { OPP_ACTIONS, PART_LABEL, partHint, actChooseAgenda, actForceVote, actOpposition, actRetire, continueAsSandbox, epithet, grade, isFree, ordinal, scoreParts, totalScore, voteShare, voteParts } from '../sim/legacy';
 import { approval } from '../sim/events3';
+import { approvalParts } from '../sim/approval';
+import { DEEDS, SKILLS, actNameHeir, personaOf } from '../sim/persona';
 import { dateLabel } from '../sim/tick';
 import { fmtMoney } from './format';
 import { Emblem } from './art/Emblem';
@@ -136,6 +138,7 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
             </div>
             <div className="ld-grade"><b className={`grade big g-${grade(score)}`}>{grade(score)}</b><small>{score.toFixed(0)} pts</small></div>
           </div>
+          <PersonaPanel />
           <div className="ld-parts">
             {Object.entries(PART_LABEL).map(([k, label]) => {
               const v = parts[k] ?? 0;
@@ -150,6 +153,7 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
           {L.status === 'office' && (
             <>
               <h4 className="ld-sub">This term's promises · {isFree(c.gov) ? 'election' : 'congress'} {dateLabel(L.nextVote)} · polls {voteShare(s).toFixed(0)}%</h4>
+              <PollBreakdown />
               {L.agenda.length === 0 && <p className="faint">You govern without an agenda this term.</p>}
               <div className="ld-agenda">
                 {L.agenda.map((a) => {
@@ -182,6 +186,60 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The leader as a person: age, health, skills, the rival in the party, the deeds of the career. */
+export function PersonaPanel() {
+  const s = store.state!;
+  const p = personaOf(s);
+  const L = s.legacy!;
+  const c = s.countries[s.player];
+  if (!p) return null;
+  const need = (lv: number) => 60 + 25 * lv;
+  return (
+    <div className="persona">
+      <div className="persona-top">
+        <div><small>Age</small><b>{p.age}</b></div>
+        <div className="grow"><small>Health {p.health.toFixed(0)}</small><div className="bar"><i style={{ width: `${p.health}%`, background: p.health > 60 ? 'var(--green)' : p.health > 30 ? 'var(--amber)' : 'var(--red)' }} /></div><small className="faint">Power wears you out; war and crisis more. Below 12 your health can fail.</small></div>
+        {L.status === 'office' && <div className="grow"><small>Party rival: {p.rival.name}</small><div className="bar"><i style={{ width: `${p.rival.power}%`, background: p.rival.power > 70 ? 'var(--red)' : 'var(--amber)' }} /></div><small className="faint">Grows while your approval is under 45%. At the top: a leadership challenge.</small></div>}
+      </div>
+      <div className="persona-skills">
+        {SKILLS.map((k) => (
+          <div key={k.id} className="skill" title={`Grows with ${k.how}. Pays: ${k.pays}.`}>
+            <span>{k.icon} {k.name}</span>
+            <b>{p.skills[k.id]}</b>
+            <div className="bar thin"><i style={{ width: `${Math.min(100, (100 * p.xp[k.id]) / need(p.skills[k.id]))}%` }} /></div>
+            <small className="faint">{k.pays}</small>
+          </div>
+        ))}
+      </div>
+      <h4 className="ld-sub">Deeds for the history books</h4>
+      <ul className="deeds">
+        {DEEDS.map((d) => {
+          const got = p.deeds[d.id];
+          return <li key={d.id} className={got !== undefined ? 'got' : ''}><span>{d.icon}</span><span className="grow">{d.title}</span><small className="faint">{got !== undefined ? 'achieved' : d.hint(s, c)}</small><b>+{d.pts}</b></li>;
+        })}
+      </ul>
+      {L.status === 'office' && (p.heir ? <p className="faint" style={{ fontSize: 12 }}>Your chosen successor: <b>{p.heir}</b>. Retire while popular and they may win the next election (+80).</p>
+        : <button className="btn sm" onClick={() => store.act((g) => actNameHeir(g))}>Name a successor<small>retire while popular and they may carry on your work (+80) · your rival will not like it</small></button>)}
+    </div>
+  );
+}
+
+/** Why the polls say what they say: every part of the vote forecast and of the government's approval, in points. */
+export function PollBreakdown() {
+  const s = store.state!;
+  const c = s.countries[s.player];
+  const vp = voteParts(s), ap = approvalParts(s, c);
+  const row = (p: { key: string; label: string; v: number }, base: boolean) => (
+    <li key={p.key}><span>{p.label}</span><b className={base ? '' : p.v > 0.05 ? 'good' : p.v < -0.05 ? 'bad' : 'faint'}>{base ? p.v.toFixed(0) : `${p.v >= 0 ? '+' : '−'}${Math.abs(p.v).toFixed(1)}`}</b></li>
+  );
+  return (
+    <div className="poll-break">
+      <div><h5>The vote forecast · {voteShare(s).toFixed(0)}%</h5><ul>{vp.map((p) => row(p, p.key === 'base'))}</ul><small className="faint">On the day the result can differ from the forecast by up to three points. You need more than 50%.</small></div>
+      <div><h5>Your government’s approval · {approval(s, c).toFixed(0)}%</h5><ul>{ap.map((p) => row(p, p.key === 'base'))}</ul><small className="faint">Growth is judged against what is normal for {c.name}; a world recession is partly forgiven.</small></div>
     </div>
   );
 }

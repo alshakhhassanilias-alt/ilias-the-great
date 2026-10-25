@@ -9,6 +9,7 @@ import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp } from './util';
 import { logEvent } from './log';
+import { patronCached } from './influence';
 import { isInTick as inTickNow, pairOf } from './relations';
 import {
   addRelation, alliesOf, areAtWar, getRelation, isAtWar, sanctionLevel, warBetween, warsOf, areAtWar as atWar, touchTreaties, treatyVersion,
@@ -197,9 +198,12 @@ export function voteOf(s: GameState, z: CountryId, r: Resolution): 'yes' | 'no' 
 }
 export function tally(s: GameState, r: Resolution, playerVote?: 'yes' | 'no' | 'abstain', bonusYes = 0) {
   let yes = bonusYes, no = 0, abstain = 0;
+  const own = (id: number) => (id === s.player ? (playerVote ?? voteOf(s, id, r)) : voteOf(s, id, r));
   for (const z of s.countries) {
     if (!z.alive || z.id === r.target) continue;
-    const v = z.id === s.player ? (playerVote ?? voteOf(s, z.id, r)) : voteOf(s, z.id, r);
+    // countries in a sphere of influence vote with their patron (unless the vote is about the patron)
+    const pat = patronCached(s, z.id);
+    const v = pat !== undefined && pat !== r.target && s.countries[pat]?.alive ? own(pat) : own(z.id);
     if (v === 'yes') yes++; else if (v === 'no') no++; else abstain++;
   }
   return { yes, no, abstain };
