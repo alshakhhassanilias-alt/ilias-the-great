@@ -1,7 +1,7 @@
 // Follows a real-life game by watching which squares change between *stable*
 // camera frames and picking the legal move that explains the change.
 
-import { squareDiffs, maxOf } from './vision.js';
+import { squareDiffs, maxOf } from './vision.js?v=3';
 
 export const DEFAULTS = {
   noise: 0.03,          // per-square change below this is camera noise
@@ -14,7 +14,7 @@ export const DEFAULTS = {
   provisionalSamples: 20, // for this long after a move, a further change may revise it instead
 };
 
-import { applyH } from './homography.js';
+import { applyH } from './homography.js?v=3';
 
 const sq = (name) => (name.charCodeAt(0) - 97) + (name.charCodeAt(1) - 49) * 8;
 

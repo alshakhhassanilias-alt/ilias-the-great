@@ -5,8 +5,8 @@
 // corrects a pose that slid off the board or snapped one square over. A fresh
 // detection is matched to the current a1..a8 labelling so the orientation stays put.
 
-import { boardToImage, isConvexQuad } from './homography.js';
-import { detectBoard, trackBoard } from './detect.js';
+import { boardToImage, isConvexQuad } from './homography.js?v=3';
+import { detectBoard, trackBoard } from './detect.js?v=3';
 
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const cellSize = (q) => (dist(q[0], q[1]) + dist(q[1], q[2]) + dist(q[2], q[3]) + dist(q[3], q[0])) / 32;

@@ -1,8 +1,8 @@
-import { Chess } from '../vendor/chess.js';
-import { Engine } from './engine.js';
-import { Tracker } from './tracker.js';
-import { applyH, boardToImage, isConvexQuad, scaleH } from './homography.js';
-import { occupancyOf } from './detect.js';
+import { Chess } from '../vendor/chess.js?v=3';
+import { Engine } from './engine.js?v=3';
+import { Tracker } from './tracker.js?v=3';
+import { applyH, boardToImage, isConvexQuad, scaleH } from './homography.js?v=3';
+import { occupancyOf } from './detect.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 
@@ -312,7 +312,7 @@ video.addEventListener('resize', fitView);
 // The heavy lifting (finding and following the board, sampling the squares) runs in a
 // worker. Only one frame is in flight at a time, so a slow phone processes fewer frames
 // instead of falling behind, and the page itself stays smooth.
-const vision = new Worker(new URL('./vision-worker.js', import.meta.url), { type: 'module' });
+const vision = new Worker(new URL('./vision-worker.js?v=3', import.meta.url), { type: 'module' });
 let visionBusy = false;
 // How frames reach the worker, cheapest first: a VideoFrame (wraps the camera frame, no
 // copy), an ImageBitmap, or plain pixels read here. Each falls back to the next if it fails.
@@ -371,8 +371,11 @@ setInterval(() => {
   sendFrame().catch(() => { visionBusy = false; });
 }, SAMPLE_EVERY_MS);
 
+let resultTimes = [];             // when recent vision results arrived, for the diagnostics line
 vision.onmessage = ({ data }) => {
   visionBusy = false;
+  const now = performance.now();
+  resultTimes = [...resultTimes.filter((t) => now - t < 2000), now];
   if (data.type === 'error') {
     if (data.bitmap) { if (useVideoFrames) useVideoFrames = false; else useBitmaps = false; }
     console.warn('vision:', data.message);
@@ -485,6 +488,8 @@ function say(text) {
 // ---------------------------------------------------------------------- UI
 
 function setBanner(text, warn = false) {
+  // With "Show detection" on, also say what the vision side is doing (helps when it misbehaves).
+  if ($('debugBox').checked) text += ` [${mode}${poseLost ? ', losing board' : ''} · ${(resultTimes.length / 2).toFixed(1)} fps · ${lastState || '-'}]`;
   $('banner').textContent = text;
   $('banner').classList.toggle('warn', warn);
 }
@@ -814,7 +819,8 @@ $('speakBox').addEventListener('change', () => store.set('speak', $('speakBox').
 
 updateHomography();
 renderAll();
-$('debugBox').addEventListener('change', drawSoon);
+$('debugBox').addEventListener('change', () => { drawSoon(); renderBanner(); });
+setInterval(() => { if ($('debugBox').checked) renderBanner(); }, 1000);
 startEngine();
 // Open the camera straight away, but only once the page has loaded: a playing camera
 // stream otherwise keeps the page "loading" forever (spinner never stops on phones).

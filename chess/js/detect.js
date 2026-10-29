@@ -11,7 +11,7 @@
 // 4. Orientation: pick which corner is a1, using the light/dark colouring (a1 is
 //    dark) and, when the position is known, where the white and black pieces sit.
 
-import { applyH, homography, invertH } from './homography.js';
+import { applyH, homography, invertH } from './homography.js?v=3';
 
 const RING = 16;
 

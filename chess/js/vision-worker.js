@@ -8,9 +8,9 @@
 // Out: { type: 'result', mode, corners, locked, margin, lost, sig, prevSig, width, height, ms }
 //      { type: 'error', message, bitmap }
 
-import { boardToImage } from './homography.js';
-import { sampleSignature } from './vision.js';
-import { BoardFollower } from './pose.js';
+import { boardToImage } from './homography.js?v=3';
+import { sampleSignature } from './vision.js?v=3';
+import { BoardFollower } from './pose.js?v=3';
 
 const follower = new BoardFollower();
 let prevImg = null;
