@@ -26,9 +26,30 @@ header p { margin: 0 0 16px; color: var(--muted); max-width: 70ch; }
 
 main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding-bottom: 32px; align-items: start; }
 @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  header { padding-top: 10px; }
+  h1 { font-size: 1.2rem; }
+  header p { font-size: .85rem; margin-bottom: 10px; }
+}
 
 .view-wrap { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
-#view { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+#view { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; margin: 0 auto; touch-action: none; }
+.hud {
+  position: absolute; left: 8px; right: 8px; top: 8px;
+  padding: 8px 12px; border-radius: 8px; background: rgba(0, 0, 0, .7); font-size: 1rem; font-weight: 600;
+}
+.hud .san, .advice-text .san { color: var(--accent); font-size: 1.3em; margin-right: 6px; }
+.side-prompt {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(340px, calc(100% - 32px)); padding: 16px; border-radius: 12px;
+  background: rgba(20, 22, 26, .94); border: 1px solid var(--line); text-align: center;
+}
+.side-prompt p { margin: 0 0 12px; font-weight: 600; font-size: 1.05rem; }
+.side-prompt .hint { margin: 10px 0 0; font-weight: 400; color: var(--muted); font-size: .9rem; }
+.side-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.side-buttons button { font-size: 1.1rem; padding: 14px 8px; }
+.side-buttons button.guess { border-color: var(--accent); }
+button.link { background: none; border: none; color: var(--muted); text-decoration: underline; margin-top: 8px; }
 #banner {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 8px 12px; background: rgba(0, 0, 0, .65); font-size: .95rem;
@@ -57,7 +78,6 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .advice { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .advice-title { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
 .advice-text { font-size: 1.15rem; font-weight: 600; min-height: 3em; }
-.advice-text .san { color: var(--accent); }
 .eval { color: var(--muted); font-size: .85rem; }
 .toast { background: #1b2a1f; border: 1px solid #2f5a3a; border-radius: 8px; padding: 8px 12px; }
 .toast button { padding: 2px 8px; margin-left: 4px; }

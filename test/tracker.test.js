@@ -8,7 +8,7 @@ import { TRUE_CORNERS, piecesOf, renderFrame, rng, squareCentre } from './synth.
 
 // Drives a Tracker with synthetic frames of `sans` being played: idle board, a hand
 // that walks in, carries the piece across, lets go and leaves.
-function playGame(sans, { calibrationError = 0, noise = 4, gainAt = {}, seed = 7, hold = null } = {}) {
+function playGame(sans, { calibrationError = 0, noise = 4, gainAt = {}, seed = 7, hold = null, tall = false } = {}) {
   const rand = rng(seed);
   const jitter = () => (rand() - 0.5) * 2 * calibrationError;
   const estimated = TRUE_CORNERS.map(([x, y]) => [x + jitter(), y + jitter()]);
@@ -17,11 +17,12 @@ function playGame(sans, { calibrationError = 0, noise = 4, gainAt = {}, seed = 7
   const truth = new Chess();
   const tracked = new Chess();
   const tracker = new Tracker(tracked);
+  if (tall) tracker.setView(Hest);
   let gain = 1;
   const states = [];
 
   const show = (chess, hand = null) => {
-    const sig = sampleSignature(renderFrame(piecesOf(chess), { hand, gain, noise, rand }), Hest);
+    const sig = sampleSignature(renderFrame(piecesOf(chess), { hand, gain, noise, rand, tall, margin: tall }), Hest);
     const out = tracker.feed(sig);
     states.push(out.state);
     return out;
@@ -85,6 +86,42 @@ test('survives exposure changes, heavy noise and a sloppy calibration', () => {
   const game = ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'];
   const { tracked } = playGame(game, { calibrationError: 4, noise: 9, gainAt: { 3: 1.12, 6: 0.88 }, seed: 11 });
   assert.deepEqual(san(tracked), game);
+});
+
+test('follows standing pieces that hide the squares behind them', () => {
+  const game = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'O-O', 'Nf6', 'd3', 'd6', 'Bg5', 'h6', 'Bxf6', 'Qxf6'];
+  assert.deepEqual(san(playGame(game, { tall: true, calibrationError: 2 }).tracked), game);
+});
+
+test('tells one-square and two-square pawn pushes apart with standing pieces', () => {
+  for (const game of [['e3', 'e6', 'd4', 'd5'], ['e4', 'e5', 'd3', 'd6']]) {
+    assert.deepEqual(san(playGame(game, { tall: true }).tracked), game);
+  }
+});
+
+test('a hand that pauses over the board mid-move gets corrected once it lets go', () => {
+  for (const tall of [false, true]) {
+    const tracked = new Chess();
+    const tracker = new Tracker(tracked);
+    const Hm = boardToImage(TRUE_CORNERS);
+    if (tall) tracker.setView(Hm);
+    const rand = rng(13);
+    const feed = (chess, hand = null) => tracker.feed(sampleSignature(renderFrame(piecesOf(chess), { hand, rand, tall, margin: tall }), Hm));
+    const truth = new Chess();
+    for (let i = 0; i < 8; i++) feed(truth);
+    for (const san of ['e4', 'e5', 'Nf3']) {
+      const lifted = new Chess(truth.fen());
+      const m = truth.move(san);
+      lifted.remove(m.from);
+      const [tx, ty] = squareCentre(m.to);
+      // The hand holds the piece over its new square, perfectly still, for over a second...
+      for (let i = 0; i < 9; i++) feed(lifted, { x: tx, y: ty - 6, r: 30 });
+      // ...then puts it down and leaves.
+      for (let i = 0; i < 3; i++) feed(truth, { x: tx + 40 * (i + 1), y: ty, r: 30 });
+      for (let i = 0; i < 8; i++) feed(truth);
+    }
+    assert.deepEqual(tracked.history(), ['e4', 'e5', 'Nf3'], tall ? 'standing pieces' : 'flat pieces');
+  }
 });
 
 test('a hand resting on the board does not invent a move', () => {

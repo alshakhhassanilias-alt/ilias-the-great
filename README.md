@@ -1,42 +1,42 @@
 # ilias-the-great
 
-A camera chess coach for **over-the-board games with friends**. Point a webcam or phone at a real board and the app follows the game, then draws the engine's best move as an arrow on the live video, plus a plain-English "move your knight g1 → f3".
+A camera chess coach for **over-the-board games with friends**. Open it on your phone, point the camera at a real board, and it finds the board, asks which side you're playing, follows the game, and shows (and says) the engine's best move on the live video.
 
 It's meant for open, everyone-knows-it's-on games: testing what it can do, analysing a casual game, or teaching. Don't use it on a live online game (chess.com, lichess, etc.) or to get a hidden edge on someone who doesn't know about it. That's cheating, and fair-play systems are built to catch it.
 
 No server, no API key, no build step. Everything (vision, move tracking, Stockfish) runs in the browser.
 
-## Run it
+## Open it on your phone
 
-```sh
-npm start            # python3 -m http.server 8000
-# open http://localhost:8000
-```
+Browsers only allow the camera on `https://` pages (or `localhost`), so the app has to be served over https:
 
-Cameras only work on `https://` pages or `localhost`. To use a phone as the camera, serve the folder over https (any static host works, e.g. GitHub Pages) and open that URL on the phone.
+- **GitHub Pages** (easiest): `.github/workflows/pages.yml` runs the tests and publishes the app on every push to `main`. Turn it on once under the repo's *Settings → Pages → Source: GitHub Actions*. The app is then at `https://<user>.github.io/ilias-the-great/`.
+- **Any static host** works too, as it's just files.
+- **On a computer**: `npm start` (runs `python3 -m http.server 8000`), then open `http://localhost:8000`.
 
 ## Use it
 
-1. **Start camera.** Look down at the board from above or from a side. Keep the camera still (a phone propped on some books is fine).
-2. **Click the 4 corners** of the 8×8 playing area in the order **a1** (White's left-hand corner), **h1**, **h8**, **a8**. Drag the dots to fine-tune. If the labels land on the wrong corners, press *Rotate 90°*. Your corners are remembered for next time.
-3. **Set up the pieces and play.** Each time a move is made and hands leave the board, the app works out the move and shows the best move for whoever's turn it is.
+1. **Open the page and allow the camera.** It opens the back camera by itself. Get all 64 squares in view. Propping the phone up (on a stack of books, a cup) works best, but holding it is OK.
+2. **It finds the board on its own.** A grid appears over the squares, with a1/h1/h8/a8 labels in the corners.
+3. **Tell it your side.** Tap *White* or *Black*, or just say "white" or "black". It guesses the side nearest the camera and highlights that button.
+4. **Play.** On your turn a green arrow on the camera shows the best move, the text says e.g. "Move your knight g1 → f3", and it says the move out loud (turn this off with *Say moves out loud*). On your opponent's turn it waits. Each move is picked up when hands leave the board.
 
-Side panel: a digital copy of the position, move list, *Undo*, *New game*, a box to type a correction (`Nf3` or `e2e4`), a FEN box to start mid-game, *Advise for* (turn / White only / Black only), engine strength (Skill Level 0–20), think time, and detection sensitivity. *Show detection* paints the squares the camera thinks changed.
+If it misreads a move, the message under the best move offers the next most likely moves ("Saw a3. Not right? **Na3**"). Tap the right one. *Undo*, typing a move (`Nf3` or `e2e4`), and *Set corners by hand* (tap a1, h1, h8, a8) are there as fallbacks. To start mid-game, paste a FEN.
+
+Other settings: engine strength (Skill Level 0–20), think time, detection sensitivity, and *Show detection*, which paints the squares the camera thinks changed.
 
 ## How it works
 
-- **Where's the board?** The four clicked corners give a projective transform (`js/homography.js`) from board coordinates to camera pixels, so any angle works.
-- **What moved?** (`js/vision.js`, `js/tracker.js`) It does not recognise pieces. It samples the centre of each square, waits until the picture has been still for about 0.6 s (hands gone), and compares it with the last accepted picture, after cancelling out global brightness changes. Then it picks the legal move (chess.js) whose squares best explain the change. Castling, en passant, captures and promotion (queen by default; a picker appears to change it) fall out of this. If nothing legal fits (a hand resting on the board, a knocked piece), it ignores the frame and says so.
-- **What's best?** Stockfish 17.1 (lite, single-threaded WebAssembly) runs in a Web Worker.
+- **Finding the board** (`js/detect.js`). Every inner corner of a chessboard, where four squares meet, looks like a saddle: light, dark, light, dark around a circle. The ChESS detector scores each pixel for that. From a few neighbouring corners it guesses a perspective grid and grows it, keeps the 7×7 inner corner lines with the strongest response, and refits while dropping outliers (false corners where pieces meet squares). Then it chooses the orientation, meaning which corner is a1, from the square colours (a1 is dark) and from where the white and black pieces stand in the known game position. That works from any side, at any rotation, and even with a mirrored selfie camera.
+- **Following the board.** While locked on, it re-snaps the grid to fresh corners every few frames, so a hand-held phone is fine. If it loses the board for a few seconds, it searches again.
+- **What moved?** (`js/vision.js`, `js/tracker.js`). It doesn't recognise pieces. It samples each square, waits until the picture has been still for about 0.6 s (no hands), compares with the last accepted picture, and picks the legal move (chess.js) that best explains the change. It knows that, seen at an angle, a standing piece hides part of the square behind it and can be hidden by the piece in front. Castling, en passant, captures and promotion (queen by default; a picker offers the others) are handled. If a hand was still over the board when it guessed, the guess is revised once the hand leaves.
+- **What's best?** Stockfish 17.1 (lite, single-threaded WebAssembly) in a Web Worker.
 
-Because it only tracks *changes*, it needs to start from a known position (the standard one, or a FEN you enter) and see every move. If it ever drifts, fix it with *Undo* or by typing the move, which also re-syncs the camera baseline.
+## How well it works
 
-## Tips and limits
-
-- Good, even light and no shadow across the board help most. Pieces that contrast with the squares help too; if moves are missed, raise the sensitivity slider, and if phantom moves appear, lower it.
-- Tracking assumes a standard board and standard castling. Chess960 isn't supported.
-- Typed corrections assume the real board already shows that move.
-- The camera is never recorded or uploaded; frames are only read in the page.
+- **Finding the board:** tested on 53 real phone photos from a public dataset (top-down and tilted shots, boards rotated 45°, mid-game positions, hands and clutter in view). The board was found in all 53, with at least 97% overlap with the hand-labelled outline. On the starting-position photos it picked the right a1 corner every time.
+- **Reading moves:** on synthetic video with standing pieces seen at an angle from three sides, about 97% of moves in random games are read right first time. In every miss the right move was among the one-tap fixes. Real cameras, lighting and pieces will differ, so expect the odd fix.
+- **Limits:** it needs to see every move and to start from a known position (the normal setup or a FEN). It has trouble with very low camera angles where pieces hide most of the board, strong glare, or pieces close to the colour of the squares. Chess960 isn't supported.
 
 ## Tests
 
@@ -44,8 +44,8 @@ Because it only tracks *changes*, it needs to start from a known position (the s
 npm test
 ```
 
-`test/` renders fake camera frames (perspective, noise, exposure shifts, a moving hand, sloppy calibration) and checks that whole games, including castling both ways, en passant, a capturing promotion and a checkmate, are followed exactly. The browser pipeline was also exercised end to end with a stubbed camera.
+`test/` renders fake camera frames: perspective, noise, exposure shifts, standing pieces that hide what's behind them, a moving hand, a drifting hand-held camera and sloppy calibration. The tests check that the board is found and oriented from every side, and that whole games (castling both ways, en passant, a capturing promotion, a checkmate) are followed exactly. The full browser pipeline was also exercised end to end with a stubbed camera.
 
 ## Credits
 
-[chess.js](https://github.com/jhlywa/chess.js) (BSD-2) and [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3, built from [Stockfish](https://stockfishchess.org/)) are vendored in `vendor/`, with their licences alongside. Stockfish is GPLv3, so if you redistribute this app, its terms apply to that part.
+[chess.js](https://github.com/jhlywa/chess.js) (BSD-2) and [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3, built from [Stockfish](https://stockfishchess.org/)) are vendored in `vendor/`, with their licences alongside. Stockfish is GPLv3, so if you redistribute this app, its terms apply to that part. Board detection was evaluated on photos from the [chess-board-segmentation](https://huggingface.co/datasets/dopaul/chess-board-segmentation) dataset (CC BY 4.0); the photos aren't included here.

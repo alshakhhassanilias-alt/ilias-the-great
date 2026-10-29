@@ -63,16 +63,33 @@ export function squareBrightness(sig) {
 // after cancelling any global exposure change. At most a handful of squares
 // change in a move, so the median brightness ratio across all 64 is a robust
 // estimate of the exposure shift.
-export function squareDiffs(a, b) {
+// slack: how many sample steps (1 step = a tenth of a square) the grids may slide
+// against each other, so a camera that moved a little (and a board pose tracked to
+// within a pixel or two) doesn't look like change.
+export function squareDiffs(a, b, slack = 1) {
   const la = squareBrightness(a);
   const lb = squareBrightness(b);
   const ratios = Array.from(la, (v, s) => (lb[s] + 1) / (v + 1)).sort((x, y) => x - y);
   const gain = (ratios[31] + ratios[32]) / 2;
   const d = new Float32Array(64);
   for (let s = 0; s < 64; s++) {
-    let sum = 0;
-    for (let i = s * PER_SQUARE; i < (s + 1) * PER_SQUARE; i++) sum += Math.abs(a[i] - b[i] / gain);
-    d[s] = sum / PER_SQUARE / 255;
+    const o = s * PER_SQUARE;
+    let best = Infinity;
+    for (let dy = -slack; dy <= slack; dy++) {
+      for (let dx = -slack; dx <= slack; dx++) {
+        let sum = 0, n = 0;
+        for (let gy = Math.max(0, -dy); gy < GRID - Math.max(0, dy); gy++) {
+          for (let gx = Math.max(0, -dx); gx < GRID - Math.max(0, dx); gx++) {
+            const i = o + (gy * GRID + gx) * 3;
+            const j = o + ((gy + dy) * GRID + gx + dx) * 3;
+            sum += Math.abs(a[i] - b[j] / gain) + Math.abs(a[i + 1] - b[j + 1] / gain) + Math.abs(a[i + 2] - b[j + 2] / gain);
+            n += 3;
+          }
+        }
+        best = Math.min(best, sum / n);
+      }
+    }
+    d[s] = best / 255;
   }
   return d;
 }

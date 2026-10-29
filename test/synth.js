@@ -31,11 +31,14 @@ const TABLE = [88, 80, 72];
 const WHITE_PC = [238, 236, 226];
 const BLACK_PC = [38, 36, 40];
 const SKIN = [214, 164, 134];
+const MARGIN = [232, 228, 214];
 
 // pieces: Map squareName -> { type, color } (a chess.js board snapshot works).
-// opts: { hand: {x, y, r} | null, gain, noise, rand, corners }
+// opts: { hand: {x, y, r} | null, gain, noise, rand, corners, tall, margin }
+//   tall: draw pieces standing up (they lean over the squares behind them) instead of flat discs
+//   margin: a vinyl-style light margin around the playing area
 export function renderFrame(pieces, opts = {}) {
-  const { hand = null, gain = 1, noise = 4, rand = rng(1), corners = TRUE_CORNERS } = opts;
+  const { hand = null, gain = 1, noise = 4, rand = rng(1), corners = TRUE_CORNERS, tall = false, margin = false } = opts;
   const Hm = boardToImage(corners);
   const inv = invertH(Hm);
   const data = new Uint8ClampedArray(W * H * 4);
@@ -43,12 +46,13 @@ export function renderFrame(pieces, opts = {}) {
     for (let x = 0; x < W; x++) {
       const [u, v] = applyH(inv, x + 0.5, y + 0.5);
       let rgb = TABLE;
-      if (u >= -0.15 && u < 8.15 && v >= -0.15 && v < 8.15) {
-        rgb = [60, 40, 28];                                 // frame around the board
+      const rim = margin ? 0.6 : 0.15;
+      if (u >= -rim && u < 8 + rim && v >= -rim && v < 8 + rim) {
+        rgb = margin ? MARGIN : [60, 40, 28];               // frame around the board
         if (u >= 0 && u < 8 && v >= 0 && v < 8) {
           const f = Math.floor(u), r = Math.floor(v);
           rgb = (f + r) % 2 === 0 ? DARK_SQ : LIGHT_SQ;
-          const piece = pieces.get('abcdefgh'[f] + (r + 1));
+          const piece = !tall && pieces.get('abcdefgh'[f] + (r + 1));
           if (piece) {
             const du = u - f - 0.5, dv = v - r - 0.5;
             const dist = Math.hypot(du, dv);
@@ -57,13 +61,48 @@ export function renderFrame(pieces, opts = {}) {
           }
         }
       }
-      if (hand && Math.hypot(x - hand.x, y - hand.y) < hand.r) rgb = SKIN;
       const o = (y * W + x) * 4;
-      for (let c = 0; c < 3; c++) data[o + c] = rgb[c] * gain + gauss(rand) * noise;
+      for (let c = 0; c < 3; c++) data[o + c] = rgb[c];
       data[o + 3] = 255;
     }
   }
+  if (tall) drawStandingPieces(data, pieces, Hm);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4;
+      const handHere = hand && Math.hypot(x - hand.x, y - hand.y) < hand.r;
+      for (let c = 0; c < 3; c++) data[o + c] = (handHere ? SKIN[c] : data[o + c]) * gain + gauss(rand) * noise;
+    }
+  }
   return { width: W, height: H, data };
+}
+
+const HEIGHT = { p: 0.8, n: 1.0, b: 1.1, r: 0.9, q: 1.3, k: 1.45 };
+
+// Pieces as upright capsules: base on the square, body rising up the image (towards the
+// far side), drawn far-to-near so nearer pieces cover the ones behind them.
+function drawStandingPieces(data, pieces, Hm) {
+  const list = [...pieces].map(([name, p]) => {
+    const f = name.charCodeAt(0) - 97, r = name.charCodeAt(1) - 49;
+    const base = applyH(Hm, f + 0.5, r + 0.5);
+    const a = applyH(Hm, f, r + 0.5), b = applyH(Hm, f + 1, r + 0.5);
+    const cell = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return { p, base, cell };
+  }).sort((s, t) => s.base[1] - t.base[1]);
+  for (const { p, base, cell } of list) {
+    const rad = 0.3 * cell, h = HEIGHT[p.type] * cell;
+    const [bx, by] = base, ty = by - h;
+    const body = p.color === 'w' ? WHITE_PC : BLACK_PC;
+    for (let y = Math.max(0, Math.floor(ty - rad)); y < Math.min(H, Math.ceil(by + rad)); y++) {
+      for (let x = Math.max(0, Math.floor(bx - rad)); x < Math.min(W, Math.ceil(bx + rad)); x++) {
+        const cy = Math.min(by, Math.max(ty, y));
+        if (Math.hypot(x - bx, y - cy) > rad) continue;
+        const shade = 0.75 + 0.25 * (1 - Math.abs(x - bx) / rad);   // rounder look
+        const o = (y * W + x) * 4;
+        for (let c = 0; c < 3; c++) data[o + c] = body[c] * shade;
+      }
+    }
+  }
 }
 
 export function piecesOf(chess) {

@@ -9,29 +9,42 @@
 <body>
   <header>
     <h1>♞ Ilias the Great</h1>
-    <p>Camera chess coach for over-the-board games. Point it at a real board and it shows the best move on the live feed. Everyone at the table should know it's on.</p>
+    <p>Camera chess coach for over-the-board games. Point your phone at a real board and it shows the best move on the live feed. Everyone at the table should know it's on.</p>
   </header>
 
   <main>
     <section class="stage">
       <div class="view-wrap">
         <canvas id="view" width="960" height="540"></canvas>
-        <div id="banner" role="status">Start the camera to begin.</div>
+        <div id="hud" class="hud" hidden></div>
+        <div id="sidePrompt" class="side-prompt" hidden>
+          <p>Board found! Which side are you playing?</p>
+          <div class="side-buttons">
+            <button data-side="w">♔ White</button>
+            <button data-side="b">♚ Black</button>
+          </div>
+          <button data-side="turn" class="link">Both sides</button>
+          <p id="voiceHint" class="hint" hidden>🎤 …or just say “white” or “black”.</p>
+        </div>
+        <div id="banner" role="status">Allow the camera to begin.</div>
       </div>
 
       <div class="toolbar">
-        <button id="startBtn" class="primary">Start camera</button>
+        <button id="startBtn" class="primary" hidden>Start camera</button>
         <select id="cameraSelect" title="Camera" hidden></select>
-        <button id="clearBtn" disabled>Re-pick corners</button>
+        <button id="findBtn" title="Look for the board again">Find board</button>
+        <button id="manualBtn" title="Tap the four corners yourself">Set corners by hand</button>
         <button id="rotateBtn" disabled title="Rotate which corner is a1">Rotate 90°</button>
         <button id="resyncBtn" disabled title="Treat the board as it looks right now as the starting point">Re-sync</button>
+        <label class="check"><input type="checkbox" id="speakBox" checked> Say moves out loud</label>
         <label class="check"><input type="checkbox" id="debugBox"> Show detection</label>
       </div>
 
       <ol class="steps">
-        <li><b>Start the camera</b> and look down on the board from a side or from above. Keep it steady (phone on a stack of books works).</li>
-        <li><b>Click the four corners</b> of the 8×8 playing area in this order: <b>a1</b> (White's left-hand corner), <b>h1</b>, <b>h8</b>, <b>a8</b>. Drag the dots to fine-tune. Use <i>Rotate 90°</i> if the labels sit on the wrong corners.</li>
-        <li><b>Set up the pieces</b>, then just play. Each time a move is made and your hand leaves the board, the app works out what moved and shows the engine's best reply as an arrow.</li>
+        <li><b>Open this page on your phone</b> and allow the camera. Point it at the board so all 64 squares are in view. Propping the phone up works best, but holding it is OK.</li>
+        <li><b>It finds the board by itself</b> (the grid appears), then asks <b>which side you're playing</b>. Tap it, or just say “white” or “black”.</li>
+        <li><b>Play.</b> When it's your turn, an arrow on the camera shows the best move (and it says it out loud). It follows every move by watching the board.</li>
+        <li>If it can't find the board, use <i>Set corners by hand</i> and tap <b>a1</b> (White's left-hand corner), <b>h1</b>, <b>h8</b>, <b>a8</b>.</li>
       </ol>
     </section>
 
@@ -60,11 +73,11 @@
       </form>
 
       <div class="settings">
-        <label>Advise for
-          <select id="adviseSelect">
-            <option value="turn">Whoever's turn it is</option>
-            <option value="w">White only</option>
-            <option value="b">Black only</option>
+        <label>I'm playing
+          <select id="sideSelect">
+            <option value="w">White</option>
+            <option value="b">Black</option>
+            <option value="turn">Both sides (advise whoever's turn it is)</option>
           </select>
         </label>
         <label>Engine strength <output id="skillOut"></output>
