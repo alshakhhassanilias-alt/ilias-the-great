@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ilias the Great</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>♞ Ilias the Great</h1>
+    <p>Camera chess coach for over-the-board games. Point it at a real board and it shows the best move on the live feed. Everyone at the table should know it's on.</p>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="view-wrap">
+        <canvas id="view" width="960" height="540"></canvas>
+        <div id="banner" role="status">Start the camera to begin.</div>
+      </div>
+
+      <div class="toolbar">
+        <button id="startBtn" class="primary">Start camera</button>
+        <select id="cameraSelect" title="Camera" hidden></select>
+        <button id="clearBtn" disabled>Re-pick corners</button>
+        <button id="rotateBtn" disabled title="Rotate which corner is a1">Rotate 90°</button>
+        <button id="resyncBtn" disabled title="Treat the board as it looks right now as the starting point">Re-sync</button>
+        <label class="check"><input type="checkbox" id="debugBox"> Show detection</label>
+      </div>
+
+      <ol class="steps">
+        <li><b>Start the camera</b> and look down on the board from a side or from above. Keep it steady (phone on a stack of books works).</li>
+        <li><b>Click the four corners</b> of the 8×8 playing area in this order: <b>a1</b> (White's left-hand corner), <b>h1</b>, <b>h8</b>, <b>a8</b>. Drag the dots to fine-tune. Use <i>Rotate 90°</i> if the labels sit on the wrong corners.</li>
+        <li><b>Set up the pieces</b>, then just play. Each time a move is made and your hand leaves the board, the app works out what moved and shows the engine's best reply as an arrow.</li>
+      </ol>
+    </section>
+
+    <aside class="panel">
+      <div id="advice" class="advice">
+        <div class="advice-title">Best move</div>
+        <div id="adviceText" class="advice-text">…</div>
+        <div id="evalText" class="eval"></div>
+      </div>
+      <div id="toast" class="toast" hidden></div>
+
+      <div id="board" class="board" aria-label="Current position"></div>
+      <div class="row">
+        <button id="undoBtn">Undo</button>
+        <button id="resetBtn">New game</button>
+        <button id="flipBtn">Flip board</button>
+      </div>
+
+      <form id="moveForm" class="row">
+        <input id="moveInput" placeholder="Fix it: type a move (Nf3, e2e4)" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button>Play</button>
+      </form>
+      <form id="fenForm" class="row">
+        <input id="fenInput" placeholder="Start from a FEN position" autocomplete="off" spellcheck="false">
+        <button>Set</button>
+      </form>
+
+      <div class="settings">
+        <label>Advise for
+          <select id="adviseSelect">
+            <option value="turn">Whoever's turn it is</option>
+            <option value="w">White only</option>
+            <option value="b">Black only</option>
+          </select>
+        </label>
+        <label>Engine strength <output id="skillOut"></output>
+          <input type="range" id="skillRange" min="0" max="20" step="1" value="20">
+        </label>
+        <label>Think time <output id="timeOut"></output>
+          <input type="range" id="timeRange" min="200" max="4000" step="100" value="1000">
+        </label>
+        <label>Detection sensitivity <output id="sensOut"></output>
+          <input type="range" id="sensRange" min="1" max="9" step="1" value="5">
+        </label>
+      </div>
+
+      <div id="moves" class="moves"></div>
+    </aside>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

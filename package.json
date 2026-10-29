@@ -1,0 +1,11 @@
+{
+  "name": "ilias-the-great",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Point a camera at a real chessboard; it tracks the game and shows the engine's best move on the live feed.",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node --test test/*.test.js"
+  }
+}
