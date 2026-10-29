@@ -189,20 +189,25 @@ class PointGrid {
     this.points = points;
     this.cell = cell;
     this.map = new Map();
+    this.box = [Infinity, Infinity, -Infinity, -Infinity];   // occupied bucket range
     points.forEach((p, i) => {
-      const key = `${Math.floor(p.x / cell)},${Math.floor(p.y / cell)}`;
+      const bx = Math.floor(p.x / cell), by = Math.floor(p.y / cell);
+      const key = `${bx},${by}`;
       if (!this.map.has(key)) this.map.set(key, []);
       this.map.get(key).push(i);
+      this.box = [Math.min(this.box[0], bx), Math.min(this.box[1], by), Math.max(this.box[2], bx), Math.max(this.box[3], by)];
     });
   }
 
   nearest(x, y, maxDist, skip) {
     const c = this.cell, reach = Math.ceil(maxDist / c);
     const cx = Math.floor(x / c), cy = Math.floor(y / c);
+    const [x0, y0, x1, y1] = this.box;
     let best = -1, bestD = maxDist;
-    for (let dy = -reach; dy <= reach; dy++) {
-      for (let dx = -reach; dx <= reach; dx++) {
-        for (const i of this.map.get(`${cx + dx},${cy + dy}`) ?? []) {
+    // Only buckets that can hold points (a wild prediction can ask for a huge radius).
+    for (let by = Math.max(cy - reach, y0); by <= Math.min(cy + reach, y1); by++) {
+      for (let bx = Math.max(cx - reach, x0); bx <= Math.min(cx + reach, x1); bx++) {
+        for (const i of this.map.get(`${bx},${by}`) ?? []) {
           if (skip && skip.has(i)) continue;
           const d = Math.hypot(this.points[i].x - x, this.points[i].y - y);
           if (d < bestD) { best = i; bestD = d; }
@@ -239,7 +244,7 @@ function growLattice(seed, points, grid) {
         const q = project(H, i, j), qx = project(H, i + 1, j), qy = project(H, i, j + 1);
         if (!q || !qx || !qy) continue;
         const cell = Math.min(Math.hypot(qx[0] - q[0], qx[1] - q[1]), Math.hypot(qy[0] - q[0], qy[1] - q[1]));
-        if (cell < 5) continue;
+        if (cell < 5 || cell > 200) continue;     // degenerate guess
         const k = grid.nearest(q[0], q[1], SNAP * cell, used);
         if (k < 0) continue;
         assigned.set(`${i},${j}`, k);
@@ -308,7 +313,21 @@ function trimLattice(lat, points) {
   return { H: fit.H, assigned, bounds: [i0, i1, j0, j1], count: assigned.size };
 }
 
-export function fitLattice(points, { seeds = 50, minInliers = 10 } = {}) {
+// A real board's cells alternate light/dark along the lattice. A lattice running
+// diagonally across the squares (every other X-corner also forms one) doesn't.
+function alternates(lat, gray) {
+  const [imin, imax, jmin, jmax] = lat.bounds;
+  const lum = [], sign = [];
+  for (let i = imin; i < imax; i++) {
+    for (let j = jmin; j < jmax; j++) {
+      const f = squareFeatures(gray, lat.H, i, j);
+      if (f) { lum.push(f.corner); sign.push((i + j) % 2 ? 1 : -1); }
+    }
+  }
+  return lum.length < 6 || Math.abs(corr(lum, sign)) > 0.3;
+}
+
+export function fitLattice(points, { seeds = 50, minInliers = 10, gray = null } = {}) {
   if (points.length < minInliers) return null;
   const grid = new PointGrid(points);
   let best = null;
@@ -334,7 +353,7 @@ export function fitLattice(points, { seeds = 50, minInliers = 10 } = {}) {
         if (!lat) continue;
         lat.count = lat.assigned.size;
         // Prefer more inliers; on ties, the finer lattice (a diagonal or 2x lattice also fits a subset).
-        if (!best || lat.count > best.count) best = lat;
+        if ((!best || lat.count > best.count) && (!gray || alternates(lat, gray))) best = lat;
       }
     }
     if (best && best.count >= 20) for (const k of best.assigned.values()) covered.add(k);
@@ -516,7 +535,7 @@ export function detectBoard(img, { expected = null, maxSide = 480 } = {}) {
   const gray = toGray(img, maxSide);
   const R = xCornerResponse(gray);
   const { points, top } = findXCorners(R, gray.w, gray.h);
-  const lattice = fitLattice(points);
+  const lattice = fitLattice(points, { gray });
   if (!lattice) return null;
   const board = chooseBoard(lattice, gray, R, top, expected);
   if (!board) return null;
@@ -524,6 +543,8 @@ export function detectBoard(img, { expected = null, maxSide = 480 } = {}) {
     ...board,
     corners: board.corners.map(([x, y]) => [x * gray.scale, y * gray.scale]),
     inliers: lattice.count,
+    // All 7 inner corner lines seen both ways, so the 8x8 window is certain.
+    complete: lattice.bounds[1] - lattice.bounds[0] === SPAN && lattice.bounds[3] - lattice.bounds[2] === SPAN,
   };
 }
 
