@@ -8,11 +8,7 @@ No server, no API key, no build step. Everything (vision, move tracking, Stockfi
 
 ## Open it on your phone
 
-Browsers only allow the camera on `https://` pages (or `localhost`), so the app has to be served over https:
-
-- **GitHub Pages** (easiest): `.github/workflows/pages.yml` runs the tests and publishes the app on every push to `main`. Turn it on once under the repo's *Settings → Pages → Source: GitHub Actions*. The app is then at `https://<user>.github.io/ilias-the-great/`.
-- **Any static host** works too, as it's just files.
-- **On a computer**: `npm start` (runs `python3 -m http.server 8000`), then open `http://localhost:8000`.
+Browsers only allow the camera on `https://` pages (or `localhost`), so the app has to be served over https. Any static host works, since it's just files (GitHub Pages, Netlify, etc.). On a computer, `npm start` (runs `python3 -m http.server 8000`), then open `http://localhost:8000`.
 
 ## Use it
 
@@ -44,7 +40,7 @@ Other settings: engine strength (Skill Level 0–20), think time, detection sens
 npm test
 ```
 
-`test/` renders fake camera frames: perspective, noise, exposure shifts, standing pieces that hide what's behind them, a moving hand, a drifting hand-held camera and sloppy calibration. The tests check that the board is found and oriented from every side, and that whole games (castling both ways, en passant, a capturing promotion, a checkmate) are followed exactly. The full browser pipeline was also exercised end to end with a stubbed camera.
+`npm test` also runs on every pull request (`.github/workflows/tests.yml`). `test/` renders fake camera frames: perspective, noise, exposure shifts, standing pieces that hide what's behind them, a moving hand, a drifting hand-held camera and sloppy calibration. The tests check that the board is found and oriented from every side, and that whole games (castling both ways, en passant, a capturing promotion, a checkmate) are followed exactly. The full browser pipeline was also exercised end to end with a stubbed camera.
 
 ## Credits
 
