@@ -15,18 +15,20 @@
   <main>
     <section class="stage">
       <div class="view-wrap">
+        <video id="video" playsinline muted autoplay></video>
         <canvas id="view" width="960" height="540"></canvas>
         <div id="hud" class="hud" hidden></div>
-        <div id="sidePrompt" class="side-prompt" hidden>
-          <p>Board found! Which side are you playing?</p>
-          <div class="side-buttons">
-            <button data-side="w">♔ White</button>
-            <button data-side="b">♚ Black</button>
-          </div>
-          <button data-side="turn" class="link">Both sides</button>
-          <p id="voiceHint" class="hint" hidden>🎤 …or just say “white” or “black”.</p>
-        </div>
         <div id="banner" role="status">Allow the camera to begin.</div>
+      </div>
+
+      <div id="sidePrompt" class="side-prompt" hidden>
+        <p>Board found! Which side are you playing?</p>
+        <div class="side-buttons">
+          <button data-side="w">♔ White</button>
+          <button data-side="b">♚ Black</button>
+        </div>
+        <button data-side="turn" class="link">Both sides</button>
+        <p id="voiceHint" class="hint" hidden>🎤 …or just say “white” or “black”.</p>
       </div>
 
       <div class="toolbar">

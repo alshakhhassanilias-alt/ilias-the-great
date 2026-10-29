@@ -2,8 +2,7 @@ import { Chess } from '../vendor/chess.js';
 import { Engine } from './engine.js';
 import { Tracker } from './tracker.js';
 import { applyH, boardToImage, isConvexQuad, scaleH } from './homography.js';
-import { sampleSignature } from './vision.js';
-import { detectBoard, occupancyOf, trackBoard } from './detect.js';
+import { occupancyOf } from './detect.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,9 +23,7 @@ const PIECE_NAMES = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen'
 const GLYPHS = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
 const SIDE_NAMES = { w: 'White', b: 'Black' };
 const SAMPLE_SIDE = 640;          // longest side of the frames we analyse
-const SAMPLE_EVERY_MS = 150;
-const SEARCH_EVERY_MS = 450;
-const LOST_AFTER_MS = 4000;       // board not seen this long -> search again
+const SAMPLE_EVERY_MS = 150;       // at most this often; slower phones simply process fewer frames
 
 const chess = new Chess();
 const tracker = new Tracker(chess);
@@ -46,9 +43,9 @@ let dragging = -1;
 let side = null;                  // the side the user plays: 'w' | 'b' | 'turn' (both); asked once the board is found
 let lastSpoken = '';
 
-const video = document.createElement('video');
-video.playsInline = true;
-video.muted = true;
+// The camera picture is the <video> element itself (drawn by the browser, no copying);
+// the grid and arrow go on a transparent canvas on top, redrawn only when they change.
+const video = $('video');
 const view = $('view');
 const vctx = view.getContext('2d');
 const grab = document.createElement('canvas');
@@ -68,11 +65,12 @@ function updateHomography() {
 function setCorners(next) {
   corners = next;
   updateHomography();
+  drawSoon();
 }
 
 function startSearch(message) {
   mode = 'search';
-  pendingLock = null;
+  vision.postMessage({ type: 'reset' });
   setCorners([]);
   if (message) toast(message);
   renderAll();
@@ -80,6 +78,7 @@ function startSearch(message) {
 
 function startManual() {
   mode = 'manual';
+  vision.postMessage({ type: 'reset' });
   setCorners([]);
   tracker.resync();
   renderAll();
@@ -95,7 +94,11 @@ view.addEventListener('pointerdown', (e) => {
   const [x, y] = eventPoint(e);
   if (mode === 'manual' && corners.length < 4) {
     setCorners([...corners, [x, y]]);
-    if (corners.length === 4) { tracker.resync(); if (!side) askSide(); }
+    if (corners.length === 4) {
+      vision.postMessage({ type: 'manual', corners: toPixels(corners) });
+      tracker.resync();
+      if (!side) askSide();
+    }
     renderBanner();
     return;
   }
@@ -124,6 +127,7 @@ view.addEventListener('pointermove', (e) => {
 const endDrag = () => {
   if (dragging < 0) return;
   dragging = -1;
+  sendCorners();
   tracker.resync();
 };
 view.addEventListener('pointerup', endDrag);
@@ -133,6 +137,7 @@ $('findBtn').addEventListener('click', () => startSearch());
 $('manualBtn').addEventListener('click', startManual);
 $('rotateBtn').addEventListener('click', () => {
   setCorners([...corners.slice(1), corners[0]]);
+  sendCorners();
   tracker.resync();
   renderAll();
 });
@@ -277,86 +282,133 @@ function drawOverlay(ctx, w, h) {
   }
 }
 
-function frame() {
-  if (video.readyState >= 2 && video.videoWidth) {
-    if (view.width !== video.videoWidth || view.height !== video.videoHeight) {
-      view.width = video.videoWidth;
-      view.height = video.videoHeight;
-    }
-    vctx.drawImage(video, 0, 0, view.width, view.height);
+let drawPending = false;
+function drawSoon() {
+  if (drawPending) return;
+  drawPending = true;
+  requestAnimationFrame(() => {
+    drawPending = false;
+    vctx.clearRect(0, 0, view.width, view.height);
     drawOverlay(vctx, view.width, view.height);
-  } else {
-    vctx.fillStyle = '#000';
-    vctx.fillRect(0, 0, view.width, view.height);
-  }
-  requestAnimationFrame(frame);
+  });
 }
+
+// Match the overlay (and the box around both) to the camera picture's shape.
+function fitView() {
+  if (!video.videoWidth) return;
+  view.width = video.videoWidth;
+  view.height = video.videoHeight;
+  const wrap = view.parentElement;
+  wrap.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+  wrap.style.maxWidth = `calc(78vh * ${video.videoWidth / video.videoHeight})`;
+  updateHomography();
+  drawSoon();
+}
+video.addEventListener('loadedmetadata', fitView);
+video.addEventListener('resize', fitView);
 
 // ------------------------------------------------------------------- sampling
 
-function grabFrame() {
+// The heavy lifting (finding and following the board, sampling the squares) runs in a
+// worker. Only one frame is in flight at a time, so a slow phone processes fewer frames
+// instead of falling behind, and the page itself stays smooth.
+const vision = new Worker(new URL('./vision-worker.js', import.meta.url), { type: 'module' });
+let visionBusy = false;
+// How frames reach the worker, cheapest first: a VideoFrame (wraps the camera frame, no
+// copy), an ImageBitmap, or plain pixels read here. Each falls back to the next if it fails.
+let useVideoFrames = typeof VideoFrame === 'function' && typeof OffscreenCanvas !== 'undefined';
+let useBitmaps = typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap === 'function';
+let poseLost = false;
+
+function frameSize() {
   const scale = SAMPLE_SIDE / Math.max(video.videoWidth, video.videoHeight);
-  grab.width = Math.round(video.videoWidth * scale);
-  grab.height = Math.round(video.videoHeight * scale);
-  gctx.drawImage(video, 0, 0, grab.width, grab.height);
-  return gctx.getImageData(0, 0, grab.width, grab.height);
+  return [Math.round(video.videoWidth * scale), Math.round(video.videoHeight * scale)];
 }
 
-let lastSearch = 0;
-let lastSeen = 0;
-let pendingLock = null;           // a detection waiting for a second, agreeing one
-let samples = 0;
-
-const normalized = (pts, img) => pts.map(([x, y]) => [x / img.width, y / img.height]);
-const cornerGap = (a, b) => Math.max(...a.map(([x, y], k) => Math.hypot(x - b[k][0], y - b[k][1])));
-
-function searchBoard(img, now) {
-  if (now - lastSearch < SEARCH_EVERY_MS) return;
-  lastSearch = now;
-  const found = detectBoard(img, { expected: occupancyOf(chess.board()) });
-  if (!found || found.inliers < 14) { pendingLock = null; return; }
-  const next = normalized(found.corners, img);
-  // Two detections in a row that agree, so one lucky frame can't lock onto the wrong thing.
-  if (!pendingLock || cornerGap(pendingLock, next) > 0.03) { pendingLock = next; return; }
-  pendingLock = null;
-  mode = 'locked';
-  lastSeen = now;
-  setCorners(next);
-  if (found.orientationMargin < 0.3) toast('Board found, but I\'m not sure which way round it is. If a1 is in the wrong corner, tap Rotate.');
-  else toast('Board found!');
-  if (!side) askSide();
-  renderAll();
+function toPixels(pts) {
+  const [w, h] = frameSize();
+  return pts.map(([x, y]) => [x * w, y * h]);
 }
 
-// Keeps the board pose up to date as the camera (or the board) moves.
-function followBoard(img, now) {
-  const found = trackBoard(img, scaleH(Hn, img.width, img.height));
-  if (found) {
-    lastSeen = now;
-    if (found.shift > 0.6) setCorners(normalized(found.corners, img));
-  } else if (now - lastSeen > LOST_AFTER_MS && tracker.result.state !== 'moving') {
-    startSearch('Lost sight of the board. Looking for it again…');
+function sendCorners() {
+  if (corners.length === 4) vision.postMessage({ type: mode === 'manual' ? 'manual' : 'corners', corners: toPixels(corners) });
+}
+
+async function sendFrame() {
+  const [width, height] = frameSize();
+  const msg = { type: 'frame', width, height, expected: occupancyOf(chess.board()) };
+  if (useVideoFrames) {
+    try {
+      msg.bitmap = new VideoFrame(video);
+      vision.postMessage(msg, [msg.bitmap]);
+      return;
+    } catch {
+      useVideoFrames = false;
+      delete msg.bitmap;
+    }
   }
+  if (useBitmaps) {
+    try {
+      msg.bitmap = await createImageBitmap(video, { resizeWidth: width, resizeHeight: height, resizeQuality: 'low' });
+      vision.postMessage(msg, [msg.bitmap]);
+      return;
+    } catch {
+      useBitmaps = false;       // read the pixels here instead
+      delete msg.bitmap;
+    }
+  }
+  grab.width = width;
+  grab.height = height;
+  gctx.drawImage(video, 0, 0, width, height);
+  msg.pixels = gctx.getImageData(0, 0, width, height).data.buffer;
+  vision.postMessage(msg, [msg.pixels]);
 }
 
-let lastImg = null;
 setInterval(() => {
-  if (!stream || video.readyState < 2 || !video.videoWidth || dragging >= 0) return;
-  const now = performance.now();
-  const img = grabFrame();
-  const prevImg = lastImg;
-  lastImg = img;
-  if (mode === 'search') return searchBoard(img, now);
-  if (!Hn) return;
-  if (mode === 'locked' && samples++ % 2 === 0) followBoard(img, now);
-  if (!Hn) return;
-  const H = scaleH(Hn, img.width, img.height);
-  // Sample the previous frame with the same pose too, so a pose update doesn't look like motion.
-  const prevSig = prevImg && prevImg.width === img.width ? sampleSignature(prevImg, H) : null;
-  const result = tracker.feed(sampleSignature(img, H), prevSig);
-  if (result.d) lastDiffs = result.d;
-  onTrackerResult(result);
+  if (visionBusy || !stream || video.readyState < 2 || !video.videoWidth || dragging >= 0) return;
+  if (mode === 'manual' && corners.length < 4) return;
+  visionBusy = true;
+  sendFrame().catch(() => { visionBusy = false; });
 }, SAMPLE_EVERY_MS);
+
+vision.onmessage = ({ data }) => {
+  visionBusy = false;
+  if (data.type === 'error') {
+    if (data.bitmap) { if (useVideoFrames) useVideoFrames = false; else useBitmaps = false; }
+    console.warn('vision:', data.message);
+    return;
+  }
+  onPose(data);
+  if (!data.sig || !Hn || dragging >= 0) return;
+  const result = tracker.feed(data.sig, data.prevSig);
+  if (result.d) {
+    lastDiffs = result.d;
+    if ($('debugBox').checked) drawSoon();
+  }
+  onTrackerResult(result);
+};
+vision.onerror = (e) => {
+  visionBusy = false;
+  console.warn('vision worker:', e.message);
+};
+
+function onPose(data) {
+  const was = mode;
+  if (mode !== 'manual') mode = data.mode;
+  const lostChanged = poseLost !== !!data.lost;
+  poseLost = !!data.lost;
+  if (data.corners) setCorners(data.corners.map(([x, y]) => [x / data.width, y / data.height]));
+  else if (mode === 'search' && corners.length) setCorners([]);
+  if (data.locked) {
+    if (data.margin < 0.3) toast('Board found, but I\'m not sure which way round it is. If a1 is in the wrong corner, tap Rotate.');
+    else toast('Board found!');
+    if (!side) askSide();
+  } else if (was === 'locked' && mode === 'search') {
+    toast('Lost sight of the board. Looking for it again…');
+  }
+  if (mode !== was || data.locked) renderAll();
+  else if (lostChanged) renderBanner();
+}
 
 let lastState = '';
 function onTrackerResult(result) {
@@ -385,6 +437,7 @@ function askSide() {
   const guess = whiteY > blackY ? 'w' : 'b';
   prompt.querySelectorAll('button[data-side]').forEach((b) => b.classList.toggle('guess', b.dataset.side === guess));
   prompt.hidden = false;
+  prompt.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   listenForSide();
 }
 
@@ -443,11 +496,12 @@ function renderBanner() {
     return setBanner(`Tap the board's corners: a1 (White's left corner), h1, h8, a8. Next: ${CORNER_LABELS[corners.length]}`);
   }
   if (!Hn) return setBanner('Those corners don\'t make a proper four-sided board. Find the board again.', true);
+  if (poseLost) return setBanner('Can\'t see the board well. Keep all of it in view…', true);
   if (chess.isGameOver()) return setBanner(gameOverText());
   const status = {
     init: 'Watching the board…',
-    moving: 'Watching the board…',
-    settling: 'Watching the board…',
+    moving: 'Hands or camera moving. I read the move once the board is still.',
+    settling: 'Hands or camera moving. I read the move once the board is still.',
     baseline: 'Board locked in.',
     steady: `${SIDE_NAMES[chess.turn()]} to move.`,
     move: `${SIDE_NAMES[chess.turn()]} to move.`,
@@ -638,6 +692,7 @@ function renderAdvice() {
 }
 
 function renderAll() {
+  drawSoon();
   renderBoard();
   renderMoves();
   renderAdvice();
@@ -759,7 +814,7 @@ $('speakBox').addEventListener('change', () => store.set('speak', $('speakBox').
 
 updateHomography();
 renderAll();
-requestAnimationFrame(frame);
+$('debugBox').addEventListener('change', drawSoon);
 startEngine();
 // Open the camera straight away, but only once the page has loaded: a playing camera
 // stream otherwise keeps the page "loading" forever (spinner never stops on phones).
