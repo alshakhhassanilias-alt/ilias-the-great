@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ilias the Great</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>♞ Ilias the Great</h1>
+    <p>Camera chess coach for over-the-board games. Point your phone at a real board and it shows the best move on the live feed. Everyone at the table should know it's on.</p>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="view-wrap">
+        <canvas id="view" width="960" height="540"></canvas>
+        <div id="hud" class="hud" hidden></div>
+        <div id="sidePrompt" class="side-prompt" hidden>
+          <p>Board found! Which side are you playing?</p>
+          <div class="side-buttons">
+            <button data-side="w">♔ White</button>
+            <button data-side="b">♚ Black</button>
+          </div>
+          <button data-side="turn" class="link">Both sides</button>
+          <p id="voiceHint" class="hint" hidden>🎤 …or just say “white” or “black”.</p>
+        </div>
+        <div id="banner" role="status">Allow the camera to begin.</div>
+      </div>
+
+      <div class="toolbar">
+        <button id="startBtn" class="primary" hidden>Start camera</button>
+        <select id="cameraSelect" title="Camera" hidden></select>
+        <button id="findBtn" title="Look for the board again">Find board</button>
+        <button id="manualBtn" title="Tap the four corners yourself">Set corners by hand</button>
+        <button id="rotateBtn" disabled title="Rotate which corner is a1">Rotate 90°</button>
+        <button id="resyncBtn" disabled title="Treat the board as it looks right now as the starting point">Re-sync</button>
+        <label class="check"><input type="checkbox" id="speakBox" checked> Say moves out loud</label>
+        <label class="check"><input type="checkbox" id="debugBox"> Show detection</label>
+      </div>
+
+      <ol class="steps">
+        <li><b>Open this page on your phone</b> and allow the camera. Point it at the board so all 64 squares are in view. Propping the phone up works best, but holding it is OK.</li>
+        <li><b>It finds the board by itself</b> (the grid appears), then asks <b>which side you're playing</b>. Tap it, or just say “white” or “black”.</li>
+        <li><b>Play.</b> When it's your turn, an arrow on the camera shows the best move (and it says it out loud). It follows every move by watching the board.</li>
+        <li>If it can't find the board, use <i>Set corners by hand</i> and tap <b>a1</b> (White's left-hand corner), <b>h1</b>, <b>h8</b>, <b>a8</b>.</li>
+      </ol>
+    </section>
+
+    <aside class="panel">
+      <div id="advice" class="advice">
+        <div class="advice-title">Best move</div>
+        <div id="adviceText" class="advice-text">…</div>
+        <div id="evalText" class="eval"></div>
+      </div>
+      <div id="toast" class="toast" hidden></div>
+
+      <div id="board" class="board" aria-label="Current position"></div>
+      <div class="row">
+        <button id="undoBtn">Undo</button>
+        <button id="resetBtn">New game</button>
+        <button id="flipBtn">Flip board</button>
+      </div>
+
+      <form id="moveForm" class="row">
+        <input id="moveInput" placeholder="Fix it: type a move (Nf3, e2e4)" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button>Play</button>
+      </form>
+      <form id="fenForm" class="row">
+        <input id="fenInput" placeholder="Start from a FEN position" autocomplete="off" spellcheck="false">
+        <button>Set</button>
+      </form>
+
+      <div class="settings">
+        <label>I'm playing
+          <select id="sideSelect">
+            <option value="w">White</option>
+            <option value="b">Black</option>
+            <option value="turn">Both sides (advise whoever's turn it is)</option>
+          </select>
+        </label>
+        <label>Engine strength <output id="skillOut"></output>
+          <input type="range" id="skillRange" min="0" max="20" step="1" value="20">
+        </label>
+        <label>Think time <output id="timeOut"></output>
+          <input type="range" id="timeRange" min="200" max="4000" step="100" value="1000">
+        </label>
+        <label>Detection sensitivity <output id="sensOut"></output>
+          <input type="range" id="sensRange" min="1" max="9" step="1" value="5">
+        </label>
+      </div>
+
+      <div id="moves" class="moves"></div>
+    </aside>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
