@@ -371,8 +371,11 @@ setInterval(() => {
   sendFrame().catch(() => { visionBusy = false; });
 }, SAMPLE_EVERY_MS);
 
+let resultTimes = [];             // when recent vision results arrived, for the diagnostics line
 vision.onmessage = ({ data }) => {
   visionBusy = false;
+  const now = performance.now();
+  resultTimes = [...resultTimes.filter((t) => now - t < 2000), now];
   if (data.type === 'error') {
     if (data.bitmap) { if (useVideoFrames) useVideoFrames = false; else useBitmaps = false; }
     console.warn('vision:', data.message);
@@ -485,6 +488,8 @@ function say(text) {
 // ---------------------------------------------------------------------- UI
 
 function setBanner(text, warn = false) {
+  // With "Show detection" on, also say what the vision side is doing (helps when it misbehaves).
+  if ($('debugBox').checked) text += ` [${mode}${poseLost ? ', losing board' : ''} · ${(resultTimes.length / 2).toFixed(1)} fps · ${lastState || '-'}]`;
   $('banner').textContent = text;
   $('banner').classList.toggle('warn', warn);
 }
@@ -814,7 +819,8 @@ $('speakBox').addEventListener('change', () => store.set('speak', $('speakBox').
 
 updateHomography();
 renderAll();
-$('debugBox').addEventListener('change', drawSoon);
+$('debugBox').addEventListener('change', () => { drawSoon(); renderBanner(); });
+setInterval(() => { if ($('debugBox').checked) renderBanner(); }, 1000);
 startEngine();
 // Open the camera straight away, but only once the page has loaded: a playing camera
 // stream otherwise keeps the page "loading" forever (spinner never stops on phones).
