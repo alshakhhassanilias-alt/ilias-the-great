@@ -1,8 +1,11 @@
 import { Chess } from '../vendor/chess.js';
 import { Engine } from './engine.js';
 import { Tracker } from './tracker.js';
-import { applyH, boardToImage, isConvexQuad, scaleH } from './homography.js';
+import { boardToImage, isConvexQuad, scaleH } from './homography.js';
 import { occupancyOf } from './detect.js';
+import { Overlay } from './overlay.js';
+import { BoardView } from './boardview.js';
+import { pieceIcon } from './pieces.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,7 +23,6 @@ const store = {
 
 const CORNER_LABELS = ['a1', 'h1', 'h8', 'a8'];
 const PIECE_NAMES = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
-const GLYPHS = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
 const SIDE_NAMES = { w: 'White', b: 'Black' };
 const SAMPLE_SIDE = 640;          // longest side of the frames we analyse
 const SAMPLE_EVERY_MS = 150;       // at most this often; slower phones simply process fewer frames
@@ -36,20 +38,22 @@ let Hn = null;                    // board plane -> normalized image coords
 let advice = null;                // latest engine result for the current position
 let adviceSeq = 0;
 let lastDiffs = null;
-let flipped = false;
-let selected = null;              // selected square on the digital board
 let stream = null;
 let dragging = -1;
 let side = null;                  // the side the user plays: 'w' | 'b' | 'turn' (both); asked once the board is found
 let lastSpoken = '';
+let lastShown = '';               // the move card's last contents, to animate only real changes
 
-// The camera picture is the <video> element itself (drawn by the browser, no copying);
-// the grid and arrow go on a transparent canvas on top, redrawn only when they change.
 const video = $('video');
 const view = $('view');
-const vctx = view.getContext('2d');
+const overlay = new Overlay(view);
+const boardView = new BoardView($('board'), {
+  chess,
+  onMove: (m) => { if (tryMove(m)) manualMoveDone(); },
+});
 const grab = document.createElement('canvas');
 const gctx = grab.getContext('2d', { willReadFrequently: true });
+const debugOn = () => $('debugBox').checked;
 
 // ---------------------------------------------------------------- board pose
 
@@ -81,6 +85,7 @@ function startManual() {
   vision.postMessage({ type: 'reset' });
   setCorners([]);
   tracker.resync();
+  openSheet(false);
   renderAll();
 }
 
@@ -94,12 +99,13 @@ view.addEventListener('pointerdown', (e) => {
   const [x, y] = eventPoint(e);
   if (mode === 'manual' && corners.length < 4) {
     setCorners([...corners, [x, y]]);
+    buzz(10);
     if (corners.length === 4) {
       vision.postMessage({ type: 'manual', corners: toPixels(corners) });
       tracker.resync();
       if (!side) askSide();
     }
-    renderBanner();
+    renderStatus();
     return;
   }
   if (!Hn) return;
@@ -133,7 +139,7 @@ const endDrag = () => {
 view.addEventListener('pointerup', endDrag);
 view.addEventListener('pointercancel', endDrag);
 
-$('findBtn').addEventListener('click', () => startSearch());
+$('findBtn').addEventListener('click', () => { startSearch(); openSheet(false); });
 $('manualBtn').addEventListener('click', startManual);
 $('rotateBtn').addEventListener('click', () => {
   setCorners([...corners.slice(1), corners[0]]);
@@ -141,13 +147,13 @@ $('rotateBtn').addEventListener('click', () => {
   tracker.resync();
   renderAll();
 });
-$('resyncBtn').addEventListener('click', () => { tracker.resync(); toast('Re-syncing: keep your hands off the board for a second.'); });
+$('resyncBtn').addEventListener('click', () => { tracker.resync(); toast('Re-syncing. Keep your hands off the board for a second.'); });
 
 // --------------------------------------------------------------------- camera
 
 async function startCamera(deviceId, { quiet = false } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) {
-    setBanner('This browser can\'t reach the camera here. Open the page over https:// or from localhost.', true);
+    setBanner('This browser can\'t reach the camera here. Open the page over https://.', true);
     return;
   }
   if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -161,11 +167,13 @@ async function startCamera(deviceId, { quiet = false } = {}) {
     await video.play();
   } catch (err) {
     stream = null;
-    if (!quiet) setBanner(`Camera blocked or unavailable (${err.name}). Allow camera access and try again.`, true);
-    $('startBtn').hidden = false;
+    $('camEmpty').hidden = false;
+    if (!quiet) toast(`Camera blocked or unavailable (${err.name}). Allow camera access and try again.`);
+    renderStatus();
     return;
   }
-  $('startBtn').hidden = true;
+  $('camEmpty').hidden = true;
+  keepAwake();
   startSearch();
   await listCameras(stream.getVideoTracks()[0].getSettings().deviceId);
 }
@@ -180,107 +188,97 @@ async function listCameras(currentId) {
 $('startBtn').addEventListener('click', () => startCamera());
 $('cameraSelect').addEventListener('change', (e) => startCamera(e.target.value));
 
-// ------------------------------------------------------------------- drawing
+// Keep the screen on while playing (the phone is usually propped up, untouched).
+let wakeLock = null;
+async function keepAwake() {
+  if (!$('awakeBox').checked || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch { /* not allowed right now */ }
+}
+document.addEventListener('visibilitychange', () => { if (stream) keepAwake(); });
+$('awakeBox').checked = store.get('awake', true);
+$('awakeBox').addEventListener('change', () => {
+  store.set('awake', $('awakeBox').checked);
+  if ($('awakeBox').checked) keepAwake();
+  else { wakeLock?.release().catch(() => {}); wakeLock = null; }
+});
 
-const squarePoly = (H, f, r) => [[f, r], [f + 1, r], [f + 1, r + 1], [f, r + 1]].map(([x, y]) => applyH(H, x, y));
-const squareFR = (name) => [name.charCodeAt(0) - 97, name.charCodeAt(1) - 49];
-
-function fillPoly(ctx, pts, style) {
-  ctx.beginPath();
-  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-  ctx.closePath();
-  ctx.fillStyle = style;
-  ctx.fill();
+function buzz(pattern) {
+  try { navigator.vibrate?.(pattern); } catch { /* not supported */ }
 }
 
-function drawArrow(ctx, from, to, lw) {
-  const dx = to[0] - from[0], dy = to[1] - from[1];
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len, uy = dy / len;
-  const head = lw * 4.5;
-  const tip = to;
-  const base = [tip[0] - ux * head, tip[1] - uy * head];
-  const path = () => {
-    ctx.beginPath();
-    ctx.moveTo(from[0], from[1]);
-    ctx.lineTo(base[0], base[1]);
-  };
-  const headPath = () => {
-    ctx.beginPath();
-    ctx.moveTo(tip[0], tip[1]);
-    ctx.lineTo(base[0] - uy * head * 0.55, base[1] + ux * head * 0.55);
-    ctx.lineTo(base[0] + uy * head * 0.55, base[1] - ux * head * 0.55);
-    ctx.closePath();
-  };
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(0,0,0,.75)';
-  ctx.lineWidth = lw * 1.9;
-  path(); ctx.stroke();
-  headPath(); ctx.stroke();
-  ctx.strokeStyle = '#4ade80';
-  ctx.fillStyle = '#4ade80';
-  ctx.lineWidth = lw;
-  path(); ctx.stroke();
-  headPath(); ctx.fill();
+// ------------------------------------------------------------------- layout
+
+const stage = $('stage');
+const cam = $('cam');
+
+// Size the camera box to the picture's shape, as large as fits; the overlay matches it.
+function fitCam() {
+  const vw = video.videoWidth || 16, vh = video.videoHeight || 9;
+  const box = stage.getBoundingClientRect();
+  const pad = innerWidth >= 900 ? 48 : 0;
+  const w = Math.max(1, Math.min(box.width - pad, ((box.height - pad) * vw) / vh));
+  cam.style.width = `${w}px`;
+  cam.style.height = `${(w * vh) / vw}px`;
+  overlay.setSize(vw, vh, vw / w);
+  drawSoon();
+}
+new ResizeObserver(fitCam).observe(stage);
+video.addEventListener('loadedmetadata', () => { updateHomography(); fitCam(); });
+video.addEventListener('resize', () => { updateHomography(); fitCam(); });
+
+// The bottom sheet (phones): its top part always shows; drag or tap the handle for the rest.
+const sheet = $('sheet');
+const sheetHead = $('sheetHead');
+let sheetOpen = false;
+function setPeek() {
+  document.documentElement.style.setProperty('--peek', `${sheetHead.offsetHeight}px`);
+}
+new ResizeObserver(setPeek).observe(sheetHead);
+
+function openSheet(open) {
+  sheetOpen = open;
+  sheet.classList.toggle('open', open);
 }
 
-function drawOverlay(ctx, w, h) {
-  const lw = Math.max(2, Math.max(w, h) / 320);
-  const font = Math.round(lw * 6);
-  ctx.font = `600 ${font}px system-ui, sans-serif`;
-
-  corners.forEach(([nx, ny], i) => {
-    const x = nx * w, y = ny * h;
-    ctx.beginPath();
-    ctx.arc(x, y, lw * 2.6, 0, Math.PI * 2);
-    ctx.fillStyle = '#fbbf24';
-    ctx.fill();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = lw * 0.7;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.strokeText(CORNER_LABELS[i], x + lw * 4, y - lw * 3);
-    ctx.fillText(CORNER_LABELS[i], x + lw * 4, y - lw * 3);
+{
+  let startY = 0, dy = 0, active = false;
+  const grabber = $('grabber');
+  grabber.addEventListener('pointerdown', (e) => {
+    if (innerWidth >= 900) return;
+    active = true;
+    startY = e.clientY;
+    dy = 0;
+    grabber.setPointerCapture(e.pointerId);
+    sheet.classList.add('dragging');
   });
-
-  if (!Hn) return;
-  const H = scaleH(Hn, w, h);
-
-  if ($('debugBox').checked && lastDiffs) {
-    for (let s = 0; s < 64; s++) {
-      const d = lastDiffs[s];
-      if (d < 0.03) continue;
-      fillPoly(ctx, squarePoly(H, s % 8, s >> 3), `rgba(239,68,68,${Math.min(0.6, d * 1.5)})`);
-    }
-  }
-
-  const last = chess.history({ verbose: true }).at(-1);
-  if (last) {
-    for (const name of [last.from, last.to]) fillPoly(ctx, squarePoly(H, ...squareFR(name)), 'rgba(250,204,21,.22)');
-  }
-
-  ctx.lineWidth = Math.max(1, lw * 0.4);
-  ctx.strokeStyle = 'rgba(255,255,255,.4)';
-  for (let i = 0; i <= 8; i++) {
-    for (const [a, b] of [[[i, 0], [i, 8]], [[0, i], [8, i]]]) {
-      const p = applyH(H, ...a), q = applyH(H, ...b);
-      ctx.beginPath();
-      ctx.moveTo(p[0], p[1]);
-      ctx.lineTo(q[0], q[1]);
-      ctx.stroke();
-    }
-  }
-
-  const best = visibleAdvice();
-  if (best) {
-    const [ff, fr] = squareFR(best.from);
-    const [tf, tr] = squareFR(best.to);
-    fillPoly(ctx, squarePoly(H, ff, fr), 'rgba(74,222,128,.28)');
-    fillPoly(ctx, squarePoly(H, tf, tr), 'rgba(74,222,128,.5)');
-    drawArrow(ctx, applyH(H, ff + 0.5, fr + 0.5), applyH(H, tf + 0.5, tr + 0.5), lw * 1.6);
-  }
+  grabber.addEventListener('pointermove', (e) => {
+    if (!active) return;
+    dy = e.clientY - startY;
+    const closedOffset = sheet.offsetHeight - sheetHead.offsetHeight;
+    const base = sheetOpen ? 0 : closedOffset;
+    sheet.style.transform = `translateY(${Math.min(Math.max(base + dy, 0), closedOffset)}px)`;
+  });
+  const end = () => {
+    if (!active) return;
+    active = false;
+    sheet.classList.remove('dragging');
+    sheet.style.transform = '';
+    if (Math.abs(dy) < 6) openSheet(!sheetOpen);
+    else openSheet(dy < 0);
+  };
+  grabber.addEventListener('pointerup', end);
+  grabber.addEventListener('pointercancel', end);
 }
+
+for (const tab of document.querySelectorAll('.tab')) {
+  tab.addEventListener('click', () => {
+    for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t === tab));
+    for (const pane of document.querySelectorAll('.pane')) pane.hidden = pane.dataset.pane !== tab.dataset.tab;
+    openSheet(true);
+  });
+}
+
+// ------------------------------------------------------------------- drawing
 
 let drawPending = false;
 function drawSoon() {
@@ -288,24 +286,24 @@ function drawSoon() {
   drawPending = true;
   requestAnimationFrame(() => {
     drawPending = false;
-    vctx.clearRect(0, 0, view.width, view.height);
-    drawOverlay(vctx, view.width, view.height);
+    drawOverlay();
   });
 }
 
-// Match the overlay (and the box around both) to the camera picture's shape.
-function fitView() {
+function drawOverlay() {
   if (!video.videoWidth) return;
-  view.width = video.videoWidth;
-  view.height = video.videoHeight;
-  const wrap = view.parentElement;
-  wrap.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
-  wrap.style.maxWidth = `calc(78vh * ${video.videoWidth / video.videoHeight})`;
-  updateHomography();
-  drawSoon();
+  const w = video.videoWidth, h = video.videoHeight;
+  const best = visibleAdvice();
+  const m = best && legalMove(best);
+  overlay.render({
+    H: Hn && scaleH(Hn, w, h),
+    corners: corners.map(([x, y]) => [x * w, y * h]),
+    handles: mode === 'manual' || debugOn(),
+    last: chess.history({ verbose: true }).at(-1) ?? null,
+    best: m ? { from: m.from, to: m.to, san: m.san, knight: m.piece === 'n' } : null,
+    diffs: debugOn() ? lastDiffs : null,
+  });
 }
-video.addEventListener('loadedmetadata', fitView);
-video.addEventListener('resize', fitView);
 
 // ------------------------------------------------------------------- sampling
 
@@ -386,7 +384,7 @@ vision.onmessage = ({ data }) => {
   const result = tracker.feed(data.sig, data.prevSig);
   if (result.d) {
     lastDiffs = result.d;
-    if ($('debugBox').checked) drawSoon();
+    if (debugOn()) drawSoon();
   }
   onTrackerResult(result);
 };
@@ -403,20 +401,22 @@ function onPose(data) {
   if (data.corners) setCorners(data.corners.map(([x, y]) => [x / data.width, y / data.height]));
   else if (mode === 'search' && corners.length) setCorners([]);
   if (data.locked) {
-    if (data.margin < 0.3) toast('Board found, but I\'m not sure which way round it is. If a1 is in the wrong corner, tap Rotate.');
-    else toast('Board found!');
+    buzz(20);
+    if (data.margin < 0.3) toast('Board found, but I\'m not sure which way round it is. If a1 is in the wrong corner, use Rotate in Settings.');
+    else toast('Board found');
     if (!side) askSide();
   } else if (was === 'locked' && mode === 'search') {
     toast('Lost sight of the board. Looking for it again…');
   }
   if (mode !== was || data.locked) renderAll();
-  else if (lostChanged) renderBanner();
+  else if (lostChanged) renderStatus();
 }
 
 let lastState = '';
 function onTrackerResult(result) {
   if (result.state === 'move') {
-    const what = result.replaced ? `Changed ${result.replaced.san} to ${result.move.san}.` : `Saw ${result.move.san}.`;
+    buzz(25);
+    const what = result.replaced ? `Changed ${result.replaced.san} to ${result.move.san}` : `Saw ${result.move.san}`;
     toast(what, { promoted: result.move.promotion ? result.move : null, alternatives: result.alternatives });
     gameChanged({ resync: false });
   } else if (result.state === 'baseline') {
@@ -424,7 +424,7 @@ function onTrackerResult(result) {
   }
   if (result.state !== lastState) {
     lastState = result.state;
-    renderBanner();
+    renderStatus();
   }
 }
 
@@ -433,6 +433,8 @@ function onTrackerResult(result) {
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 
+for (const el of document.querySelectorAll('.side-icon')) el.innerHTML = pieceIcon('k', el.dataset.icon, 26);
+
 function askSide() {
   const prompt = $('sidePrompt');
   // The player is usually sitting where the camera is, so guess the side nearest the bottom of the picture.
@@ -440,7 +442,6 @@ function askSide() {
   const guess = whiteY > blackY ? 'w' : 'b';
   prompt.querySelectorAll('button[data-side]').forEach((b) => b.classList.toggle('guess', b.dataset.side === guess));
   prompt.hidden = false;
-  prompt.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   listenForSide();
 }
 
@@ -463,16 +464,21 @@ function listenForSide(attempt = 0) {
 
 function chooseSide(next) {
   side = next;
-  $('sideSelect').value = side;
   $('sidePrompt').hidden = true;
   try { recognition?.abort(); } catch { /* already stopped */ }
   recognition = null;
   lastSpoken = '';
+  buzz(15);
   say(side === 'turn' ? 'Okay, I\'ll help both sides.' : `Okay, you're playing ${SIDE_NAMES[side]}.`);
+  boardView.flipped = side === 'b';     // your side at the bottom
   renderAll();
 }
 
 $('sidePrompt').addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-side]');
+  if (button) chooseSide(button.dataset.side);
+});
+$('sideSeg').addEventListener('click', (e) => {
   const button = e.target.closest('button[data-side]');
   if (button) chooseSide(button.dataset.side);
 });
@@ -487,32 +493,48 @@ function say(text) {
 
 // ---------------------------------------------------------------------- UI
 
-function setBanner(text, warn = false) {
-  // With "Show detection" on, also say what the vision side is doing (helps when it misbehaves).
-  if ($('debugBox').checked) text += ` [${mode}${poseLost ? ', losing board' : ''} · ${(resultTimes.length / 2).toFixed(1)} fps · ${lastState || '-'}]`;
-  $('banner').textContent = text;
-  $('banner').classList.toggle('warn', warn);
+// The status pill (top) and the hint line (bottom of the camera picture).
+function status() {
+  const turn = SIDE_NAMES[chess.turn()];
+  if (!stream) return { tone: 'idle', pill: 'Camera off', hint: 'Allow the camera to begin.' };
+  if (mode === 'search') return { tone: 'search', live: true, pill: 'Finding board', hint: 'Get all 64 squares in view and hold still for a moment.' };
+  if (mode === 'manual' && corners.length < 4) {
+    return { tone: 'search', live: true, pill: 'Tap corners', hint: `Tap the board's ${CORNER_LABELS[corners.length]} corner${corners.length ? '' : ' (White\'s left-hand corner)'}. Order: a1, h1, h8, a8.` };
+  }
+  if (!Hn) return { tone: 'warn', pill: 'Check corners', hint: 'Those corners don\'t make a proper board. Find the board again in Settings.', warn: true };
+  if (poseLost) return { tone: 'warn', live: true, pill: 'Board out of view', hint: 'Keep the whole board in the picture.', warn: true };
+  if (chess.isGameOver()) return { tone: 'ok', pill: 'Game over', hint: gameOverText() };
+  if (lastState === 'unmatched') {
+    return { tone: 'warn', pill: 'Can\'t read move', hint: 'The board changed but no legal move fits. Put the pieces back, or use "Fix a move".', warn: true };
+  }
+  if (lastState === 'moving' || lastState === 'settling') {
+    return { tone: 'busy', live: true, pill: 'Watching', hint: 'I read the move once hands are off the board.' };
+  }
+  const steady = `${turn} to move.`;
+  if (!side || side === 'turn') return { tone: 'ok', pill: `${turn} to move`, hint: steady, quiet: true };
+  return side === chess.turn()
+    ? { tone: 'ok', live: true, pill: 'Your move', hint: steady, quiet: true }
+    : { tone: 'wait', pill: 'Their move', hint: steady, quiet: true };
 }
 
-function renderBanner() {
-  if (!stream) return setBanner('Allow the camera to begin, or tap Start camera.');
-  if (mode === 'search') return setBanner('Looking for a chessboard… Get the whole board in view and hold still.');
-  if (mode === 'manual' && corners.length < 4) {
-    return setBanner(`Tap the board's corners: a1 (White's left corner), h1, h8, a8. Next: ${CORNER_LABELS[corners.length]}`);
+function setBanner(text, warn = false, quiet = false) {
+  // With "Show detection" on, also say what the vision side is doing (helps when it misbehaves).
+  if (debugOn()) {
+    text += ` [${mode}${poseLost ? ', losing board' : ''} · ${(resultTimes.length / 2).toFixed(1)} fps · ${lastState || '-'}]`;
+    quiet = false;
   }
-  if (!Hn) return setBanner('Those corners don\'t make a proper four-sided board. Find the board again.', true);
-  if (poseLost) return setBanner('Can\'t see the board well. Keep all of it in view…', true);
-  if (chess.isGameOver()) return setBanner(gameOverText());
-  const status = {
-    init: 'Watching the board…',
-    moving: 'Hands or camera moving. I read the move once the board is still.',
-    settling: 'Hands or camera moving. I read the move once the board is still.',
-    baseline: 'Board locked in.',
-    steady: `${SIDE_NAMES[chess.turn()]} to move.`,
-    move: `${SIDE_NAMES[chess.turn()]} to move.`,
-    unmatched: 'The board changed but I can\'t match it to a legal move. Put the pieces back, or fix it with Undo / typing the move.',
-  }[lastState] ?? '';
-  setBanner(status, lastState === 'unmatched');
+  const el = $('banner');
+  el.textContent = text;
+  el.classList.toggle('warn', warn);
+  el.classList.toggle('quiet', quiet);
+}
+
+function renderStatus() {
+  const s = status();
+  const pill = $('pill');
+  pill.className = `pill glass tone-${s.tone}${s.live ? ' live' : ''}`;
+  $('pillText').textContent = s.pill;
+  setBanner(s.hint, !!s.warn, !!s.quiet);
 }
 
 function gameOverText() {
@@ -529,81 +551,47 @@ function toast(text, { promoted = null, alternatives = [] } = {}) {
   el.replaceChildren(text);
   const offer = (label, title, move) => {
     const button = document.createElement('button');
-    button.textContent = label;
+    button.className = 'chip';
+    button.innerHTML = label;
     button.title = title;
     button.addEventListener('click', () => {
       chess.undo();
       chess.move(move);
       el.hidden = true;
       gameChanged({ resync: false });     // the camera already sees this position
-      toast(`Fixed: ${chess.history().at(-1)}.`);
+      toast(`Fixed: ${chess.history().at(-1)}`);
     });
     el.append(button);
   };
   if (promoted) {
-    el.append(' Promoted to a queen. Change: ');
-    for (const piece of ['r', 'b', 'n']) offer(GLYPHS[piece], PIECE_NAMES[piece], { from: promoted.from, to: promoted.to, promotion: piece });
+    el.append(' · promote to:');
+    for (const piece of ['r', 'b', 'n']) offer(pieceIcon(piece, promoted.color, 18), PIECE_NAMES[piece], { from: promoted.from, to: promoted.to, promotion: piece });
   }
   if (alternatives.length) {
-    el.append(' Not right? ');
+    el.append(' · not right?');
     for (const m of alternatives) offer(m.san, `It was ${m.san}`, { from: m.from, to: m.to, promotion: m.promotion });
   }
   el.hidden = false;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, promoted || alternatives.length ? 12000 : 3500);
+  toastTimer = setTimeout(() => { el.hidden = true; }, promoted || alternatives.length ? 9000 : 2600);
 }
-
-function renderBoard() {
-  const board = $('board');
-  const cells = [];
-  const last = chess.history({ verbose: true }).at(-1);
-  const best = visibleAdvice();
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-      const f = flipped ? 7 - col : col;
-      const r = flipped ? row : 7 - row;
-      const name = 'abcdefgh'[f] + (r + 1);
-      const cell = document.createElement('div');
-      cell.className = 'sq ' + ((f + r) % 2 === 0 ? 'dark' : 'light');
-      if (last && (last.from === name || last.to === name)) cell.classList.add('last');
-      if (selected === name) cell.classList.add('sel');
-      if (best && best.from === name) cell.classList.add('best-from');
-      if (best && best.to === name) cell.classList.add('best-to');
-      const piece = chess.get(name);
-      if (piece) {
-        const span = document.createElement('span');
-        span.className = `pc ${piece.color}`;
-        span.textContent = GLYPHS[piece.type];
-        cell.append(span);
-      }
-      cell.dataset.sq = name;
-      cells.push(cell);
-    }
-  }
-  board.replaceChildren(...cells);
-}
-
-$('board').addEventListener('click', (e) => {
-  const name = e.target.closest('.sq')?.dataset.sq;
-  if (!name) return;
-  if (selected && selected !== name) {
-    const move = tryMove({ from: selected, to: name, promotion: 'q' });
-    selected = null;
-    if (move) return manualMoveDone();
-  }
-  const piece = chess.get(name);
-  selected = piece && piece.color === chess.turn() && selected !== name ? name : null;
-  renderBoard();
-});
 
 function renderMoves() {
+  const list = $('moves');
   const history = chess.history();
-  const parts = [];
-  for (let i = 0; i < history.length; i += 2) {
-    parts.push(`<b>${i / 2 + 1}.</b> ${history[i]}${history[i + 1] ? ' ' + history[i + 1] : ''}`);
+  if (!history.length) {
+    list.innerHTML = '<li><span class="empty">No moves yet. Play on the real board and they show up here.</span></li>';
+    return;
   }
-  $('moves').innerHTML = parts.join('  ');
-  $('moves').scrollTop = $('moves').scrollHeight;
+  const rows = [];
+  for (let i = 0; i < history.length; i += 2) {
+    const cls = (k) => `m${k === history.length - 1 ? ' latest' : ''}`;
+    rows.push(`<li><span class="n">${i / 2 + 1}.</span><span class="${cls(i)}">${history[i]}</span><span class="${cls(i + 1)}">${history[i + 1] ?? ''}</span></li>`);
+  }
+  list.innerHTML = rows.join('');
 }
 
 // The engine's move, if we should be showing it right now.
@@ -625,20 +613,17 @@ function legalMove(best) {
 }
 
 function describeMove(m) {
-  const opponent = m.color === 'w' ? 'black' : 'white';
-  let text;
   if (m.flags.includes('k') || m.flags.includes('q')) {
     const rook = m.flags.includes('k') ? ['h' + m.from[1], 'f' + m.from[1]] : ['a' + m.from[1], 'd' + m.from[1]];
-    text = `Castle ${m.flags.includes('k') ? 'kingside' : 'queenside'}: king ${m.from} → ${m.to}, then rook ${rook[0]} → ${rook[1]}.`;
-  } else {
-    text = `Move your ${PIECE_NAMES[m.piece]} ${m.from} → ${m.to}`;
-    if (m.flags.includes('e')) text += `, taking the pawn on ${m.to[0] + m.from[1]} (en passant)`;
-    else if (m.captured) text += `, taking the ${opponent} ${PIECE_NAMES[m.captured]}`;
-    if (m.promotion) text += ` and promote to a ${PIECE_NAMES[m.promotion]}`;
-    text += '.';
+    return `Castle: king ${m.from} → ${m.to}, rook ${rook[0]} → ${rook[1]}`;
   }
-  const suffix = m.san.endsWith('#') ? ' Checkmate!' : m.san.endsWith('+') ? ' Check.' : '';
-  return text + suffix;
+  let text = `${PIECE_NAMES[m.piece][0].toUpperCase()}${PIECE_NAMES[m.piece].slice(1)} ${m.from} → ${m.to}`;
+  if (m.flags.includes('e')) text += ', takes en passant';
+  else if (m.captured) text += `, takes ${PIECE_NAMES[m.captured]}`;
+  if (m.promotion) text += `, becomes a ${PIECE_NAMES[m.promotion]}`;
+  if (m.san.endsWith('#')) text += ' · checkmate!';
+  else if (m.san.endsWith('+')) text += ' · check';
+  return text;
 }
 
 function spokenMove(m) {
@@ -652,56 +637,79 @@ function spokenMove(m) {
   return text;
 }
 
-function renderAdvice() {
-  const text = $('adviceText');
-  const evalEl = $('evalText');
-  const hud = $('hud');
-  hud.hidden = true;
-  if (chess.isGameOver()) {
-    text.textContent = gameOverText();
-    evalEl.textContent = '';
-    return;
-  }
-  if (!engineReady) {
-    text.textContent = 'Loading the engine…';
-    evalEl.textContent = '';
-    return;
-  }
+// The big card: the move to play (or what we're waiting for), and the evaluation bar.
+function renderMoveCard() {
+  const card = $('moveCard');
+  let kicker, main, detail, icon = '', mine = false, thinking = false, waiting = false;
   const best = visibleAdvice();
   const m = best && legalMove(best);
-  if (m) {
-    text.innerHTML = `<span class="san">${m.san}</span><br>${describeMove(m)}`;
-    if (Hn) {
-      hud.innerHTML = `<span class="san">${m.san}</span> ${describeMove(m)}`;
-      hud.hidden = false;
-    }
-    if (side && side !== 'turn' && advice.bestmove !== lastSpoken) {
+  if (chess.isGameOver()) {
+    kicker = 'Game over'; main = gameOverText(); detail = 'Start a new game from the Coach tab.';
+  } else if (!engineReady) {
+    kicker = 'Starting'; main = 'Loading the engine…'; detail = ''; thinking = true;
+  } else if (m) {
+    mine = !!side && side !== 'turn';
+    kicker = mine ? 'Your best move' : `Best move for ${SIDE_NAMES[m.color]}`;
+    main = m.san;
+    detail = describeMove(m);
+    icon = pieceIcon(m.piece, m.color, 50);
+    if (mine && advice.bestmove !== lastSpoken) {
       lastSpoken = advice.bestmove;
       say(spokenMove(m));
+      buzz([15, 60, 15]);
     }
   } else if (advice) {
-    text.textContent = `Waiting for ${SIDE_NAMES[chess.turn()]} to move…`;
-    if (Hn && side) {
-      hud.textContent = `Waiting for ${SIDE_NAMES[chess.turn()]}'s move…`;
-      hud.hidden = false;
-    }
+    kicker = 'Waiting'; main = `${SIDE_NAMES[chess.turn()]} to move`; detail = 'I\'ll show your reply as soon as they move.'; waiting = true;
   } else {
-    text.textContent = 'Thinking…';
+    kicker = 'Thinking'; main = 'Thinking…'; detail = ''; thinking = true;
   }
 
-  if (!advice) { evalEl.textContent = ''; return; }
-  const score = advice.mate != null
-    ? `Mate in ${Math.abs(advice.mate)} for ${advice.mate > 0 ? 'White' : 'Black'}`
-    : advice.cp != null ? `${advice.cp >= 0 ? '+' : ''}${(advice.cp / 100).toFixed(2)} (White's view)` : '';
-  evalEl.textContent = `${score}${advice.depth ? ` · depth ${advice.depth}` : ''}`;
+  const key = `${kicker}|${main}|${detail}`;
+  if (key !== lastShown) {
+    $('moveKicker').textContent = kicker;
+    $('adviceText').textContent = main;
+    $('moveDetail').textContent = detail;
+    $('movePiece').innerHTML = icon;
+    $('movePiece').classList.toggle('waiting', waiting || thinking);
+    card.classList.toggle('mine', mine);
+    card.classList.toggle('thinking', thinking && engineReady);
+    card.classList.remove('pop');
+    void card.offsetWidth;
+    card.classList.add('pop');
+    lastShown = key;
+  }
+
+  // evaluation: White's share of the bar, from the engine score (or the mate)
+  let share = 0.5, label = '';
+  if (advice?.mate != null) {
+    share = advice.mate > 0 ? 1 : 0;
+    label = `M${Math.abs(advice.mate)}`;
+  } else if (advice?.cp != null) {
+    share = 1 / (1 + Math.pow(10, -advice.cp / 400));
+    label = `${advice.cp >= 0 ? '+' : ''}${(advice.cp / 100).toFixed(1)}`;
+  }
+  $('evalFill').style.width = `${(share * 100).toFixed(1)}%`;
+  $('evalText').textContent = label;
+}
+
+function renderBoard() {
+  const best = visibleAdvice();
+  const m = best && legalMove(best);
+  boardView.render({ best: m ? { from: m.from, to: m.to, knight: m.piece === 'n' } : null });
+}
+
+function renderSettings() {
+  for (const b of $('sideSeg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.side === (side ?? 'turn')));
+  $('soundBtn').setAttribute('aria-pressed', String($('speakBox').checked));
 }
 
 function renderAll() {
   drawSoon();
+  renderMoveCard();
   renderBoard();
   renderMoves();
-  renderAdvice();
-  renderBanner();
+  renderStatus();
+  renderSettings();
 }
 
 // ------------------------------------------------------------------- engine
@@ -718,7 +726,6 @@ async function refreshAdvice() {
 function gameChanged({ resync }) {
   if (resync) tracker.resync();
   advice = null;
-  selected = null;
   renderAll();
   refreshAdvice();
 }
@@ -748,6 +755,12 @@ function manualMoveDone() {
   toast('Move played. Make sure the real board matches.');
 }
 
+$('fixBtn').addEventListener('click', () => {
+  const form = $('moveForm');
+  form.hidden = !form.hidden;
+  if (!form.hidden) { openSheet(true); $('moveInput').focus(); }
+});
+
 $('moveForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const input = $('moveInput');
@@ -757,6 +770,7 @@ $('moveForm').addEventListener('submit', (e) => {
   const move = uci ? tryMove({ from: uci[1], to: uci[2], promotion: uci[3] ?? 'q' }) : tryMove(text);
   if (!move) return toast(`"${text}" isn't a legal move here.`);
   input.value = '';
+  $('moveForm').hidden = true;
   manualMoveDone();
 });
 
@@ -780,12 +794,10 @@ $('undoBtn').addEventListener('click', () => {
 $('resetBtn').addEventListener('click', () => {
   chess.reset();
   gameChanged({ resync: true });
+  toast('New game');
 });
 
-$('flipBtn').addEventListener('click', () => {
-  flipped = !flipped;
-  renderBoard();
-});
+$('flipBtn').addEventListener('click', () => boardView.flip());
 
 // ------------------------------------------------------------------ settings
 
@@ -801,26 +813,32 @@ function bindRange(id, outId, key, format, apply) {
 
 const sensitivityToMinChange = (s) => 0.13 * Math.pow(0.85, s - 1);
 
-bindRange('skillRange', 'skillOut', 'skill', (v) => (v === 20 ? 'max' : `${v}/20`), (v) => {
+bindRange('skillRange', 'skillOut', 'skill', (v) => (v === 20 ? 'Max' : `${v} / 20`), (v) => {
   if (engineReady) { engine.setSkill(v); refreshAdvice(); }
 });
-bindRange('timeRange', 'timeOut', 'time', (v) => `${(v / 1000).toFixed(1)}s`, () => {});
-bindRange('sensRange', 'sensOut', 'sens', (v) => `${v}/9`, (v) => {
+bindRange('timeRange', 'timeOut', 'time', (v) => `${(v / 1000).toFixed(1)} s`, () => {});
+bindRange('sensRange', 'sensOut', 'sens', (v) => `${v} / 9`, (v) => {
   tracker.params.minChange = sensitivityToMinChange(v);
 });
 
-$('sideSelect').value = 'turn';
-$('sideSelect').addEventListener('change', () => chooseSide($('sideSelect').value));
-
 $('speakBox').checked = store.get('speak', true);
-$('speakBox').addEventListener('change', () => store.set('speak', $('speakBox').checked));
+$('speakBox').addEventListener('change', () => { store.set('speak', $('speakBox').checked); renderSettings(); });
+$('soundBtn').addEventListener('click', () => {
+  $('speakBox').checked = !$('speakBox').checked;
+  store.set('speak', $('speakBox').checked);
+  if (!$('speakBox').checked) speechSynthesis?.cancel();
+  renderSettings();
+});
+
+$('debugBox').addEventListener('change', () => { drawSoon(); renderStatus(); });
+setInterval(() => { if (debugOn()) renderStatus(); }, 1000);
 
 // --------------------------------------------------------------------- boot
 
 updateHomography();
+setPeek();
+fitCam();
 renderAll();
-$('debugBox').addEventListener('change', () => { drawSoon(); renderBanner(); });
-setInterval(() => { if ($('debugBox').checked) renderBanner(); }, 1000);
 startEngine();
 // Open the camera straight away, but only once the page has loaded: a playing camera
 // stream otherwise keeps the page "loading" forever (spinner never stops on phones).

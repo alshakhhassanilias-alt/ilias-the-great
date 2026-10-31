@@ -10,6 +10,16 @@ No server, no API key, no build step. Everything (vision, move tracking, Stockfi
 
 Browsers only allow the camera on `https://` pages (or `localhost`), so the app has to be served over https. Any static host works, since it's just files (GitHub Pages, Netlify, etc.). On a computer, `npm start` (runs `python3 -m http.server 8000`), then open `http://localhost:8000`.
 
+## What it looks like
+
+A full-screen camera app. A status pill at the top says what it's doing (finding the board, your move, their move, watching). On the camera picture, the best move is a thick glowing arrow (an L for knights) with a pulsing target square and the move's name. A bottom sheet, which you can swipe up, holds the move card (piece, move, evaluation bar) and three tabs:
+
+- **Coach:** undo, fix a misread move, new game, and the move list.
+- **Board:** a digital board with tap-to-move and legal-move dots.
+- **Settings:** your side, engine strength, camera tools and comfort options.
+
+The pieces are the app's own SVG drawings, so they look the same on every phone; text chess symbols turned white pawns into black emoji on some phones. It keeps the screen on during a game, buzzes on your turn (Android), and can be added to the home screen as a full-screen app.
+
 ## Use it
 
 1. **Open the page and allow the camera.** It opens the back camera by itself. Get all 64 squares in view. Propping the phone up (on a stack of books, a cup) works best, but holding it is OK.

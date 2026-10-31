@@ -2,100 +2,146 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chess Coach">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
   <title>Ilias the Great</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>♞ Ilias the Great <span class="version">dev</span></h1>
-    <p>Camera chess coach for over-the-board games. Point your phone at a real board and it shows the best move on the live feed. Everyone at the table should know it's on.</p>
-  </header>
-
-  <main>
-    <section class="stage">
-      <div class="view-wrap">
+  <div class="app">
+    <section class="stage" id="stage">
+      <div class="cam" id="cam">
         <video id="video" playsinline muted autoplay></video>
-        <canvas id="view" width="960" height="540"></canvas>
-        <div id="hud" class="hud" hidden></div>
-        <div id="banner" role="status">Allow the camera to begin.</div>
+        <svg id="view" class="overlay" preserveAspectRatio="none" aria-hidden="true"></svg>
       </div>
 
-      <div id="sidePrompt" class="side-prompt" hidden>
-        <p>Board found! Which side are you playing?</p>
-        <div class="side-buttons">
-          <button data-side="w">♔ White</button>
-          <button data-side="b">♚ Black</button>
+      <div class="cam-empty" id="camEmpty">
+        <div class="cam-empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5z"/><circle cx="12" cy="13" r="3.5"/></svg>
         </div>
-        <button data-side="turn" class="link">Both sides</button>
-        <p id="voiceHint" class="hint" hidden>🎤 …or just say “white” or “black”.</p>
+        <p>Point your camera at a chessboard.<br>Everyone at the table should know it's on.</p>
+        <button id="startBtn" class="btn primary">Start camera</button>
       </div>
 
-      <div class="toolbar">
-        <button id="startBtn" class="primary" hidden>Start camera</button>
-        <select id="cameraSelect" title="Camera" hidden></select>
-        <button id="findBtn" title="Look for the board again">Find board</button>
-        <button id="manualBtn" title="Tap the four corners yourself">Set corners by hand</button>
-        <button id="rotateBtn" disabled title="Rotate which corner is a1">Rotate 90°</button>
-        <button id="resyncBtn" disabled title="Treat the board as it looks right now as the starting point">Re-sync</button>
-        <label class="check"><input type="checkbox" id="speakBox" checked> Say moves out loud</label>
-        <label class="check"><input type="checkbox" id="debugBox"> Show detection</label>
-      </div>
+      <header class="topbar">
+        <div class="brand glass"><span class="brand-mark" aria-hidden="true">♞</span><span>Ilias</span><span class="version">dev</span></div>
+        <div class="pill glass" id="pill"><span class="dot"></span><span id="pillText">Starting</span></div>
+        <button class="icon-btn glass" id="soundBtn" aria-label="Say moves out loud" aria-pressed="true">
+          <svg class="on" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          <svg class="off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+        </button>
+      </header>
 
-      <ol class="steps">
-        <li><b>Open this page on your phone</b> and allow the camera. Point it at the board so all 64 squares are in view. Propping the phone up works best, but holding it is OK.</li>
-        <li><b>It finds the board by itself</b> (the grid appears), then asks <b>which side you're playing</b>. Tap it, or just say “white” or “black”.</li>
-        <li><b>Play.</b> When it's your turn, an arrow on the camera shows the best move (and it says it out loud). It follows every move by watching the board.</li>
-        <li>If it can't find the board, use <i>Set corners by hand</i> and tap <b>a1</b> (White's left-hand corner), <b>h1</b>, <b>h8</b>, <b>a8</b>.</li>
-      </ol>
+      <div class="toast glass" id="toast" role="status" hidden></div>
+      <div class="banner glass" id="banner" role="status">Allow the camera to begin.</div>
     </section>
 
-    <aside class="panel">
-      <div id="advice" class="advice">
-        <div class="advice-title">Best move</div>
-        <div id="adviceText" class="advice-text">…</div>
-        <div id="evalText" class="eval"></div>
-      </div>
-      <div id="toast" class="toast" hidden></div>
+    <aside class="sheet" id="sheet">
+      <div class="sheet-head" id="sheetHead">
+        <div class="grabber" id="grabber" aria-label="Show more"><span></span></div>
 
-      <div id="board" class="board" aria-label="Current position"></div>
-      <div class="row">
-        <button id="undoBtn">Undo</button>
-        <button id="resetBtn">New game</button>
-        <button id="flipBtn">Flip board</button>
-      </div>
+        <div id="sidePrompt" class="prompt" hidden>
+          <p class="prompt-title">Board found. Which side are you?</p>
+          <div class="side-buttons">
+            <button class="side-btn" data-side="w"><span class="side-icon" data-icon="w"></span>White</button>
+            <button class="side-btn" data-side="b"><span class="side-icon" data-icon="b"></span>Black</button>
+          </div>
+          <button class="link" data-side="turn">Help both sides</button>
+          <p id="voiceHint" class="hint" hidden>🎤 Or just say “white” or “black”.</p>
+        </div>
 
-      <form id="moveForm" class="row">
-        <input id="moveInput" placeholder="Fix it: type a move (Nf3, e2e4)" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <button>Play</button>
-      </form>
-      <form id="fenForm" class="row">
-        <input id="fenInput" placeholder="Start from a FEN position" autocomplete="off" spellcheck="false">
-        <button>Set</button>
-      </form>
+        <div class="move-card" id="moveCard">
+          <div class="move-piece" id="movePiece"></div>
+          <div class="move-main">
+            <div class="move-kicker" id="moveKicker">Best move</div>
+            <div class="move-san" id="adviceText">…</div>
+            <div class="move-detail" id="moveDetail"></div>
+          </div>
+          <div class="eval" aria-label="Evaluation">
+            <div class="eval-bar"><div class="eval-fill" id="evalFill"></div></div>
+            <span class="eval-text" id="evalText"></span>
+          </div>
+        </div>
 
-      <div class="settings">
-        <label>I'm playing
-          <select id="sideSelect">
-            <option value="w">White</option>
-            <option value="b">Black</option>
-            <option value="turn">Both sides (advise whoever's turn it is)</option>
-          </select>
-        </label>
-        <label>Engine strength <output id="skillOut"></output>
-          <input type="range" id="skillRange" min="0" max="20" step="1" value="20">
-        </label>
-        <label>Think time <output id="timeOut"></output>
-          <input type="range" id="timeRange" min="200" max="4000" step="100" value="1000">
-        </label>
-        <label>Detection sensitivity <output id="sensOut"></output>
-          <input type="range" id="sensRange" min="1" max="9" step="1" value="5">
-        </label>
+        <nav class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="coach" aria-selected="true">Coach</button>
+          <button class="tab" role="tab" data-tab="board" aria-selected="false">Board</button>
+          <button class="tab" role="tab" data-tab="settings" aria-selected="false">Settings</button>
+        </nav>
       </div>
 
-      <div id="moves" class="moves"></div>
+      <div class="panes">
+        <section class="pane" data-pane="coach">
+          <div class="actions">
+            <button class="btn" id="undoBtn">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
+            <button class="btn" id="fixBtn">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Fix a move</button>
+            <button class="btn" id="resetBtn">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>New game</button>
+          </div>
+          <form id="moveForm" class="field-row" hidden>
+            <input id="moveInput" placeholder="Type the move that was played (Nf3, e2e4)" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button class="btn primary">Play</button>
+          </form>
+          <h3 class="section-title">Moves</h3>
+          <ol class="moves" id="moves"></ol>
+        </section>
+
+        <section class="pane" data-pane="board" hidden>
+          <div class="board" id="board"></div>
+          <div class="actions">
+            <button class="btn" id="flipBtn">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16"/><path d="m3 8 4-4 4 4"/><path d="M17 20V4"/><path d="m21 16-4 4-4-4"/></svg>Flip board</button>
+          </div>
+          <p class="hint">Tap a piece, then where it went, to fix the position by hand.</p>
+        </section>
+
+        <section class="pane" data-pane="settings" hidden>
+          <h3 class="section-title">I'm playing</h3>
+          <div class="segmented" id="sideSeg">
+            <button data-side="w">White</button><button data-side="b">Black</button><button data-side="turn">Both</button>
+          </div>
+
+          <h3 class="section-title">Engine</h3>
+          <label class="slider">Strength <output id="skillOut"></output>
+            <input type="range" id="skillRange" min="0" max="20" step="1" value="20"></label>
+          <label class="slider">Think time <output id="timeOut"></output>
+            <input type="range" id="timeRange" min="200" max="4000" step="100" value="800"></label>
+
+          <h3 class="section-title">Camera</h3>
+          <select id="cameraSelect" class="select" hidden></select>
+          <div class="actions wrap">
+            <button class="btn" id="findBtn">Find board again</button>
+            <button class="btn" id="manualBtn">Set corners by hand</button>
+            <button class="btn" id="rotateBtn" disabled>Rotate 90°</button>
+            <button class="btn" id="resyncBtn" disabled>Re-sync</button>
+          </div>
+          <label class="slider">Move detection sensitivity <output id="sensOut"></output>
+            <input type="range" id="sensRange" min="1" max="9" step="1" value="5"></label>
+
+          <h3 class="section-title">Comfort</h3>
+          <label class="switch"><span>Say moves out loud</span><input type="checkbox" id="speakBox" checked></label>
+          <label class="switch"><span>Keep the screen on</span><input type="checkbox" id="awakeBox" checked></label>
+          <label class="switch"><span>Show detection (for troubleshooting)</span><input type="checkbox" id="debugBox"></label>
+
+          <h3 class="section-title">Start from a position</h3>
+          <form id="fenForm" class="field-row">
+            <input id="fenInput" placeholder="Paste a FEN" autocomplete="off" spellcheck="false">
+            <button class="btn">Set</button>
+          </form>
+          <p class="hint">Tips: prop the phone up with the whole board in view, good light, and take your hand away after each move.</p>
+        </section>
+      </div>
     </aside>
-  </main>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>

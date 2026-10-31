@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 
 rm -rf "$dest/js" "$dest/index.html" "$dest/style.css"
 mkdir -p "$dest"
-cp -r index.html style.css js "$dest/"
+cp -r index.html style.css js manifest.webmanifest icon.svg icon-180.png icon-192.png icon-512.png "$dest/"
 cp -r vendor "$dest/"
 
 # './x.js' and '../vendor/chess.js' -> '...js?v=N' (imports and the worker URL)
