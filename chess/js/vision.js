@@ -2,7 +2,7 @@
 // signatures. No piece recognition happens here; we only need to know which
 // squares *changed* between two stable frames.
 
-import { applyH } from './homography.js?v=3';
+import { applyH } from './homography.js?v=4';
 
 export const GRID = 6;      // GRID x GRID sample points per square
 export const INNER = 0.6;   // fraction of the square sampled (the centre; avoids leaning neighbours)
