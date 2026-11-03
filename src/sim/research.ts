@@ -203,19 +203,19 @@ export function researchPoints(s: GameState, c: Country): { v: number; parts: Rp
   const parts: RpPart[] = [{ label: `Education & R&D budget (${(b.education * 100).toFixed(1)}% of GDP)`, v: edu }];
   parts.push({ label: `How advanced you already are (technology ${e.tech.toFixed(0)})`, v: (0.5 + e.tech / 100) * edu - edu });
   let mult = 1;
+  const named: string[] = [];
   const laws = c.politics?.laws ?? [];
-  if (laws.some((l) => l.id === 'tech_fund')) { mult += 0.15; parts.push({ label: 'National Technology Fund', v: 0 }); }
-  if (laws.some((l) => l.id === 'open_migration')) { mult += 0.06; parts.push({ label: 'Open labour migration', v: 0 }); }
+  if (laws.some((l) => l.id === 'tech_fund')) { mult += 0.15; named.push('National Technology Fund'); }
+  if (laws.some((l) => l.id === 'migration')) { mult += 0.06; named.push('open labour migration'); }
   const friends = alliesOf(s, c.id).filter((a) => (s.countries[a].rs?.lv[2] ?? 0) > (c.rs?.lv[2] ?? 0)).length;
-  if (friends) { mult += Math.min(0.2, 0.025 * friends); parts.push({ label: `Knowledge from ${friends} more advanced all${friends > 1 ? 'ies' : 'y'}`, v: 0 }); }
-  if (e.stability < 40) { mult -= 0.2; parts.push({ label: 'Turmoil at home', v: 0 }); }
-  if (c.mil.exhaustion > 0.3) { mult -= 0.15; parts.push({ label: 'War drains the laboratories', v: 0 }); }
+  if (friends) { mult += Math.min(0.2, 0.025 * friends); named.push(`${friends} more advanced all${friends > 1 ? 'ies' : 'y'}`); }
+  if (e.stability < 40) { mult -= 0.2; named.push('turmoil at home'); }
+  if (c.mil.exhaustion > 0.3) { mult -= 0.15; named.push('the war'); }
   const raw = (0.5 + e.tech / 100) * edu;
   const v = Math.max(0.05, raw * mult);
-  // the multipliers, shown as points
-  for (const p of parts) if (p.v === 0) p.v = NaN;
   const mPart = v - raw;
-  return { v, parts: [...parts.filter((p) => !Number.isNaN(p.v)), ...(Math.abs(mPart) > 0.005 ? [{ label: 'Laws, allies and circumstances', v: mPart }] : [])] };
+  if (Math.abs(mPart) > 0.005) parts.push({ label: `Laws, allies and circumstances (${named.join(', ')})`, v: mPart });
+  return { v, parts };
 }
 
 // ------------------------------------------------------------------ effects
@@ -309,13 +309,14 @@ function aiAlt(c: Country, b: number, tier: number): 0 | 1 {
   return hash01('alt', c.id, b * 10 + tier) < 0.5 ? 0 : 1;
 }
 /** Which branch an AI country pushes now (weighted by its needs and temperament). */
-function aiBranch(s: GameState, c: Country): number {
+function aiBranch(s: GameState, c: Country, skipChoices = false): number {
   const rs = c.rs!, e = c.eco;
   const w = [1 + (c.ai?.trade ?? 0.5) * 0.6, 0.8 + (e.energyCap < e.energyDemand ? 0.6 : 0), 1 + e.tech / 120, 0.8 + (e.stability < 50 ? 0.4 : 0), 0.5 + (c.ai?.aggression ?? 0.5) * 0.8];
   // lagging branches catch up (cheap knowledge), so nobody neglects a branch for ever
   const mean = rs.lv.reduce((t, v) => t + v, 0) / 5;
-  let best = 0, bv = -1;
+  let best = skipChoices ? -1 : 0, bv = -1;
   for (let b = 0; b < 5; b++) {
+    if (skipChoices && isChoice(rs.lv[b] + 1) && rs.pick[pickKey(b, rs.lv[b] + 1)] === undefined) continue;
     const v = w[b] * (1 + 0.35 * (mean - rs.lv[b])) * (0.8 + 0.4 * hash01('rb', c.id, b, Math.floor(s.tick / 52)));
     if (v > bv) { bv = v; best = b; }
   }
@@ -341,7 +342,7 @@ function complete(s: GameState, c: Country, b: number) {
   }
   if (c.id === s.player) {
     logEvent(s, `${BRANCHES[b].icon} RESEARCH COMPLETE: ${tech.name}${first ? ' — the first nation on Earth to master it' : ''}. ${fxText(tech.fx).slice(0, 3).join(' · ')}.`, 'econ', [c.id], true, first ? { big: true, prov: c.capital } : undefined);
-    s.stats.techsDone = (s.stats.techsDone ?? 0) + 1;
+    if (!s.legacy || s.legacy.status === 'office') s.stats.techsDone = (s.stats.techsDone ?? 0) + 1;
   } else if (first && tier >= 5 && c.eco.gdp > 5e11) {
     logEvent(s, `${BRANCHES[b].icon} ${c.name} is the first nation to master ${tech.name}.`, 'econ', [c.id], tier >= 8);
   }
@@ -364,7 +365,8 @@ export function stepResearch(s: GameState) {
     const weeks = player ? 1 : 4;
     const rp = researchPoints(s, c).v * weeks / 52;
     let b = player ? rs.cur : aiBranch(s, c);
-    if (player && b < 0) b = aiBranch(s, c); // nothing chosen: the ministry picks (the Research tab says so)
+    if (player && b < 0) b = aiBranch(s, c, true); // nothing chosen: the ministry picks, but never makes one of your either-or choices for you
+    if (b < 0) continue; // every branch waits on a choice only you can make
     rs.acc[b] += rp;
     const cost = rungCost(s, c, b);
     if (rs.acc[b] >= cost) {

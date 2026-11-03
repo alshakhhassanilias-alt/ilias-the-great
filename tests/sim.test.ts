@@ -1147,7 +1147,7 @@ describe('round 11: modes, control levels, Legacy, army groups', () => {
     if (L.status === 'opposition') {
       expect(actOpposition(s, 'rally').ok).toBe(true);
       expect(actOpposition(s, 'rally').ok).toBe(false); // cooldown
-      L.opposition!.support = 80;
+      L.opposition!.support = 80; L.opposition!.base = 80; // the government has collapsed in the polls
       L.nextVote = s.tick + 1;
       run(s, 2);
       expect(L.status).toBe('office');
@@ -2919,5 +2919,80 @@ describe('round 33: research, industries, influence, coalitions, a fairer Legacy
     expect(ks[0].id).toBe('lead');
     expect(ks[0].ok).toBe(true);
     expect(ks.find((k) => k.id === 'east')!.ok).toBe(false);
+  });
+});
+
+// QA round: regressions found by the bots, the crawler and the code review
+import { vi } from 'vitest';
+
+import { oppGain } from '../src/sim/legacy';
+import { DEMANDS } from '../src/sim/coalition';
+
+describe('QA round: what the deep QA pass found', () => {
+  it('the event tables load whichever module is loaded first (no circular-import crash)', async () => {
+    vi.resetModules();
+    await import('../src/sim/eventkit');
+    await import('../src/sim/occupation');
+    const ev = await import('../src/sim/events');
+    expect(ev.allEvents().length).toBeGreaterThan(100);
+    expect(ev.eventById('legacy_debate')).toBeTruthy();
+  });
+  it('a sphere once won holds on a smaller lead, so a country on the edge does not flip every month', () => {
+    const s = fresh('Poland');
+    const t = id('Lithuania');
+    s.inf = { [t]: { [s.player]: 34, [id('Germany')]: 25 } };
+    expect(patronOf(s, t)).toBeNull(); // a 1.36× lead is not enough to win a sphere (1.4× is)
+    s.inf[t][s.player] = 60;
+    expect(patronOf(s, t)?.patron).toBe(s.player);
+    s.sph = { [t]: s.player };
+    s.inf[t][s.player] = 30; // the lead shrinks to 1.2×: a newcomer could not win on that, a patron keeps it
+    expect(patronOf(s, t)?.patron).toBe(s.player);
+    s.sph = {};
+    expect(patronOf(s, t)).toBeNull();
+  });
+  it('the fiscal rule never deepens a slump, and never raises a tax more than five points', () => {
+    const s = fresh('Chad');
+    const c = s.countries[s.player];
+    const vat0 = c.budget.taxVat;
+    c.eco.unemployment = c.eco.uNat + 0.08;
+    for (let i = 0; i < 40; i++) { s.tick = 13 * i + 7; stepFiscalRule(s); }
+    expect(c.budget.taxVat).toBeCloseTo(vat0);
+    c.eco.unemployment = c.eco.uNat; c.eco.stability = 60;
+    c.budget.social = 0.2; // a big deficit to close
+    for (let i = 40; i < 200; i++) { s.tick = 13 * i + 7; stepFiscalRule(s); }
+    expect(c.budget.taxVat).toBeLessThanOrEqual(vat0 + 0.05 + 1e-9);
+  });
+  it('opposition campaigning adds at most ten points on top of the government’s record, and it fades', () => {
+    const s = fresh('Poland', { mode: 'legacy' });
+    s.legacy!.status = 'opposition';
+    s.legacy!.opposition = { support: 40, since: 0, attempts: 0, gov: 'X', base: 40, boost: 0 };
+    for (let i = 0; i < 10; i++) oppGain(s, 5);
+    expect(s.legacy!.opposition!.support).toBeCloseTo(50);
+    run(s, 60);
+    expect(s.legacy!.opposition!.boost!).toBeLessThan(1.5);
+  });
+  it('the research ministry never makes one of your either-or choices for you', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const rs = ensureResearch(c);
+    rs.lv = [2, 2, 2, 2, 2]; rs.cur = -1; rs.pick = {};
+    run(s, 52 * 3);
+    for (let b = 0; b < 5; b++) expect(rs.lv[b]).toBeLessThanOrEqual(2); // every branch waits on rung 3, a choice
+    expect(Object.keys(rs.pick).length).toBe(0);
+  });
+  it('every coalition demand can actually be asked for somewhere', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    const peace = DEMANDS.find((d) => d.id === 'peace')!;
+    expect(peace.make(s, c)).toBeTruthy();
+    expect(DEMANDS.filter((d) => d.id === 'peace' || d.id === 'jobs' || d.id === 'inflation').every((d) => (d as { hold?: boolean }).hold)).toBe(true);
+  });
+  it('a camp-leadership course survives a small drift in alignment', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    c.orient = 0.62;
+    c.course = { id: 'lead', stage: 0, until: s.tick + 5, started: s.tick, leaders: [], old: [], neighbors: [] };
+    c.orient = 0.55;
+    expect(coursesFor(s, c, geo).some((k) => k.id === 'lead')).toBe(true);
   });
 });

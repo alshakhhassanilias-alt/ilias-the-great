@@ -22,18 +22,19 @@ export interface EventDef {
   arc?: { title: string; stage: number; of: number };
 }
 
-export const name = (s: GameState, id: number) => s.countries[id].name;
+export function name(s: GameState, id: number) { return s.countries[id].name; }
 /**
  * One-off decision costs are written as "Costs 1% of GDP" in the event tables and charged at this fraction of that,
  * so a handful of decisions no longer empties a treasury that a year of normal income cannot refill. The UI shows
  * the real price (`costHint`).
  */
 export const DECISION_COST = 0.5;
-export const pay = (s: GameState, c: Country, pct: number) => fund(s, c.id, pct * DECISION_COST * c.eco.gdp);
-export const stab = (c: Country, v: number) => { c.eco.stability = clamp(c.eco.stability + v, 0, 100); };
-export const rep = (c: Country, v: number) => { c.reputation = clamp(c.reputation + v, 0, 100); };
-export const money = (c: Country, pct: number) => fmtMoney(pct * DECISION_COST * c.eco.gdp);
-export const canPay = (pct: number) => (_s: GameState, c: Country) => (c.eco.debt + pct * DECISION_COST * c.eco.gdp) / c.eco.gdp < 2.5;
+// (function declarations, not consts: the event tables call these while modules are still loading in a cycle)
+export function pay(s: GameState, c: Country, pct: number) { return fund(s, c.id, pct * DECISION_COST * c.eco.gdp); }
+export function stab(c: Country, v: number) { c.eco.stability = clamp(c.eco.stability + v, 0, 100); }
+export function rep(c: Country, v: number) { c.reputation = clamp(c.reputation + v, 0, 100); }
+export function money(c: Country, pct: number) { return fmtMoney(pct * DECISION_COST * c.eco.gdp); }
+export function canPay(pct: number) { return (_s: GameState, c: Country) => (c.eco.debt + pct * DECISION_COST * c.eco.gdp) / c.eco.gdp < 2.5; }
 /** "Costs 1% of GDP" in a table → "Costs $23B (0.5% of GDP)": the price actually charged, in money. */
 export function costHint(c: Country, hint: string): string {
   return hint.replace(/Costs ([\d.]+)% of GDP/, (_m, v: string) => { const p = (Number(v) / 100) * DECISION_COST; return `Costs ${fmtMoney(p * c.eco.gdp)} (${(p * 100).toFixed(p < 0.001 ? 2 : 1)}% of GDP)`; });

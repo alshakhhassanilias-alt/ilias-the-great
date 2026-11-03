@@ -9,8 +9,8 @@ import { clamp } from './util';
 import { nextRand } from './rng';
 import { actNameHeir, personaOf } from './persona';
 import { approval } from './approval';
-import { overthrow, endLegacy, isFree } from './legacy';
-import { isAtWar } from './relations';
+import { overthrow, isFree, oppGain, resignNow } from './legacy';
+import { getRelation, isAtWar } from './relations';
 import type { Country, GameState } from './types';
 
 const camp = (s: GameState, v: number) => { s.stats.campaign = (s.stats.campaign ?? 0) + v; };
@@ -29,7 +29,7 @@ export const EVENTS11: EventDef[] = [
     text: (s, c) => `Twelve weeks to election day in ${c.name}. Your strategists want a theme. The economy is ${growthGap(c) > 0.005 ? 'doing better than usual' : growthGap(c) < -0.005 ? 'doing worse than usual' : 'doing about as usual'}, stability is ${c.eco.stability.toFixed(0)}, and ${isAtWar(s, c.id) ? 'the country is at war' : 'the country is at peace'}.`,
     options: [
       { label: 'Run on the economy', hint: 'Polls +4 if growth beats the country’s normal, −2 if it lags', apply: (s, c) => { const v = growthGap(c) > 0 ? 4 : -2; camp(s, v); return v > 0 ? 'The numbers speak for you.' : 'Voters looked at their bills and were not convinced.'; } },
-      { label: 'Run on security', hint: 'Polls +4 at war or with a hostile neighbour, otherwise +1', apply: (s, c) => { const v = isAtWar(s, c.id) || s.rival >= 0 ? 4 : 1; camp(s, v); return 'Strength and order: the message lands.'; } },
+      { label: 'Run on security', hint: 'Polls +4 at war or facing a hostile rival (relations below −40), otherwise +1', apply: (s, c) => { const v = isAtWar(s, c.id) || (s.rival >= 0 && getRelation(s, c.id, s.rival) < -40) ? 4 : 1; camp(s, v); return v > 1 ? 'Strength and order: the message lands.' : 'Voters shrugged: nobody feels threatened.'; } },
       { label: 'Run as the candidate of change', hint: 'Polls +3, more the longer you have been in power (+1 a term)', apply: (s) => { camp(s, 3 + Math.min(3, (s.legacy?.term ?? 1) - 1)); return 'You ran against the system you lead. It worked, oddly.'; } },
       { label: 'A populist pledge', hint: 'Polls +5 · public services +0.5% of GDP for good', apply: (s, c) => { camp(s, 5); c.budget.social = clamp(c.budget.social + 0.005, 0, 0.35); return 'More for everyone. Someone will pay later.'; } },
     ],
@@ -71,7 +71,7 @@ export const EVENTS11: EventDef[] = [
         return `The party chose ${p.rival.name}. You are out.`;
       } },
       { label: 'Buy them off with a top job', hint: 'Costs 25 political capital · the rival backs off for now', enabled: (_s, c) => pcOf(c) >= 25, why: () => 'Needs 25 political capital', apply: (s, c) => { spend(c, 25); const p = personaOf(s); if (!p) return 'Nothing comes of it.'; p.rival.power = 45; return `${p.rival.name} takes the finance ministry, and waits.`; } },
-      { label: 'Step down with dignity', hint: 'Your career ends now, on your own terms (no defeat on your record)', apply: (s) => { if (!s.legacy) return 'Nothing comes of it.'; endLegacy(s, `${s.legacy.leader} resigns rather than fight the party.`); return 'You resigned.'; } },
+      { label: 'Step down with dignity', hint: 'Your career ends now, on your own terms (no defeat on your record)', apply: (s) => { if (!s.legacy) return 'Nothing comes of it.'; resignNow(s, `${s.legacy.leader} resigns rather than fight the party.`); return 'You resigned.'; } },
     ],
     lapse: (s) => { if (!s.legacy) return ''; overthrow(s, `${s.legacy.leader} is ousted by the party.`); return 'You did not fight. The party moved on without you.'; },
   },
@@ -130,8 +130,8 @@ export const EVENTS11: EventDef[] = [
     eligible: (s, c) => (opp(s) && approval(s, c) < 50 ? {} : null),
     text: (s) => `${s.legacy?.opposition?.gov ?? 'The government'} is mired in a procurement scandal. Your party wants blood.`,
     options: [
-      { label: 'Go for the jugular', hint: 'Support +4 · stability −2', apply: (s, c) => { if (s.legacy?.opposition) s.legacy.opposition.support = clamp(s.legacy.opposition.support + 4, 5, 85); stab(c, -2); return 'Every day a new question in parliament.'; } },
-      { label: 'Stay above it', hint: 'Support +1 · reputation +1', apply: (s, c) => { if (s.legacy?.opposition) s.legacy.opposition.support = clamp(s.legacy.opposition.support + 1, 5, 85); rep(c, 1); return 'Statesmanlike, they said.'; } },
+      { label: 'Go for the jugular', hint: 'Support +4 · stability −2', apply: (s, c) => { oppGain(s, 4); stab(c, -2); return 'Every day a new question in parliament.'; } },
+      { label: 'Stay above it', hint: 'Support +1 · reputation +1', apply: (s, c) => { oppGain(s, 1); rep(c, 1); return 'Statesmanlike, they said.'; } },
     ],
   },
   {
@@ -139,8 +139,8 @@ export const EVENTS11: EventDef[] = [
     eligible: (s) => (opp(s) ? {} : null),
     text: () => 'Half the party wants to move to the centre; the other half wants a sharper, angrier opposition.',
     options: [
-      { label: 'Move to the centre', hint: 'Support +2 now, +more slowly over time', apply: (s) => { if (s.legacy?.opposition) s.legacy.opposition.support = clamp(s.legacy.opposition.support + 2, 5, 85); return 'Moderation. The commentators approve.'; } },
-      { label: 'Fire up the base', hint: '60%: support +6 · 40%: support −3', apply: (s) => { const o = s.legacy?.opposition; if (!o) return ''; if (nextRand(s) < 0.6) { o.support = clamp(o.support + 6, 5, 85); return 'The rallies are electric.'; } o.support = clamp(o.support - 3, 5, 85); return 'It frightened the middle ground.'; } },
+      { label: 'Move to the centre', hint: 'Support +2 now, +more slowly over time', apply: (s) => { oppGain(s, 2); return 'Moderation. The commentators approve.'; } },
+      { label: 'Fire up the base', hint: '60%: support +6 · 40%: support −3', apply: (s) => { const o = s.legacy?.opposition; if (!o) return ''; if (nextRand(s) < 0.6) { oppGain(s, 6); return 'The rallies are electric.'; } oppGain(s, -3); return 'It frightened the middle ground.'; } },
     ],
   },
   {
@@ -148,8 +148,8 @@ export const EVENTS11: EventDef[] = [
     eligible: (s, c) => (opp(s) && (isAtWar(s, c.id) || c.eco.stability < 40) && isFree(c.gov) ? {} : null),
     text: (s) => `In the crisis, ${s.legacy?.opposition?.gov ?? 'the government'} offers you a seat in a government of national unity.`,
     options: [
-      { label: 'Refuse: you will win it back properly', hint: 'Support +2', apply: (s) => { if (s.legacy?.opposition) s.legacy.opposition.support = clamp(s.legacy.opposition.support + 2, 5, 85); return 'You kept your hands clean.'; } },
-      { label: 'Join for the country’s sake', hint: 'Stability +5 · reputation +2 · support −4 (you share the blame)', apply: (s, c) => { stab(c, 5); rep(c, 2); if (s.legacy?.opposition) s.legacy.opposition.support = clamp(s.legacy.opposition.support - 4, 5, 85); return 'Country before party.'; } },
+      { label: 'Refuse: you will win it back properly', hint: 'Support +2', apply: (s) => { oppGain(s, 2); return 'You kept your hands clean.'; } },
+      { label: 'Join for the country’s sake', hint: 'Stability +5 · reputation +2 · support −4 (you share the blame)', apply: (s, c) => { stab(c, 5); rep(c, 2); oppGain(s, -4); return 'Country before party.'; } },
     ],
   },
 ];

@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 219 deterministic simulation tests (Vitest) |
+| `npm test` | 226 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
@@ -61,6 +61,35 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## QA round: what a deep check found and fixed
+
+A bot played 15 countries for 16–25 years each (doing a bit of everything: research, industry, influence, laws,
+treaties, courses, wars, random answers to every decision), a crawler opened every tab and drawer on desktop and
+phone after up to 25 years, and the new code was reviewed. Fixed:
+
+- **A crash that depended on load order**: the decision tables were assembled while modules were still loading in a
+  cycle, so loading the game in another order (e.g. a save first) crashed. The list is now built on first use and the
+  shared helpers are hoisted; every module was checked loading first.
+- **Austerity spirals**: the automatic fiscal rule could double VAT and cut services in a poor, restless country until
+  it collapsed for good (Chad sat at stability 0 for 16 years). It now waits out slumps and unrest, never raises a tax
+  more than five points above its start, and does not cut services while the country is unsettled; unrest also costs
+  output a little less steeply.
+- **Elections decided by one bad week**: the growth figure people see (and vote on) was a week-to-week reading that
+  swung from −7% to +5% inside a year. It is now smoothed over about half a year, weighs less in approval, and world
+  crises come about half as often.
+- **Opposition that always won**: rallies stacked without limit (support reached 78%). Campaigning now adds at most ten
+  points on top of the government's record and fades; the rival government is judged from the day it took office.
+- **Spheres flickering in and out every month**, and gains made by your own spending never announced: a sphere now
+  holds on a smaller lead than it takes to win one, and news compares against last month.
+- **Coalitions**: the demand record survives a change of government, you return to office with a fresh coalition,
+  "keep it" demands (no war, low inflation, jobs) can be issued, partners only walk out once their patience is gone,
+  faction demands no longer duplicate the coalition's, and uprisings are rarer.
+- **Code review**: the research ministry could make your either-or choice for you; the camp-leadership course could
+  vanish (with its cost) if alignment drifted; abandoning a course reset the ten-year lock; "Run on security" always
+  won; resigning in a leadership challenge skipped the term's write-up; industry investment noise was shared between
+  sectors; the migration law's research bonus never applied.
+- **Layout**: long cost notes in buttons overflowed late-game panels; the new controls are easier to tap on phones.
 
 ## Round 33: depth that never runs out
 

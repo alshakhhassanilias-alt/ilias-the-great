@@ -24,6 +24,7 @@ import { pushInbox } from './events';
 import { forcePeaceAll } from './war';
 import { geoRefGet } from './geoRef';
 import { charismaVote, lawCostMult, personaOf, stepPersona } from './persona';
+import { newGovernment } from './coalition';
 
 export const TERM = 208; // four years
 export const titleFor = (gov: string) => (gov === 'D' ? 'President' : gov === 'F' ? 'Prime Minister' : gov === 'M' ? 'Sovereign' : gov === 'C' ? 'General Secretary' : 'Chairman');
@@ -175,7 +176,11 @@ export function stepLegacy(s: GameState, geo: Geo) {
     const o = L.opposition;
     // the government's failures are your opportunity
     const govApproval = approval(s, c);
-    o.support = clamp(o.support + (100 - govApproval - o.support) * 0.012 + (c.eco.stability < 35 ? 0.08 : 0), 5, 85);
+    // support is the mirror of how the government is doing (the base) plus what your own campaigning adds (the boost,
+    // which fades: rallies and exposés are remembered for months, not for ever, and never add more than ten points)
+    o.base = (o.base ?? o.support) + ((94 - govApproval) - (o.base ?? o.support)) * 0.012 + (c.eco.stability < 35 ? 0.08 : 0);
+    o.boost = (o.boost ?? 0) * 0.96;
+    o.support = clamp(o.base + o.boost, 5, 85);
     if (s.tick === L.nextVote - 8 && !s.inbox.some((x) => x.id.startsWith('legacy_'))) pushInbox(s, 'legacy_comeback', {}, 8);
     if (s.tick >= L.nextVote || (c.eco.stability < 18 && s.tick - o.since > 52 && nextRand(s) < 0.02)) comebackVote(s);
   }
@@ -299,6 +304,7 @@ function comebackVote(s: GameState) {
   if (share >= 50) {
     L.status = 'office'; L.term++; L.termStart = s.tick; L.nextVote = s.tick + TERM;
     c.cabinet = undefined; ensureCabinet(s, L.term); // a new government, new faces
+    newGovernment(s, c); // and a new coalition with its own demands
     s.stats[`termGdp:${L.term}`] = gdppc(c);
     L.agenda = []; L.hand = dealHand(s, c, L.term + 100);
     L.parts.terms = (L.parts.terms ?? 0) + 40;
@@ -314,10 +320,19 @@ function comebackVote(s: GameState) {
       return;
     }
     o.since = s.tick; L.nextVote = s.tick + TERM;
-    o.support = clamp(share - 4, 12, 45);
+    o.support = clamp(share - 4, 12, 45); o.base = o.support; o.boost = 0;
     L.chronicle.push({ tick: s.tick, text: `Comeback attempt fails (${share.toFixed(0)}%).` });
     logEvent(s, `🗳 ${free ? 'ELECTION' : 'FAILED COUP'}: ${L.leader}'s comeback falls short (${share.toFixed(1)}%). One last chance remains.`, 'danger', [s.player], true, { big: true, prov: c.capital });
   }
+}
+
+/** Your own campaigning in opposition: a boost on top of the government's unpopularity that fades, at most ±10 points. */
+export function oppGain(s: GameState, v: number) {
+  const o = s.legacy?.opposition;
+  if (!o) return;
+  o.base ??= o.support;
+  o.boost = clamp((o.boost ?? 0) + v, -10, 10);
+  o.support = clamp(o.base + o.boost, 5, 85);
 }
 
 /** Opposition / exile actions. */
@@ -341,8 +356,10 @@ export function actOpposition(s: GameState, id: string) {
   if (id === 'abroad') s.stats.campaign = (s.stats.campaign ?? 0) + 3;
   if (id === 'shadow') gain = clamp(2 + (c.eco.baseGrowth - c.eco.growth) * 150 + (c.eco.inflation > 0.05 ? 2 : 0), 1, 7);
   if (id === 'protest') { c.eco.stability = Math.max(0, c.eco.stability - 3); gain = nextRand(s) < 0.2 ? -3 : 5; }
-  L.opposition.support = clamp(L.opposition.support + gain, 5, 85);
-  return { ok: true, message: `Support for you rises to ${L.opposition.support.toFixed(0)}%.` };
+  const before = L.opposition.support;
+  oppGain(s, gain);
+  const d = L.opposition.support - before;
+  return { ok: true, message: d > 0.05 ? `Support for you rises to ${L.opposition.support.toFixed(0)}%.` : d < -0.05 ? `It backfired: support falls to ${L.opposition.support.toFixed(0)}%.` : `Support holds at ${L.opposition.support.toFixed(0)}%: your campaign is already at full stretch (at most +10 on top of the government's own record).` };
 }
 
 /** Bring the next vote forward (no-confidence motion / uprising) when the government is weak. */
@@ -353,6 +370,14 @@ export function actForceVote(s: GameState) {
   L.nextVote = Math.min(L.nextVote, s.tick + 6);
   logEvent(s, `⚡ ${isFree(c.gov) ? 'No-confidence vote passes: snap elections in six weeks!' : 'The streets rise: the regime totters.'}`, 'danger', [s.player], true, { big: true, prov: c.capital });
   return { ok: true, message: 'The decisive vote comes in six weeks.' };
+}
+
+/** Resign in office (rather than fight a leadership challenge): the term is closed and written up, then the career. */
+export function resignNow(s: GameState, why: string) {
+  const L = s.legacy;
+  if (!L || L.status === 'ended') return;
+  if (L.status === 'office') closeTerm(s, 'retired', why);
+  endLegacy(s, why);
 }
 
 export function actRetire(s: GameState) {

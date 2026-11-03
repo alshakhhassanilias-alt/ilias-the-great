@@ -169,9 +169,13 @@ function uprising(s: GameState, geo: Geo, p: ProvId, O: Country) {
   logEvent(s, `🔥 Uprising in ${name} against ${O.name}: it is crushed after days of street fighting.`, 'war', [O.id, k], O.isPlayer || K?.isPlayer, { prov: p });
 }
 
-let transfer: (s: GameState, geo: Geo, p: ProvId, to: CountryId) => void = () => {};
+type TransferFn = (s: GameState, geo: Geo, p: ProvId, to: CountryId) => void;
+// (a `var` without initialiser: war.ts may register before this module has finished loading, and it must not be reset)
+// eslint-disable-next-line no-var
+var transferFn: TransferFn | undefined;
+const transfer: TransferFn = (s, geo, p, to) => transferFn?.(s, geo, p, to);
 /** war.ts registers its province transfer here (keeps the import graph acyclic) */
-export function setTransfer(fn: typeof transfer) { transfer = fn; }
+export function setTransfer(fn: TransferFn) { transferFn = fn; }
 
 /** The occupation summary for a country (interface). */
 export function occupationSummary(s: GameState, cid: CountryId) {

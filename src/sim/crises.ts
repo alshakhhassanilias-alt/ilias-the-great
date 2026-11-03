@@ -70,7 +70,7 @@ export function stepCrisis(s: GameState, _geo: Geo) {
       logEvent(s, `${d.icon} ${d.end}`, 'econ', [], true, { big: true });
       s.crisis = null;
       delete s.stats.shield;
-      s.nextCrisis = s.tick + 80 + Math.floor(nextRand(s) * 80);
+      s.nextCrisis = s.tick + 150 + Math.floor(nextRand(s) * 150); // a world crisis every four to six years or so
     }
     return;
   }

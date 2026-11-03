@@ -553,7 +553,7 @@ export interface LegacyState {
   hand: string[];
   score: number; parts: Record<string, number>;
   terms: TermRecord[];
-  opposition?: { support: number; since: number; attempts: number; gov: string };
+  opposition?: { support: number; since: number; attempts: number; gov: string; /** support from the government's record */ base?: number; /** support from your own campaigning (fades, ±10) */ boost?: number };
   start: { gdppc: number; rank: number; provinces: number; pop: number; stability: number; tick: number; power: number; rep?: number; allies?: number };
   endReason?: string;
   maxYear: number;

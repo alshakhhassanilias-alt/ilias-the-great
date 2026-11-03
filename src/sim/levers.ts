@@ -180,12 +180,23 @@ export function stepFiscalRule(s: GameState) {
   const gap = ruleTarget(B.debtPct) - B.balancePct;
   const fin = ministerOf(c, 'finance')?.name ?? 'The finance minister';
   const perPoint = (k: 'taxVat' | 'taxIncome') => { const save = b[k]; b[k] = save + 0.01; const r = revenueAnnual(c); b[k] = save; return Math.max(1, r - revenueAnnual(c)); };
+  // austerity in a slump or in turmoil deepens both: the rule waits until jobs and order recover
+  const slump = e.unemployment > e.uNat + 0.04 || e.stability < 30;
+  if (gap > 0.0015 && slump) {
+    if (s.tick - (s.stats.ruleSlump ?? -999) > 104) { s.stats.ruleSlump = s.tick; logEvent(s, `💼 ${fin}: the fiscal rule is suspended while unemployment is high and the country unsettled; cuts now would only deepen the slump. The deficit is borrowed meanwhile.`, 'econ', [c.id], true); }
+    return;
+  }
   if (gap > 0.0015) {
     const step = Math.min(gap, 0.004) * e.gdp;
-    const k: 'taxVat' | 'taxIncome' = b.taxVat < 0.22 ? 'taxVat' : 'taxIncome';
-    const room = (k === 'taxVat' ? 0.25 : 0.38) - b[k];
+    const base = c.politics?.base;
+    // never more than five points above where each tax started (and never past the levels that choke growth)
+    const capOf = (k: 'taxVat' | 'taxIncome') => Math.min(k === 'taxVat' ? 0.25 : 0.38, (base?.[k] ?? b[k]) + 0.05);
+    const k: 'taxVat' | 'taxIncome' = b.taxVat < Math.min(0.22, capOf('taxVat')) ? 'taxVat' : 'taxIncome';
+    const room = capOf(k) - b[k];
     const dTax = clamp((step / 2 / perPoint(k)) * 0.01, 0, Math.max(0, room));
-    const dSoc = Math.min((step - (dTax / 0.01) * perPoint(k)) / e.gdp, Math.max(0, b.social - e.baseSocial * 0.85));
+    // services are not cut below 85% of their starting level, nor below it at all while the country is restless
+    const socFloor = e.baseSocial * (e.stability < 45 ? 1 : 0.85);
+    const dSoc = Math.min((step - (dTax / 0.01) * perPoint(k)) / e.gdp, Math.max(0, b.social - socFloor));
     if (dTax + dSoc < 0.0003) { if (s.tick - (s.stats.ruleStuck ?? -999) > 104) { s.stats.ruleStuck = s.tick; logEvent(s, `💼 ${fin}: the fiscal rule has run out of painless options. Taxes and services are at their limits; only growth, a spending review or fewer commitments can close the rest.`, 'econ', [c.id], true); } return; }
     const was = `${(B.balancePct * 100).toFixed(1)}%`;
     if (dTax > 0) setBudget(s, c.id, k, b[k] + dTax);

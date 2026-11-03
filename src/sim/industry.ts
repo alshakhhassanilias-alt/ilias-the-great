@@ -232,12 +232,12 @@ function drift(s: GameState, c: Country, k: number) {
   const ind = ensureIndustry(c), m = marketOf(s);
   const g = clamp(c.eco.growth, -0.05, 0.08);
   const rich = c.eco.gdp / Math.max(1, c.eco.pop) > 15000;
-  for (const sec of SECTORS) {
+  for (const [si, sec] of SECTORS.entries()) {
     const fit = sec.id === 'services' ? (rich ? 1.2 : 0.7) : sec.id === 'arms' ? 0.5 + (c.ai?.aggression ?? 0.5) * 0.6 : 1;
     if (expansionOf(s, c, sec.id).why?.startsWith('Needs')) continue;
     // about as fast as demand grows at the going price: a dear market draws investment, a glut chokes it off
     const v = ind.lv[sec.id] * (0.001 + 0.22 * Math.max(0, g)) * fit * (0.3 + 0.7 * m.price[sec.id]) * k / 12;
-    ind.lv[sec.id] += Math.max(0, v) * (0.6 + 0.8 * hash01('inv', c.id, sec.id.length, Math.floor(s.tick / 52)));
+    ind.lv[sec.id] += Math.max(0, v) * (0.6 + 0.8 * hash01('inv', c.id, si, Math.floor(s.tick / 52)));
   }
 }
 

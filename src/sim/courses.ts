@@ -191,8 +191,8 @@ export function coursesFor(s: GameState, c: Country, geo: Geo): Course[] {
     out.push({ id: 'region', icon: '🧭', title: t.title, intro: t.intro ?? `Bind your neighbours together around ${city}.`, stages: t.stages, dir: 0, ok: nbrs.length >= 2, why: nbrs.length >= 2 ? undefined : 'You need at least two neighbours at peace with you', leaders: [], old: [], neighbors: nbrs });
   }
   // ---- Lead the camp: for a country firmly in one, the next chapter is leadership, not another turn
-  if (Math.abs(o) >= 0.6) {
-    const dir = Math.sign(o), campName = dir > 0 ? 'the West' : 'the East';
+  if (Math.abs(o) >= 0.6 || c.course?.id === 'lead') {
+    const dir = Math.sign(o) || 1, campName = dir > 0 ? 'the West' : 'the East';
     const camp = (dir > 0 ? west : east).filter((x) => x !== c.id);
     const org = orgsOf(s, c.id).find((x) => x.camp === dir) ?? orgsOf(s, c.id).find((x) => x.kind === 'defence');
     const city = placeName(c.capital);
@@ -206,7 +206,7 @@ export function coursesFor(s: GameState, c: Country, geo: Geo): Course[] {
     out.unshift({ id: 'lead', icon: '🏛', title: `Lead ${campName}`, intro: `You are firmly in ${campName}. The next chapter is not another turn: it is to lead it.`, stages: st, dir, ok: !led, why: led ? `You already lead ${campName}` : undefined, leaders: camp.slice(0, 4), old: [], neighbors: nbrs, org });
   }
   // ---- no whiplash: a country that has just completed a turn cannot turn straight back
-  const doneAt = (id: CourseId) => ((c.coursesDone ?? []).includes(id) ? s.stats[`courseAt:${c.id}:${id}`] ?? -9999 : -9999);
+  const doneAt = (id: CourseId) => ((c.coursesDone ?? []).includes(id) ? s.stats[`courseDone:${c.id}:${id}`] ?? s.stats[`courseAt:${c.id}:${id}`] ?? -9999 : -9999);
   for (const k of out) {
     if (!k.ok) continue;
     const opp = k.id === 'west' ? 'east' : k.id === 'east' ? 'west' : null;
@@ -360,11 +360,11 @@ export function stepCourses(s: GameState, geo: Geo) {
     if (C && C.until > 0 && s.tick >= C.until) {
       const k = coursesFor(s, c, geo).find((x) => x.id === C.id);
       const st = k?.stages[C.stage];
-      if (!k || !st) { c.course = undefined; continue; }
+      if (!k || !st) { if (c.isPlayer) logEvent(s, `🧭 The course "${C.id}" can no longer be followed and is set aside.`, 'diplo', [c.id], true); c.course = undefined; continue; }
       const what = applyFx(s, c, st.fx, { leaders: C.leaders, old: C.old, neighbors: C.neighbors, org: C.org, dir: k.dir }, C.name);
       const last = C.stage >= k.stages.length - 1;
       logEvent(s, `🧭 ${c.name}: ${st.title} ${last ? 'completes its course' : 'is done'}${what ? ` (${what})` : ''}.`, 'diplo', [c.id], c.isPlayer || isMajor(s, c.id), { big: last && (c.isPlayer || isMajor(s, c.id)) });
-      if (last) { (c.coursesDone ??= []).push(C.id); s.stats[`courseAt:${c.id}:${C.id}`] = s.tick; c.course = undefined; continue; }
+      if (last) { (c.coursesDone ??= []).push(C.id); s.stats[`courseAt:${c.id}:${C.id}`] = s.tick; s.stats[`courseDone:${c.id}:${C.id}`] = s.tick; c.course = undefined; continue; }
       C.stage++; C.until = 0;
       // the AI begins the next step at once
       if (!c.isPlayer) { const nx = k.stages[C.stage]; C.until = s.tick + nx.weeks; pressure(s, c, C.stage, k.dir); }

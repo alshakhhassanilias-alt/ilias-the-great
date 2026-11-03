@@ -27,8 +27,10 @@ interface DemandDef {
   text: (d: Demand, c: Country) => string;
   /** where in the game you deliver it */
   where: string;
-  /** true when the value must stay at or below the target */
+  /** true when the value must be at or below the target */
   below?: boolean;
+  /** true when it must hold until the deadline (judged then), rather than be reached once */
+  hold?: boolean;
 }
 const pct = (v: number, d = 1) => `${(v * 100).toFixed(d)}%`;
 const lawDemand = (id: string, f: FactionId): DemandDef => ({
@@ -40,11 +42,11 @@ const lawDemand = (id: string, f: FactionId): DemandDef => ({
 export const DEMANDS: DemandDef[] = [
   // unions
   { id: 'social', f: 'labour', where: 'Economy → budget', make: (_s, c) => ({ base: c.budget.social, target: c.budget.social + 0.008 }), value: (_s, c) => c.budget.social, text: (d) => `Raise public services to ${pct(d.target)} of GDP` },
-  { id: 'jobs', f: 'labour', where: 'the economy itself', below: true, make: (_s, c) => ({ base: c.eco.unemployment, target: Math.max(0.025, Math.min(c.eco.unemployment, c.eco.uNat + 0.01)) }), value: (_s, c) => c.eco.unemployment, text: (d) => `Keep unemployment at or below ${pct(d.target)}` },
+  { id: 'jobs', f: 'labour', where: 'the economy itself', below: true, hold: true, make: (_s, c) => ({ base: c.eco.unemployment, target: Math.max(0.025, Math.min(c.eco.unemployment, c.eco.uNat + 0.01)) }), value: (_s, c) => c.eco.unemployment, text: (d) => `Keep unemployment at or below ${pct(d.target)}` },
   lawDemand('min_wage', 'labour'), lawDemand('healthcare', 'labour'),
   // business
   { id: 'corp_tax', f: 'business', where: 'Economy → budget', below: true, make: (_s, c) => (c.budget.taxCorporate > 0.12 ? { base: c.budget.taxCorporate, target: c.budget.taxCorporate - 0.02 } : null), value: (_s, c) => c.budget.taxCorporate, text: (d) => `Cut corporate tax to ${pct(d.target, 0)}` },
-  { id: 'inflation', f: 'business', where: 'the economy itself', below: true, make: () => ({ base: 0, target: 0.04 }), value: (_s, c) => c.eco.inflation, text: () => 'Keep inflation under 4%' },
+  { id: 'inflation', f: 'business', where: 'the economy itself', below: true, hold: true, make: () => ({ base: 0, target: 0.04 }), value: (_s, c) => c.eco.inflation, text: () => 'Keep inflation under 4%' },
   { id: 'industry', f: 'business', where: 'Economy → Industries', make: (_s, c) => ({ base: indTotal(c), target: indTotal(c) + 1 }), value: (_s, c) => indTotal(c), text: () => 'Expand one of the country’s industries' },
   lawDemand('free_trade', 'business'), lawDemand('central_bank', 'business'),
   // the military
@@ -56,7 +58,7 @@ export const DEMANDS: DemandDef[] = [
   lawDemand('border_wall', 'nationalists'), lawDemand('war_powers', 'nationalists'),
   // liberals
   { id: 'rep', f: 'liberals', where: 'Diplomacy (aid, treaties, peace)', make: (_s, c) => ({ base: c.reputation, target: Math.min(95, c.reputation + 5) }), value: (_s, c) => c.reputation, text: (d) => `Raise your reputation abroad to ${d.target.toFixed(0)}` },
-  { id: 'peace', f: 'liberals', where: 'stay out of new wars', below: true, make: (s, c) => (isAtWar(s, c.id) ? null : { base: 0, target: 0 }), value: (s, c) => (isAtWar(s, c.id) ? 1 : 0), text: () => 'Start no war' },
+  { id: 'peace', f: 'liberals', where: 'stay out of new wars', below: true, hold: true, make: (s, c) => (isAtWar(s, c.id) ? null : { base: 0, target: 0 }), value: (s, c) => (isAtWar(s, c.id) ? 1 : 0), text: () => 'Start no war' },
   lawDemand('anti_graft', 'liberals'), lawDemand('green_deal', 'liberals'),
   // regions
   { id: 'infra', f: 'regions', where: 'Economy → budget', make: (_s, c) => ({ base: c.budget.infra, target: c.budget.infra + 0.005 }), value: (_s, c) => c.budget.infra, text: (d) => `Raise infrastructure spending to ${pct(d.target)} of GDP` },
@@ -87,6 +89,15 @@ function natural(c: Country): FactionId[] {
   for (const f of [...P.factions].sort((a, b) => b.mood - a.mood)) { out.push(f.id); if (seatsOf(c, out) >= 52) break; }
   return out;
 }
+/** A new government (after losing and winning back power): fresh partners, fresh demands, the record kept. */
+export function newGovernment(s: GameState, c: Country) {
+  const P = c.politics;
+  if (!P?.gov) return;
+  const { kept, broken } = P.gov;
+  P.gov = undefined;
+  ensureCoalition(s, c);
+  P.gov!.kept = kept; P.gov!.broken = broken;
+}
 export function ensureCoalition(s: GameState, c: Country): Coalition | null {
   const P = c.politics;
   if (!P) return null;
@@ -104,7 +115,7 @@ export const minority = (c: Country) => isDemocracy(c) && !!c.politics?.gov && s
 function newDemand(s: GameState, c: Country, f: FactionId): Demand | null {
   const G = c.politics!.gov!;
   const pool = DEMANDS.filter((d) => d.f === f && !G.demands.some((x) => x.id === d.id) && s.tick - (s.stats[`dem:${d.id}`] ?? -999) > 156);
-  const opts = pool.map((d) => ({ d, m: d.make(s, c) })).filter((x) => x.m && !(demandProgressRaw(s, c, x.d, x.m) >= 1));
+  const opts = pool.map((d) => ({ d, m: d.make(s, c) })).filter((x) => x.m && (x.d.hold || !(demandProgressRaw(s, c, x.d, x.m) >= 1)));
   if (!opts.length) return null;
   const pick = opts[Math.floor(nextRand(s) * opts.length)];
   s.stats[`dem:${pick.d.id}`] = s.tick;
@@ -133,7 +144,7 @@ export function stepCoalition(s: GameState, onFall: (why: string) => void) {
     if (!def || !G.partners.includes(d.f)) { G.demands = G.demands.filter((x) => x !== d); continue; }
     const p = demandProgress(s, c, d);
     const fac = P.factions.find((x) => x.id === d.f)!;
-    if (p >= 1 && !def.below) {
+    if (p >= 1 && !def.hold) {
       G.demands = G.demands.filter((x) => x !== d);
       fac.mood = clamp(fac.mood + 12, 0, 100);
       P.pc = clamp(P.pc + 8, 0, 100);
@@ -144,7 +155,7 @@ export function stepCoalition(s: GameState, onFall: (why: string) => void) {
     } else if (s.tick >= d.due) {
       G.demands = G.demands.filter((x) => x !== d);
       s.stats[`demDone:${d.f}`] = s.tick;
-      if (p >= 1) { // a "keep it below" demand held to the end
+      if (p >= 1) { // a demand that had to hold until the deadline, and did
         fac.mood = clamp(fac.mood + 10, 0, 100); P.pc = clamp(P.pc + 6, 0, 100); G.kept = (G.kept ?? 0) + 1;
         logEvent(s, `✅ Demand met: ${def.text(d, c)}. ${fname(d.f)} are satisfied (mood +10, political capital +6).`, 'info', [c.id], true);
         continue;
@@ -152,12 +163,12 @@ export function stepCoalition(s: GameState, onFall: (why: string) => void) {
       fac.mood = clamp(fac.mood - 15, 0, 100);
       G.patience[d.f] = (G.patience[d.f] ?? 2) - 1;
       G.broken = (G.broken ?? 0) + 1;
-      if ((G.patience[d.f] ?? 0) <= 0 || fac.mood < 28) leave(s, c, d.f, `after you failed to ${def.text(d, c).replace(/^./, (x) => x.toLowerCase())}`);
+      if ((G.patience[d.f] ?? 0) <= 0 || fac.mood < 16) leave(s, c, d.f, `after you failed to ${def.text(d, c).replace(/^./, (x) => x.toLowerCase())}`);
       else logEvent(s, `⚠ Demand missed: ${def.text(d, c)}. ${fname(d.f)} are angry (mood −15) and their patience is wearing thin.`, 'danger', [c.id], true);
     }
   }
   // a partner whose mood collapses walks out regardless
-  for (const f of [...G.partners]) { const fac = P.factions.find((x) => x.id === f)!; if (fac.mood < 20) leave(s, c, f, 'in disgust at the government'); }
+  for (const f of [...G.partners]) { const fac = P.factions.find((x) => x.id === f)!; if (fac.mood < 12) leave(s, c, f, 'in disgust at the government'); }
   // a minority government faces confidence votes; a regime that loses two pillars totters
   if (demo && minority(c)) {
     if (s.tick >= (G.nextVote ?? 0)) {
@@ -184,11 +195,9 @@ function leave(s: GameState, c: Country, f: FactionId, why: string) {
 }
 /** After a fall: a new government forms from whoever is willing (fresh demands, patience reset). */
 function reform(s: GameState, c: Country) {
-  const P = c.politics!;
-  P.gov = undefined;
-  ensureCoalition(s, c);
+  newGovernment(s, c);
   c.eco.stability = clamp(c.eco.stability - 6, 0, 100);
-  P.pc = Math.max(0, P.pc - 15);
+  c.politics!.pc = Math.max(0, c.politics!.pc - 15);
 }
 
 // ------------------------------------------------------------------ player actions

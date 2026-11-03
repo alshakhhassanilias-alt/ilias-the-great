@@ -58,7 +58,8 @@ export function naturalInfluence(s: GameState, p: Country, t: Country, top = max
 }
 
 export interface Sphere { patron: CountryId; share: number }
-/** Who holds a country in their sphere, if anyone: the most influence, at least 30 points, 40% of the total, 1.4× the next. */
+/** Who holds a country in their sphere, if anyone: the most influence, at least 30 points, 40% of the total, 1.4× the next
+ *  (a patron already holding it keeps it on 20 points, 30% of the total and 1.12× the next). */
 export function patronOf(s: GameState, t: CountryId): Sphere | null {
   const m = infOf(s)[t];
   if (!m) return null;
@@ -67,7 +68,11 @@ export function patronOf(s: GameState, t: CountryId): Sphere | null {
     tot += v;
     if (v > bv) { second = bv; bv = v; best = Number(k); } else if (v > second) second = v;
   }
-  if (best < 0 || bv < 30 || bv < 0.4 * tot || bv < 1.4 * second || !s.countries[best]?.alive) return null;
+  if (best < 0 || !s.countries[best]?.alive) return null;
+  // a sphere, once won, holds on a slightly smaller lead (so a country on the edge does not flip in and out every month)
+  const held = s.sph?.[t] === best;
+  const [minV, minShare, minLead] = held ? [20, 0.3, 1.12] : [30, 0.4, 1.4];
+  if (bv < minV || bv < minShare * tot || bv < minLead * second) return null;
   return { patron: best, share: bv / Math.max(1, tot) };
 }
 /** Everyone's patron as of the last monthly update (kept in the game state: s.sph[target] = patron). patronOf is exact. */
@@ -185,8 +190,9 @@ export function stepInfluence(s: GameState) {
   const inf = infOf(s);
   const powers = powersOf(s);
   const top = maxGdp(s);
+  // last month's spheres (what the world was told), so a country won by your own spending in between is announced too
   const before = new Map<number, number | undefined>();
-  for (const t of s.countries) if (t.alive) before.set(t.id, patronOf(s, t.id)?.patron);
+  for (const t of s.countries) if (t.alive) before.set(t.id, s.sph?.[t.id]);
   // natural influence: each power's holding drifts toward what trade, alliances and size give it; bought influence fades
   for (const t of s.countries) {
     if (!t.alive) continue;
@@ -207,11 +213,17 @@ export function stepInfluence(s: GameState) {
     const ph = patronOf(s, t.id);
     if (ph) {
       const P = s.countries[ph.patron];
-      t.orient = clamp((t.orient ?? 0) + ((P.orient ?? 0) - (t.orient ?? 0)) * 0.01, -1, 1);
+      // a client leans a little toward its patron's camp (about 3% of the gap a year: influence, not annexation)
+      t.orient = clamp((t.orient ?? 0) + ((P.orient ?? 0) - (t.orient ?? 0)) * 0.0025, -1, 1);
       addRelation(s, t.id, P.id, 0.4);
     }
     const was = before.get(t.id), now = ph?.patron;
     if (was === now) continue;
+    // the same country changing hands again within a year is not news twice
+    // (others' spheres changing hands again within a year is not news twice; your own always is)
+    const nk = `sphNews:${t.id}`, again = s.tick - (s.stats[nk] ?? -999) < 52;
+    s.stats[nk] = s.tick;
+    if (again && was !== s.player && now !== s.player) continue;
     if (now === s.player) logEvent(s, `🌐 ${t.name} enters your sphere of influence: it will vote with you, favour your deals and pay you in contracts.`, 'diplo', [s.player, t.id], true, { big: t.eco.gdp > 1e11, prov: t.capital });
     else if (was === s.player) logEvent(s, `🌐 ${now !== undefined ? `${s.countries[now].name} has pulled ${t.name} out of your sphere of influence.` : `${t.name} slips out of your sphere of influence.`}`, 'danger', [s.player, t.id], true);
     else if (now !== undefined && t.eco.gdp > 4e11) logEvent(s, `🌐 ${t.name} falls into ${s.countries[now].name}'s sphere of influence.`, 'diplo', [now, t.id], false);

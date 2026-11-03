@@ -397,7 +397,8 @@ export function stepPolitics(s: GameState, appr: number) {
   // demands from the unhappiest faction
   if (s.tick >= P.nextDemand) {
     // the unhappiest faction speaks up: never the same one twice in a row, and each at most once a year
-    const worst = [...P.factions].sort((a, b) => a.mood - b.mood).find((f) => P.factions.indexOf(f) !== s.stats.lastDemandF && s.tick - (s.stats[`facAt:${f.id}`] ?? -999) >= 52);
+    // (partners in government make their demands through the coalition: only factions outside it raise them here)
+    const worst = [...P.factions].sort((a, b) => a.mood - b.mood).find((f) => !P.gov?.partners.includes(f.id) && P.factions.indexOf(f) !== s.stats.lastDemandF && s.tick - (s.stats[`facAt:${f.id}`] ?? -999) >= 52);
     P.nextDemand = s.tick + 60 + Math.floor(nextRand(s) * 30);
     if (worst && worst.mood < 44) {
       const fi = P.factions.indexOf(worst);
@@ -411,7 +412,9 @@ export function stepPolitics(s: GameState, appr: number) {
     const furious = P.factions.filter((f) => f.mood < 24 && f.support * clout(c, f.id) > 8);
     // the same faction does not rise up again within a year
     const f0 = furious.find((f) => s.tick - (s.stats[`unrestAt:${f.id}`] ?? -999) >= 52);
-    if (f0 && nextRand(s) < 0.04 && queue(s, 'fac_unrest', { f: P.factions.indexOf(f0) }, 10, true)) s.stats[`unrestAt:${f0.id}`] = s.tick;
+    // and at most one uprising of any faction in a year and a half
+    const lastAny = Math.max(...P.factions.map((f) => s.stats[`unrestAt:${f.id}`] ?? -999));
+    if (f0 && s.tick - lastAny >= 78 && nextRand(s) < 0.03 && queue(s, 'fac_unrest', { f: P.factions.indexOf(f0) }, 10, true)) s.stats[`unrestAt:${f0.id}`] = s.tick;
   }
 }
 

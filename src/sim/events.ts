@@ -197,8 +197,23 @@ import { finalizeResolution, proposeResolution } from './politics';
 import { EVENTS3 } from './events3';
 import { EVENTS9 } from './events9';
 import { EVENTS10 } from './events10';
-export const ALL_EVENTS: EventDef[] = [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...storyEvents()];
-export function eventById(id: string) { return ALL_EVENTS.find((e) => e.id === id)!; }
+/**
+ * Every decision in the game. Built on first use rather than when this module loads: the event tables import modules
+ * that import this one back, so whichever module happens to load first must not find a half-built list.
+ */
+let all: EventDef[] | null = null;
+let byId: Map<string, EventDef> | null = null;
+export function allEvents(): EventDef[] {
+  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...storyEvents()]);
+}
+/** (the list as an array-like for older callers and the tests) */
+export const ALL_EVENTS: EventDef[] = new Proxy([] as EventDef[], {
+  get: (_t, k) => { const a = allEvents() as unknown as Record<string | symbol, unknown>; const v = a[k]; return typeof v === 'function' ? (v as (...x: unknown[]) => unknown).bind(a) : v; },
+  has: (_t, k) => k in allEvents(),
+  ownKeys: () => Reflect.ownKeys(allEvents()),
+  getOwnPropertyDescriptor: (_t, k) => Reflect.getOwnPropertyDescriptor(allEvents(), k),
+});
+export function eventById(id: string) { return (byId ??= new Map(allEvents().map((e) => [e.id, e]))).get(id)!; }
 
 export const INBOX_MAX = 4;
 const URGENT_TTL = 14;
@@ -261,7 +276,7 @@ export function rollPlayerEvent(s: GameState, geo: Geo) {
   if (s.inbox.length >= 2 || s.tick < 14 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 26 : 44) || s.tick % 2 !== 0) return;
   if (nextRand(s) > 0.3) return;
   const pool: { def: EventDef; d: D; w: number }[] = [];
-  for (const def of ALL_EVENTS) {
+  for (const def of allEvents()) {
     if (def.weight <= 0) continue;
     if ((s.eventCooldown[def.id] ?? -9999) + def.cooldown > s.tick) continue;
     if (s.recentEvents.includes(def.id)) continue;

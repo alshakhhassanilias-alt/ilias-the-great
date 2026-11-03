@@ -22,7 +22,7 @@ export function InfluenceSection({ id }: { id: number }) {
     <Section title={`Influence in ${t.name}`} hint={ph ? `in ${ph.patron === s.player ? 'your' : `${s.countries[ph.patron].name}'s`} sphere` : 'no one’s sphere'}>
       <p className="faint inf-intro">
         {ph?.patron === s.player ? `${t.name} is in your sphere: it votes with you in the Assembly, favours your treaties and pays you about ${fmtMoney(0.0015 * t.eco.gdp)} a year in contracts. Keep your lead: rivals are always buying.`
-          : ph ? `${s.countries[ph.patron].name} holds ${t.name} in its sphere. To pull it out you need the most influence there, 40% of the total and 1.4 times the next power.`
+          : ph ? `${s.countries[ph.patron].name} holds ${t.name} in its sphere. To pull it out, cut their lead to less than 1.12 times the next power (or their share below 30%); to take it yourself you then need 1.4 times theirs and 40% of all influence there.`
             : `Whoever holds the most influence here (at least 30 points, 40% of the total, 1.4 times the next) brings ${t.name} into their sphere.`}
       </p>
       <div className="inf-bars">

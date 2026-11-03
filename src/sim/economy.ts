@@ -37,7 +37,7 @@ export function taxFactor(b: Budget, collection = 1): number {
     1.2 * Math.pow(Math.max(0, b.taxVat * collection - 0.18), 1.5);
   return clamp(1 - d, 0.3, 1);
 }
-export const stabilityFactor = (s: number) => (s >= 60 ? 1 : 1 - 0.35 * Math.pow((60 - s) / 60, 1.5));
+export const stabilityFactor = (s: number) => (s >= 60 ? 1 : 1 - 0.25 * Math.pow((60 - s) / 60, 1.5)); // unrest costs output, but not so steeply that a fragile country spirals into a collapse it can never climb out of
 export const infraFactor = (infra: number) => 0.8 + 0.4 * (infra / 100);
 export const needInfra = (infra: number) => 0.01 + 0.0004 * infra;
 
@@ -282,7 +282,8 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   const prevReal = e.realGdp;
   e.realGdp += (pot - e.realGdp) * (1 - Math.exp(-DT * 8));
   const g = (Math.log(e.realGdp) - Math.log(prevReal)) / DT;
-  e.growth += (g - e.growth) * 0.1;
+  // the growth people see and judge: smoothed over about half a year (a single bad week is not a recession)
+  e.growth += (g - e.growth) * 0.04;
 
   // ---- inflation & prices ----
   const cb = !!c.politics?.laws.some((l) => l.id === 'central_bank'); // an independent central bank (player law)
