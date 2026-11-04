@@ -21,6 +21,7 @@ import { MissionCard } from './Mission';
 import { DeskSection } from './Desk';
 import { RivalsSection } from './Rivals';
 import { ScenarioPanel } from '../Scenario';
+import { WarPanel } from '../WarCouncil';
 
 const TIP = {
   gdp: 'Gross domestic product: the total value of everything the economy produces in a year (nominal US dollars).',
@@ -49,6 +50,7 @@ export function OverviewTab({ id }: { id: number }) {
 
   return (
     <>
+      {mine && <WarPanel />}
       {mine && <ScenarioPanel />}
       {mine && <MissionCard />}
       {mine && <DeskSection />}
@@ -90,7 +92,6 @@ export function OverviewTab({ id }: { id: number }) {
 
       {pr !== null && <ProvincePanel p={pr} />}
 
-      {mine && <DoctrinesSection />}
 
       <Section title="Snapshot" hint={`${sizeClass(c)} · #${rank} economy`}>
         <div className="grid2">
@@ -105,7 +106,7 @@ export function OverviewTab({ id }: { id: number }) {
         </div>
       </Section>
 
-      <CharacterSection c={c} />
+      {!mine && <CharacterSection c={c} />}
 
       <Section fold="sectors" closed={mine} title="Economy by sector" hint="game estimate">
         <div className="card">

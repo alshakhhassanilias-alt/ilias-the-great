@@ -8,7 +8,7 @@
 import { prefs, onPrefs } from './prefs';
 
 export type Mood = 'menu' | 'peace' | 'tension' | 'war';
-export interface Track { file: string; title: string; mood: Mood }
+export interface Track { file: string; title: string; mood: Mood; heavy?: boolean }
 export const TRACKS: Track[] = [
   { file: 'main-theme.ogg', title: 'The World Order (main theme)', mood: 'menu' },
   { file: 'quiet-capitals.ogg', title: 'Quiet Capitals', mood: 'peace' },
@@ -17,6 +17,8 @@ export const TRACKS: Track[] = [
   { file: 'red-lines.ogg', title: 'Red Lines', mood: 'tension' },
   { file: 'iron-and-fire.ogg', title: 'Iron and Fire', mood: 'war' },
   { file: 'the-front.ogg', title: 'The Front', mood: 'war' },
+  { file: 'hold-the-line.ogg', title: 'Hold the Line', mood: 'tension' },
+  { file: 'great-powers.ogg', title: 'Great Powers', mood: 'war', heavy: true },
 ];
 
 const FADE = 3.5;
@@ -65,7 +67,10 @@ class Music {
   private apply() { if (this.a) this.a.volume = Math.min(1, this.vol() * this.fadeIn); }
   /** quieter while paused or reading (optional) */
   setDuck(on: boolean) { const d = on && prefs.duck ? 0.45 : 1; if (d !== this.duck) { this.duck = d; this.apply(); } }
-  setMood(m: Mood) {
+  private heavy = false;
+  /** `heavy`: a war between great powers, where the heaviest war track comes first */
+  setMood(m: Mood, heavy = false) {
+    this.heavy = heavy;
     if (m !== this.want) { this.want = m; this.wantSince = performance.now(); }
     if (this.mood === null) this.mood = m;
     this.check();
@@ -90,6 +95,8 @@ class Music {
     let fresh = pool.filter((x) => x.file !== this.last);
     if (!fresh.length && NEAR[this.mood!]) fresh = TRACKS.filter((x) => x.mood === NEAR[this.mood!] && x.file !== this.last && !this.broken.has(x.file));
     const list = fresh.length ? fresh : pool;
+    const big = this.heavy ? list.filter((x) => x.heavy) : [];
+    if (big.length) return big[0];
     return list[Math.floor(Math.random() * list.length)];
   }
   private next() {

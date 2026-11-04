@@ -12,7 +12,7 @@ negotiate peace — in a living world where ~190 AI-controlled countries develop
 * **Runs locally.** React + TypeScript + Vite, a canvas map, no backend, no API keys, no costs.
 
 ## Play without installing anything
-Download **`play/world-order.html`** (single file, about 4 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage. The music streams from this repository when you are online; offline the game plays without it.
+Download **`play/world-order.html`** (single file, about 8 MB) and double-click it. It runs offline in any modern browser (Chrome, Edge, Firefox, Safari, phone browsers too). Saves go to that browser's storage. The music streams from this repository when you are online; offline the game plays without it.
 
 ## The desktop app (Windows, macOS, Linux) and Steam
 `desktop/` wraps the game in an Electron app built for Steam: saves are files on disk (Steam Cloud ready), crash
@@ -61,6 +61,51 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 35: war as the main event, rivals who scheme, a challenge every day
+
+* **War takes over when it should, and as much as it should.** Every war of yours is measured the moment it starts,
+  on five tiers from a *border clash* to a *war between great powers*: how strong the enemy is, how the strength
+  compares, how many nations are in it, nuclear arms, fighting on your soil and land already lost. It is measured
+  again every month, so a small war that pulls in a great power escalates on screen. From a limited war up:
+  * **The war council** stops the clock. Both sides face each other with their leaders, troops and the share of
+    strength on the field, with the reasons for the tier. You choose the **war aim**, **how far to mobilise** (peacetime,
+    partial, general or total war: more manpower and fighting power against output, money and calm at home) and the
+    **opening strategy** (balanced, lightning offensive, defence in depth, attrition). Strategy can change later for
+    political capital; mobilisation can go up or down at any time.
+  * **The war never leaves the screen.** A strip at the bottom shows its tier, week, score and war support with a
+    button to the war room. The Overview leads with a war panel: phase (opening, grinding, turning, closing),
+    casualties, land, exhaustion, mobilisation and strategy, allies and peace terms.
+  * **The war tells its story** in chapters that arrive more often the bigger the war: the opening, the home front,
+    heavy losses, the tide turning, peace feelers and, after a real war, the aftermath (reconstruction, a memorial,
+    veterans). Each has real choices.
+  * A great war slows the clock to a speed you can follow, and the score changes to *Great Powers*.
+  * Starting in 2024, the wars of 2024 are on: the Russo-Ukrainian War (with Western sponsors sending aid every year)
+    and the Gaza War. Nations with a cause to hold on keep fighting while they can.
+* **Rivals who scheme.** Your nemesis remembers what passed between you (who overtook whom, insults, schemes) and
+  every few months works against you: a smear, turning one of your allies, funding your opposition, a border
+  incident, a squeeze on your trade. Answer it from your desk. Their cables recall the past; the rival card shows the
+  history of the rivalry.
+* **More reasons to play again.** A **daily challenge** (a country, three goals and the same world and luck for every
+  player that day), **five new scenarios** (Germany *Reinvent the Engine*, Brazil *The Green Superpower*, Indonesia
+  *Archipelago Rising*, Vietnam *The Next Tiger*, Egypt *Bread and Bonds*: thirteen in all, plus First Steps), and a
+  **share card**: a picture of your scenario result or your year's report card, for the share sheet on phones or a
+  download on computers.
+* **Feel.** Money spent and actions taken pop up where you clicked; research and industry milestones show on the map;
+  the State of the Nation opens with last year's headlines; the stability figure explains itself.
+* **Fewer places to look.** Industries, megaprojects and quick investments are one *Build* panel in the Economy tab;
+  doctrines and the leader's character moved to the Goals tab, so the Overview is your desk, your war and your country.
+* **Music.** Two new pieces (nine in all): *Hold the Line* (tension) and *Great Powers* (the main theme at its heaviest,
+  first choice in a war between great powers). New icons for the new scenarios and the daily challenge.
+* **Fixes.** Conquering a near-empty land no longer counts as occupying a big population (occupation is weighted by
+  people, not by each region's share of its old country): Morocco's unemployment no longer jumped by three points
+  after taking Western Sahara. Saves are about 11% smaller. The rival card says *neck and neck* instead of
+  *0.0 points ahead*.
+* **Checked.** 251 unit tests; a simulated first hour of the daily challenge on desktop and phone (picker, plan,
+  decisions, desk, result, share card: no errors); every tab crawled on desktop and phone; the war flow from
+  declaration to council to chapters in the browser; frame rate under a 4× slower CPU (46-59 fps once loaded).
+* **Known issues.** The seeded 2024 wars still tend to end within one to two years (the larger side wins faster than
+  in reality).
 
 ## Beta round: onboarding, art, audio, balance, stability
 

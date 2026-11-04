@@ -220,6 +220,16 @@ class Store {
     this.startLoop();
     this.notify();
   }
+  /** floating feedback over the screen ("−$12B", "Law passed"): rises and fades where you clicked */
+  pops: { id: number; x: number; y: number; text: string; tone: 'good' | 'bad' | 'gold' }[] = [];
+  private popSeq = 0;
+  pop(text: string, x: number, y: number, tone: 'good' | 'bad' | 'gold' = 'gold') {
+    const id = ++this.popSeq;
+    this.pops.push({ id, x, y, text, tone });
+    if (this.pops.length > 6) this.pops.shift();
+    window.setTimeout(() => { this.pops = this.pops.filter((p) => p.id !== id); this.notify(); }, 1400);
+    this.notify();
+  }
   /** one-click fixes used (desk, mission card, goals): the walkthrough watches it */
   deskActs = 0;
   /** bumps on every player action (panels that are costly to compute cache on it and on the week) */
@@ -355,6 +365,9 @@ class Store {
     // the State of the Nation (plan.ts) and the end of a scenario stop the clock
     if (!this.preview && this.speed !== 0 && s.plan?.pending && s.settings.yearPlan !== false) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
     if (!this.preview && s.scen?.done && !this.scenSeen) { this.scenSeen = true; this.speed = 0; }
+    // war as the main event (warmode.ts): a war council stops the clock; a major war is not fought at top speed
+    if (!this.preview && this.speed !== 0 && s.warx && Object.values(s.warx).some((x) => x.council)) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
+    if (!this.preview && this.speed > 3 && s.warx && Object.values(s.warx).some((x) => x.tier >= 4) && this.autoSlow) this.speed = 3;
     for (const it of s.inbox) {
       if (it.uid <= this.lastInboxUid) continue;
       this.lastInboxUid = it.uid;

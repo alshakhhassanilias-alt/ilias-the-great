@@ -5,6 +5,7 @@
  * baseline rate. Values derived here (capital stock, tech, infrastructure, tax-rate split ...) are
  * game-generated estimates, not real statistics.
  */
+import { seedOngoingWars } from './ongoing';
 import { ensurePlan } from './plan';
 import { ensureRivals } from './rivals';
 import { ensureScenario } from './scenarios';
@@ -325,6 +326,7 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     const f = NAME_TO_ID[from], t = NAME_TO_ID[to];
     if (f !== undefined && t !== undefined && f !== player && !state.guarantees.includes(`${f}>${t}`)) state.guarantees.push(`${f}>${t}`);
   }
+  if (settings.liveWars && (settings.startYear ?? 2024) === 2024) seedOngoingWars(state);
   // the player's year, rivals and scenario (plan.ts, rivals.ts, scenarios.ts)
   ensurePlan(state);
   ensureRivals(state);

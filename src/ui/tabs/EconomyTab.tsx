@@ -12,7 +12,7 @@ import { revenueAnnual, taxBurden, taxFactor } from '../../sim/economy';
 import type { Budget } from '../../sim/types';
 import { partnersOf, sanctionLevel } from '../../sim/relations';
 import { fog } from '../format';
-import { ProjectsSection } from './Projects';
+import { BuildHub } from './Build';
 import { IndustrySection } from './Industry';
 import { TreasurySection } from './Treasury';
 import { fundingText } from '../../sim/treasury';
@@ -42,10 +42,26 @@ export function EconomyTab({ id }: { id: number }) {
   const gdp = fog(s, c, e.gdp, 'gdp2');
 
   const delegated = mine && ctl(s, 'economy') === 'auto';
+  const quick = (
+          <Section title="Quick investments" hint="built at once">
+            <div style={{ marginBottom: 8 }}>
+              <Segmented value={preset} onChange={setPreset} label="Project size"
+                options={PRESETS.map((p) => ({ v: p, label: `${(p * 100).toFixed(p < 0.01 ? 2 : 1)}% GDP` }))} />
+            </div>
+            <div className="btnrow">
+              {proj('industry', 'Build factories', 'raises capital stock')}
+              {proj('infra', 'Upgrade infrastructure', `quality ${e.infra.toFixed(0)}`)}
+              {proj('energy', 'Build power plants', `supply ${(energyBal * 100).toFixed(0)}% of demand`)}
+              {proj('farms', 'Expand farms & logistics', `food ${(foodBal * 100).toFixed(0)}% of demand`)}
+              {proj('research', 'Fund R&D programme', `tech ${e.tech.toFixed(0)}`)}
+            </div>
+            <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>One-off costs come from the treasury ({fmtMoney(e.cash)} now); whatever it cannot cover is borrowed and added to debt. Each button shows the split.</div>
+          </Section>
+  );
   return (
     <>
       {mine && <AutopilotBanner area="economy" />}
-      <IndustrySection id={id} />
+      {mine && !delegated ? <BuildHub id={id} quick={quick} /> : <IndustrySection id={id} />}
       <Section fold="ecowhy" closed title="Why is the economy moving?" hint={`growth ${signedPct(e.growth)}`}>
         <Note>{growthNarrative(c)}</Note>
         <div className="card" style={{ marginTop: 8 }}>
@@ -119,23 +135,6 @@ export function EconomyTab({ id }: { id: number }) {
                 hint={`${fmtMoney(c.budget.education * e.gdp)}/yr · tech level ${e.tech.toFixed(0)}. Drives long-run productivity.`} />
               <div className="faint" style={{ fontSize: 11 }}>Military and intelligence budgets are on the Military tab.</div>
             </div>
-          </Section>
-
-          <ProjectsSection />
-
-          <Section fold="instant" closed title="Instant projects" hint="built immediately">
-            <div style={{ marginBottom: 8 }}>
-              <Segmented value={preset} onChange={setPreset} label="Project size"
-                options={PRESETS.map((p) => ({ v: p, label: `${(p * 100).toFixed(p < 0.01 ? 2 : 1)}% GDP` }))} />
-            </div>
-            <div className="btnrow">
-              {proj('industry', 'Build factories', 'raises capital stock')}
-              {proj('infra', 'Upgrade infrastructure', `quality ${e.infra.toFixed(0)}`)}
-              {proj('energy', 'Build power plants', `supply ${(energyBal * 100).toFixed(0)}% of demand`)}
-              {proj('farms', 'Expand farms & logistics', `food ${(foodBal * 100).toFixed(0)}% of demand`)}
-              {proj('research', 'Fund R&D programme', `tech ${e.tech.toFixed(0)}`)}
-            </div>
-            <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>One-off costs come from the treasury ({fmtMoney(e.cash)} now); whatever it cannot cover is borrowed and added to debt. Each button shows the split.</div>
           </Section>
 
           <Section fold="borrow" closed title="Borrowing and repayment" hint="moves money between the treasury and debt">

@@ -20,6 +20,8 @@ import { challengeFix, demandFix, expandFix, lawFix } from '../../sim/fixes';
 import { CHOICE_TIERS, ensureResearch, pickKey } from '../../sim/research';
 import { ensureIndustry } from '../../sim/industry';
 import { focusById } from '../../sim/focus';
+import { playerWars } from '../../sim/warmode';
+import { SCHEMES, actAnswerScheme } from '../../sim/rivals';
 import { FACTION_GLYPH, Glyph } from '../art/Glyphs';
 
 type Tone = 'urgent' | 'deadline' | 'promise' | 'goal' | 'idle' | 'chance';
@@ -40,6 +42,14 @@ export function deskItems(s: GameState, c: Country, geo: Geo, opts: { missionSho
   const gl = guideLevel(s);
   const adv = advisor(c, s, geo);
   for (const a of adv.filter((x) => x.level === 'urgent')) out.push({ key: `adv:${a.id}`, tone: 'urgent', icon: 'alert', title: a.text, act: { ...priced(c, a.label), run: a.run } });
+  // a war of yours comes first, the bigger the war the higher (warmode.ts)
+  for (const { w, x } of playerWars(s)) {
+    if (x.council) out.push({ key: `council:${w.id}`, tone: 'urgent', icon: 'sword', title: `The war council for the ${w.name} is waiting`, sub: `${x.label}: set the war aim, mobilisation and strategy.`, act: { label: 'Convene', open: () => store.notify() } });
+    else if (x.tier >= 2) out.push({ key: `war:${w.id}`, tone: 'urgent', icon: 'sword', title: `${x.label}: ${w.name}`, sub: `Week ${s.tick - w.start + 1} · ${(c.mob ?? 0) === 0 && x.tier >= 3 ? 'the country is still on a peacetime footing' : 'the war room has the fronts, the toll and the options'}`, badge: `tier ${x.tier}`, act: { label: 'War room', open: () => store.openWarRoom(w.id) } });
+  }
+  // the nemesis's latest scheme (rivals.ts)
+  const sch = s.rivals?.scheme;
+  if (sch && !sch.answered && s.tick - sch.tick < 13 && s.countries[sch.by]?.alive) out.push({ key: 'scheme', tone: 'urgent', icon: 'eye', title: `${SCHEMES[sch.id].title} by ${s.countries[sch.by].name}`, sub: 'Your nemesis is working against you. Answer it, or let it go.', act: { label: SCHEMES[sch.id].answer, price: '8 capital', run: (g) => actAnswerScheme(g) } });
   // the State of the Nation
   const P = s.plan;
   if (P?.pending) out.push({ key: 'plan', tone: 'urgent', icon: 'clipboard', title: `The State of the Nation ${P.year} is waiting`, sub: 'Last year’s report card, this year’s focus and your promise.', act: { label: 'Open', open: () => store.openPlan() } });
@@ -102,8 +112,15 @@ export function DeskSection() {
   if (!items.length) return null;
   const shown = all ? items : items.slice(0, 5);
   const F = focusById(c.focus);
-  const doIt = (a: Act) => {
-    if (a.run) { const r = store.act((g) => a.run!(g, geo)); if (r.ok) store.deskActs++; }
+  const doIt = (a: Act, ev?: { clientX: number; clientY: number; currentTarget: EventTarget }) => {
+    const el = ev?.currentTarget as HTMLElement | undefined;
+    const box = el?.getBoundingClientRect();
+    const at = box ? { x: box.left + box.width / 2, y: box.top } : { x: ev?.clientX ?? 0, y: ev?.clientY ?? 0 };
+    if (a.run) {
+      const r = store.act((g) => a.run!(g, geo));
+      if (r.ok) { store.deskActs++; store.pop(a.price && /\$/.test(a.price) ? `−${a.price.split(' ')[0]}` : '✓ Done', at.x, at.y, 'gold'); }
+      else store.pop('✕ Not now', at.x, at.y, 'bad');
+    }
     else if (a.open) { store.deskActs++; a.open(); }
     else if (a.tab) { store.deskActs++; store.select(s.player, null, false); store.setTab(a.tab); }
   };
@@ -120,7 +137,7 @@ export function DeskSection() {
               {it.p !== undefined && <div className="desk-bar"><i style={{ width: `${Math.round(Math.min(1, Math.max(0, it.p)) * 100)}%` }} /></div>}
             </div>
             {it.act && (it.act.note && !it.act.run && !it.act.tab ? <div className="desk-note">{it.act.note}</div> : (
-              <button className="desk-do" title={it.act.note} onClick={() => doIt(it.act!)}>
+              <button className="desk-do" title={it.act.note} onClick={(e) => doIt(it.act!, e)}>
                 <b>{it.act.label}</b>{it.act.price ? <small>{it.act.price}</small> : null}
               </button>
             ))}

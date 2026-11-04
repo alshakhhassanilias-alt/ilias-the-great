@@ -344,7 +344,7 @@ function complete(s: GameState, c: Country, b: number) {
     rs.firsts = (rs.firsts ?? 0) + 1;
   }
   if (c.id === s.player) {
-    logEvent(s, `${BRANCHES[b].icon} RESEARCH COMPLETE: ${tech.name}${first ? ' — the first nation on Earth to master it' : ''}. ${fxText(tech.fx).slice(0, 3).join(' · ')}.`, 'econ', [c.id], true, first ? { big: true, prov: c.capital } : undefined);
+    logEvent(s, `${BRANCHES[b].icon} RESEARCH COMPLETE: ${tech.name}${first ? ' — the first nation on Earth to master it' : ''}. ${fxText(tech.fx).slice(0, 3).join(' · ')}.`, 'econ', [c.id], true, first ? { big: true, prov: c.capital } : c.id === s.player ? { prov: c.capital } : undefined);
     if (!s.legacy || s.legacy.status === 'office') s.stats.techsDone = (s.stats.techsDone ?? 0) + 1;
   } else if (first && tier >= 5 && c.eco.gdp > 5e11) {
     logEvent(s, `${BRANCHES[b].icon} ${c.name} is the first nation to master ${tech.name}.`, 'econ', [c.id], tier >= 8);

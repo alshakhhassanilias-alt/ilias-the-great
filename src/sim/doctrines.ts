@@ -14,6 +14,7 @@ import { cabinetEff, cabinetKey } from './cabinet';
 import { researchKey, researchLasting } from './research';
 import { armsCostMult, industryKey } from './industry';
 import { focusById } from './focus';
+import { mobOf, stratById } from './mobdata';
 
 export interface Eff {
   tfp?: number;      // productivity growth, points per year (0.005 = +0.5%/yr)
@@ -64,7 +65,7 @@ const ONE: Required<Eff> = { tfp: 0, stab: 0, cost: 1, manpower: 1, off: 1, def:
 /** Combined effect of a country's three doctrines. */
 export function mods(c: Country): Required<Eff> {
   const d = doctorOf(c);
-  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}|${politicsKey(c)}|${c.nat?.done.length ?? 0}|${c.progs ? progKey(c) : ''}|${researchKey(c)}|${industryKey(c)}|${c.focus ?? ''}`;
+  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}|${politicsKey(c)}|${c.nat?.done.length ?? 0}|${c.progs ? progKey(c) : ''}|${researchKey(c)}|${industryKey(c)}|${c.focus ?? ''}|${c.mob ?? 0}|${c.strat ?? ''}`;
   const hit = cache.get(c);
   if (hit && hit.key === key) return hit.eff;
   const out = { ...ONE };
@@ -100,6 +101,10 @@ export function mods(c: Country): Required<Eff> {
   if (fe) {
     out.tfp += fe.tfp ?? 0; out.stab += fe.stab ?? 0; out.accept += fe.accept ?? 0; out.rep += fe.rep ?? 0; out.milTech += fe.milTech ?? 0;
     out.cost *= fe.cost ?? 1; out.off *= fe.off ?? 1; out.def *= fe.def ?? 1; out.deter *= fe.deter ?? 1;
+  }
+  // mobilisation and the war strategy (the player's wars; see warmode.ts)
+  for (const me of c.mob || (c.strat && c.strat !== 'balanced') ? [mobOf(c).eff, stratById(c.strat).eff] : []) {
+    out.manpower *= me.manpower ?? 1; out.off *= me.off ?? 1; out.def *= me.def ?? 1;
   }
   if (c.ind) out.cost *= armsCostMult(c); // a home defence industry makes weapons cheaper
   cache.set(c, { key, eff: out });

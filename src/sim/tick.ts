@@ -1,3 +1,5 @@
+import { stepOngoing } from './ongoing';
+import { stepWarMode } from './warmode';
 import { stepPlan } from './plan';
 import { stepRivals } from './rivals';
 import { stepScenario } from './scenarios';
@@ -129,6 +131,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield* stepEconomiesGen(s, geo);
   mark('stepEconomiesGen'); yield;
   stepWars(s, geo);
+  stepOngoing(s);
   stepCampaigns(s, geo);
   stepPeaceDeals(s);
   sampleWars(s);
@@ -196,6 +199,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCalendar(s);
   rollPlayerEvent(s, geo);
   stepGoals(s);
+  stepWarMode(s);
   stepPlan(s);
   stepRace(s);
   stepRivals(s);

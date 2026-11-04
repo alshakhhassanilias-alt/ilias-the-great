@@ -12,8 +12,26 @@ import { dateLabel } from '../sim/tick';
 import { Portrait, faceFor } from './art/Portrait';
 import { Emblem } from './art/Emblem';
 import { sfx } from '../audio';
+import { shareCard } from './share';
+import type { GameState } from '../sim/types';
 import { FOCUS_GLYPH, Glyph } from './art/Glyphs';
 import { RivalCard, rivalIds } from './tabs/Rivals';
+
+const WEIGHTS: [RegExp, number][] = [[/declared war|WAR:|GREAT-POWER|INTERVENTION/, 10], [/defaulted/, 9], [/OVERTAKES|overtakes/, 8], [/STAR WON|PROMISE KEPT|PROMISE BROKEN/, 8], [/elect|ELECTION|vote of confidence/i, 7], [/leave your coalition|turn against the regime/, 6], [/passes parliament|signed into force|is law/, 5], [/sphere of influence/, 5], [/RESEARCH COMPLETE|first nation/, 4], [/INDUSTRY:/, 3], [/peace|armistice|ceasefire/i, 7]];
+/** The year's three biggest stories about you, from the news (for the front page of the State of the Nation). */
+export function yearHeadlines(s: GameState): string[] {
+  const since = s.tick - 52;
+  const me = s.player;
+  const picked: { t: string; w: number }[] = [];
+  for (const e of s.log) {
+    if (e.tick < since || !e.countries.includes(me) || !e.important) continue;
+    const w = WEIGHTS.find(([re]) => re.test(e.text))?.[1] ?? 0;
+    if (w < 3) continue;
+    const t = e.text.replace(/^[^A-Za-z0-9]+/, '').split(/(?<=[.!])\s/)[0].replace(/\.$/, '');
+    if (!picked.some((p) => p.t === t)) picked.push({ t, w: w + e.tick / 1e6 });
+  }
+  return picked.sort((a, b) => b.w - a.w).slice(0, 3).map((p) => p.t.length > 110 ? `${p.t.slice(0, 107)}…` : p.t);
+}
 
 function ReportCard({ r }: { r: Report }) {
   const max = Math.max(6, ...r.lines.map((l) => Math.abs(l.pts)));
@@ -24,6 +42,7 @@ function ReportCard({ r }: { r: Report }) {
         <small className="sotn-k">{r.year} in review · {GRADE_WORD[r.grade]}</small>
         <p className="sotn-head">{r.headline}</p>
         {r.reward && <span className="sotn-reward">{r.reward}</span>}
+        <button className="linkbtn sotn-share" onClick={() => { const s = store.state!; const c = s.countries[s.player]; void shareCard({ kicker: `${r.year} in review`, title: c.name, big: `GRADE ${r.grade}`, lines: [r.headline, `${r.score}/100`], foot: 'WORLD ORDER · STATE OF THE NATION' }, `world-order-${r.year}`, `${c.name}, ${r.year}: grade ${r.grade} in World Order`).then((x) => store.toast(x === 'failed' ? 'Could not make the card' : x === 'shared' ? 'Shared' : 'Year card saved', x === 'failed' ? 'danger' : 'info')); }}>Share this year</button>
       </div>
       <div className="sotn-lines">
         {r.lines.map((l) => (
@@ -44,7 +63,7 @@ export function YearPlanModal() {
   const s = store.state;
   const P = s?.plan;
   const c = s ? s.countries[s.player] : null;
-  const show = !!s && !!P && !!c && !store.preview && !store.splash && ((P.pending && s.settings.yearPlan !== false) || store.planOpen)
+  const show = !!s && !!P && !!c && !store.preview && !store.splash && !(s.warx && Object.values(s.warx).some((x) => x.council)) && ((P.pending && s.settings.yearPlan !== false) || store.planOpen)
     && !(s.legacy && s.settings.mode === 'legacy' && (s.legacy.hand.length > 0 || (s.stats.reviewTerm ?? 0) > store.termSeen));
   const [focus, setFocus] = useState<FocusId | null>(null);
   const [pledge, setPledge] = useState<string | null>(null);
@@ -95,6 +114,8 @@ export function YearPlanModal() {
           {!pending && <button className="iconbtn" aria-label="Close" onClick={close}>✕</button>}
         </header>
         <div className="sotn-body">
+          {pending && (() => { const hs = yearHeadlines(s); return hs.length > 0 && (
+            <div className="sotn-news"><div className="sn-mast">The {c.name} Herald · {P.year - 1} in headlines</div>{hs.map((h, i) => <p key={i} className={i === 0 ? 'lead' : ''}>{h}</p>)}</div>); })()}
           {P.report && (pending || P.report.year === P.year - 1) && <ReportCard r={P.report} />}
           {hist.length > 1 && <div className="sotn-hist" aria-label="Your record">{hist.map((h) => <span key={h.year} className={`g-${h.grade}`} title={`${h.year}: ${GRADE_WORD[h.grade]}${h.pledge === undefined ? '' : h.pledge ? ' · promise kept' : ' · promise broken'}`}><b>{h.grade}</b><small>{h.year}</small></span>)}</div>}
           {rivals.length > 0 && (

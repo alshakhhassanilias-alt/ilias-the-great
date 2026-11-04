@@ -55,6 +55,10 @@ export const GLYPHS: Record<string, ReactNode> = {
   chip: <><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" fillOpacity={0.22} /><rect x="9.5" y="9.5" width="5" height="5" /><path d="M9 3.5v3M12 3.5v3M15 3.5v3M9 17.5v3M12 17.5v3M15 17.5v3M3.5 9h3M3.5 12h3M3.5 15h3M17.5 9h3M17.5 12h3M17.5 15h3" /></>,
   dna: <><path d="M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12" /><path d="M8.5 6.5h7M8.5 17.5h7M10 9.2h4M10 14.8h4" /></>,
   menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
+  calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="1.5" {...F} /><path d="M3.5 9.5h17M8 3v4M16 3v4" /><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2" /></>,
+  leaf: <><path d="M5 19C5 10 10 4.5 20 4c-.4 10-6 15-15 15z" {...F} /><path d="M5 19c3.5-4.5 7-8 11-10.5" /></>,
+  volcano: <><path d="M2.5 20.5 9 10h6l6.5 10.5z" {...F} /><path d="M9 10c.8 1.2 2 1.2 3 0s2.2-1.2 3 0" /><path d="M12 7V4M9.2 7.6 7.5 5.5M14.8 7.6l1.7-2.1" /></>,
+  pyramid: <><path d="M2.5 20 12 4l9.5 16z" {...F} /><path d="M12 4l2.5 16M6.2 14h9.3M8.6 10h5.1" /></>,
   eye: <><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" {...F} /><circle cx="12" cy="12" r="3" /></>,
 };
 export type GlyphName = keyof typeof GLYPHS;
@@ -73,4 +77,6 @@ export const FACTION_GLYPH: Record<string, string> = { labour: 'wrench', busines
 export const FOCUS_GLYPH: Record<string, string> = { industry: 'factory', science: 'flask', diplomacy: 'olive', rearm: 'shield', welfare: 'heart', reform: 'scissors' };
 export const SECTOR_GLYPH: Record<string, string> = { agri: 'wheat', energy: 'bolt', mining: 'pick', heavy: 'factory', manuf: 'gear', tech: 'chip', arms: 'shield', services: 'briefcase' };
 export const BRANCH_GLYPH = ['factory', 'bolt', 'chip', 'dna', 'shield'];
-export const SCEN_GLYPH: Record<string, string> = { poland: 'rise', argentina: 'percent', turkey: 'bridge', ukraine: 'shield', india: 'crown', japan: 'sunrise', saudi: 'drop', nigeria: 'star', tutorial: 'book' };
+export const SCEN_GLYPH: Record<string, string> = { poland: 'rise', argentina: 'percent', turkey: 'bridge', ukraine: 'shield', india: 'crown', japan: 'sunrise', saudi: 'drop', nigeria: 'star', tutorial: 'book', germany: 'gear', brazil: 'leaf', indonesia: 'volcano', vietnam: 'factory', egypt: 'pyramid' };
+/** The glyph of a scenario (the daily challenge has one glyph whatever its date). */
+export const scenGlyph = (id: string) => (id.startsWith('daily:') ? 'calendar' : SCEN_GLYPH[id] ?? 'finish');

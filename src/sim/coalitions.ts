@@ -94,7 +94,7 @@ function intervene(s: GameState, w: War) {
       if (!X?.alive) continue;
       const start = w.startProvs?.[x] ?? X.provinces.length;
       const lostShare = start > 0 ? 1 - X.provinces.length / start : 0;
-      const capLost = (s.stats[`capfall:${x}`] ?? -1) >= w.start;
+      const capLost = (s.stats[`capfall:${x}`] ?? -1e9) >= w.start;
       if (lostShare < 0.33 && !capLost) continue;
       if (s.stats[`interv:${w.id}:${x}`] && s.tick - s.stats[`interv:${w.id}:${x}`] < 26) continue;
       s.stats[`interv:${w.id}:${x}`] = s.tick;

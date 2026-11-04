@@ -90,7 +90,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.locator('input[aria-label="Consumption tax (VAT)"]').fill('0.05');
   check('tax slider changes policy immediately', (await S(pg)).vat === 0.05);
   const k0 = (await S(pg)).capital;
-  await pg.click('.fold-h:has-text("Instant projects")');
+  await pg.click('.build-tabs button:has-text("Quick investments")');
   await pg.click('button:has-text("Build factories")');
   check('factory project adds capital instantly', (await S(pg)).capital > k0);
   await pg.click('.tabs button:has-text("Military")');

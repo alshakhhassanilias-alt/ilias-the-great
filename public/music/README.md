@@ -1,6 +1,6 @@
 # Music
 
-The World Order score: seven original pieces, generated from code in `tools/music/` (no samples, no third-party
+The World Order score: nine original pieces, generated from code in `tools/music/` (no samples, no third-party
 recordings), so they are free to ship on Steam.
 
 | File | Title | Plays when |
@@ -12,6 +12,8 @@ recordings), so they are free to ship on Steam.
 | `red-lines.ogg` | Red Lines | tension: a crisis, low stability or an urgent decision |
 | `iron-and-fire.ogg` | Iron and Fire | war |
 | `the-front.ogg` | The Front | war |
+| `hold-the-line.ogg` | Hold the Line | tension |
+| `great-powers.ogg` | Great Powers | war (first choice in a war between great powers) |
 
 The game crossfades between moods as the world changes and plays tracks of the same mood one after another.
 

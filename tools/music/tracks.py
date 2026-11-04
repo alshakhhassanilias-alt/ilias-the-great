@@ -1,5 +1,5 @@
 """
-The World Order score: seven original pieces, written as code and rendered with engine.py.
+The World Order score: nine original pieces, written as code and rendered with engine.py.
 
     python3 tools/music/tracks.py            # renders every track to public/music/*.ogg
     python3 tools/music/tracks.py red-lines  # renders one
@@ -466,8 +466,101 @@ def the_front():
     return out
 
 
+def hold_the_line():
+    """tension: a war is coming or a crisis is on the table. A minor, a clock that will not stop, the theme's opening
+    figure in the low strings."""
+    c = Clock(80)
+    mx = Mix(c.t(52) + 8)
+    A = ['Am', 'F', 'Dm', 'E', 'Am', 'F', ('Bb', 2), ('E', 2), 'Am']
+    PULSE = [(0, .4, 0), (1, .4, 0), (1.5, .3, 12), (2, .4, 0), (3, .4, 7), (3.5, .3, 0)]
+    FIG = [('E4', 1.5), ('F4', .5), ('G4', 1), ('B4', 1), ('A4', 4)]   # the theme's opening, turned
+    hits(mx, 'perc', c, 0, 52, 'x.g.x.g.', lambda v: tick(v), step=0.5, vel=0.32, pan=-0.25)
+    pad(mx, 'strings', c, 0, A, lo=45, n=3, vel=0.22, att=2.0, bright=0.4)
+    pad(mx, 'strings', c, 0, ['Am'] * 8, lo=76, n=1, vel=0.1, att=3, bright=0.35)
+    for b in range(8, 48, 8):
+        ost(mx, 'low', c, b, A, PULSE, lo=33, vel=0.48 if b < 24 else 0.6, cutoff=800)
+        pad(mx, 'strings', c, b, A, lo=48, n=4, vel=0.26 if b < 24 else 0.32, att=1.0, bass=33, bright=0.45)
+    for b in (8, 12, 16, 20):
+        mel(mx, 'strings', c, b, FIG, strings_note, tr=-12, vel=0.45, att=0.3, pan=-0.2)
+    for b in range(8, 24, 2):
+        mx.add('keys', piano_note(m('E5') if b % 4 == 0 else m('C5'), 2.0, 0.28), c.t(b, 2), 0.3)
+    riser(mx, c, 24, 4, 0.5)
+    hit(mx, c, 24, 0.7)
+    for b in (24, 32):
+        mel(mx, 'brass', c, b, FIG + [(None, 4)] + FIG[:3] + [('C5', 2), ('B4', 2), (None, 4)], brass_note, vel=0.55, pan=-0.15)
+        pad(mx, 'brass', c, b, A, inst=brass_note, lo=40, n=3, vel=0.3)
+        hits(mx, 'perc', c, b, 8, 'X.......x.......', lambda v: taiko(v * 0.8, f0=55), vel=0.55)
+    ost(mx, 'strings', c, 32, A, [(i * 0.25, 0.2, iv) for i, iv in enumerate((24, 28, 31, 28) * 4)], lo=33, vel=0.22,
+        cutoff=2200, pan=0.3)
+    # 40-47: the heartbeat, everything else drops away
+    hits(mx, 'perc', c, 40, 8, 'X.x.............', lambda v: taiko(v * 0.6, f0=48), vel=0.6)
+    mel(mx, 'keys', c, 40, [('A5', 4), ('G#5', 4), ('F5', 4), ('E5', 4)] * 2, bell_note, vel=0.24, pan=0.3)
+    riser(mx, c, 48, 4, 0.55)
+    hit(mx, c, 48, 0.85)
+    pad(mx, 'strings', c, 48, [('Am', 16)], lo=45, n=3, vel=0.28, att=0.3, bass=33, bright=0.45)
+    mx.add('perc', timpani(m('A1'), 0.8, 3.0), c.t(48), 0)
+    return mx.render({'strings': (strings_bus, 0.42), 'low': (None, 0.2), 'perc': (None, 0.2), 'keys': (None, 0.38),
+                      'brass': (warm, 0.34), 'fx': (None, 0.35)}, room=3.0, target_db=-18, length=c.t(52) + 5)
+
+
+def great_powers():
+    """war between great powers: G minor, the main theme at its heaviest, choir and two sets of drums."""
+    c = Clock(108)
+    mx = Mix(c.t(72) + 8)
+    TR = 5   # the D minor theme, up a fourth to G minor
+    def wide(ph):
+        return [(n_, d * 2) for n_, d in ph]
+    P = ['Gm', 'Gm', 'Eb', 'Eb', 'Gm', 'Gm', 'D', 'D', 'Gm', 'Gm', 'Eb', 'Eb', ('Cm', 4), ('D7', 4), 'Gm', 'Gm']
+    PB = ['Bb', 'Bb', 'Cm', 'Cm', 'F', 'F', 'Bb', 'Bb', 'Eb', 'Eb', 'Bb', 'Bb', 'Cm', 'Cm', 'D', 'D']
+    DRIVE = [(i * 0.25, 0.2, iv) for i, iv in enumerate((0, 0, 12, 0, 0, 0, 10, 0, 0, 0, 12, 0, 15, 0, 7, 0))]
+    TAIKO = 'X..xX..xX.xxX...'
+    LOW = 'X.......X..X....'
+    # intro: one low drum and a held choir, the drive creeping in
+    pad(mx, 'choir', c, 0, ['Gm'] * 4 + ['Eb', 'Eb', 'D', 'D'], inst=choir_note, lo=50, n=3, vel=0.4, att=1.5)
+    hits(mx, 'perc', c, 0, 8, LOW, lambda v: taiko(v, f0=45, dur=1.4), vel=0.7)
+    ost(mx, 'low', c, 4, ['Gm'] * 2 + ['D', 'D'], DRIVE, lo=31, vel=0.5, cutoff=1100)
+    riser(mx, c, 8, 4, 0.7)
+    for b in range(8, 64, 16):
+        prog = PB if b == 40 else P
+        ost(mx, 'low', c, b, prog, DRIVE, lo=31, vel=0.66, cutoff=1400)
+        hits(mx, 'perc', c, b, 16, TAIKO, lambda v: taiko(v), vel=0.82)
+        hits(mx, 'perc', c, b, 16, LOW, lambda v: taiko(v, f0=42, dur=1.2), vel=0.7, pan=-0.1)
+        hits(mx, 'perc', c, b, 16, '....X.......X.gg', lambda v: snare(v), vel=0.5, pan=0.15)
+        pad(mx, 'brass', c, b, prog, inst=brass_note, lo=43, n=3, vel=0.46)
+        pad(mx, 'strings', c, b, prog, lo=55, n=3, vel=0.3, att=0.25)
+        hit(mx, c, b, 0.9)
+    # 8-23: the theme in the low brass; 24-39: horns and choir in unison
+    mel(mx, 'brass', c, 8, wide(THEME_A + THEME_A2), brass_note, tr=TR - 12, vel=0.75, pan=0.1)
+    mel(mx, 'brass', c, 24, wide(THEME_A + THEME_A2), brass_note, tr=TR, vel=0.88, pan=-0.15)
+    mel(mx, 'choir', c, 24, wide(THEME_A + THEME_A2), choir_note, tr=TR, vel=0.45)
+    mel(mx, 'strings', c, 24, wide(THEME_A + THEME_A2), strings_note, tr=TR + 12, vel=0.5, att=0.12)
+    # 40-55: theme B, then the climb
+    mel(mx, 'brass', c, 40, wide(THEME_B), brass_note, tr=TR, vel=0.85, pan=-0.15)
+    mel(mx, 'strings', c, 40, wide(THEME_B), strings_note, tr=TR + 12, vel=0.55, att=0.12)
+    pad(mx, 'choir', c, 40, PB, inst=choir_note, lo=55, n=3, vel=0.42)
+    # 56-63: the theme once more, everything
+    mel(mx, 'brass', c, 56, wide(THEME_A2), brass_note, tr=TR, vel=0.9)
+    mel(mx, 'brass', c, 56, wide(THEME_A2), brass_note, tr=TR - 12, vel=0.6)
+    mel(mx, 'choir', c, 56, wide(THEME_A2), choir_note, tr=TR, vel=0.5)
+    roll(mx, 'perc', c, 62, 8, lambda v: snare(v), step=0.125, v0=0.2, v1=0.85)
+    riser(mx, c, 64, 8, 0.75)
+    # 64-71: the end, hammered out
+    ost(mx, 'low', c, 64, ['Gm', 'Gm', 'Eb', 'D'], DRIVE, lo=31, vel=0.68, cutoff=1500)
+    hits(mx, 'perc', c, 64, 4, TAIKO, lambda v: taiko(v), vel=0.9)
+    mel(mx, 'brass', c, 64, [('G4', 4), ('Bb4', 4), ('Eb5', 4), ('D5', 4), ('G5', 16)], brass_note, vel=0.9)
+    pad(mx, 'strings', c, 64, ['Gm', 'Gm', 'Eb', 'D', ('Gm', 16)], lo=50, n=4, vel=0.42, att=0.2, bass=31)
+    pad(mx, 'choir', c, 68, [('Gm', 16)], inst=choir_note, lo=55, n=3, vel=0.5)
+    for k, v in ((0, 1.0), (1, 0.8), (1.5, 0.8), (2, 1.0), (3, 1.0)):
+        mx.add('perc', taiko(v), c.t(68, k), 0)
+    mx.add('perc', timpani(m('G1'), 1.0, 3.5), c.t(69), 0)
+    hit(mx, c, 69, 1.0)
+    return mx.render({'strings': (strings_bus, 0.34), 'brass': (warm, 0.3), 'low': (warm, 0.18), 'perc': (None, 0.18),
+                      'choir': (None, 0.45), 'fx': (None, 0.3)}, room=2.8, target_db=-18.5, length=c.t(72) + 4)
+
+
 TRACKS = {'main-theme': main_theme, 'quiet-capitals': quiet_capitals, 'trade-winds': trade_winds,
-          'the-long-game': long_game, 'red-lines': red_lines, 'iron-and-fire': iron_and_fire, 'the-front': the_front}
+          'the-long-game': long_game, 'red-lines': red_lines, 'iron-and-fire': iron_and_fire, 'the-front': the_front,
+          'hold-the-line': hold_the_line, 'great-powers': great_powers}
 
 
 def render(name):

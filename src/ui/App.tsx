@@ -18,6 +18,9 @@ import { BattleCard } from './BattleCard';
 import { ArmyPanel } from './ArmyPanel';
 import { AgendaDraft, HistoryBook, TermReview } from './Legacy';
 import { YearPlanModal } from './YearPlan';
+import { WarCouncil, WarStrip } from './WarCouncil';
+import { PopLayer } from './PopLayer';
+import { mainWar } from '../sim/warmode';
 import { ScenarioResult } from './Scenario';
 
 const insetBottom = () => {
@@ -77,7 +80,7 @@ export function App() {
       const c = s.countries[s.player];
       const atWar = s.wars.some((w) => w.attackers.includes(s.player) || w.defenders.includes(s.player));
       const tense = (s.crisis && s.crisis.id !== 'boom' && s.crisis.id !== 'pandemic') || c.eco.stability < 38 || s.inbox.some((x) => x.urgent);
-      music.setMood(atWar ? 'war' : tense ? 'tension' : 'peace');
+      music.setMood(atWar ? 'war' : tense ? 'tension' : 'peace', atWar && (mainWar(s)?.x.tier ?? 0) >= 4);
       music.setDuck(store.speed === 0 || store.drawer.open !== 'none');
     }, 1500);
     return () => window.clearInterval(id);
@@ -107,6 +110,7 @@ export function App() {
           <BattleCard />
           <ArmyPanel />
           <BreakingBanner />
+          <WarStrip />
           {!desk && <YearReview />}
           <Splash />
         </div>
@@ -116,6 +120,8 @@ export function App() {
       <VictoryBanner />
       <AgendaDraft />
       <YearPlanModal />
+      <WarCouncil />
+      <PopLayer />
       <ScenarioResult />
       <TermReview />
       <NegotiationTable />

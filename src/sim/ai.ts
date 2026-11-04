@@ -312,6 +312,8 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     else if (score > 0.35 && years > 0.3) terms = { kind: 'demand', share: clamp(score * 0.5, 0.05, 0.6), extras: aiExtras(s, c.id, e, score, w.defenders.includes(c.id)) };
     else if (myWill > 0.45 || support < 0.25) terms = { kind: 'status_quo' };
     else if (Math.abs(score) < 0.12 && years > 2.5 && rand(s) < 0.3) terms = { kind: 'status_quo' }; // a long stalemate
+    // a nation fighting for its survival does not give up land while it can still fight (ongoing.ts)
+    if (terms && (terms.kind === 'concede' || terms.kind === 'surrender') && (w.resolve?.[c.id] ?? 0) > 0 && c.mil.exhaustion < 0.85 && c.provinces.includes(c.capital)) terms = null;
     if (!terms) continue;
     if (e === s.player) {
       if (!s.offers.some((o) => o.from === c.id && o.kind === 'peace') && s.tick % 12 === 0) s.offers.push({ id: s.nextOfferId++, from: c.id, kind: 'peace', terms, tick: s.tick });

@@ -13,7 +13,7 @@ import { GOV, REGION, fmtMoney, fmtNum, pct, sizeClass } from './format';
 import { Segmented, Slider, Stat } from './widgets';
 import { strengthIndex } from '../sim/military';
 import { NAME_TO_ID } from '../sim/relations';
-import { SCENARIOS, scenarioById, scenarioPlayer } from '../sim/scenarios';
+import { SCENARIOS, dailySeed, scenarioById, scenarioPlayer } from '../sim/scenarios';
 import { ScenarioBrief, ScenarioPicker } from './Scenario';
 import { Glyph } from './art/Glyphs';
 
@@ -65,7 +65,7 @@ export function StartScreen() {
             </button>
           </div>
           {kind === 'scenario' && (
-            <div className="field"><label>Choose a scenario <span className="faint">{SCENARIOS.length} challenges</span></label>
+            <div className="field"><label>Choose a scenario <span className="faint">{SCENARIOS.length} challenges + a new one every day</span></label>
               <ScenarioPicker value={settings.scenario} onPick={(sc) => { upd({ mode: 'sandbox', scenario: sc.id, startYear: sc.year, victory: 'none', endYear: null, ...(sc.tutorial ? { difficulty: 'easy' as Difficulty } : {}) }); onPick(scenarioPlayer(sc)); }} />
               {settings.scenario && <ScenarioBrief id={settings.scenario} />}
             </div>
@@ -158,7 +158,7 @@ export function StartScreen() {
           <button className="btn primary" disabled={picked === null || (kind === 'scenario' && !scen)} onClick={() => {
             if (picked === null) return;
             if (scen?.tutorial) setPrefs({ walk: 0, tips: [] }); // the tutorial always starts with the walkthrough
-            store.newGame({ ...settings, scenario: scen?.id, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, scen ? scenarioPlayer(scen) : picked);
+            store.newGame({ ...settings, ...(scen?.id.startsWith('daily:') ? { seed: dailySeed(scen.id.slice(6)), difficulty: 'normal' as Difficulty } : {}), liveWars: (scen?.year ?? settings.startYear ?? 2021) === 2024, scenario: scen?.id, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, scen ? scenarioPlayer(scen) : picked);
           }}>
             {kind === 'scenario' ? (scen ? `Begin: ${scen.title}` : 'Choose a scenario') : c ? (settings.mode === 'legacy' ? `Take office in ${c.name}` : `Lead ${c.name}`) : 'Choose a country'}
           </button>

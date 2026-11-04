@@ -7,6 +7,8 @@ import { ProjectsMini } from './Projects';
 import { NationPath } from './NationPath';
 import { StorylinePanel } from './Storyline';
 import { ScenarioPanel } from '../Scenario';
+import { DoctrinesSection } from './Doctrines';
+import { CharacterSection } from './Character';
 import { priced } from './Desk';
 import { countryChecks, goalHelp, guideLevel, topPriority, type Check, type Fix } from '../guides';
 
@@ -38,6 +40,9 @@ export function GoalsTab() {
       <ScenarioPanel />
       <StorylinePanel />
       <NationPath />
+      {/* the nation's long-term direction, in one place: its path (above), its doctrines and its character */}
+      <DoctrinesSection />
+      <CharacterSection c={c} />
       <div className={`guide-level ${level}`}>
         {level === 'full' && <><b>Guides: full</b> (Easy). Tips and one-tap fixes for everything below.</>}
         {level === 'limited' && <><b>Guides: limited</b> (Normal). Status lights and one top priority; the rest is up to you.</>}

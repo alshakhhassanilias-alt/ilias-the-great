@@ -8,6 +8,16 @@ import { ScenarioChip } from './Scenario';
 import { Glyph } from './art/Glyphs';
 import { Tween, DeltaPop } from './Tween';
 import { raceOf, tierLabel } from '../sim/power';
+import { stabilityParts } from './explain';
+import type { Country } from '../sim/types';
+
+/** When stability is falling: its biggest drag, in two words (the "why" next to the number). */
+function stabWhy(c: Country): string | null {
+  const h = c.hist.stab;
+  if (h.length < 3 || h[h.length - 1] > h[h.length - 3] - 0.8) return null;
+  const worst = stabilityParts(c).filter((p) => p.key !== 'base' && p.v < -1.5).sort((a, b) => a.v - b.v)[0];
+  return worst ? `▼ ${worst.label.toLowerCase().replace(/^the /, '').split(/[ (]/).slice(0, 2).join(' ')}` : '▼ falling';
+}
 
 export function TopBar() {
   useStoreThrottled(300);
@@ -51,7 +61,7 @@ export function TopBar() {
             </button>
           );
         })()}
-        <div className="kpi hide-s" role="listitem"><label>Stability</label><b className={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'}><Tween value={e.stability} format={(v) => v.toFixed(0)} /><DeltaPop value={Math.round(e.stability)} min={2} fmt={(d) => `${d > 0 ? '+' : '−'}${Math.abs(Math.round(d))}`} /></b><small>{s.wars.some((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)) ? '⚔ at war' : 'at peace'}</small></div>
+        <div className="kpi hide-s" role="listitem"><label>Stability</label><b className={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'}><Tween value={e.stability} format={(v) => v.toFixed(0)} /><DeltaPop value={Math.round(e.stability)} min={2} fmt={(d) => `${d > 0 ? '+' : '−'}${Math.abs(Math.round(d))}`} /></b><small>{stabWhy(c) ?? (s.wars.some((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)) ? '⚔ at war' : 'at peace')}</small></div>
       </div>
       <div className="topbtns">
         <button className="iconbtn" aria-label="World rankings, wars and news" onClick={() => store.openDrawer('world')}><span className="desk-only tb-g"><Glyph name="globe" size={17} /></span><span className="desk-hide">🌍</span><span className="hide-m"> World</span>{store.unread > 0 && <span className="badge">{Math.min(store.unread, 99)}</span>}</button>

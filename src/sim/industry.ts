@@ -264,7 +264,7 @@ export function stepIndustry(s: GameState) {
     s.stats.indDone = (s.stats.indDone ?? 0) + 1; // expansions completed by the player (the tutorial counts them)
     P.eco.prev.indF = industryFactor(s, P);
     const st = sectorStanding(s, P, p.id);
-    logEvent(s, `${sectorById(p.id).icon} INDUSTRY: the ${sectorById(p.id).name.toLowerCase()} expansion is complete (level ${st.lv.toFixed(1)}). ${sectorById(p.id).payoff}.`, 'econ', [P.id], true);
+    logEvent(s, `${sectorById(p.id).icon} INDUSTRY: the ${sectorById(p.id).name.toLowerCase()} expansion is complete (level ${st.lv.toFixed(1)}). ${sectorById(p.id).payoff}.`, 'econ', [P.id], true, { prov: P.capital });
   }
 }
 export { fmtMoney };

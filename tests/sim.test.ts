@@ -3206,3 +3206,136 @@ describe('beta round: balance, onboarding and stability', () => {
     for (const f of FOCI) { expect(f.pros.length, f.id).toBeGreaterThan(0); expect(f.cons.length, f.id).toBeGreaterThan(0); expect(focusById(f.id)).toBe(f); }
   });
 });
+
+import { warScale, actWarCouncil, actMobilise, mainWar, stepWarMode } from '../src/sim/warmode';
+import { MOBILISATION } from '../src/sim/mobdata';
+import { seedOngoingWars } from '../src/sim/ongoing';
+describe('war as the main event', () => {
+  it('a war is measured on five tiers: a weak neighbour is a border clash, a great power is a great-power war', () => {
+    const s = fresh('Poland');
+    declareWar(s, geo, s.player, id('Lithuania'));
+    const small = s.wars.find((w) => w.defenders.includes(id('Lithuania')))!;
+    expect(warScale(s, small, s.player).tier).toBeLessThanOrEqual(2);
+    const s2 = fresh('Poland');
+    declareWar(s2, geo, s2.player, id('Russia'));
+    const bigW = s2.wars.find((w) => w.defenders.includes(id('Russia')))!;
+    const sc = warScale(s2, bigW, s2.player);
+    expect(sc.tier).toBeGreaterThanOrEqual(4);
+    expect(sc.reasons.length).toBeGreaterThan(0);
+  });
+  it('a big war calls the war council (instead of the quick war-aim decision), and the council sets aim, mobilisation and strategy', () => {
+    const s = fresh('Poland');
+    declareWar(s, geo, s.player, id('Russia'));
+    const mw = mainWar(s)!;
+    expect(mw.x.council).toBe(true);
+    expect(s.inbox.some((x) => x.id === 'war_goal')).toBe(false);
+    const c = s.countries[s.player];
+    c.eco.cash = c.eco.gdp;
+    expect(actWarCouncil(s, mw.w.id, { goal: 3, mob: 2, strat: 'depth' }).ok).toBe(true);
+    expect(mw.x.council).toBe(false);
+    expect(c.mob).toBe(2);
+    expect(c.strat).toBe('depth');
+    expect(mods(c).manpower).toBeGreaterThan(1.3);
+    expect(mods(c).def).toBeGreaterThan(1.15);
+  });
+  it('mobilisation calls up reservists and costs output and stability; peace sends them home', () => {
+    const s = fresh('Poland');
+    declareWar(s, geo, s.player, id('Russia'));
+    const c = s.countries[s.player];
+    c.eco.cash = c.eco.gdp;
+    actWarCouncil(s, mainWar(s)!.w.id, { goal: 3, mob: 3, strat: 'balanced' });
+    const t0 = c.mil.troops;
+    for (let i = 0; i < 6; i++) stepWarMode(s);
+    expect(c.mil.troops).toBeGreaterThan(t0);
+    expect(c.mil.warEconomy).toBe(true);
+    expect(MOBILISATION[3].output).toBeLessThan(1);
+    s.wars = [];
+    stepWarMode(s);
+    expect(c.mob).toBe(0);
+    expect(actMobilise(s, 2).ok).toBe(false); // no war, no mobilisation
+  });
+  it('war chapters arrive over the war, and the end of a big war brings the aftermath', () => {
+    const s = fresh('Poland');
+    declareWar(s, geo, s.player, id('Russia'));
+    const c = s.countries[s.player];
+    c.eco.cash = c.eco.gdp;
+    actWarCouncil(s, mainWar(s)!.w.id, { goal: 3, mob: 1, strat: 'balanced' });
+    s.inbox = [];
+    run(s, 6);
+    expect(s.inbox.some((x) => x.id === 'war_opening')).toBe(true);
+    s.wars = [];
+    s.inbox = [];
+    stepWarMode(s);
+    expect(s.inbox.some((x) => x.id === 'war_aftermath')).toBe(true);
+    expect(eventById('war_aftermath')).toBeTruthy();
+  });
+  it('a 2024 start can begin with the wars then being fought, with the defender armed by its partners', () => {
+    const s = fresh('Germany', { liveWars: true });
+    expect(s.wars.some((w) => w.name === 'Russo-Ukrainian War')).toBe(true);
+    const w = s.wars.find((x) => x.name === 'Russo-Ukrainian War')!;
+    expect(w.sponsor?.by.length).toBeGreaterThan(5);
+    expect(w.resolve?.[id('Ukraine')]).toBeGreaterThan(0);
+    seedOngoingWars(s); // idempotent
+    expect(s.wars.filter((x) => x.name === 'Russo-Ukrainian War').length).toBe(1);
+    const s2 = fresh('Germany');
+    expect(s2.wars.length).toBe(0); // only when asked for
+  });
+});
+
+import { dailyScenario, dailySeed, scenarioById, todayKey } from "../src/sim/scenarios";
+import { actAnswerScheme } from "../src/sim/rivals";
+import { cardSvg } from '../src/ui/share';
+describe('replay and tidy-up (round 35)', () => {
+  it('the daily challenge is the same for everyone on a day and differs between days', () => {
+    const a = dailyScenario('20261104'), b = dailyScenario('20261104'), c = dailyScenario('20261105');
+    expect(a.country).toBe(b.country);
+    expect(a.goals.map((g) => g.label)).toEqual(b.goals.map((g) => g.label));
+    expect(dailySeed('20261104')).toBe(dailySeed('20261104'));
+    expect(dailySeed('20261104')).not.toBe(dailySeed('20261105'));
+    expect(a.id).toBe('daily:20261104');
+    expect(scenarioById(a.id)?.country).toBe(a.country);
+    expect(c.id).not.toBe(a.id);
+    expect(todayKey(new Date(Date.UTC(2026, 0, 7)))).toBe('20260107');
+    // every daily country exists on the map, over a month of days
+    for (let d = 1; d <= 30; d++) expect(NAME_TO_ID[dailyScenario(`202611${String(d).padStart(2, '0')}`).country]).toBeGreaterThanOrEqual(0);
+  });
+  it('every scenario names a real country and has three goals', () => {
+    expect(SCENARIOS.length).toBeGreaterThanOrEqual(14);
+    for (const sc of SCENARIOS) { expect(NAME_TO_ID[sc.country]).toBeGreaterThanOrEqual(0); expect(sc.goals.length).toBe(3); }
+  });
+  it('answering a rival scheme costs political capital and can only be done once', () => {
+    const s = fresh('Poland');
+    const R = ensureRivals(s);
+    const n = s.countries.findIndex((c, i) => i !== s.player && c.alive);
+    R.scheme = { id: 'smear', by: n, tick: s.tick };
+    const c = s.countries[s.player];
+    c.politics!.pc = 20;
+    const rep = c.reputation;
+    expect(actAnswerScheme(s).ok).toBe(true);
+    expect(c.politics!.pc).toBe(12);
+    expect(c.reputation).toBeGreaterThan(rep);
+    expect(actAnswerScheme(s).ok).toBe(false);
+  });
+  it('a share card escapes text and draws the stars', () => {
+    const svg = cardSvg({ kicker: 'Test', title: 'A <b> & C', big: 'VICTORY', stars: 2, lines: ['one'], foot: 'WORLD ORDER', won: true });
+    expect(svg).toContain('A &lt;b&gt; &amp; C');
+    expect(svg.match(/★/g)?.length).toBe(3);
+  });
+  it('conquering a near-empty land does not count as a big occupied population', () => {
+    const s = fresh('Morocco');
+    const ws = id('W. Sahara') >= 0 ? id('W. Sahara') : id('Western Sahara');
+    if (ws < 0) return;
+    for (const p of [...s.countries[ws].provinces]) transferProvince(s, geo, p, s.player);
+    run(s, 4);
+    expect(s.countries[s.player].eco.occupation).toBeLessThan(0.05);
+  });
+  it('saves round floats but keep integers and load back', () => {
+    const s = fresh('Germany');
+    run(s, 10);
+    const txt = serialize(s);
+    const back = deserialize(txt, geo.provinces.length);
+    expect(back.tick).toBe(s.tick);
+    expect(back.rng).toBe(s.rng);
+    expect(back.countries[s.player].eco.gdp / s.countries[s.player].eco.gdp).toBeCloseTo(1, 7);
+  });
+});

@@ -114,6 +114,47 @@ export const SCENARIOS: Scenario[] = [
       { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
       { label: 'Win 4 client states', kind: 'reach', value: clientsGoal(4) },
     ] },
+  { id: 'germany', icon: '⚙', title: 'Reinvent the Engine', country: 'Germany', year: 2024, years: 12, difficulty: 'normal',
+    pitch: 'Cheap gas is gone and the car industry is under siege. Build a new model.',
+    brief: 'Germany built its wealth on cheap Russian gas, cars and machine tools. All three are in trouble. Make the country grow again, power it yourself, and climb back into the world’s top four.',
+    goals: [
+      { label: 'Grow the economy by 25%', kind: 'reach', value: realGoal(1.25) },
+      { label: 'Produce 90% of the energy you use', kind: 'end', value: (_s, c) => { const r = c.eco.energyCap / Math.max(1, c.eco.energyDemand); return { v: clamp(r / 0.9, 0, 1), text: `${Math.round(r * 100)}% now (goal 90%)` }; } },
+      { label: 'Climb into the world’s top 4', kind: 'reach', value: rankGoal(4) },
+    ] },
+  { id: 'brazil', icon: '🌿', title: 'The Green Superpower', country: 'Brazil', year: 2024, years: 15, difficulty: 'normal',
+    pitch: 'Food, forests, clean power: lead the Global South.',
+    brief: 'Brazil feeds the world and runs on clean power, yet it has never turned that into lasting power abroad. Become one of the world’s top eight, gather a circle of client states, and lead in the technologies of the future.',
+    goals: [
+      { label: 'Break into the world’s top 8', kind: 'reach', value: rankGoal(8) },
+      { label: 'Win 5 client states', kind: 'reach', value: clientsGoal(5) },
+      { label: 'Master 8 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 8, 0, 1), text: `${n} of 8` }; } },
+    ] },
+  { id: 'indonesia', icon: '🌋', title: 'Archipelago Rising', country: 'Indonesia', year: 2024, years: 20, difficulty: 'normal',
+    pitch: '17,000 islands, 280 million people, one ambition.',
+    brief: 'Indonesia is the largest economy in Southeast Asia and still growing fast. Turn the archipelago into a world power: nearly double the economy, enter the top ten and make your neighbours look to Jakarta first.',
+    goals: [
+      { label: 'Grow the economy by 80%', kind: 'reach', value: realGoal(1.8) },
+      { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
+      { label: 'Win 3 client states', kind: 'reach', value: clientsGoal(3) },
+    ] },
+  { id: 'vietnam', icon: '🐉', title: 'The Next Tiger', country: 'Vietnam', year: 2024, years: 15, difficulty: 'hard',
+    pitch: 'Factories are leaving China. Catch them.',
+    brief: 'Vietnam is where the world’s factories move when they leave China. Double the economy, climb into the world’s top twenty, and build the technology to stop being only the workshop.',
+    goals: [
+      { label: 'Double the economy', kind: 'reach', value: realGoal(2) },
+      { label: 'Climb into the world’s top 20', kind: 'reach', value: rankGoal(20) },
+      { label: 'Master 8 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 8, 0, 1), text: `${n} of 8` }; } },
+    ] },
+  { id: 'egypt', icon: '🏺', title: 'Bread and Bonds', country: 'Egypt', year: 2024, years: 10, difficulty: 'hard',
+    pitch: 'Debt at 92%, a falling pound, 110 million mouths to feed.',
+    brief: 'Egypt borrows to import the bread that keeps the peace, and the pound keeps falling. Put the debt on a sane path, tame the prices, and finish with a country at peace with itself.',
+    goals: [
+      { label: 'Bring public debt below 70% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 0.7, pctF) },
+      { label: 'Hold inflation below 8% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.08, pctF) },
+      { label: 'Finish with stability of 60 or more', kind: 'end', value: (_s, c) => ({ v: clamp(c.eco.stability / 60, 0, 1), text: `stability ${c.eco.stability.toFixed(0)} (goal 60)` }) },
+    ],
+    fail: (_s, c) => (c.eco.stability < 12 ? 'Bread riots brought the government down.' : null) },
   { id: 'nigeria', icon: '🦁', title: 'Africa’s Giant', country: 'Nigeria', year: 2024, years: 20, difficulty: 'hard',
     pitch: 'Two hundred million people. Make them prosperous.',
     brief: 'Nigeria has the people, the oil and the energy of a great power, and the inflation, insecurity and debts of a fragile one. Make it the richest economy in Africa, calm the prices, and take a place among the world’s top 20.',
@@ -124,7 +165,32 @@ export const SCENARIOS: Scenario[] = [
     ],
     fail: (_s, c) => (c.eco.stability < 10 ? 'The country slid into chaos and the government fell.' : null) },
 ];
-export const scenarioById = (id: string | undefined) => SCENARIOS.find((x) => x.id === id);
+const DAILY_POOL = ['Poland', 'Turkey', 'Mexico', 'Indonesia', 'Vietnam', 'Egypt', 'Kenya', 'Colombia', 'Malaysia', 'Philippines', 'Morocco', 'Chile', 'Kazakhstan', 'Bangladesh', 'Peru', 'Romania', 'Thailand', 'South Africa', 'Ethiopia', 'Ghana'];
+/** A small deterministic hash of a string (the daily challenge's dice). */
+function hstr(t: string) { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
+/** Today's challenge (`date` as YYYYMMDD): a country, a year, three goals, the same seed for everyone. */
+export function dailyScenario(date: string): Scenario {
+  const r = (k: string) => hstr(`${date}:${k}`);
+  const country = DAILY_POOL[Math.floor(r('c') * DAILY_POOL.length)];
+  const climb = 3 + Math.floor(r('k') * 5);
+  const grow = 1.2 + Math.round(r('g') * 3) * 0.05;
+  const third: ScenGoal = r('t') < 0.5
+    ? { label: 'Win 2 client states', kind: 'reach', value: clientsGoal(2) }
+    : { label: 'Finish with stability of 65 or more', kind: 'end', value: (_s, c) => ({ v: clamp(c.eco.stability / 65, 0, 1), text: `stability ${c.eco.stability.toFixed(0)} (goal 65)` }) };
+  return {
+    id: `daily:${date}`, icon: '📅', title: `Daily challenge ${date.slice(6, 8)}/${date.slice(4, 6)}`, country, year: 2024, years: 6, difficulty: 'normal',
+    pitch: `${country} for six years. Everyone plays the same start today.`,
+    brief: `Today's challenge: ${country}, from 2024, for six years, with the same world and the same luck for every player. Climb ${climb} places in the power race, grow the economy by ${Math.round((grow - 1) * 100)}%, and ${third.label.toLowerCase()}. Compare your score.`,
+    goals: [
+      { label: `Climb ${climb} places in the power race`, kind: 'reach', value: (s, c, st) => { const rk = powerRank(s, c.id); const target = Math.max(1, st.base.rank - climb); return { v: rk <= target ? 1 : clamp((st.base.rank - rk) / climb, 0, 0.99), text: `#${rk} now (goal #${target})` }; } },
+      { label: `Grow the economy by ${Math.round((grow - 1) * 100)}%`, kind: 'reach', value: realGoal(grow) },
+      third,
+    ],
+  };
+}
+export const dailySeed = (date: string) => 1 + Math.floor(hstr(`${date}:seed`) * 2 ** 30);
+export const todayKey = (d = new Date()) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+export const scenarioById = (id: string | undefined) => (id?.startsWith('daily:') ? dailyScenario(id.slice(6)) : SCENARIOS.find((x) => x.id === id));
 export const scenarioPlayer = (sc: Scenario) => NAME_TO_ID[sc.country];
 
 export function ensureScenario(s: GameState): ScenarioState | null {

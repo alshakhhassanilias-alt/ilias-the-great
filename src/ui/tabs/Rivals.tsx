@@ -33,7 +33,7 @@ export function RivalCard({ id, role, compact }: { id: number; role: 'chase' | '
   const quote = (s.cables ?? []).filter((x) => x.from === id).slice(-1)[0];
   const r = raceOf(s);
   const roleText = role === 'chase' ? `The one to catch · #${powerRank(s, id)}` : role === 'hunter' ? `Hunting you · #${powerRank(s, id)}` : `Your nemesis · #${powerRank(s, id)}`;
-  const gap = role === 'chase' && r.above ? `${r.above.gap.toFixed(1)} power points ahead of you` : role === 'hunter' ? 'just behind you in the race' : '';
+  const gap = role === 'chase' && r.above ? (r.above.gap < 0.05 ? 'neck and neck with you' : `${r.above.gap.toFixed(1)} power points ahead of you`) : role === 'hunter' ? 'just behind you in the race' : '';
   const leader = T.leader?.name ?? T.name;
   const rows = compact ? h.rows.filter((x) => ['power', 'gdp', 'mil', 'tech', 'inf'].includes(x.key)) : h.rows;
   const lead = h.you - h.them;
@@ -61,6 +61,8 @@ export function RivalCard({ id, role, compact }: { id: number; role: 'chase' | '
           </div>
         ))}
       </div>
+      {!compact && (() => { const h = (s.rivals?.hist?.[id] ?? []).slice(-4).reverse(); return h.length > 0 && (
+        <div className="rv-hist"><small>The rivalry</small>{h.map((x, i) => <div key={i} className={x.them ? 'them' : 'you'}><span>{x.them ? T.name : 'You'}</span> {x.them ? x.text : x.text.replace(/^you /, '')}<em>{dateLabel(x.tick)}</em></div>)}</div>); })()}
       {!compact && <div className="rv-foot"><span className="faint">You: {me.name}</span><button className="linkbtn" onClick={() => store.select(id, null, true)}>Open {T.name} →</button></div>}
     </div>
   );

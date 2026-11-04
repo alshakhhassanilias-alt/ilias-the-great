@@ -12,7 +12,8 @@ export function serialize(state: GameState): string {
     format: 'world-order-save', version: SAVE_VERSION, savedAt: new Date().toISOString(),
     player: state.countries[state.player].name, tick: state.tick, state,
   };
-  return JSON.stringify(f);
+  // nine significant digits is far finer than anything the game shows, and about a tenth smaller than full doubles
+  return JSON.stringify(f, (_k, v) => (typeof v === 'number' && !Number.isInteger(v) && Number.isFinite(v) ? Number(v.toPrecision(9)) : v));
 }
 
 export function deserialize(text: string, nProvinces: number): GameState {

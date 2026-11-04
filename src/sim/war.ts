@@ -158,6 +158,10 @@ function aggressionFallout(s: GameState, a: CountryId, d: CountryId, severity: n
   }
 }
 
+/** set by warmode.ts (a late binding: warmode imports this module) */
+// eslint-disable-next-line no-var
+export var registerPlayerWarFn: ((s: GameState, w: War) => void) | null | undefined;
+export function setRegisterPlayerWar(f: (s: GameState, w: War) => void) { registerPlayerWarFn = f; }
 export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, why?: string): DeclareResult {
   const chk = canDeclareWar(s, a, d);
   if (!chk.ok) return chk;
@@ -229,7 +233,8 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   }
   if (d === s.player) cable(s, a, 'war_on_you'); else if (a === s.player) cable(s, d, 'you_declared');
   if (a === s.player) voicesOn(s, 'declare', d); else if (d === s.player) voicesOn(s, 'attacked', a);
-  if ((a === s.player || d === s.player) && !s.inbox.some((x) => x.id === 'war_goal')) s.inbox.push({ uid: s.nextInbox++, id: 'war_goal', tick: s.tick, expires: s.tick + 6, urgent: true, data: { w: war.id, e: a === s.player ? d : a } });
+  if (a === s.player || d === s.player) registerPlayerWarFn?.(s, war);
+  if ((a === s.player || d === s.player) && !s.inbox.some((x) => x.id === 'war_goal') && !(s.warx?.[war.id]?.council)) s.inbox.push({ uid: s.nextInbox++, id: 'war_goal', tick: s.tick, expires: s.tick + 6, urgent: true, data: { w: war.id, e: a === s.player ? d : a } });
   return { ok: true };
 }
 
@@ -323,6 +328,8 @@ export function evaluatePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId
     case 'surrender': required = 1.9; break;
   }
   if (t.kind !== 'concede') for (const x of t.extras ?? []) { required += extraCost(s, x, b); reasons.push(`${PEACE_EXTRAS[x].label}: +${Math.round(extraCost(s, x, b) * 100)} needed`); }
+  const res = w.resolve?.[b] ?? 0;
+  if (res && t.kind !== 'concede') { required += res; reasons.push('A war for their survival: they hold out'); }
   if (b === s.player) required = Infinity;
   return { accept: will >= required, willingness: will, required, reasons };
 }

@@ -8,6 +8,7 @@ import { EVENTS5 } from './events5';
 import { EVENTS6 } from './events6';
 import { EVENTS8 } from './events8';
 import { EVENTS11 } from './events11';
+import { EVENTS12 } from './events12';
 import { EVENTS7, rememberChoice } from './events7';
 import { storyEvents } from './story';
 import type { Geo } from './geo';
@@ -204,7 +205,7 @@ import { EVENTS10 } from './events10';
 let all: EventDef[] | null = null;
 let byId: Map<string, EventDef> | null = null;
 export function allEvents(): EventDef[] {
-  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...storyEvents()]);
+  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...EVENTS12, ...storyEvents()]);
 }
 /** (the list as an array-like for older callers and the tests) */
 export const ALL_EVENTS: EventDef[] = new Proxy([] as EventDef[], {

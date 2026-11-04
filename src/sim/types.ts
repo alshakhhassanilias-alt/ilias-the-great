@@ -38,6 +38,8 @@ export interface Settings {
   startYear?: 2021 | 2024;
   /** a curated scenario (see scenarios.ts) */
   scenario?: string;
+  /** a 2024 start begins with the wars then being fought (ongoing.ts); the start screen turns it on */
+  liveWars?: boolean;
   /** open the State of the Nation at the start of every year (default on) */
   yearPlan?: boolean;
 }
@@ -268,6 +270,9 @@ export interface Country {
   ind?: import('./industry').Industry;
   /** this year's national focus (see focus.ts and plan.ts) */
   focus?: import('./focus').FocusId;
+  /** mobilisation level and war strategy (see mobdata.ts, warmode.ts) */
+  mob?: import('./mobdata').MobLevel;
+  strat?: import('./mobdata').StratId;
 }
 
 export type FactionId = 'labour' | 'business' | 'military' | 'nationalists' | 'liberals' | 'regions';
@@ -402,6 +407,10 @@ export interface War {
   displaced?: number;
   /** every 4 weeks: [tick, attackers' military casualties, defenders', attackers' war score ×100] */
   hist?: number[][];
+  /** how hard each side holds out at the peace table (an existential war: extra willingness needed; see ongoing.ts) */
+  resolve?: Record<number, number>;
+  /** outside powers arming one side without joining the war (ongoing.ts): who is armed, by whom */
+  sponsor?: { to: number; by: number[] };
 }
 
 /** A finished war between two countries (kept for the war history and the end-of-war summary). */
@@ -530,6 +539,8 @@ export interface GameState {
   plan?: import('./plan').Plan;
   /** the leaders the player is measured against (see rivals.ts) */
   rivals?: import('./rivals').Rivals;
+  /** the player's wars as main events: tier, council, chapters (see warmode.ts) */
+  warx?: Record<number, import('./warmode').WarX>;
   /** a scenario being played: goals, stars, the clock (see scenarios.ts) */
   scen?: import('./scenarios').ScenarioState;
 }

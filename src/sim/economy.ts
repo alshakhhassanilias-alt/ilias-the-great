@@ -8,6 +8,8 @@
  * policy; A grows with a country trend plus education/R&D spending; L follows population and
  * mobilisation. Unemployment, inflation, stability, debt, interest and trade are all derived from this.
  */
+import { COUNTRY_BASE } from '../data/countryData';
+import { mobOf } from './mobdata';
 import { charFragile, charInfl, charLabour, charLocked, charRate, charRevenue, charShock, charStab, charTfp } from './character';
 import { policyTfp } from './turns';
 import { mods } from './doctrines';
@@ -61,7 +63,8 @@ export function factors(c: Country, priceE: number): Factors {
     // output answers to stability over months, not weeks: a coup scare does not halve a year's GDP
     stab: stabilityFactor(e.prev.stabOut ?? e.stability),
     tax: taxFactor(c.budget, e.collection),
-    war: 1 - 0.5 * e.damage,
+    // (and the workers a mobilisation takes out of the factories and offices: mobdata.ts)
+    war: (1 - 0.5 * e.damage) * (c.mob ? mobOf(c).output : 1),
     // the research race: an edge for out-researching the world since the start, a lag for trailing it (research.ts)
     research: e.prev.rsF ?? 1,
     // industries built (and what they fetch on world markets) against the world's average build-up (industry.ts)
@@ -152,10 +155,26 @@ export function plannedSpendingAnnual(c: Country): number {
 }
 
 /** Share of a country's weight that is un-integrated conquered land. */
+/** Each province's people (millions): its share of its original country times that country's population. Province
+ * weights only compare regions inside one country, so a desert from a small neighbour must not count like a city. */
+const PEOPLE = new WeakMap<Geo, Float64Array>();
+function peopleW(geo: Geo): Float64Array {
+  let a = PEOPLE.get(geo);
+  if (a) return a;
+  a = new Float64Array(geo.provinces.length);
+  geo.provs0.forEach((ids, ci) => {
+    const tot = ids.reduce((x, p) => x + geo.provinces[p].w, 0) || 1;
+    const pop = COUNTRY_BASE[ci]?.popM ?? 1;
+    for (const p of ids) a![p] = (geo.provinces[p].w / tot) * pop;
+  });
+  PEOPLE.set(geo, a);
+  return a;
+}
 function occupationOf(c: Country, s: GameState, geo: Geo): number {
   let tot = 0, occ = 0;
+  const pw = peopleW(geo);
   for (const p of c.provinces) {
-    const w = geo.provinces[p].w;
+    const w = pw[p];
     tot += w;
     if (s.core[p] !== c.id) occ += w * (1 - s.integ[p]);
   }

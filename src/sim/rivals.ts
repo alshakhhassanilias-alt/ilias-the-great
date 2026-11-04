@@ -12,6 +12,7 @@ import { cableText } from './cables';
 import { powerTable } from './power';
 import { strengthIndex } from './military';
 import { addInfluence, clientsOf } from './influence';
+import { addRelation as addRelationR } from './relations';
 import { alliesOf, getRelation, isAtWar } from './relations';
 import { gainPC } from './domestic';
 import { approval } from './approval';
@@ -29,6 +30,25 @@ export interface Rivals {
   passed: Record<number, number>;
   /** your best place in the race so far, and when the last overtake made the news */
   best?: number; newsAt?: number;
+  /** the history of each rivalry: what happened between you, newest last (a few entries per rival) */
+  hist?: Record<number, { tick: number; text: string; them: boolean }[]>;
+  /** the nemesis's latest scheme against you, and whether you have answered it */
+  scheme?: { id: SchemeId; by: number; tick: number; answered?: boolean };
+}
+export type SchemeId = 'smear' | 'ally' | 'opposition' | 'incident' | 'squeeze';
+export const SCHEMES: Record<SchemeId, { title: string; text: (them: string, you: string, x?: string) => string; answer: string }> = {
+  smear: { title: 'A smear campaign', text: (t, y) => `${t}'s state media and paid accounts flood the world with stories about corruption in ${y}. Reputation −3.`, answer: 'Expose the campaign' },
+  ally: { title: 'Courting your ally', text: (t, _y, x) => `${t} offers ${x} cheap loans and a defence deal to pull it away from you. Your relations with ${x} −6.`, answer: 'Outbid them' },
+  opposition: { title: 'Money for your opposition', text: (t) => `Investigators trace foreign money from ${t} to opposition groups and protest organisers at home. Approval −2, liberals and unions restless.`, answer: 'Expel their agents' },
+  incident: { title: 'A border incident', text: (t) => `${t}'s troops fire across the border; two of our soldiers are wounded. The country is angry and scared. Stability −2.`, answer: 'A firm, measured answer' },
+  squeeze: { title: 'A trade squeeze', text: (t) => `${t} holds our exports at its customs posts and warns its firms off our market. Cash −0.3% of GDP.`, answer: 'Retaliate in kind' },
+};
+/** Remember something between you and a rival (shown in the rivalry history, and recalled in their messages). */
+export function remember(s: GameState, id: number, text: string, them = true) {
+  const R = ensureRivals(s);
+  const h = ((R.hist ??= {})[id] ??= []);
+  h.push({ tick: s.tick, text, them });
+  if (h.length > 8) h.splice(0, h.length - 8);
 }
 
 export function ensureRivals(s: GameState): Rivals {
@@ -74,6 +94,7 @@ export function stepRivals(s: GameState) {
       const F = focusById(f)!;
       c.focus = f;
       logEvent(s, `🎙 ${leaderName(c)} declares ${c.name}'s year: ${F.icon} ${F.name}. "${F.motto}"`, 'diplo', [id, s.player], true);
+      remember(s, id, `declared a year of ${F.name.toLowerCase()}`);
       const mine = focusById(me.focus);
       const line = mine && mine.id === f ? `So ${youName(s)} has chosen ${mine.name.toLowerCase()} too. We will see who does it better.`
         : pick([`${F.motto} By December the world will know which of us chose well.`, `${youName(s)} has made its plans; we have made ours. Watch this year closely.`, `This will be ${c.name}'s year. ${F.motto}`], s, 'rq', id);
@@ -93,6 +114,7 @@ export function stepRivals(s: GameState) {
     R.passed[R.above] = s.tick;
     R.won++;
     const record = rank < best;
+    remember(s, T.id, `you overtook them for #${rank}`, false);
     if (record && !quiet) {
       R.newsAt = s.tick;
       gainPC(s, 6);
@@ -105,6 +127,7 @@ export function stepRivals(s: GameState) {
     const T = s.countries[above];
     s.stats[`ovl:${above}`] = s.tick;
     R.lost++;
+    remember(s, T.id, `they overtook you for #${rank - 1}`);
     if (!quiet && rank <= 60) {
       R.newsAt = s.tick;
       s.stats.apprBoost = (s.stats.apprBoost ?? 0) - 1.5;
@@ -115,6 +138,7 @@ export function stepRivals(s: GameState) {
   R.best = Math.min(best, rank);
   R.rank = rank; R.above = above; R.below = below;
   R.chase = above >= 0 ? above : below;
+  schemes(s);
   // the nemesis competes for your clients
   const n = nemesisOf(s);
   if (n >= 0 && s.countries[n].eco.gdp > 0.25 * me.eco.gdp && s.tick % 12 === 3) {
@@ -128,6 +152,55 @@ export function stepRivals(s: GameState) {
       }
     }
   }
+}
+
+/** Every few months the nemesis works against you: the harder they hate you, the more often (answer it from your desk). */
+function schemes(s: GameState) {
+  const R = ensureRivals(s);
+  const n = nemesisOf(s);
+  if (n < 0) return;
+  const N = s.countries[n], me = s.countries[s.player];
+  const rel = getRelation(s, n, s.player);
+  if (rel > 10 || isAtWar(s, n)) return;
+  const gap = 52 - Math.min(30, Math.max(0, -rel) / 2);
+  if (s.tick - (R.scheme?.tick ?? -999) < gap || hash01('sch', n, s.tick) > 0.25) return;
+  const allies = alliesOf(s, s.player).filter((a) => a !== n && s.countries[a]?.alive);
+  const opts: SchemeId[] = ['smear', 'squeeze', ...(allies.length ? ['ally' as SchemeId] : []), ...(me.gov === 'D' || me.gov === 'F' ? ['opposition' as SchemeId] : []), ...(s.countries[n].region === me.region ? ['incident' as SchemeId] : [])];
+  const id = opts[Math.floor(hash01('sch2', n, s.tick) * opts.length)];
+  const x = id === 'ally' ? allies.sort((a, b) => s.countries[b].eco.gdp - s.countries[a].eco.gdp)[0] : undefined;
+  switch (id) {
+    case 'smear': me.reputation = clamp(me.reputation - 3, 0, 100); break;
+    case 'ally': if (x !== undefined) { addRelationR(s, s.player, x, -6); addRelationR(s, n, x, 6); } break;
+    case 'opposition': s.stats.apprBoost = (s.stats.apprBoost ?? 0) - 2; break;
+    case 'incident': me.eco.stability = clamp(me.eco.stability - 2, 0, 100); addRelationR(s, n, s.player, -5); break;
+    case 'squeeze': me.eco.cash = Math.max(0, me.eco.cash - 0.003 * me.eco.gdp); break;
+  }
+  R.scheme = { id, by: n, tick: s.tick };
+  const S = SCHEMES[id];
+  remember(s, n, S.title.toLowerCase());
+  logEvent(s, `🕸 ${S.title.toUpperCase()}: ${S.text(N.name, me.name, x !== undefined ? s.countries[x].name : undefined)}`, 'danger', [s.player, n], true);
+  const past = (R.hist?.[n] ?? []).filter((h) => s.tick - h.tick > 52 && !h.them).slice(-1)[0];
+  if (past && hash01('schc', n, s.tick) < 0.6) cableText(s, n, `Do you remember when ${past.text.replace(/\bthem\b/, 'us').replace(/\btheir\b/, 'our')}? ${N.name} remembers.`, 'cold');
+}
+/** Answer the nemesis's latest scheme: political capital, and it costs them. */
+export function actAnswerScheme(s: GameState) {
+  const R = ensureRivals(s);
+  const sc = R.scheme;
+  if (!sc || sc.answered) return { ok: false, message: 'Nothing to answer' };
+  const c = s.countries[s.player];
+  if ((c.politics?.pc ?? 0) < 8) return { ok: false, message: 'Needs 8 political capital' };
+  if (c.politics) c.politics.pc -= 8;
+  sc.answered = true;
+  addRelationR(s, sc.by, s.player, -6);
+  switch (sc.id) {
+    case 'smear': c.reputation = clamp(c.reputation + 4, 0, 100); break;
+    case 'ally': for (const a of alliesOf(s, s.player)) addRelationR(s, s.player, a, 4); break;
+    case 'opposition': s.stats.apprBoost = (s.stats.apprBoost ?? 0) + 2.5; break;
+    case 'incident': c.eco.stability = clamp(c.eco.stability + 2, 0, 100); s.stats.apprBoost = (s.stats.apprBoost ?? 0) + 1; break;
+    case 'squeeze': { const N = s.countries[sc.by]; if (N) N.eco.cash = Math.max(0, N.eco.cash - 0.002 * N.eco.gdp); break; }
+  }
+  remember(s, sc.by, `you answered their ${SCHEMES[sc.id].title.toLowerCase()}`, false);
+  return { ok: true, message: `${SCHEMES[sc.id].answer}: done (−8 capital, relations with ${s.countries[sc.by].name} −6).` };
 }
 
 export interface H2H { key: string; label: string; a: string; b: string; lead: 1 | 0 | -1; ra: number }
