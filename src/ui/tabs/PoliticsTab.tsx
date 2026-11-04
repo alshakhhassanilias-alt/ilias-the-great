@@ -1,3 +1,4 @@
+import { FACTION_GLYPH, Glyph } from '../art/Glyphs';
 import { useState, type ReactElement } from 'react';
 import { store } from '../../state/store';
 import { Section } from '../widgets';
@@ -91,7 +92,7 @@ export function PoliticsTab() {
               <div className="faction" key={id} style={{ ['--fc' as string]: m.color }}>
                 <Portrait f={faceFor(c, f.leader, id === 'military' ? 'general' : 'minister')} size={46} title={f.leader} />
                 <div className="fac-main">
-                  <div className="fac-top"><b>{m.icon} {m.name}</b><span className="faint">{f.support.toFixed(0)}% · clout ×{clout(c, id).toFixed(1)}</span></div>
+                  <div className="fac-top"><b><Glyph name={FACTION_GLYPH[id]} size={16} /> {m.name}</b><span className="faint">{f.support.toFixed(0)}% · clout ×{clout(c, id).toFixed(1)}</span></div>
                   <div className="fac-mood"><div className="fac-bar"><i style={{ width: `${f.mood}%`, background: moodColor(f.mood) }} /></div><em style={{ color: moodColor(f.mood) }}>{moodLabel(f.mood)} {Math.abs(trend) > 2 ? (trend > 0 ? '▲' : '▼') : ''}</em></div>
                   <div className="fac-why">
                     <span className="faint">{f.leader} · wants {m.wants}.</span>
@@ -136,7 +137,7 @@ export function PoliticsTab() {
                 {isSel && (
                   <div className="law-body">
                     <div className="law-eff">{l.pros.map((p, i) => <span key={i} className="good">✓ {p}</span>)}{l.cons.map((p, i) => <span key={i} className="bad">✗ {p}</span>)}</div>
-                    <div className="law-lean">{FACTIONS.filter((x) => l.lean[x.id]).map((x) => <span key={x.id} className={`chip-mini ${(l.lean[x.id] ?? 0) > 0 ? 'good' : 'bad'}`}>{x.icon} {x.short} {(l.lean[x.id] ?? 0) > 0 ? '+' : ''}{l.lean[x.id]}</span>)}</div>
+                    <div className="law-lean">{FACTIONS.filter((x) => l.lean[x.id]).map((x) => <span key={x.id} className={`chip-mini ${(l.lean[x.id] ?? 0) > 0 ? 'good' : 'bad'}`}><Glyph name={FACTION_GLYPH[x.id]} size={12} /> {x.short} {(l.lean[x.id] ?? 0) > 0 ? '+' : ''}{l.lean[x.id]}</span>)}</div>
                     {f.mode !== 'decree' && (
                       <>
                         <div className="vote-bar"><i style={{ width: `${f.yes * 100}%` }} /><span style={{ left: '50%' }} /></div>

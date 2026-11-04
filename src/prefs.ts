@@ -65,10 +65,15 @@ export interface Prefs {
   calm: boolean;
   /** the first-game walkthrough: -1 not started, n = step reached, 99 done or skipped */
   walk: number;
+  /** interface sounds (clicks, tabs, folds) on, and how loud they are relative to the effects */
+  uiSounds: boolean; uiVol: number;
+  /** the first-visit tips already read (one per tab) */
+  tips: string[];
 }
 export const DEFAULT_PREFS: Prefs = {
   master: 0.8, music: 0.55, sfx: 0.8, musicOn: true, soundOn: true, duck: true, muteUnfocused: false,
   uiScale: 1, fullscreen: false, autosaveMonths: 6, autosaveSlots: 3, keys: { ...DEFAULT_KEYS }, edgeScroll: false, calm: false, walk: -1,
+  uiSounds: true, uiVol: 0.6, tips: [],
 };
 
 const KEY = 'wo-prefs';

@@ -6,6 +6,7 @@ import { store } from '../../state/store';
 import { Section } from '../widgets';
 import { Portrait, faceFor } from '../art/Portrait';
 import { Emblem } from '../art/Emblem';
+import { FOCUS_GLYPH, Glyph } from '../art/Glyphs';
 import { nationalColor } from '../../map/palette';
 import { headToHead, nemesisOf } from '../../sim/rivals';
 import { powerRank, raceOf } from '../../sim/power';
@@ -44,7 +45,7 @@ export function RivalCard({ id, role, compact }: { id: number; role: 'chase' | '
           <small className="rv-role">{roleText}</small>
           <b>{leader}</b>
           <span className="faint">{T.name}{gap ? ` · ${gap}` : ''}</span>
-          {F && <span className="rv-focus" title={F.pros.join(' · ')} style={{ ['--fc' as string]: F.color }}>{F.icon} {F.name} year</span>}
+          {F && <span className="rv-focus" title={F.pros.join(' · ')} style={{ ['--fc' as string]: F.color }}><Glyph name={FOCUS_GLYPH[F.id]} size={13} /> {F.name} year</span>}
         </div>
         <div className={`rv-score ${lead > 0 ? 'up' : lead < 0 ? 'down' : ''}`} title="categories where you lead – where they lead">
           <b>{h.you}<i>–</i>{h.them}</b><small>{lead > 0 ? 'you lead' : lead < 0 ? 'they lead' : 'level'}</small>

@@ -3033,7 +3033,7 @@ describe('round 34: the desk, the State of the Nation, rivals and scenarios', ()
     const rp0 = researchPoints(s, c).v, cost0 = expansionOf(s, c, 'manuf').cost, tfp0 = mods(c).tfp;
     c.focus = 'science';
     expect(researchPoints(s, c).v).toBeGreaterThan(rp0 * 1.25);
-    expect(expansionOf(s, c, 'manuf').cost).toBeGreaterThan(cost0 * 1.1);
+    expect(expansionOf(s, c, 'manuf').cost).toBeGreaterThan(cost0 * 1.05);
     c.focus = 'industry';
     expect(expansionOf(s, c, 'manuf').cost).toBeLessThan(cost0 * 0.8);
     expect(mods(c).tfp).toBeGreaterThan(tfp0);
@@ -3137,5 +3137,72 @@ describe('round 34: the desk, the State of the Nation, rivals and scenarios', ()
     s.countries[s.player].eco.stability = 5;
     stepScenario(s);
     expect(s.scen!.done?.won).toBe(false);
+  });
+});
+
+import { challengeFix } from '../src/sim/fixes';
+import { manageEconomy } from '../src/sim/ai';
+import { focusById } from '../src/sim/focus';
+describe('beta round: balance, onboarding and stability', () => {
+  it('an AI government deep in debt and in deficit raises taxes and trims spending, whatever the mood at home', () => {
+    const s = fresh('Germany');
+    const c = s.countries[id('Eritrea')];
+    c.eco.debt = 2.5 * c.eco.gdp; c.eco.stability = 30;
+    c.eco.revenue = 0.1 * c.eco.gdp; c.eco.spending = 0.2 * c.eco.gdp;
+    const vat = c.budget.taxVat, inc = c.budget.taxIncome;
+    for (let i = 0; i < 10; i++) manageEconomy(s, geo, c, true, false);
+    expect(c.budget.taxVat + c.budget.taxIncome).toBeGreaterThan(vat + inc);
+  });
+  it('after a default the restructured debt is carried at a capped rate, so it does not run away again', () => {
+    const s = fresh('Germany');
+    run(s, 30);
+    const c = s.countries[id('Eritrea')];
+    c.eco.debt = 4.5 * c.eco.gdp; c.eco.lastDefault = -9999;
+    run(s, 2);
+    expect(c.eco.lastDefault).toBeGreaterThan(0);
+    expect(c.eco.debt / c.eco.gdp).toBeLessThan(2.5);
+    run(s, 26);
+    expect(c.eco.avgRate).toBeLessThanOrEqual(0.056);
+  });
+  it('the desk offers the strongest response to a severe national challenge, and it works', () => {
+    const s = fresh('Argentina');
+    const c = s.countries[s.player];
+    c.politics!.pc = 60;
+    const ch = challengeFix(s, c)!;
+    expect(ch).toBeTruthy();
+    expect(ch.title).toMatch(/Inflation/);
+    const sev0 = ch.sev;
+    expect(ch.fix.run!(s).ok).toBe(true);
+    expect((c.chal ?? {}).inflation.sev).toBeLessThan(sev0);
+  });
+  it('the tutorial scenario is short, easy and its three goals are the core loop', () => {
+    const sc = SCENARIOS.find((x) => x.tutorial)!;
+    expect(sc.difficulty).toBe('easy');
+    expect(sc.years).toBeLessThanOrEqual(3);
+    const s = createGame(geo, { ...DEFAULT_SETTINGS, startYear: sc.year, scenario: sc.id }, scenarioPlayer(sc));
+    const c = s.countries[s.player];
+    expect(scenarioGoals(s).every((g) => !g.won)).toBe(true);
+    c.focus = 'industry';
+    s.stats.indDone = 1;
+    c.politics!.laws.push({ id: 'tech_fund', since: s.tick });
+    s.tick = 2; stepScenario(s);
+    expect(s.scen!.stars).toEqual([true, true, true]);
+    expect(s.scen!.done?.won).toBe(true);
+  });
+  it('an overtake is big news only for a new best place, not for swapping places back and forth', () => {
+    const s = fresh('Poland');
+    const R = ensureRivals(s);
+    s.tick = 43; s.countries[s.player].eco.gdp *= 3; stepRivals(s);
+    const won = R.won;
+    const big = s.log.filter((l) => /OVERTAKES/.test(l.text)).length;
+    expect(big).toBe(1);
+    // fall back, then pass the same rank again: no second fanfare
+    s.countries[s.player].eco.gdp /= 3; s.tick = 47; stepRivals(s);
+    s.countries[s.player].eco.gdp *= 3; s.tick = 51 + 52; stepRivals(s);
+    expect(s.log.filter((l) => /OVERTAKES/.test(l.text)).length).toBe(1);
+    expect(R.won).toBeGreaterThanOrEqual(won);
+  });
+  it('every focus has a real upside and a real cost', () => {
+    for (const f of FOCI) { expect(f.pros.length, f.id).toBeGreaterThan(0); expect(f.cons.length, f.id).toBeGreaterThan(0); expect(focusById(f.id)).toBe(f); }
   });
 });

@@ -1,3 +1,4 @@
+import { TabTip } from './TabTip';
 import { START_YEAR, type Country, type GameState } from '../sim/types';
 import { PoliticsTab } from './tabs/PoliticsTab';
 import { nationalColor } from '../map/palette';
@@ -77,6 +78,7 @@ export function SidePanel() {
           </nav>
           <div className={`side-body ${opposition ? 'locked' : ''}`} key={`${c.id}-${store.tab}`}>
             {opposition && c.id === s.player && <div className="opp-wrap"><div className="note warn" style={{ marginBottom: 8 }}>{isFree(c.gov) ? `You lead the opposition. ${s.legacy!.opposition!.gov}'s government runs ${c.name}; you can watch, campaign and wait for the vote.` : `You are in exile. ${s.legacy!.opposition!.gov} rules ${c.name}.`}</div><OppositionDesk /></div>}
+            {!opposition && c.id === s.player && !store.preview && <TabTip tab={store.tab} />}
             {opposition && c.id !== s.player && <div className="opp-wrap"><div className="note warn" style={{ marginBottom: 8 }}>Out of power, you can only watch the world.</div></div>}
             {(store.tab === 'overview' || ((store.tab === 'goals' || store.tab === 'politics' || store.tab === 'research') && c.id !== s.player)) && <OverviewTab id={c.id} />}
             {store.tab === 'research' && c.id === s.player && <ResearchTab />}

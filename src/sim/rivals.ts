@@ -27,6 +27,8 @@ export interface Rivals {
   won: number; lost: number;
   /** who you have overtaken, and when */
   passed: Record<number, number>;
+  /** your best place in the race so far, and when the last overtake made the news */
+  best?: number; newsAt?: number;
 }
 
 export function ensureRivals(s: GameState): Rivals {
@@ -83,23 +85,34 @@ export function stepRivals(s: GameState) {
   if (i < 0) return;
   const rank = i + 1, above = i > 0 ? rows[i - 1].id : -1, below = rows[i + 1]?.id ?? -1;
   // you passed the country that was above you
+  // only a new best place is a moment (and pays): swapping places back and forth with a neighbour in the table is not
+  const best = R.best ?? R.rank;
+  const quiet = s.tick - (R.newsAt ?? -999) < 13;
   if (rank < R.rank && R.above >= 0 && s.countries[R.above]?.alive && rows.findIndex((r) => r.id === R.above) > i && s.tick - (R.passed[R.above] ?? -999) > 26) {
     const T = s.countries[R.above];
     R.passed[R.above] = s.tick;
     R.won++;
-    gainPC(s, 6);
-    s.stats.apprBoost = (s.stats.apprBoost ?? 0) + 2;
-    logEvent(s, `📈 ${me.name.toUpperCase()} OVERTAKES ${T.name.toUpperCase()}: now #${rank} in the world power race. Political capital +6, approval +2.`, 'info', [s.player, T.id], true, { big: true, prov: me.capital });
-    cableText(s, T.id, pick([`Enjoy the view from #${rank}, ${youName(s)}. It will not last.`, `A good year for ${me.name}. Ours is coming.`, `Congratulations are in order, I suppose. We are not finished.`], s, 'ov', T.id), getRelation(s, T.id, s.player) > 30 ? 'neutral' : 'cold');
+    const record = rank < best;
+    if (record && !quiet) {
+      R.newsAt = s.tick;
+      gainPC(s, 6);
+      s.stats.apprBoost = (s.stats.apprBoost ?? 0) + 2;
+      logEvent(s, `📈 ${me.name.toUpperCase()} OVERTAKES ${T.name.toUpperCase()}: now #${rank} in the world power race, its best yet. Political capital +6, approval +2.`, 'info', [s.player, T.id], true, rank <= 60 ? { big: true, prov: me.capital } : undefined);
+      if (rank <= 60) cableText(s, T.id, pick([`Enjoy the view from #${rank}, ${youName(s)}. It will not last.`, `A good year for ${me.name}. Ours is coming.`, `Congratulations are in order, I suppose. We are not finished.`], s, 'ov', T.id), getRelation(s, T.id, s.player) > 30 ? 'neutral' : 'cold');
+    } else logEvent(s, `📈 ${me.name} passes ${T.name}: #${rank} in the world power race.`, 'info', [s.player, T.id], false);
   } else if (rank > R.rank && above >= 0 && above === R.below && s.tick - (s.stats[`ovl:${above}`] ?? -999) > 26) {
     // the one below you passed you
     const T = s.countries[above];
     s.stats[`ovl:${above}`] = s.tick;
     R.lost++;
-    s.stats.apprBoost = (s.stats.apprBoost ?? 0) - 1.5;
-    logEvent(s, `📉 ${T.name} overtakes ${me.name} in the world power race: you slip to #${rank}. Approval −1.5.`, 'danger', [s.player, T.id], true, { big: true, prov: T.capital });
-    cableText(s, T.id, pick([`#${rank - 1}. It has a nice ring to it, ${youName(s)}.`, `The world has noticed who is rising, and who is not.`, `No hard feelings. Try to keep up.`], s, 'ol', T.id), 'cold');
+    if (!quiet && rank <= 60) {
+      R.newsAt = s.tick;
+      s.stats.apprBoost = (s.stats.apprBoost ?? 0) - 1.5;
+      logEvent(s, `📉 ${T.name} overtakes ${me.name} in the world power race: you slip to #${rank}. Approval −1.5.`, 'danger', [s.player, T.id], true, { big: true, prov: T.capital });
+      cableText(s, T.id, pick([`#${rank - 1}. It has a nice ring to it, ${youName(s)}.`, `The world has noticed who is rising, and who is not.`, `No hard feelings. Try to keep up.`], s, 'ol', T.id), 'cold');
+    } else logEvent(s, `📉 ${T.name} passes ${me.name}: you are #${rank} in the world power race.`, 'danger', [s.player, T.id], false);
   }
+  R.best = Math.min(best, rank);
   R.rank = rank; R.above = above; R.below = below;
   R.chase = above >= 0 ? above : below;
   // the nemesis competes for your clients

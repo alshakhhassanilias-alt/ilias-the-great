@@ -91,7 +91,7 @@ export function manageEconomy(s: GameState, geo: Geo, c: Country, eco = true, mi
   const th = threatLevel(s, geo, c);
   if (!c.isPlayer) s.stats[`th:${c.id}`] = +th.toFixed(3); // the public mood reads it (minds.ts)
   const ag = c.isPlayer ? null : agendaOf(s, c);
-  const desiredMil = clamp((e.prev.mil0 ?? b.military) * (1 + 0.4 * Math.min(1, th)) * (0.92 + 0.16 * s.settings.aggression * c.ai.aggression) * (atWar ? 1.6 : 1) * (ag ? (1 + 0.3 * (ag.security + ag.expansion - 0.42)) * planMilBias(c) : 1), 0, 0.2);
+  const desiredMil = clamp((e.prev.mil0 ?? b.military) * (1 + 0.4 * Math.min(1, th)) * (0.92 + 0.16 * s.settings.aggression * c.ai.aggression) * (atWar ? 1.6 : 1) * (ag ? (1 + 0.3 * (ag.security + ag.expansion - 0.42)) * planMilBias(c) : 1) * (debtRatio > 1.4 && !atWar && !c.isPlayer ? 0.75 : 1), 0, 0.2);
   const step = 0.001;
   if (mil) {
     if (b.military < desiredMil - step) b.military = Math.min(desiredMil, b.military + step * (atWar ? 3 : 1));
@@ -116,8 +116,19 @@ function manageBudget(s: GameState, geo: Geo, c: Country, th: number, atWar: boo
     else if (b.education < 0.06) b.education += 0.001;
     else if (b.industry < 0.025) b.industry += 0.001;
   }
+  // a fiscal emergency (debt above 140% of GDP and still in deficit): every lever moves a little, whatever the mood at
+  // home, the way governments act when the bond markets (or the IMF) leave no choice
+  const brake = debtRatio > 1.4 && deficit > target + 0.005;
+  if (brake) {
+    if (!atWar && b.military > 0.008) b.military = Math.max(0.008, b.military - 0.0006);
+    if (b.taxVat < 0.27) b.taxVat += 0.0015;
+    if (b.taxIncome < 0.42) b.taxIncome += 0.0015;
+    if (b.infra > 0.012) b.infra -= 0.0004;
+    if (b.industry > 0.006) b.industry -= 0.0004;
+    if (b.social > e.baseSocial * 0.7) b.social -= 0.001;
+  }
   if (e.energyUnmet > 0.04 && b.industry < 0.03) b.industry += 0.002;
-  if (e.stability < 40 && b.social < e.baseSocial * 1.15) b.social += 0.003;
+  if (e.stability < 40 && b.social < e.baseSocial * 1.15 && !brake) b.social += 0.003;
   // spend surplus cash
   if (e.cash > 0.06 * e.gdp) {
     if (e.avgRate > 0.04 && debtRatio > 0.5) { const amt = Math.min(e.cash - 0.03 * e.gdp, e.debt); e.debt -= amt; e.cash -= amt; }

@@ -3,6 +3,7 @@
  * when, your majority, and the cost of bringing a faction in or showing one the door.
  */
 import { store } from '../../state/store';
+import { FACTION_GLYPH, Glyph } from '../art/Glyphs';
 import { Section, Meter } from '../widgets';
 import { FACTIONS, factionMeta, moodColor, moodLabel } from '../../sim/domestic';
 import { INVITE_PC, actDropPartner, actInvite, demandDef, demandProgress, ensureCoalition, isDemocracy, minority, seatsOf } from '../../sim/coalition';
@@ -40,7 +41,7 @@ export function CoalitionSection() {
           return (
             <div key={f} className="coal-card" style={{ ['--fc' as string]: factionMeta(f).color }}>
               <div className="coal-head">
-                <span aria-hidden="true">{factionMeta(f).icon}</span>
+                <span aria-hidden="true" className="coal-ic"><Glyph name={FACTION_GLYPH[f]} size={17} /></span>
                 <b className="grow">{factionMeta(f).name}</b>
                 <span className="coal-mood" style={{ color: moodColor(fac.mood) }}>{moodLabel(fac.mood)}</span>
                 <span className="coal-pat" title="patience: missed demands left before they walk out">{'●'.repeat(Math.max(0, pat))}{'○'.repeat(Math.max(0, 3 - pat))}</span>
@@ -63,7 +64,7 @@ export function CoalitionSection() {
           {outside.map((f) => {
             const fac = P.factions.find((x) => x.id === f.id)!;
             const ok = fac.mood >= 35 && P.pc >= INVITE_PC;
-            return <button key={f.id} className="btn sm" disabled={!ok} title={fac.mood < 35 ? 'They will not join a government they despise (mood below 35)' : ''} onClick={() => store.act((g) => actInvite(g, f.id))}>{f.icon} Invite {f.short}<small>{demo ? `${fac.support.toFixed(0)}% seats · ` : ''}{INVITE_PC} capital · they bring a demand</small></button>;
+            return <button key={f.id} className="btn sm" disabled={!ok} title={fac.mood < 35 ? 'They will not join a government they despise (mood below 35)' : ''} onClick={() => store.act((g) => actInvite(g, f.id))}><Glyph name={FACTION_GLYPH[f.id]} size={14} /> Invite {f.short}<small>{demo ? `${fac.support.toFixed(0)}% seats · ` : ''}{INVITE_PC} capital · they bring a demand</small></button>;
           })}
         </div>
       )}

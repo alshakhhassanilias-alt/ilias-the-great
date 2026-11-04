@@ -1,6 +1,7 @@
 /**
  * The Research tab: five ladders of technologies, the world race on each, and what you can do to move faster.
  */
+import { BRANCH_GLYPH, Glyph } from '../art/Glyphs';
 import { useState } from 'react';
 import { store } from '../../state/store';
 import { Section, Meter, Slider, Note } from '../widgets';
@@ -40,7 +41,7 @@ export function ResearchTab() {
           </div>
           {cur >= 0 ? (
             <div className="rs-now">
-              <small>{BRANCHES[cur].icon} Now researching · rung {curTier}</small>
+              <small><Glyph name={BRANCH_GLYPH[cur]} size={13} /> Now researching · rung {curTier}</small>
               <b>{techAt(cur, curTier, undefined, rs).name}</b>
               <Meter value={rs.acc[cur] / curCost} color={BRANCHES[cur].color} />
               <span className="faint">{Math.round((100 * rs.acc[cur]) / curCost)}% · about {months(eta)} at this pace</span>
@@ -71,7 +72,7 @@ export function ResearchTab() {
         return (
           <section className={`section rs-branch ${cur === b ? 'on' : ''}`} key={br.key} style={{ ['--bc' as string]: br.color }}>
             <button className="rs-bhead" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? -1 : b)}>
-              <span className="rs-bicon" aria-hidden="true">{br.icon}</span>
+              <span className="rs-bicon" aria-hidden="true"><Glyph name={BRANCH_GLYPH[b]} size={20} /></span>
               <span className="grow">
                 <b>{br.name}</b>
                 <small>Rung {lv}{lv > 10 ? ` (frontier ${lv - 10})` : ''} · world #{st.rank} · {behind > 0 ? <span className="bad">{behind} behind the frontier</span> : <span className="good">at the frontier</span>} · leaders: {st.leaders.map((id) => s.countries[id].iso3).join(', ')}{BRANCH_NOTE[b] ? <> · {BRANCH_NOTE[b]}</> : null}</small>

@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 234 deterministic simulation tests (Vitest) |
+| `npm test` | 240 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
@@ -61,6 +61,39 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Beta round: onboarding, art, audio, balance, stability
+
+* **Onboarding.** New players are offered **First Steps** on the start screen: a short, easy scenario (Poland,
+  2024) with three goals that are the core loop (declare a focus, expand an industry, pass a law). It runs the new
+  walkthrough: thirteen steps presented by your **chief of staff** (portrait, progress, a ring on the thing to
+  press) that open the right tab, scroll to the right control and move on by themselves once you have done it: plan the
+  year, act from your desk, choose research, start an industry, your government, your rivals, start the clock,
+  decisions, a neighbour. On phones the card sits on the other half of the screen from what it points at. Every tab
+  explains itself once (**first-visit tips**: what it is for and the one thing to do there first).
+* **Art.** The game's own engraved icon set (`src/ui/art/Glyphs.tsx`, 50 glyphs on one 24-unit grid) replaces emoji on
+  the core screens: the desk, the State of the Nation foci, scenarios, mode cards, factions and coalition, the mission
+  card, industries, research branches and (on desktop) the top bar.
+* **Audio.** A new synthesised sound engine (`src/audio.ts`): bells by frequency modulation, plucks, thumps, filtered
+  noise and detuned chords through two buses (effects and interface) with a compressor and a small room reverb. About
+  twenty new sounds: tabs, folds, choices, confirm and refuse, money spent, a law passed, the January bell and the grade
+  stamped on the report card, a promise kept or broken, overtaking or being overtaken, a rival's declaration, a
+  scenario's victory or defeat, stars. Interface sounds have their own switch and volume. Every sound was rendered in a
+  browser and measured: all audible, none clipping.
+* **Balance.**
+  * AI governments in a fiscal emergency (debt above 140% of GDP and still in deficit) now raise taxes and trim spending
+    whatever the mood at home; a defaulter's restructured debt is carried at a capped rate for five years; a default
+    comes at 320% of GDP. Over 30-year world runs no country passes 300% of debt any more (it was 565%).
+  * The six foci rebalanced after measuring each for ten years (reform was dominant; rearmament now really raises
+    military technology; industrial drive and the research push are worth their costs).
+  * Every scenario played by a competent bot on two seeds and tuned (Poland top 14, Japan harder, Nigeria top 20,
+    India 10 technologies). Argentina and Turkey turn on the inflation spiral, a national challenge, so the desk now
+    offers the strongest response to your worst challenge as a one-click fix.
+  * Overtakes are a moment only for a new best place in the race (no more fanfare for swapping places back and forth).
+* **Stability and tech.** Sixteen countries played for 25 years each by the bot in both modes (no crash, no event
+  error), old saves load and play on, save/load is deterministic across a new year, the desk is computed once a week
+  (and after each action) instead of every frame. Six new tests (240 in all), new end-to-end checks for a first-time
+  player (banner, walkthrough, tips).
 
 ## Round 34: a desk, a year, rivals and endings
 

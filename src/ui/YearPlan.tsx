@@ -11,6 +11,8 @@ import { PLEDGE_PC, PLEDGE_APPR, activeGoals } from '../sim/goals';
 import { dateLabel } from '../sim/tick';
 import { Portrait, faceFor } from './art/Portrait';
 import { Emblem } from './art/Emblem';
+import { sfx } from '../audio';
+import { FOCUS_GLYPH, Glyph } from './art/Glyphs';
 import { RivalCard, rivalIds } from './tabs/Rivals';
 
 function ReportCard({ r }: { r: Report }) {
@@ -48,6 +50,14 @@ export function YearPlanModal() {
   const [pledge, setPledge] = useState<string | null>(null);
   useEffect(() => { if (show && c) { setFocus(c.focus ?? null); setPledge(P?.pledge?.id ?? null); } }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { store.hold('plan', show); return () => store.hold('plan', false); }, [show]);
+  // the bell for a new year, then the grade stamped on the report card
+  useEffect(() => {
+    if (!show) return;
+    if (!s?.plan?.pending) { sfx('open'); return; }
+    sfx('bell');
+    const id = window.setTimeout(() => { if (s?.plan?.report) sfx('stamp'); }, 700);
+    return () => window.clearTimeout(id);
+  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!show || !s || !P || !c) return null;
   const pending = P.pending;
   const goals = activeGoals(s).filter((g) => s.goalsDone[g.id] === undefined);
@@ -60,7 +70,9 @@ export function YearPlanModal() {
   const begin = () => {
     if (pending) {
       const g = goals.find((x) => x.id === pledge);
-      store.act((st) => actBeginYear(st, focus, pledge, g?.title));
+      const r = store.act((st) => actBeginYear(st, focus, pledge, g?.title), true);
+      if (r.message) store.toast(r.message, 'econ');
+      sfx('begin');
       store.openPlan(false);
       if (store.speed === 0) store.setSpeed(store.lastSpeed || 1);
       return;
@@ -94,8 +106,8 @@ export function YearPlanModal() {
           <h3 className="sotn-h">The national focus <small>{pending ? 'free today · one change mid-year costs capital' : cost ? `changing course now: ${cost} political capital, once a year` : 'free for the first month'}</small></h3>
           <div className="sotn-foci" role="radiogroup" aria-label="National focus">
             {FOCI.map((f) => (
-              <button key={f.id} role="radio" aria-checked={focus === f.id} className={`sotn-focus ${focus === f.id ? 'on' : ''}`} style={{ ['--fc' as string]: f.color }} onClick={() => setFocus(focus === f.id ? null : f.id)}>
-                <span className="sf-ic" aria-hidden="true">{f.icon}</span>
+              <button key={f.id} role="radio" aria-checked={focus === f.id} className={`sotn-focus ${focus === f.id ? 'on' : ''}`} style={{ ['--fc' as string]: f.color }} onClick={() => { sfx('select', FOCI.indexOf(f)); setFocus(focus === f.id ? null : f.id); }}>
+                <span className="sf-ic" aria-hidden="true"><Glyph name={FOCUS_GLYPH[f.id]} size={30} /></span>
                 <b>{f.name}</b>
                 <em>{f.motto}</em>
                 <ul>{f.pros.map((p) => <li key={p} className="pro">{p}</li>)}{f.cons.map((p) => <li key={p} className="con">{p}</li>)}</ul>
@@ -107,7 +119,7 @@ export function YearPlanModal() {
           {pledgeLocked ? <div className="sotn-pledged">🤝 {P.pledge!.title}{P.pledge!.done ? ' · kept' : ''}</div> : (
             <div className="sotn-pledges" role="radiogroup" aria-label="Your promise">
               {goals.map((g) => { const pr = g.progress(s, c); return (
-                <button key={g.id} role="radio" aria-checked={pledge === g.id} className={`sotn-pledge ${pledge === g.id ? 'on' : ''}`} onClick={() => setPledge(pledge === g.id ? null : g.id)}>
+                <button key={g.id} role="radio" aria-checked={pledge === g.id} className={`sotn-pledge ${pledge === g.id ? 'on' : ''}`} onClick={() => { sfx('select', 5); setPledge(pledge === g.id ? null : g.id); }}>
                   <b>{g.title}</b><small>{pr.text}</small><span className="desk-bar"><i style={{ width: `${Math.round(pr.value * 100)}%` }} /></span>
                 </button>); })}
               <button role="radio" aria-checked={pledge === null} className={`sotn-pledge none ${pledge === null ? 'on' : ''}`} onClick={() => setPledge(null)}><b>Promise nothing</b><small>no reward, no risk</small></button>
@@ -115,7 +127,7 @@ export function YearPlanModal() {
           )}
         </div>
         <footer className="sotn-foot">
-          <span className="faint">{F ? `${F.icon} ${F.name}` : 'No focus'}{pledge ? ' · 1 promise' : ''}</span>
+          <span className="faint">{F ? F.name : 'No focus'}{pledge ? ' · 1 promise' : ''}</span>
           {!pending && <button className="btn" onClick={close}>Cancel</button>}
           <button className="btn primary sotn-go" onClick={begin}>{pending ? `Begin ${P.year} ▶` : focus !== (c.focus ?? null) && cost ? `Change course (${cost} capital)` : 'Confirm'}</button>
         </footer>

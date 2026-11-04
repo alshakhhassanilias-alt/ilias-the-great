@@ -5,6 +5,8 @@
 import { store, useStore } from '../state/store';
 import { SCENARIOS, scenarioById, scenarioGoals, scenarioPlayer, type Scenario } from '../sim/scenarios';
 import { Emblem } from './art/Emblem';
+import { sfx } from '../audio';
+import { Glyph, SCEN_GLYPH } from './art/Glyphs';
 import { Section } from './widgets';
 
 const BEST = (id: string) => `wo-scen-best:${id}`;
@@ -30,11 +32,11 @@ export function ScenarioPicker({ value, onPick }: { value?: string; onPick: (sc:
         const c = s.countries[scenarioPlayer(sc)];
         const b = bestOf(sc.id);
         return (
-          <button key={sc.id} role="radio" aria-checked={value === sc.id} className={`scen-card ${value === sc.id ? 'on' : ''} d-${sc.difficulty}`} onClick={() => onPick(sc)}>
-            <span className="scen-art" aria-hidden="true">{c ? <Emblem c={c} size={44} crest={false} /> : null}<span className="scen-ic">{sc.icon}</span></span>
+          <button key={sc.id} role="radio" aria-checked={value === sc.id} className={`scen-card ${value === sc.id ? 'on' : ''} d-${sc.difficulty} ${sc.tutorial ? 'tut' : ''}`} onClick={() => onPick(sc)}>
+            <span className="scen-art" aria-hidden="true">{c ? <Emblem c={c} size={44} crest={false} /> : null}<span className="scen-ic"><Glyph name={SCEN_GLYPH[sc.id] ?? 'finish'} size={20} /></span></span>
             <span className="scen-txt">
               <b>{sc.title}</b>
-              <small>{sc.country} · {sc.year} · {sc.years} years · <em>{sc.difficulty}</em></small>
+              <small>{sc.tutorial ? <><em>Learn to play</em> · {sc.country} · {sc.years} years</> : <>{sc.country} · {sc.year} · {sc.years} years · <em>{sc.difficulty}</em></>}</small>
               <span className="scen-pitch">{sc.pitch}</span>
             </span>
             <span className="scen-best">{b ? <><Stars n={b.stars} /><small>best {b.score}</small></> : <small className="faint">not played</small>}</span>
@@ -49,7 +51,7 @@ export function ScenarioBrief({ id }: { id: string }) {
   if (!sc) return null;
   return (
     <div className="card scen-brief">
-      <div className="scen-brief-h">{sc.icon} <b>{sc.title}</b></div>
+      <div className="scen-brief-h"><Glyph name={SCEN_GLYPH[sc.id] ?? 'finish'} size={18} /> <b>{sc.title}</b></div>
       <p>{sc.brief}</p>
       <ol>{sc.goals.map((g, i) => <li key={i}><span className="stars"><i className="on">★</i></span> {g.label}{g.kind === 'end' ? ' (judged on the last day)' : g.kind === 'hold' ? '' : ''}</li>)}</ol>
       <small className="faint">The first goal decides victory; the other two are extra stars. Win all three early and the scenario ends in triumph.</small>
@@ -67,7 +69,7 @@ export function ScenarioChip() {
   const won = scenarioGoals(s).filter((g) => g.won).length;
   return (
     <button className="scen-chip" title={`${sc.title}: ${sc.goals.map((g) => g.label).join(' · ')}`} onClick={() => { if (st.done) { store.scenResultOpen = true; store.scenClosed = -1; store.notify(); } else { store.select(s.player, null, false); store.setTab('goals'); } }}>
-      <span aria-hidden="true">{sc.icon}</span>
+      <span aria-hidden="true" className="scen-chip-ic"><Glyph name={SCEN_GLYPH[sc.id] ?? 'finish'} size={20} /></span>
       <span className="scen-chip-t"><b>{st.done ? (st.done.won ? 'Victory' : 'Defeat') : left >= 52 ? `${Math.floor(left / 52)}y ${Math.round((left % 52) / 4.33)}m left` : `${Math.round(left / 4.33)} months left`}</b><Stars n={st.done ? st.done.stars : won} /></span>
     </button>
   );
@@ -83,7 +85,7 @@ export function ScenarioPanel() {
   const left = Math.max(0, st.until - s.tick);
   const frac = 1 - left / Math.max(1, st.until - st.start);
   return (
-    <Section title={`${sc.icon} ${sc.title}`} hint={st.done ? (st.done.won ? 'victory' : 'defeat') : `${(left / 52).toFixed(1)} years left`}>
+    <Section title={sc.title} hint={st.done ? (st.done.won ? 'victory' : 'defeat') : `${(left / 52).toFixed(1)} years left`}>
       <div className="scen-panel">
         <div className="scen-clock"><i style={{ width: `${Math.round(frac * 100)}%` }} /></div>
         {gs.map((g) => (
@@ -111,14 +113,14 @@ export function ScenarioResult() {
   const open = !!st?.done && (store.scenResultOpen || store.scenSeen) && !store.preview;
   if (!s || !st?.done || !sc || !open || store.scenClosed === st.done.tick) return null;
   const d = st.done;
-  if (recorded?.tick !== d.tick || recorded.id !== sc.id) recorded = { id: sc.id, tick: d.tick, rec: saveBest(sc.id, d.stars, d.score) };
+  if (recorded?.tick !== d.tick || recorded.id !== sc.id) { recorded = { id: sc.id, tick: d.tick, rec: saveBest(sc.id, d.stars, d.score) }; sfx(d.won ? 'victory' : 'defeat'); if (d.stars) window.setTimeout(() => sfx('star'), 900); }
   const record = recorded.rec;
   const c = s.countries[s.player];
   const close = () => { store.scenClosed = d.tick; store.scenResultOpen = false; store.notify(); };
   return (
     <div className="scrim sotn-scrim" role="presentation">
       <div className={`scen-result ${d.won ? 'win' : 'lose'}`} role="dialog" aria-label="Scenario result">
-        <div className="sr-kicker">{sc.icon} {sc.title}</div>
+        <div className="sr-kicker"><Glyph name={SCEN_GLYPH[sc.id] ?? 'finish'} size={16} /> {sc.title}</div>
         <div className="sr-emb"><Emblem c={c} size={92} /></div>
         <h2>{d.won ? 'Victory' : 'Defeat'}</h2>
         <Stars n={d.stars} big />

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { clamp } from '../sim/util';
+import { sfx } from '../audio';
 
 const foldKey = (k: string) => `wo-fold:${k}`;
 function readFold(k: string, dflt: boolean) { try { const v = localStorage.getItem(foldKey(k)); return v === null ? dflt : v === '1'; } catch { return dflt; } }
@@ -15,7 +16,7 @@ export function Section({ title, hint, children, fold, closed }: { title: string
       {children}
     </section>
   );
-  const toggle = () => { setOpen(!open); try { localStorage.setItem(foldKey(fold), open ? '0' : '1'); } catch { /* storage unavailable */ } };
+  const toggle = () => { sfx('fold'); setOpen(!open); try { localStorage.setItem(foldKey(fold), open ? '0' : '1'); } catch { /* storage unavailable */ } };
   return (
     <section className={`section fold ${open ? 'open' : 'shut'}`}>
       <h3><button type="button" className="fold-h" aria-expanded={open} onClick={toggle}><span className="fold-chev" aria-hidden="true">▸</span>{title}</button>{hint ? <small>{hint}</small> : null}</h3>

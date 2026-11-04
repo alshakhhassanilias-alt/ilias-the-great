@@ -246,3 +246,65 @@
 @media (max-width: 900px) {
   .desk-more, .rv-foot .linkbtn { min-height: 38px; padding: 8px 6px; }
 }
+
+/* ---------- glyphs (the game's own icon set) ---------- */
+.glyph { display: inline-block; vertical-align: -0.22em; flex: none; }
+.desk-ic { color: color-mix(in srgb, var(--tc) 80%, #fff); }
+.sf-ic { color: var(--fc); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--fc) 45%, transparent)); line-height: 1; }
+.mode-card .mc-icon { color: var(--accent); line-height: 1; }
+.mode-card.on .mc-icon { filter: drop-shadow(0 0 8px rgba(242, 184, 75, .55)); }
+.scen-ic { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #2a3a4c, #0e1822); border: 1px solid rgba(242, 184, 75, .6); color: #ffd86b; filter: none; }
+.scen-ic .glyph { width: 16px; height: 16px; }
+.scen-chip-ic { color: #ffd86b; display: grid; place-items: center; }
+.scen-brief-h .glyph, .sr-kicker .glyph { color: var(--accent); }
+.rv-focus .glyph { color: var(--fc); }
+.mg-icon { color: var(--gc, var(--accent)); display: grid; place-items: center; }
+.coal-ic { color: var(--fc); display: inline-grid; place-items: center; }
+.fac-top b .glyph { color: var(--accent); margin-right: 2px; }
+.chip-mini .glyph { vertical-align: -0.18em; }
+
+/* ---------- first steps (the walkthrough) ---------- */
+.walk-card { box-shadow: 0 18px 50px rgba(0, 0, 0, .6), 0 0 0 1px rgba(242, 184, 75, .15), 0 0 30px rgba(242, 184, 75, .12); animation: desk-in .3s ease both; }
+.walk-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.walk-face { position: relative; flex: none; }
+.walk-face > svg { border-radius: 50%; box-shadow: 0 0 0 2px #d6ab52, 0 0 14px rgba(214, 171, 82, .35); }
+.walk-glyph { position: absolute; right: -5px; bottom: -3px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #15110d; border: 1px solid #d6ab52; color: #f5da8f; }
+.walk-who { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #c9a85a; }
+.walk-head h3 { margin: 1px 0 0; }
+.walk-dots { display: flex; gap: 4px; margin: 0 0 10px; }
+.walk-dots i { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .12); }
+.walk-dots i.done { background: #8c7339; }
+.walk-dots i.on { background: #f2c45c; box-shadow: 0 0 8px rgba(242, 196, 92, .6); }
+.walk-ring { animation: ring-pulse 1.8s ease-in-out infinite; }
+@keyframes ring-pulse { 0%, 100% { box-shadow: 0 0 0 4000px rgba(5, 8, 12, .38), 0 0 18px rgba(231, 194, 92, .45); } 50% { box-shadow: 0 0 0 4000px rgba(5, 8, 12, .38), 0 0 34px rgba(231, 194, 92, .85); } }
+@media (max-width: 900px) { .walk-card .btn { min-height: 40px; } .walk-ring { box-shadow: 0 0 18px rgba(231, 194, 92, .6); animation: none; } }
+
+/* ---------- first-visit tab tips ---------- */
+.tab-tip { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: start; margin: 0 0 14px; padding: 11px 12px; border-radius: 12px; background: linear-gradient(100deg, rgba(242, 184, 75, .14), transparent 70%), var(--panel-2); border: 1px solid rgba(242, 184, 75, .45); animation: desk-in .3s ease both; }
+.tab-tip .tt-ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #ffd86b; background: rgba(0, 0, 0, .3); border: 1px solid rgba(242, 184, 75, .5); }
+.tab-tip b { display: block; font-size: 13.5px; margin-bottom: 2px; }
+.tab-tip p { margin: 0 0 6px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.tab-tip .tt-first { font-size: 12px; color: var(--text); }
+.tab-tip .tt-first::before { content: '→ '; color: var(--accent); font-weight: 700; }
+.tab-tip button { margin-top: 8px; min-height: 34px; }
+@media (max-width: 900px) { .tab-tip button { min-height: 40px; } }
+.scen-card.tut { border-color: rgba(91, 212, 140, .55); background: linear-gradient(100deg, rgba(91, 212, 140, .12), transparent 70%), var(--panel-2); }
+.scen-card.tut .scen-txt small em { color: var(--green); }
+.newhere { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; text-align: left; margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; color: var(--text); background: linear-gradient(100deg, rgba(91, 212, 140, .16), transparent 75%), var(--panel-2); border: 1px solid rgba(91, 212, 140, .55); animation: desk-in .35s ease both; }
+.newhere b { display: block; font-size: 14px; }
+.newhere small { color: var(--muted); font-size: 12px; }
+.nh-ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #9ff0bf; background: rgba(0, 0, 0, .3); border: 1px solid rgba(91, 212, 140, .55); }
+.nh-go { font-size: 24px; color: var(--green); }
+.newhere:hover { box-shadow: 0 0 18px rgba(91, 212, 140, .25); }
+.sotn-top .grow, .walk-head .grow { flex: 1; min-width: 0; }
+@media (min-width: 901px) { .tb-g { display: inline-grid; place-items: center; color: var(--brass-hi, var(--accent)); vertical-align: -0.15em; } }
+.rs-bicon { color: var(--bc, var(--accent)); display: inline-grid; place-items: center; }
+.ind-icon { color: var(--accent); display: inline-grid; place-items: center; }
+.rs-now small .glyph { color: var(--accent); }
+
+/* ---------- phones: bigger hit areas for small text links and chips, with no change to how they look ---------- */
+@media (max-width: 900px) {
+  .linkbtn { padding-top: 10px; padding-bottom: 10px; margin-top: -10px; margin-bottom: -10px; }
+  .pill, .btn.sm, .chips button, .seg button { position: relative; }
+  .pill::after, .btn.sm::after, .chips button::after { content: "";  position: absolute; left: 0; right: 0; top: -9px; bottom: -9px; }
+}

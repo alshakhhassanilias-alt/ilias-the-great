@@ -255,7 +255,7 @@ function MenuDrawer({ onClose }: { onClose: () => void }) {
         <button className="btn" onClick={() => store.openDrawer('load')}>📂 Load game<small>{keyName(prefs.keys.quickLoad)} quick load</small></button>
         <button className="btn" onClick={() => store.openDrawer('settings')}>⚙ Settings<small>game, display, sound, controls</small></button>
         <button className="btn" onClick={() => { store.helpStep = 0; store.openDrawer('help'); }}>❓ How to play</button>
-        <button className="btn" onClick={() => { setPrefs({ walk: 0 }); onClose(); }}>🧭 Replay the walkthrough</button>
+        <button className="btn" onClick={() => { setPrefs({ walk: 0, tips: [] }); onClose(); }}>🧭 Replay the walkthrough</button>
         <button className="btn" onClick={() => void quit()}>Quit to main menu</button>
         {isDesktop && <button className="btn danger" onClick={() => void exit()}>Quit to desktop</button>}
       </div>

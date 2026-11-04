@@ -347,7 +347,9 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   // ---- fiscal ----
   // taxes, plus mining and arms export earnings (industry.ts) and the dividends of a sphere of influence (influence.ts)
   const revenue = e.gdp * e.collection * diffTax * taxBurden(b) * (e.prev.revMult ?? 1) + (e.prev.exportInc ?? 0) + (e.prev.sphereInc ?? 0);
-  const mkt = marketRate(e) - (cb ? 0.005 : 0) + charRate(c) - (e.prev.chR0 ?? 0);
+  // after a default the restructured debt is carried by an IMF-style programme at a capped rate for five years
+  const mkt0 = marketRate(e) - (cb ? 0.005 : 0) + charRate(c) - (e.prev.chR0 ?? 0);
+  const mkt = s.tick - e.lastDefault < 260 ? Math.min(mkt0, 0.055) : mkt0;
   e.avgRate += (mkt - e.avgRate) * 0.2 * DT * 5;
   e.interest = e.debt * e.avgRate;
   const upkeep = stepMilitary(c, s, geo);
@@ -372,13 +374,15 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   // country defaults and restructures down to a level it can carry, as real defaulters do (Greece 2012, Argentina,
   // Zambia). Markets stay wary for years (the rate premium fades as stability returns).
   const debtRatio = e.debt / e.gdp;
-  const unsustainable = debtRatio > 4 || (debtRatio > 1.2 && e.interest > 0.35 * Math.max(e.revenue, 1));
-  if (unsustainable && s.tick > 26 && s.tick - e.lastDefault > 260) {
+  const unsustainable = debtRatio > 3.2 || (debtRatio > 1.2 && e.interest > 0.35 * Math.max(e.revenue, 1));
+  // a second default comes sooner when the debt has run away again (markets have already written the country off)
+  if (unsustainable && s.tick > 26 && s.tick - e.lastDefault > (debtRatio > 4 ? 104 : 260)) {
     const before = e.debt;
     e.debt = Math.min(e.debt * 0.5, Math.max(0.7 * e.gdp, e.debt * 0.25));
     e.stability = Math.max(0, e.stability - 20);
     e.monetary += 0.04;
     e.lastDefault = s.tick;
+    e.avgRate = Math.min(e.avgRate, 0.055);
     logEvent(s, `${c.name} defaulted on its sovereign debt (${(debtRatio * 100).toFixed(0)}% of GDP); creditors accepted a ${Math.round((1 - e.debt / before) * 100)}% haircut.`, c.isPlayer ? 'danger' : 'econ', [c.id], true);
   }
 

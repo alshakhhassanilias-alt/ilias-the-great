@@ -5,6 +5,7 @@ import { warSupport } from '../sim/warsupport';
 import { isAtWar } from '../sim/relations';
 import { LegacyChip } from './Legacy';
 import { ScenarioChip } from './Scenario';
+import { Glyph } from './art/Glyphs';
 import { Tween, DeltaPop } from './Tween';
 import { raceOf, tierLabel } from '../sim/power';
 
@@ -53,9 +54,9 @@ export function TopBar() {
         <div className="kpi hide-s" role="listitem"><label>Stability</label><b className={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'}><Tween value={e.stability} format={(v) => v.toFixed(0)} /><DeltaPop value={Math.round(e.stability)} min={2} fmt={(d) => `${d > 0 ? '+' : '−'}${Math.abs(Math.round(d))}`} /></b><small>{s.wars.some((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)) ? '⚔ at war' : 'at peace'}</small></div>
       </div>
       <div className="topbtns">
-        <button className="iconbtn" aria-label="World rankings, wars and news" onClick={() => store.openDrawer('world')}>🌍<span className="hide-m"> World</span>{store.unread > 0 && <span className="badge">{Math.min(store.unread, 99)}</span>}</button>
-        <button className="iconbtn" aria-label={store.sound ? 'Mute sound' : 'Turn sound on'} aria-pressed={store.sound} onClick={() => store.setSound(!store.sound)}>{store.sound ? '🔊' : '🔇'}</button>
-        <button className="iconbtn" aria-label="Menu" onClick={() => store.openDrawer('menu')}>☰</button>
+        <button className="iconbtn" aria-label="World rankings, wars and news" onClick={() => store.openDrawer('world')}><span className="desk-only tb-g"><Glyph name="globe" size={17} /></span><span className="desk-hide">🌍</span><span className="hide-m"> World</span>{store.unread > 0 && <span className="badge">{Math.min(store.unread, 99)}</span>}</button>
+        <button className="iconbtn" aria-label={store.sound ? 'Mute sound' : 'Turn sound on'} aria-pressed={store.sound} onClick={() => store.setSound(!store.sound)}><span className="desk-only tb-g"><Glyph name={store.sound ? 'speaker' : 'mute'} size={18} /></span><span className="desk-hide">{store.sound ? '🔊' : '🔇'}</span></button>
+        <button className="iconbtn" aria-label="Menu" onClick={() => store.openDrawer('menu')}><span className="desk-only tb-g"><Glyph name="menu" size={18} /></span><span className="desk-hide">☰</span></button>
       </div>
     </header>
   );

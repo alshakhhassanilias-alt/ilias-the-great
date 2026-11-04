@@ -10,9 +10,10 @@ import { raceOf, tierLabel } from '../../sim/power';
 import { seedOf } from '../../sim/story';
 import { goalHelp, guideLevel } from '../guides';
 import { priced } from './Desk';
+import { Glyph } from '../art/Glyphs';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
-const THEME_ICON: Record<string, string> = { economy: '📈', politics: '🏛', military: '⚔' };
+const THEME_ICON: Record<string, string> = { economy: 'rise', politics: 'scale', military: 'sword' };
 const REGION: Record<string, string> = { EU: 'Europe', RU: 'Eurasia', ME: 'the Middle East', AF: 'Africa', SA: 'South Asia', EA: 'East Asia', SEA: 'Southeast Asia', LA: 'Latin America', NA: 'North America', OC: 'Oceania' };
 /** The ambition follows the road the player is actually on once it is clear (otherwise the nation's own story). */
 const AMBITION: Record<Path, (region: string) => string> = {
@@ -54,14 +55,14 @@ export function MissionCard() {
           const pledged = s.plan?.pledge?.id === g.id && !s.plan.pledge.done;
           return (
             <li key={g.id} style={{ ['--gc' as string]: THEME_COL[g.theme] }}>
-              <span className="mg-icon" aria-hidden>{THEME_ICON[g.theme]}</span>
+              <span className="mg-icon" aria-hidden><Glyph name={THEME_ICON[g.theme]} size={18} /></span>
               <div className="mg-body">
                 <div className="mg-top"><b>{pledged ? '🤝 ' : ''}{g.title}</b><span className="mg-pct">{Math.round(p.value * 100)}%</span></div>
                 <div className="mg-bar"><i style={{ width: `${Math.round(p.value * 100)}%` }} /></div>
                 <div className="mg-meta"><span>{p.text}</span></div>
               </div>
               {fix && (
-                <button className="btn sm mg-go" title={`${pr?.label ?? ''}${help?.how ? ` · ${help.how}` : ''}`} onClick={() => { if (fix.run) store.act((x) => fix.run!(x, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
+                <button className="btn sm mg-go" title={`${pr?.label ?? ''}${help?.how ? ` · ${help.how}` : ''}`} onClick={() => { if (fix.run) { if (store.act((x) => fix.run!(x, store.geo)).ok) store.deskActs++; } else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
                   {fix.run ? 'Do it' : 'Go'}{fix.run && pr?.price ? <small>{pr.price}</small> : null}
                 </button>
               )}

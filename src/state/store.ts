@@ -14,7 +14,7 @@ import { DEFAULT_SETTINGS, type CountryId, type GameState, type LogEntry, type S
 import { alliesOf, areAtWar } from '../sim/relations';
 import { neighborsOf } from '../sim/diplomacy';
 import { eventById } from '../sim/events';
-import { sfx, setSound, audio } from '../audio';
+import { sfx, setSound, audio, type Sfx } from '../audio';
 import type { ActionResult } from '../sim/actions';
 import { achieve, saves, type SaveMeta } from '../platform';
 import type { Ask } from '../ui/SystemScreens';
@@ -39,6 +39,19 @@ export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace'
 
 const QUICK = 'Quicksave';
 
+/** the sound of a moment in the log that concerns the player (promises, rivals, stars, coalition) */
+function momentSound(text: string, me: string): Sfx | null {
+  if (/PROMISE KEPT/.test(text)) return 'promise';
+  if (/PROMISE BROKEN/.test(text)) return 'broken';
+  if (/STAR WON/.test(text)) return 'star';
+  if (/^📈/.test(text)) return 'overtake';
+  if (/^📉/.test(text) && text.includes(me)) return 'slip';
+  if (/^🎙/.test(text)) return 'rival';
+  if (/^✅ Demand met/.test(text)) return 'met';
+  if (/^💥 .*(leave your coalition|turn against the regime)/.test(text)) return 'walkout';
+  if (/^📋 .* in review/.test(text)) return null; // the State of the Nation rings its own bell
+  return null;
+}
 class Store {
   geo = loadGeo();
   state: GameState | null = null;
@@ -207,6 +220,10 @@ class Store {
     this.startLoop();
     this.notify();
   }
+  /** one-click fixes used (desk, mission card, goals): the walkthrough watches it */
+  deskActs = 0;
+  /** bumps on every player action (panels that are costly to compute cache on it and on the week) */
+  actSeq = 0;
   /** the State of the Nation, opened by hand (it opens by itself every January) */
   planOpen = false;
   openPlan(on = true) { this.planOpen = on; this.notify(); }
@@ -313,6 +330,7 @@ class Store {
       else if (mine && !this.preview) {
         if (e.kind === 'war' && /declared war/.test(e.text) && e.countries[0] !== s.player) sfx('war');
         else if (e.kind === 'territory' && /captured/.test(e.text)) sfx(e.countries[0] === s.player ? 'capture' : 'lost');
+        else if (!e.big) { const k = momentSound(e.text, s.countries[s.player].name); if (k) sfx(k); }
       }
       // a toast only for what really happens to you (a war, land won or lost, peace, real danger); the rest of the
       // world is in the news ticker and the News tab, not in your face
@@ -374,7 +392,7 @@ class Store {
     this.breaking = { seq: e.seq, text: e.text, kind: e.kind, prov: e.prov };
     this.breakPrio = prio; this.breakAt = now;
     if (e.prov !== undefined) { this.pingSeq++; this.pingProv = e.prov; this.pingColor = e.kind === 'war' || e.kind === 'danger' ? '#ff6b5a' : '#ffd36a'; }
-    sfx(/TROPHY|complete!/.test(e.text) ? 'success' : e.kind === 'war' || e.kind === 'danger' ? 'war' : 'breaking');
+    sfx(momentSound(e.text, s.countries[s.player].name) ?? (/TROPHY|complete!/.test(e.text) ? 'success' : e.kind === 'war' || e.kind === 'danger' ? 'war' : 'breaking'));
     clearTimeout(this.breakTimer);
     this.breakTimer = window.setTimeout(() => { this.breaking = null; this.notify(); }, 5000);
   }
@@ -413,7 +431,7 @@ class Store {
     if (c !== null && this.sheet === 'peek') this.sheet = 'half';
     this.notify();
   }
-  setTab(t: Tab) { this.tab = t; this.notify(); }
+  setTab(t: Tab) { if (t !== this.tab && this.state && !this.preview) sfx('tab'); this.tab = t; this.notify(); }
   setMapMode(m: MapMode) { this.mapMode = m; this.notify(); }
   setSheet(m: 'peek' | 'half' | 'full') { this.sheet = m; this.notify(); }
   openDrawer(d: Drawer['open'], worldTab?: Drawer['worldTab']) {
@@ -427,12 +445,14 @@ class Store {
   act<T extends ActionResult>(fn: (s: GameState) => T, quiet = false): T {
     const s = this.state!;
     const r = fn(s);
+    this.actSeq++;
     this.processLog(); // consume events caused by the action so they don't re-trigger later
     if (!quiet && r.message) this.toast(r.message, r.ok ? 'econ' : 'danger');
+    if (!quiet && !this.preview) sfx(!r.ok ? 'deny' : / is law\.|passes parliament|signed into force/.test(r.message) ? 'law' : /Paid|borrowed|Recruited|under way/.test(r.message) ? 'coin' : 'confirm');
     this.notify();
     return r;
   }
-  mutate(fn: (s: GameState) => void) { fn(this.state!); this.notify(); }
+  mutate(fn: (s: GameState) => void) { fn(this.state!); this.actSeq++; this.notify(); }
   /** float a word over a region on the map (feedback for a player action) */
   mapCallout(prov: number, text: string, color = '#ffd36a') { if (prov >= 0) { this.callouts.push({ prov, text, color }); this.notify(); } }
   atWarWithPlayer(c: CountryId) { return !!this.state && areAtWar(this.state, c, this.state.player); }

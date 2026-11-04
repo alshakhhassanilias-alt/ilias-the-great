@@ -2,6 +2,7 @@
  * Industries and world markets (Economy tab): each sector's capacity, your world rank and share, the world price and
  * its direction, and the investment programmes that build capacity.
  */
+import { Glyph, SECTOR_GLYPH } from '../art/Glyphs';
 import { store } from '../../state/store';
 import { Section, Meter } from '../widgets';
 import { fmtMoney } from '../format';
@@ -34,7 +35,7 @@ export function IndustrySection({ id }: { id: number }) {
           return (
             <div key={sec.id} className={`ind-card ${run ? 'run' : ''}`}>
               <div className="ind-head">
-                <span className="ind-icon" aria-hidden="true">{sec.icon}</span>
+                <span className="ind-icon" aria-hidden="true"><Glyph name={SECTOR_GLYPH[sec.id]} size={20} /></span>
                 <div className="grow">
                   <b>{sec.name}</b>
                   <small>{st.rank ? <>world’s {ord(st.rank)} {sec.maker} · {(st.share * 100).toFixed(st.share < 0.01 ? 2 : 1)}% of world output</> : '—'}</small>

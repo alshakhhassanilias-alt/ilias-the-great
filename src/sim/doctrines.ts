@@ -98,7 +98,7 @@ export function mods(c: Country): Required<Eff> {
   }
   const fe = focusById(c.focus)?.eff;
   if (fe) {
-    out.tfp += fe.tfp ?? 0; out.stab += fe.stab ?? 0; out.accept += fe.accept ?? 0; out.rep += fe.rep ?? 0;
+    out.tfp += fe.tfp ?? 0; out.stab += fe.stab ?? 0; out.accept += fe.accept ?? 0; out.rep += fe.rep ?? 0; out.milTech += fe.milTech ?? 0;
     out.cost *= fe.cost ?? 1; out.off *= fe.off ?? 1; out.def *= fe.def ?? 1; out.deter *= fe.deter ?? 1;
   }
   if (c.ind) out.cost *= armsCostMult(c); // a home defence industry makes weapons cheaper

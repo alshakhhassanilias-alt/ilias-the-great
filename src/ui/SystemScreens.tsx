@@ -158,6 +158,8 @@ export function SoundSettings() {
       <label className="check"><input id="pref-music" type="checkbox" checked={p.musicOn} onChange={(e) => setPrefs({ musicOn: e.target.checked })} /><span><b>Music</b><small>{track ? `Now playing: ${track}` : 'The score changes with the state of the world: calm in peace, tense in a crisis, driving in war.'}</small></span></label>
       <Slider label="Music volume" value={p.music} min={0} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => setPrefs({ music: v })} />
       <Slider label="Effects volume" value={p.sfx} min={0} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => { setPrefs({ sfx: v }); sfx('click'); }} />
+      <label className="check"><input id="pref-ui-sounds" type="checkbox" checked={p.uiSounds} onChange={(e) => { setPrefs({ uiSounds: e.target.checked }); if (e.target.checked) sfx('confirm'); }} /><span><b>Interface sounds</b><small>Soft clicks for tabs, buttons and choices.</small></span></label>
+      {p.uiSounds && <Slider label="Interface volume" value={p.uiVol} min={0} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => { setPrefs({ uiVol: v }); sfx('select', Math.round(v * 5)); }} />}
       <label className="check"><input id="pref-duck" type="checkbox" checked={p.duck} onChange={(e) => setPrefs({ duck: e.target.checked })} /><span><b>Quieter music while paused</b></span></label>
       <label className="check"><input id="pref-mute" type="checkbox" checked={p.muteUnfocused} onChange={(e) => setPrefs({ muteUnfocused: e.target.checked })} /><span><b>Mute when the game is in the background</b></span></label>
     </div>

@@ -16,7 +16,7 @@ const STATUS_ICON: Record<Check['status'], string> = { good: '●', warn: '▲',
 function FixButton({ fix }: { fix: Fix }) {
   const pr = priced(store.state!.countries[store.state!.player], fix.label);
   return (
-    <button className="desk-do" onClick={() => { if (fix.run) store.act((g) => fix.run!(g, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
+    <button className="desk-do" onClick={() => { if (fix.run) { if (store.act((g) => fix.run!(g, store.geo)).ok) store.deskActs++; } else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
       <b>{pr.label}</b>{pr.price ? <small>{pr.price}</small> : null}
     </button>
   );

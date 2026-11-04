@@ -250,6 +250,26 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('the scenario goals sit at the top of the Overview', (await pg.locator('.scen-panel .scen-goal').count()) === 3);
   await pg.close();
 }
+// ---------------- a first-time player ----------------
+{
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 860 } });
+  watch(pg);
+  await pg.goto(URL);
+  await pg.waitForSelector('.start');
+  check('a first-time player is offered First Steps on the start screen', (await pg.locator('.newhere').count()) === 1);
+  await pg.click('.newhere');
+  await pg.click('.start-side .foot .btn.primary');
+  await pg.waitForSelector('.app'); await sleep(900);
+  check('First Steps starts the guided walkthrough with the chief of staff', (await pg.locator('.walk-card .walk-who').count()) === 1 && (await S(pg)).tick === 0);
+  await pg.click('.walk-card .btn.primary'); await sleep(300);
+  await pg.click('.walk-card .btn.primary'); await sleep(500);
+  check('the walkthrough points at the desk', /desk/i.test(await pg.locator('.walk-card h3').innerText()) && (await pg.locator('.walk-ring').count()) === 1);
+  await pg.click('.walk-card button:has-text("Skip tour")'); await sleep(300);
+  check('the tour can be skipped, and then each tab explains itself once', (await pg.locator('.walk-card').count()) === 0 && (await pg.locator('.tab-tip').count()) === 1);
+  await pg.click('.tab-tip button:has-text("Got it")'); await sleep(200);
+  check('a tab tip is read once', (await pg.locator('.tab-tip').count()) === 0);
+  await pg.close();
+}
 // ---------------- army groups ----------------
 {
   const pg = await browser.newPage({ viewport: { width: 1440, height: 860 } });

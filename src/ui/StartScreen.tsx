@@ -1,3 +1,4 @@
+import { prefs, setPrefs } from '../prefs';
 import { desktop, isDesktop } from '../platform';
 import { nationalColor } from '../map/palette';
 import { Emblem } from './art/Emblem';
@@ -14,6 +15,7 @@ import { strengthIndex } from '../sim/military';
 import { NAME_TO_ID } from '../sim/relations';
 import { SCENARIOS, scenarioById, scenarioPlayer } from '../sim/scenarios';
 import { ScenarioBrief, ScenarioPicker } from './Scenario';
+import { Glyph } from './art/Glyphs';
 
 const FEATURED = ['United States of America', 'China', 'Germany', 'Japan', 'India', 'United Kingdom', 'France', 'Brazil', 'Russia', 'Poland', 'Turkey', 'Nigeria', 'Israel', 'Taiwan', 'Singapore', 'Argentina'];
 
@@ -44,20 +46,27 @@ export function StartScreen() {
       </div>
       <div className="start-side">
         <div className="scroll">
+          {prefs.walk < 0 && kind !== 'scenario' && (
+            <button className="newhere" onClick={() => { const sc = SCENARIOS.find((x) => x.tutorial)!; setKind('scenario'); upd({ mode: 'sandbox', scenario: sc.id, startYear: sc.year, victory: 'none', endYear: null, difficulty: 'easy' }); onPick(scenarioPlayer(sc)); }}>
+              <span className="nh-ic" aria-hidden="true"><Glyph name="book" size={22} /></span>
+              <span><b>New to World Order?</b><small>Start with First Steps: a ten-minute guided game with your chief of staff.</small></span>
+              <span className="nh-go" aria-hidden="true">›</span>
+            </button>
+          )}
           <div className="mode-cards three" role="radiogroup" aria-label="Game mode">
             <button role="radio" aria-checked={kind === 'sandbox'} className={`mode-card ${kind === 'sandbox' ? 'on' : ''}`} onClick={() => { setKind('sandbox'); upd({ mode: 'sandbox', scenario: undefined }); }}>
-              <span className="mc-icon" aria-hidden="true">🌍</span><b>Sandbox</b><small>Total freedom. Any nation, no end. You are the nation itself; your storyline is optional.</small>
+              <span className="mc-icon" aria-hidden="true"><Glyph name="globe" size={28} /></span><b>Sandbox</b><small>Total freedom. Any nation, no end. You are the nation itself; your storyline is optional.</small>
             </button>
             <button role="radio" aria-checked={kind === 'legacy'} className={`mode-card ${kind === 'legacy' ? 'on' : ''}`} onClick={() => { setKind('legacy'); upd({ mode: 'legacy', scenario: undefined }); }}>
-              <span className="mc-icon" aria-hidden="true">📜</span><b>Legacy</b><small>You are one leader, term by term. Win elections, keep promises, survive opposition. The world judges you personally, and remembers.</small>
+              <span className="mc-icon" aria-hidden="true"><Glyph name="crown" size={28} /></span><b>Legacy</b><small>You are one leader, term by term. Win elections, keep promises, survive opposition. The world judges you personally, and remembers.</small>
             </button>
             <button role="radio" aria-checked={kind === 'scenario'} className={`mode-card ${kind === 'scenario' ? 'on' : ''}`} onClick={() => setKind('scenario')}>
-              <span className="mc-icon" aria-hidden="true">🏁</span><b>Scenarios</b><small>A nation, a moment, a deadline. Three goals, three stars, a real ending. Beat your best.</small>
+              <span className="mc-icon" aria-hidden="true"><Glyph name="finish" size={28} /></span><b>Scenarios</b><small>A nation, a moment, a deadline. Three goals, three stars, a real ending. Beat your best.</small>
             </button>
           </div>
           {kind === 'scenario' && (
             <div className="field"><label>Choose a scenario <span className="faint">{SCENARIOS.length} challenges</span></label>
-              <ScenarioPicker value={settings.scenario} onPick={(sc) => { upd({ mode: 'sandbox', scenario: sc.id, startYear: sc.year, victory: 'none', endYear: null }); onPick(scenarioPlayer(sc)); }} />
+              <ScenarioPicker value={settings.scenario} onPick={(sc) => { upd({ mode: 'sandbox', scenario: sc.id, startYear: sc.year, victory: 'none', endYear: null, ...(sc.tutorial ? { difficulty: 'easy' as Difficulty } : {}) }); onPick(scenarioPlayer(sc)); }} />
               {settings.scenario && <ScenarioBrief id={settings.scenario} />}
             </div>
           )}
@@ -146,7 +155,11 @@ export function StartScreen() {
           <button className="btn" onClick={() => store.openDrawer('settings')} aria-label="Settings">⚙</button>
           {isDesktop && <button className="btn" onClick={() => void desktop!.window.quit()}>Quit</button>}
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) store.importText(await f.text()); }} />
-          <button className="btn primary" disabled={picked === null || (kind === 'scenario' && !scen)} onClick={() => picked !== null && store.newGame({ ...settings, scenario: scen?.id, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, scen ? scenarioPlayer(scen) : picked)}>
+          <button className="btn primary" disabled={picked === null || (kind === 'scenario' && !scen)} onClick={() => {
+            if (picked === null) return;
+            if (scen?.tutorial) setPrefs({ walk: 0, tips: [] }); // the tutorial always starts with the walkthrough
+            store.newGame({ ...settings, scenario: scen?.id, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, scen ? scenarioPlayer(scen) : picked);
+          }}>
             {kind === 'scenario' ? (scen ? `Begin: ${scen.title}` : 'Choose a scenario') : c ? (settings.mode === 'legacy' ? `Take office in ${c.name}` : `Lead ${c.name}`) : 'Choose a country'}
           </button>
         </div>

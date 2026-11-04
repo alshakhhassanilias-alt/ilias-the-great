@@ -22,6 +22,8 @@ export interface ScenGoal {
 export interface Scenario {
   id: string; icon: string; title: string; country: string; year: 2021 | 2024; years: number;
   pitch: string; brief: string; difficulty: 'easy' | 'normal' | 'hard'; goals: ScenGoal[];
+  /** the tutorial: starts the walkthrough, on easy */
+  tutorial?: boolean;
   /** the nation falls (on top of being annexed): returns why, or null */
   fail?: (s: GameState, c: Country, st: ScenarioState) => string | null;
 }
@@ -32,7 +34,7 @@ export interface ScenarioState {
   /** weeks the 'hold' goals have been met in a row */
   streak: number[];
   /** the starting numbers goals are measured against */
-  base: { real: number; rank: number; prov: number; techs: number; ind: number };
+  base: { real: number; rank: number; prov: number; techs: number; ind: number; laws?: number; indAll?: number };
   done?: { won: boolean; stars: number; score: number; why: string; tick: number };
 }
 
@@ -43,20 +45,29 @@ const clientsGoal = (n: number): ScenGoal['value'] => (s, c) => { const k = clie
 const realGoal = (x: number): ScenGoal['value'] => (_s, c, st) => { const g = c.eco.realGdp / Math.max(1, st.base.real); return { v: clamp((g - 1) / (x - 1), 0, 1), text: `economy ×${g.toFixed(2)} (goal ×${x})` }; };
 /** rungs climbed (−1 before research has started: the base is filled in on the first month) */
 const techs = (c: Country) => (c.rs ? c.rs.lv.reduce((t, v) => t + v, 0) : -1);
+const ALL_SECTORS = ['agri', 'energy', 'mining', 'heavy', 'manuf', 'tech', 'arms', 'services'];
 const indOf = (c: Country, ids: string[]) => (c.ind ? ids.reduce((t, k) => t + ((c.ind!.lv as Record<string, number>)[k] ?? 0), 0) : -1);
 
 export const SCENARIOS: Scenario[] = [
+  { id: 'tutorial', icon: '📖', title: 'First Steps', country: 'Poland', year: 2024, years: 3, difficulty: 'easy', tutorial: true,
+    pitch: 'Learn to govern in ten minutes, with your chief of staff at your side.',
+    brief: 'A calm start: Poland in 2024, a growing economy and a stable coalition. Your chief of staff walks you through the essentials: plan the year, act from your desk, research, build an industry, pass a law. Do the three things below and you are ready for the real challenges.',
+    goals: [
+      { label: 'Declare a national focus for the year', kind: 'reach', value: (_s, c) => ({ v: c.focus ? 1 : 0, text: c.focus ? 'declared' : 'open the State of the Nation from your desk' }) },
+      { label: 'Expand one of your industries', kind: 'reach', value: (s, c) => { const n = s.stats.indDone ?? 0; const run = (c.ind?.prog?.length ?? 0) > 0; return { v: n > 0 ? 1 : run ? 0.5 : 0, text: n > 0 ? 'done' : run ? 'under way: it takes a few months' : 'Economy → Industries' }; } },
+      { label: 'Pass a law', kind: 'reach', value: (_s, c, st) => { const n = (c.politics?.laws.length ?? 0) - (st.base.laws ?? 0); return { v: n > 0 ? 1 : 0, text: n > 0 ? 'done' : 'Politics → Laws, or a law from your desk' }; } },
+    ] },
   { id: 'poland', icon: '🦅', title: 'The Eagle Rises', country: 'Poland', year: 2024, years: 15, difficulty: 'normal',
     pitch: 'Europe’s fastest riser wants a seat at the top table.',
-    brief: 'Poland has grown for thirty years without a recession and now spends more on defence than almost anyone in Europe. Turn that momentum into real power: break into the world’s top ten and build a circle of friends to the east, without wrecking the books.',
+    brief: 'Poland has grown for thirty years without a recession and now spends more on defence than almost anyone in Europe. Turn that momentum into real power: break into the world’s top fourteen and build a circle of friends to the east, without wrecking the books.',
     goals: [
-      { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
+      { label: 'Break into the world’s top 14', kind: 'reach', value: rankGoal(14) },
       { label: 'Win 3 client states', kind: 'reach', value: clientsGoal(3) },
       { label: 'Finish with public debt below 70% of GDP', kind: 'end', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 0.7, pctF) },
     ] },
   { id: 'argentina', icon: '🧉', title: 'Never Again', country: 'Argentina', year: 2024, years: 10, difficulty: 'hard',
     pitch: 'Inflation at 25%, debt at 85%. Break the cycle for good.',
-    brief: 'Argentina has defaulted nine times and lived with runaway prices for most of a century. You have ten years to do what nobody has managed: bring inflation down and keep it down, put the debt on a sane path, and climb back up the world table.',
+    brief: 'Argentina has defaulted nine times and lived with runaway prices for most of a century. You have ten years to do what nobody has managed: bring inflation down and keep it down, put the debt on a sane path, and climb back up the world table. The inflation spiral is a national challenge: your desk offers shock therapy, an IMF programme or a dollar peg, and an independent central bank helps.',
     goals: [
       { label: 'Hold inflation below 5% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.05, pctF) },
       { label: 'Bring public debt below 60% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 0.6, pctF) },
@@ -65,7 +76,7 @@ export const SCENARIOS: Scenario[] = [
     fail: (_s, c) => (c.eco.stability < 12 ? 'The streets turned against the government and it fell.' : null) },
   { id: 'turkey', icon: '🌉', title: 'The Bridge Between Worlds', country: 'Turkey', year: 2024, years: 12, difficulty: 'normal',
     pitch: 'Lead your region, answer to no camp.',
-    brief: 'Turkey sits between Europe, Russia and the Middle East and plays them against each other. Make it a power in its own right: a top-ten nation with its own sphere of influence, and finally tame the inflation that eats your people’s wages.',
+    brief: 'Turkey sits between Europe, Russia and the Middle East and plays them against each other. Make it a power in its own right: a top-ten nation with its own sphere of influence, and finally tame the inflation that eats your people’s wages (your desk shows how to tackle the inflation spiral).',
     goals: [
       { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
       { label: 'Win 5 client states', kind: 'reach', value: clientsGoal(5) },
@@ -85,14 +96,14 @@ export const SCENARIOS: Scenario[] = [
     goals: [
       { label: 'Become the world’s #2 power', kind: 'reach', value: rankGoal(2) },
       { label: 'Become the world’s #1 power', kind: 'reach', value: rankGoal(1) },
-      { label: 'Master 12 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 12, 0, 1), text: `${n} of 12` }; } },
+      { label: 'Master 10 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 10, 0, 1), text: `${n} of 10` }; } },
     ] },
   { id: 'japan', icon: '🗾', title: 'The Comeback', country: 'Japan', year: 2021, years: 15, difficulty: 'hard',
     pitch: 'Three lost decades. Wake the giant.',
-    brief: 'Japan has barely grown since 1990 and carries the heaviest public debt in the rich world. Prove the pessimists wrong: grow the economy by a third, bring the debt down, and climb back into the top three.',
+    brief: 'Japan has barely grown since 1990 and carries the heaviest public debt in the rich world. Prove the pessimists wrong: grow the economy by more than a third, bring the debt below 180% of GDP, and climb back into the top three.',
     goals: [
-      { label: 'Grow the economy by 30%', kind: 'reach', value: realGoal(1.3) },
-      { label: 'Bring public debt below 200% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 2, pctF) },
+      { label: 'Grow the economy by 35%', kind: 'reach', value: realGoal(1.35) },
+      { label: 'Bring public debt below 180% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 1.8, pctF) },
       { label: 'Climb into the world’s top 3', kind: 'reach', value: rankGoal(3) },
     ] },
   { id: 'saudi', icon: '🛢', title: 'Beyond Oil', country: 'Saudi Arabia', year: 2024, years: 15, difficulty: 'normal',
@@ -105,11 +116,11 @@ export const SCENARIOS: Scenario[] = [
     ] },
   { id: 'nigeria', icon: '🦁', title: 'Africa’s Giant', country: 'Nigeria', year: 2024, years: 20, difficulty: 'hard',
     pitch: 'Two hundred million people. Make them prosperous.',
-    brief: 'Nigeria has the people, the oil and the energy of a great power, and the inflation, insecurity and debts of a fragile one. Make it the richest economy in Africa, calm the prices, and take a place among the world’s top 25.',
+    brief: 'Nigeria has the people, the oil and the energy of a great power, and the inflation, insecurity and debts of a fragile one. Make it the richest economy in Africa, calm the prices, and take a place among the world’s top 20.',
     goals: [
       { label: 'Become Africa’s largest economy', kind: 'reach', value: (s, c) => { const top = s.countries.filter((x) => x.alive && x.region === 'AF' && x.id !== c.id).sort((a, b) => b.eco.gdp - a.eco.gdp)[0]; return { v: top ? clamp(c.eco.gdp / top.eco.gdp, 0, 1) : 1, text: top ? `${Math.round((c.eco.gdp / top.eco.gdp) * 100)}% of ${top.name}` : 'first' }; } },
       { label: 'Hold inflation below 6% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.06, pctF) },
-      { label: 'Climb into the world’s top 25', kind: 'reach', value: rankGoal(25) },
+      { label: 'Climb into the world’s top 20', kind: 'reach', value: rankGoal(20) },
     ],
     fail: (_s, c) => (c.eco.stability < 10 ? 'The country slid into chaos and the government fell.' : null) },
 ];
@@ -122,7 +133,7 @@ export function ensureScenario(s: GameState): ScenarioState | null {
   if (!s.scen || s.scen.id !== sc.id) {
     const c = s.countries[s.player];
     s.scen = { id: sc.id, start: s.tick, until: s.tick + sc.years * 52, stars: sc.goals.map(() => false), streak: sc.goals.map(() => 0),
-      base: { real: c.eco.realGdp, rank: powerRank(s, s.player), prov: c.provinces.length, techs: techs(c), ind: indOf(c, ['tech', 'services']) } };
+      base: { real: c.eco.realGdp, rank: powerRank(s, s.player), prov: c.provinces.length, techs: techs(c), ind: indOf(c, ['tech', 'services']), laws: c.politics?.laws.length ?? 0, indAll: indOf(c, ALL_SECTORS) } };
   }
   return s.scen;
 }
@@ -154,6 +165,7 @@ export function stepScenario(s: GameState) {
   if (s.tick % 4 !== 2 && !last) return;
   if (st.base.techs < 0) st.base.techs = techs(c);
   if (st.base.ind < 0) st.base.ind = indOf(c, ['tech', 'services']);
+  if (st.base.indAll === undefined || st.base.indAll < 0) st.base.indAll = indOf(c, ALL_SECTORS);
   sc.goals.forEach((g, i) => {
     if (st.stars[i] || g.kind === 'end') return;
     const v = g.value(s, c, st).v;

@@ -9,6 +9,7 @@ import { demandDef, type Demand } from './coalition';
 import { SECTORS, actExpandSector, expansionOf, ensureIndustry, type SectorId } from './industry';
 import { actSetResearch, ensureResearch } from './research';
 import type { Budget, Country, GameState } from './types';
+import { actChallenge, challengeById, challengesOf, localName, responseBlocked } from './character';
 
 export interface DeskFix {
   label: string;
@@ -75,6 +76,26 @@ export function demandFix(s: GameState, c: Country, d: Demand): DeskFix | null {
     case 'jobs': return { label: 'Keep it there', note: 'Must hold until the deadline: avoid tax hikes, keep investing, stay out of costly wars.' };
     case 'inflation': return { label: 'Keep it there', note: 'Must hold until the deadline: do not print money, keep the deficit in check.' };
     case 'peace': return { label: 'Keep the peace', note: 'Just start no war until the deadline.' };
+  }
+  return null;
+}
+
+/**
+ * The country's worst long-running challenge (national character) and the strongest response it can afford now:
+ * the lever a scenario like Argentina's turns on, surfaced on the desk instead of buried in a folded section.
+ */
+export function challengeFix(s: GameState, c: Country): { title: string; sev: number; why: string; fix: DeskFix } | null {
+  const ch = challengesOf(c);
+  const worst = Object.entries(ch).filter(([, v]) => v.sev >= 40).sort((a, b) => b[1].sev - a[1].sev);
+  for (const [id, st] of worst) {
+    const d = challengeById(id);
+    if (!d) continue;
+    const opts = d.responses.filter((r) => !responseBlocked(s, c, d, r)).sort((a, b) => a.sev - b.sev);
+    const r = opts[0];
+    const title = localName(c, id) || d.title.toLowerCase();
+    if (!r) continue;
+    const price = [r.pc ? `${r.pc} capital` : '', r.cost > 0 ? fmtMoney(r.cost * c.eco.gdp) : r.cost < 0 ? `you receive ${fmtMoney(-r.cost * c.eco.gdp)}` : '', `severity ${r.sev}`].filter(Boolean).join(' · ');
+    return { title: `${d.title}: ${title}`, sev: st.sev, why: d.effects.join(', '), fix: { label: r.label, price, run: (g) => actChallenge(g, id, r.id) } };
   }
   return null;
 }
