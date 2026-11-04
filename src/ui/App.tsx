@@ -17,6 +17,8 @@ import { StartScreen } from './StartScreen';
 import { BattleCard } from './BattleCard';
 import { ArmyPanel } from './ArmyPanel';
 import { AgendaDraft, HistoryBook, TermReview } from './Legacy';
+import { YearPlanModal } from './YearPlan';
+import { ScenarioResult } from './Scenario';
 
 const insetBottom = () => {
   if (window.innerWidth >= 900) return 0;
@@ -113,6 +115,8 @@ export function App() {
       <Drawers />
       <VictoryBanner />
       <AgendaDraft />
+      <YearPlanModal />
+      <ScenarioResult />
       <TermReview />
       <NegotiationTable />
       <WarRoom />

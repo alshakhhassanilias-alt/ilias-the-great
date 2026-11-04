@@ -106,12 +106,12 @@ export function PoliticsTab() {
         </div>
       </Section>
 
-      <Section title={c.gov === 'D' ? 'Parliament' : c.gov === 'F' ? 'Parliament (managed)' : 'The council'} hint={law ? `${law.title}: ${fc!.mode === 'decree' ? 'by decree' : `${Math.round(fc!.yes * 100)}% expected yes`}` : 'seats by faction'}>
+      <Section fold="parliament" title={c.gov === 'D' ? 'Parliament' : c.gov === 'F' ? 'Parliament (managed)' : 'The council'} hint={law ? `${law.title}: ${fc!.mode === 'decree' ? 'by decree' : `${Math.round(fc!.yes * 100)}% expected yes`}` : 'seats by faction'}>
         <Hemicycle c={c} yesBy={fc && fc.mode !== 'decree' ? Object.fromEntries(fc.by.map((b) => [b.id, b.p + (fc.yes - fc.by.reduce((t, x) => t + (x.seats / 100) * x.p, 0))])) : undefined} />
         <div className="hemi-legend">{ORDER.map((id) => <span key={id}><i style={{ background: factionMeta(id).color }} />{factionMeta(id).short}</span>)}</div>
       </Section>
 
-      <Section title="Laws" hint={`${P.laws.length} in force`}>
+      <Section fold="laws" title="Laws" hint={`${P.laws.length} in force`}>
         {P.laws.length > 0 && (
           <div className="laws-in">
             {P.laws.map((l) => { const L = lawById(l.id)!; return (

@@ -1,4 +1,5 @@
 import { clamp } from './util';
+import { focusById } from './focus';
 import type { Country, GameState } from './types';
 
 /**
@@ -36,6 +37,8 @@ export function approvalParts(s: GameState, c: Country): ApprovalPart[] {
       : outOfPower && L?.opposition ? Math.min(6, 0.6 * ((s.tick - L.opposition.since) / 52)) : Math.min(6, 0.6 * (s.tick / 52));
     if (c.politics?.laws.some((l) => l.id === 'term_limits')) wear *= 0.67;
     parts.push({ key: 'wear', label: 'Years in power', v: -wear });
+    const F = focusById(c.focus);
+    if (F?.appr && !outOfPower) parts.push({ key: 'focus', label: `National focus: ${F.name}`, v: F.appr });
     const extra = s.stats.apprBoost ?? 0; // campaigns, scandals and rallies (fades)
     if (Math.abs(extra) > 0.05) parts.push({ key: 'campaign', label: 'Campaigns, rallies and scandals', v: extra });
   }

@@ -197,12 +197,24 @@ class Store {
     this.cableSeen = s.stats.cableSeq ?? 0;
     this.voiceSeen = s.stats.voiceSeq ?? 0;
     this.bookSeen = false;
+    this.planOpen = false;
+    this.scenSeen = !!s.scen?.done;
+    this.scenResultOpen = false;
+    this.scenClosed = s.scen?.done?.tick ?? -1;
     this.achSent = new Set();
     this.splash = null; this.callouts = [];
     this.focusRequest++;
     this.startLoop();
     this.notify();
   }
+  /** the State of the Nation, opened by hand (it opens by itself every January) */
+  planOpen = false;
+  openPlan(on = true) { this.planOpen = on; this.notify(); }
+  /** the scenario result has been shown */
+  scenSeen = false;
+  scenResultOpen = false;
+  /** the result was closed (keep playing) */
+  scenClosed = -1;
   quitToMenu() { this.speed = 0; this.stopLoop(); this.drawer.open = 'none'; this.startPreview(); }
 
   // ---- clock ----
@@ -322,6 +334,9 @@ class Store {
     const L = s.legacy;
     if (L && s.settings.mode === 'legacy' && !this.preview && this.speed !== 0 && ((L.status === 'office' && L.hand.length > 0) || (s.stats.reviewTerm ?? 0) > this.termSeen || (L.status === 'ended' && !this.bookSeen))) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
     if (s.victory && !this.victoryShown) { this.victoryShown = true; this.speed = 0; }
+    // the State of the Nation (plan.ts) and the end of a scenario stop the clock
+    if (!this.preview && this.speed !== 0 && s.plan?.pending && s.settings.yearPlan !== false) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
+    if (!this.preview && s.scen?.done && !this.scenSeen) { this.scenSeen = true; this.speed = 0; }
     for (const it of s.inbox) {
       if (it.uid <= this.lastInboxUid) continue;
       this.lastInboxUid = it.uid;

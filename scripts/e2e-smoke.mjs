@@ -36,6 +36,16 @@ async function answerEvent(pg) {
   if (await o.count()) { await o.click(); return true; }
   return false;
 }
+// the State of the Nation stops the clock every January: check it, choose a focus and begin the year
+const sotn = { n: 0, ok: true };
+const clearSotn = async (pg) => {
+  if (!(await pg.locator('.sotn').count())) return false;
+  sotn.n++;
+  sotn.ok = sotn.ok && (await pg.locator('.sotn-focus').count()) === 6 && (await pg.locator('.sotn-report .sotn-grade').count()) === 1;
+  await pg.click('.sotn-focus >> nth=1'); await pg.click('.sotn-go'); await new Promise((r) => setTimeout(r, 200));
+  sotn.ok = sotn.ok && (await pg.locator('.sotn').count()) === 0 && (await pg.evaluate(() => window.__store.state.countries[window.__store.state.player].focus)) === 'science';
+  return true;
+};
 const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c = s.countries[s.player]; return { tick: s.tick, speed: st.speed, wars: s.wars.length, cash: c.eco.cash, capital: c.eco.capital, troops: c.mil.troops, vat: c.budget.taxVat, rev: c.eco.revenue }; });
 
 // ---------------- desktop ----------------
@@ -46,7 +56,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   const s0 = await S(pg);
   check('game starts paused at tick 0', s0.tick === 0 && s0.speed === 0);
   await pg.evaluate(() => { const s = window.__store.state; s.inbox.push({ uid: 99, id: 'tax_demand', tick: s.tick, expires: s.tick + 200, urgent: false, data: {} }); window.__store.notify(); });
-  await pg.click('button[aria-label="Very fast"]');
+  await clearSotn(pg); await pg.click('button[aria-label="Very fast"]');
   await sleep(1500);
   // (every new game is its own world, so another decision, such as a storyline act, may also have arrived by now)
   check('a decision waits in the inbox without stopping the game', (await pg.evaluate(() => window.__store.state.inbox.some((x) => x.uid === 99))) && (await pg.locator('.inbox-item').count()) >= 1 && (await S(pg)).speed === 4 && (await S(pg)).tick > 5);
@@ -66,8 +76,8 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('breaking news shows a banner', (await pg.locator('.breaking').count()) === 1);
   await quiet(pg, true);
   check('the news ticker shows headlines', (await pg.locator('.ticker-text').count()) > 0);
-  await pg.click('button[aria-label="Pause"]');
-  await pg.click('button[aria-label="Very fast"]'); await sleep(2800); await pg.click('button[aria-label="Pause"]');
+  await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
+  await clearSotn(pg); await pg.click('button[aria-label="Very fast"]'); await sleep(2800); await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
   const s1 = await S(pg);
   check('time advances at very fast speed and pauses', s1.tick > 10 && (await S(pg)).tick === s1.tick, `(tick ${s1.tick})`);
   await pg.click('.tabs button:has-text("Economy")');
@@ -80,6 +90,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.locator('input[aria-label="Consumption tax (VAT)"]').fill('0.05');
   check('tax slider changes policy immediately', (await S(pg)).vat === 0.05);
   const k0 = (await S(pg)).capital;
+  await pg.click('.fold-h:has-text("Instant projects")');
   await pg.click('button:has-text("Build factories")');
   check('factory project adds capital instantly', (await S(pg)).capital > k0);
   await pg.click('.tabs button:has-text("Military")');
@@ -103,18 +114,26 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('walking away closes the table', (await pg.locator('.modal.nego').count()) === 0);
   await pg.click('button:has-text("Declare war")'); await pg.click('.btnrow button:has-text("Declare war")');
   check('declaring war takes effect immediately', (await S(pg)).wars >= 1);
-  await pg.click('button[aria-label="Very fast"]');
+  await pg.evaluate(() => { window.__store.state.settings.yearPlan = false; }); // the January pause is checked on its own below
+  await clearSotn(pg); await pg.click('button[aria-label="Very fast"]');
   // wait for the moment itself (how many weeks pass per second depends on the machine)
-  for (let i = 0; i < 32 && (await S(pg)).speed !== 0; i++) await sleep(250);
+  for (let i = 0; i < 32 && (await S(pg)).speed !== 0; i++) { if (await clearSotn(pg)) continue; await sleep(250); }
   // an urgent decision about to lapse stops the clock and says so; answer it and carry on
   const lastChance = (await S(pg)).speed === 0 && (await pg.locator('.toast:has-text("needs your answer")').count()) > 0;
   if (!(await pg.locator('.inbox .event-opt').count())) await pg.locator('.inbox-row').first().click().catch(() => {});
   await answerEvent(pg);
   await pg.evaluate(() => window.__store.openInbox(null));
-  await pg.click('button[aria-label="Very fast"]'); await sleep(1500);
-  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > s1.tick + 5, `(tick ${(await S(pg)).tick})`);
-  // battles: zoom onto the front, click a battle marker, the report opens
+  await clearSotn(pg); await pg.click('button[aria-label="Very fast"]'); await sleep(1500);
+  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > s1.tick + 5, `(tick ${(await S(pg)).tick}, from ${s1.tick}, lastChance ${lastChance})`);
+  // the State of the Nation: step to the next January and it opens, with the report card, the rivals and six foci
+  await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
+  await pg.evaluate(() => { const st = window.__store; st.state.settings.yearPlan = true; for (let i = 0; i < 60 && !st.state.plan.pending; i++) { st.state.inbox = []; st.stepOnce(); } st.notify(); });
+  await sleep(500);
+  check('the State of the Nation opens on 1 January with a graded report card and your rivals', (await pg.locator('.sotn .sotn-grade').count()) === 1 && (await pg.locator('.sotn .rival-card').count()) >= 1);
+  check('choosing a focus and beginning the year closes it and applies the focus', await clearSotn(pg) && sotn.ok);
   await pg.click('button[aria-label="Pause"]');
+  // battles: zoom onto the front, click a battle marker, the report opens
+  await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
   await pg.evaluate(() => window.__store.openInbox(null));
   await pg.evaluate(() => { const s = window.__store.state; const R = window.__renderer; const b = R.geom.focusBox(s, s.player); R.focusBox([b[0], b[1], b[2] + 12, b[3]], 0, 440, false); });
   await sleep(900);
@@ -171,19 +190,19 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.click('.tabs button:has-text("Military")');
   await pg.click('.prog:has-text("Drone Corps") .btn');
   check('a weapons programme can be started from the Military tab', (await pg.evaluate(() => { const s = window.__store.state; return (s.countries[s.player].progs ?? []).length; })) === 1);
-  await pg.click('button[aria-label="Pause"]');
+  await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
   // save / load
-  await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Save game")');
+  await clearSotn(pg); await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Save game")');
   await pg.fill('#save-name', 'E2E test save'); await pg.click('.sv-new button[type=submit]'); await sleep(400);
   const saved = (await S(pg)).tick;
   check('a named save appears in the save list', await pg.evaluate(() => window.__store.saveList.some((m) => m.name === 'E2E test save')));
-  await pg.click('button[aria-label="Very fast"]'); await sleep(800); await pg.click('button[aria-label="Pause"]');
-  await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Load game")');
+  await clearSotn(pg); await pg.click('button[aria-label="Very fast"]'); await sleep(800); await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
+  await clearSotn(pg); await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Load game")');
   await pg.click('.sv-row:has-text("E2E test save") button:has-text("Load")'); await pg.click('.ask button:has-text("Load")'); await sleep(400);
   check('save then load restores the earlier state', (await S(pg)).tick === saved);
   await pg.keyboard.press('F5'); await sleep(400);
   check('F5 quick saves', await pg.evaluate(() => window.__store.saveList.some((m) => m.name === 'Quicksave')));
-  await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Settings")');
+  await clearSotn(pg); await pg.click('button[aria-label="Menu"]'); await pg.click('.pause-menu button:has-text("Settings")');
   check('settings has display, sound and controls', (await pg.locator('.set-tabs button').count()) === 4);
   await pg.click('.set-tabs button:has-text("Controls")');
   await pg.click('.kb-row:has-text("Pause / resume") .kb-key'); await pg.keyboard.press('KeyK');
@@ -211,6 +230,24 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.click('.legacy-chip');
   const dossier = (await pg.locator('.legacy-modal').innerText()).toLowerCase();
   check('Legacy: the chip opens the legacy dossier', dossier.includes('legacy') && dossier.includes('prosperity'));
+  await pg.close();
+}
+// ---------------- scenarios ----------------
+{
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 860 } });
+  watch(pg);
+  await pg.addInitScript(() => { try { localStorage.setItem('wo-tutorial-1', '1'); } catch {} });
+  await pg.goto(URL);
+  await pg.waitForSelector('.start');
+  await pg.click('.mode-card:has-text("Scenarios")');
+  check('the start screen lists the scenarios', (await pg.locator('.scen-card').count()) >= 8);
+  await pg.click('.scen-card:has-text("The Eagle Rises")');
+  check('a scenario shows its brief and three goals', (await pg.locator('.scen-brief li').count()) === 3);
+  await pg.click('.start-side .foot .btn.primary');
+  await pg.waitForSelector('.app'); await sleep(600);
+  const sc = await pg.evaluate(() => { const s = window.__store.state; return { id: s.scen?.id, player: s.countries[s.player].name, year: s.settings.startYear }; });
+  check('the scenario starts as its nation, in its year, with the clock and stars in the top bar', sc.id === 'poland' && sc.player === 'Poland' && sc.year === 2024 && (await pg.locator('.scen-chip').count()) === 1, JSON.stringify(sc));
+  check('the scenario goals sit at the top of the Overview', (await pg.locator('.scen-panel .scen-goal').count()) === 3);
   await pg.close();
 }
 // ---------------- army groups ----------------
@@ -297,5 +334,6 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
 await browser.close();
 server.kill();
 check('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+check('the State of the Nation opens each January, takes a focus and lets the year begin', sotn.ok, `(${sotn.n} seen)`);
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll smoke checks passed');
 process.exit(failures ? 1 : 0);

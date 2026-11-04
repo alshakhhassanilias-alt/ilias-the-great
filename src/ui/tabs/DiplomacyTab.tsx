@@ -121,7 +121,7 @@ export function DiplomacyTab({ id }: { id: number }) {
       )}
 
       <InfluenceSection id={id} />
-      <Section title="Their outlook">
+      <Section fold="outlook" closed title="Their outlook">
         <div className="card" style={{ fontSize: 13 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{c.intent || 'Going about its business'}</div>
           <OrientBar o={c.orient ?? 0} />
@@ -166,7 +166,7 @@ export function DiplomacyTab({ id }: { id: number }) {
         ))}
       </Section>
 
-      <Section title="Economic pressure">
+      <Section fold="pressure" closed title="Economic pressure">
         <div className="btnrow">
           <button className={`btn ${mySanction === 1 ? 'primary' : ''}`} onClick={() => store.act((g) => actSanction(g, g.player, id, mySanction === 1 ? 0 : 1))}>
             {mySanction === 1 ? 'Lift sanctions' : 'Impose sanctions'}<small>cuts trade; hurts both</small>
@@ -179,7 +179,7 @@ export function DiplomacyTab({ id }: { id: number }) {
 
       <TradeWeapons id={id} />
 
-      <Section title="Covert operations" hint={`your intel ${(me.mil.intel * 100).toFixed(0)} vs ${(c.mil.intel * 100).toFixed(0)}`}>
+      <Section fold="covert" closed title="Covert operations" hint={`your intel ${(me.mil.intel * 100).toFixed(0)} vs ${(c.mil.intel * 100).toFixed(0)}`}>
         <div className="list">
           {(Object.keys(OPDEFS) as OpKind[]).map((k) => {
             const d = OPDEFS[k];
@@ -195,7 +195,7 @@ export function DiplomacyTab({ id }: { id: number }) {
         <div className="faint" style={{ fontSize: 11 }}>Failure exposes your agents: relations −18 and reputation −4. Better intelligence services improve the odds.</div>
       </Section>
 
-      <Section title="Standing">
+      <Section fold="standing" closed title="Standing">
         <div className="card" style={{ fontSize: 13 }}>
           <div className="row" style={{ border: 'none' }}><div className="grow">Reputation of {c.name}</div><div className="val">{c.reputation.toFixed(0)}</div></div>
           <div className="row"><div className="grow">Allies</div><div className="val" style={{ textAlign: 'right', fontWeight: 400 }}>{allies.length ? allies.slice(0, 5).map((a) => s.countries[a].name).join(', ') + (allies.length > 5 ? ` +${allies.length - 5}` : '') : 'none'}</div></div>
@@ -255,7 +255,7 @@ function OwnDiplomacy() {
           ))}
         </Section>
       )}
-      <Section title="Alliances & treaties" hint={s.settings.defensiveAlliances ? 'defensive alliances ON' : 'defensive alliances OFF'}>
+      <Section fold="treaties" title="Alliances & treaties" hint={s.settings.defensiveAlliances ? 'defensive alliances ON' : 'defensive alliances OFF'}>
         <div className="card" style={{ display: 'grid', gap: 10 }}>
           <div><div className="hint" style={{ marginBottom: 4 }}>Allies ({allies.length})</div>{chips(allies)}</div>
           <div><div className="hint" style={{ marginBottom: 4 }}>Trade agreements ({list('trade').length})</div>{chips(list('trade'))}</div>
@@ -264,7 +264,7 @@ function OwnDiplomacy() {
         </div>
       </Section>
       <OrgsSection />
-      <Section title="Sanctions">
+      <Section fold="sanctions" closed title="Sanctions">
         <div className="card" style={{ display: 'grid', gap: 10 }}>
           <div><div className="hint" style={{ marginBottom: 4 }}>You sanction</div>{chips(imposed.map((x) => x.id))}</div>
           <div><div className="hint" style={{ marginBottom: 4 }}>Sanctioned by</div>{chips(against.map((x) => x.id))}</div>

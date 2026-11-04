@@ -12,6 +12,8 @@ import { GOV, REGION, fmtMoney, fmtNum, pct, sizeClass } from './format';
 import { Segmented, Slider, Stat } from './widgets';
 import { strengthIndex } from '../sim/military';
 import { NAME_TO_ID } from '../sim/relations';
+import { SCENARIOS, scenarioById, scenarioPlayer } from '../sim/scenarios';
+import { ScenarioBrief, ScenarioPicker } from './Scenario';
 
 const FEATURED = ['United States of America', 'China', 'Germany', 'Japan', 'India', 'United Kingdom', 'France', 'Brazil', 'Russia', 'Poland', 'Turkey', 'Nigeria', 'Israel', 'Taiwan', 'Singapore', 'Argentina'];
 
@@ -21,6 +23,7 @@ export function StartScreen() {
   const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS });
   const [q, setQ] = useState('');
   const [leaderName, setLeaderName] = useState('');
+  const [kind, setKind] = useState<'sandbox' | 'legacy' | 'scenario'>('sandbox');
   const picked = store.selected;
   const file = useRef<HTMLInputElement>(null);
   useEffect(() => { if (store.selected === null) store.setPreviewPlayer(NAME_TO_ID['Germany']); }, []);
@@ -31,6 +34,7 @@ export function StartScreen() {
   }, [q, s]);
   const c = picked !== null ? s.countries[picked] : null;
   const upd = (p: Partial<Settings>) => setSettings((x) => ({ ...x, ...p }));
+  const scen = kind === 'scenario' ? scenarioById(settings.scenario) : undefined;
   const onPick = (country: number) => { store.setPreviewPlayer(country); store.focusRequest++; store.notify(); };
   return (
     <div className="start">
@@ -40,15 +44,24 @@ export function StartScreen() {
       </div>
       <div className="start-side">
         <div className="scroll">
-          <div className="mode-cards" role="radiogroup" aria-label="Game mode">
-            <button role="radio" aria-checked={settings.mode !== 'legacy'} className={`mode-card ${settings.mode !== 'legacy' ? 'on' : ''}`} onClick={() => upd({ mode: 'sandbox' })}>
+          <div className="mode-cards three" role="radiogroup" aria-label="Game mode">
+            <button role="radio" aria-checked={kind === 'sandbox'} className={`mode-card ${kind === 'sandbox' ? 'on' : ''}`} onClick={() => { setKind('sandbox'); upd({ mode: 'sandbox', scenario: undefined }); }}>
               <span className="mc-icon" aria-hidden="true">🌍</span><b>Sandbox</b><small>Total freedom. Any nation, no end. You are the nation itself; your storyline is optional.</small>
             </button>
-            <button role="radio" aria-checked={settings.mode === 'legacy'} className={`mode-card ${settings.mode === 'legacy' ? 'on' : ''}`} onClick={() => upd({ mode: 'legacy' })}>
+            <button role="radio" aria-checked={kind === 'legacy'} className={`mode-card ${kind === 'legacy' ? 'on' : ''}`} onClick={() => { setKind('legacy'); upd({ mode: 'legacy', scenario: undefined }); }}>
               <span className="mc-icon" aria-hidden="true">📜</span><b>Legacy</b><small>You are one leader, term by term. Win elections, keep promises, survive opposition. The world judges you personally, and remembers.</small>
             </button>
+            <button role="radio" aria-checked={kind === 'scenario'} className={`mode-card ${kind === 'scenario' ? 'on' : ''}`} onClick={() => setKind('scenario')}>
+              <span className="mc-icon" aria-hidden="true">🏁</span><b>Scenarios</b><small>A nation, a moment, a deadline. Three goals, three stars, a real ending. Beat your best.</small>
+            </button>
           </div>
-          <div className="field">
+          {kind === 'scenario' && (
+            <div className="field"><label>Choose a scenario <span className="faint">{SCENARIOS.length} challenges</span></label>
+              <ScenarioPicker value={settings.scenario} onPick={(sc) => { upd({ mode: 'sandbox', scenario: sc.id, startYear: sc.year, victory: 'none', endYear: null }); onPick(scenarioPlayer(sc)); }} />
+              {settings.scenario && <ScenarioBrief id={settings.scenario} />}
+            </div>
+          )}
+          {kind !== 'scenario' && <div className="field">
             <label>Choose your country <span className="faint">tap the map or search</span></label>
             <input type="search" placeholder="Search 190+ countries…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search countries" />
             <div className="picklist" role="listbox" aria-label="Countries">
@@ -58,8 +71,8 @@ export function StartScreen() {
                 </button>
               ))}
             </div>
-          </div>
-          {c && (
+          </div>}
+          {c && kind !== 'scenario' && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="desk-only start-emblem"><Emblem c={c} size={86} /></div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><h3 style={{ margin: 0, fontSize: 19 }}>{c.name}</h3><span className="pill gold">{sizeClass(c)}</span></div>
@@ -92,10 +105,10 @@ export function StartScreen() {
           <div className="field"><label>How much do you want to steer? <span className="faint">change any time</span></label>
             <ControlPicker value={settings.control ?? DEFAULT_SETTINGS.control!} onChange={(v) => upd({ control: v })} />
           </div>
-          <div className="field"><label>Start in</label>
+          {kind !== 'scenario' && <div className="field"><label>Start in</label>
             <Segmented<'2021' | '2024'> value={String(settings.startYear ?? 2021) as '2021' | '2024'} onChange={(v) => upd({ startYear: Number(v) as 2021 | 2024 })} options={[{ v: '2021', label: '2021' }, { v: '2024', label: '2024' }]} />
             <span className="faint" style={{ fontSize: 11.5 }}>{(settings.startYear ?? 2021) === 2021 ? 'Before the wars: Ukraine at peace, Finland and Sweden outside NATO, the pandemic fading.' : 'Today: the world as it is, wars and all.'}</span>
-          </div>
+          </div>}
           <div className="field"><label>Difficulty</label>
             <Segmented<Difficulty> value={settings.difficulty} onChange={(v) => upd({ difficulty: v })} options={[{ v: 'easy', label: 'Easy' }, { v: 'normal', label: 'Normal' }, { v: 'hard', label: 'Hard' }]} />
           </div>
@@ -105,7 +118,7 @@ export function StartScreen() {
           </div>
           <Slider label="AI aggression" value={settings.aggression} min={0.3} max={2} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => upd({ aggression: v })} hint="How readily AI countries start wars. They never automatically target you." />
           <label className="check"><input type="checkbox" checked={settings.defensiveAlliances} onChange={(e) => upd({ defensiveAlliances: e.target.checked })} /><span><b>Defensive alliances</b><br /><span className="faint" style={{ fontSize: 12 }}>Allies may join wars to defend each other. Turn off for a faster, more aggressive sandbox.</span></span></label>
-          {settings.mode !== 'legacy' && (
+          {kind === 'sandbox' && (
             <details className="world-opts">
               <summary>World options <span className="faint">{settings.world !== 'current' || settings.randomEvents === false || settings.nukes === false || settings.endYear ? 'customised' : 'the world as it is'}</span></summary>
               <div className="field"><label>Starting world</label>
@@ -119,7 +132,7 @@ export function StartScreen() {
               </div>
             </details>
           )}
-          <div className="field" style={{ display: settings.mode === 'legacy' ? 'none' : undefined }}><label>Victory condition</label>
+          <div className="field" style={{ display: kind !== 'sandbox' ? 'none' : undefined }}><label>Victory condition</label>
             <select value={settings.victory} onChange={(e) => upd({ victory: e.target.value as VictoryMode })} aria-label="Victory condition">
               <option value="superpower">Superpower: hold first place in world power for five years</option><option value="none">None: endless sandbox</option><option value="economic">Economic — 30% of world GDP</option>
               <option value="conquest">Conquest — 40% of world land</option><option value="hegemon">Hegemony — your bloc holds 60% of GDP</option>
@@ -133,8 +146,8 @@ export function StartScreen() {
           <button className="btn" onClick={() => store.openDrawer('settings')} aria-label="Settings">⚙</button>
           {isDesktop && <button className="btn" onClick={() => void desktop!.window.quit()}>Quit</button>}
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) store.importText(await f.text()); }} />
-          <button className="btn primary" disabled={picked === null} onClick={() => picked !== null && store.newGame({ ...settings, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, picked)}>
-            {c ? (settings.mode === 'legacy' ? `Take office in ${c.name}` : `Lead ${c.name}`) : 'Choose a country'}
+          <button className="btn primary" disabled={picked === null || (kind === 'scenario' && !scen)} onClick={() => picked !== null && store.newGame({ ...settings, scenario: scen?.id, leaderName: settings.mode === 'legacy' && c ? (leaderName.trim() || personName(c, 'me', 1)) : undefined }, scen ? scenarioPlayer(scen) : picked)}>
+            {kind === 'scenario' ? (scen ? `Begin: ${scen.title}` : 'Choose a scenario') : c ? (settings.mode === 'legacy' ? `Take office in ${c.name}` : `Lead ${c.name}`) : 'Choose a country'}
           </button>
         </div>
       </div>

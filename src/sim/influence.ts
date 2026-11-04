@@ -9,6 +9,7 @@
  * the World Assembly, says yes to your treaties, drifts toward your camp, pays you a dividend in contracts and
  * concessions, and adds to your world power. Lose your lead and a rival takes it, and the world notices.
  */
+import { focusMult } from './focus';
 import { clamp, fmtMoney } from './util';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
@@ -124,7 +125,7 @@ export function quoteAction(s: GameState, p: Country, t: Country, a: InfAction):
 function gainFor(s: GameState, p: Country, t: Country, base: number) {
   // influence is easier to win in a small country, harder in a big one, and harder far from home without an alliance
   const far = p.region !== t.region && !(t.region === 'LA' && p.region === 'NA') && !getTreaty(s, p.id, t.id)?.alliance;
-  return base * clamp(Math.pow(p.eco.gdp / Math.max(1, t.eco.gdp), 0.15), 0.6, 1.6) * (far ? 0.6 : 1);
+  return base * clamp(Math.pow(p.eco.gdp / Math.max(1, t.eco.gdp), 0.15), 0.6, 1.6) * (far ? 0.6 : 1) * focusMult(p, 'inf');
 }
 export function addInfluence(s: GameState, t: CountryId, p: CountryId, v: number) {
   const m = (infOf(s)[t] ??= {});

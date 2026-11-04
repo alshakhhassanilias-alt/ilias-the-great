@@ -20,7 +20,7 @@ export function CharacterSection({ c }: { c: Country }) {
   const [open, setOpen] = useState<string | null>(null);
   if (!traits.length && !ch.length) return null;
   return (
-    <Section title="National character" hint={mine ? 'what makes your country different' : undefined}>
+    <Section fold="character" closed title="National character" hint={mine ? 'what makes your country different' : undefined}>
       {traits.length > 0 && (
         <div className="nc-traits">
           {traits.map((t) => (

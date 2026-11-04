@@ -79,7 +79,7 @@ export function SupplyLines({ id }: { id: number }) {
   const guide = guideLevel(s);
   const depots = c.provinces.filter((p) => levelOf(s, p, 'depot') > 0).length;
   return (
-    <Section title="Supply lines" hint={`logistics ${Math.round(net.capacity * 100)}%`}>
+    <Section fold="supply" closed title="Supply lines" hint={`logistics ${Math.round(net.capacity * 100)}%`}>
       <div className="card">
         {fronts.length === 0 && <div className="faint" style={{ fontSize: 12.5 }}>No offensives yet. Supplies flow from your capital, big cities, supply hubs and (while the seas are open) your ports.</div>}
         {fronts.slice(0, 6).map((f) => {
@@ -122,7 +122,7 @@ export function HighCommand({ id }: { id: number }) {
   const fallen = (c.generals ?? []).filter((g) => g.status === 'fallen').slice(-3);
   const guide = guideLevel(s);
   return (
-    <Section title="High command" hint={`${gens.length} general${gens.length === 1 ? '' : 's'}`}>
+    <Section fold="command" title="High command" hint={`${gens.length} general${gens.length === 1 ? '' : 's'}`}>
       {gens.length === 0 && <div className="faint" style={{ fontSize: 12.5 }}>Your general staff forms when you go to war.</div>}
       {gens.map((g) => {
         const tr = gtrait(g.trait);

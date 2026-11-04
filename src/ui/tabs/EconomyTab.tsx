@@ -46,7 +46,7 @@ export function EconomyTab({ id }: { id: number }) {
     <>
       {mine && <AutopilotBanner area="economy" />}
       <IndustrySection id={id} />
-      <Section title="Why is the economy moving?" hint={`growth ${signedPct(e.growth)}`}>
+      <Section fold="ecowhy" closed title="Why is the economy moving?" hint={`growth ${signedPct(e.growth)}`}>
         <Note>{growthNarrative(c)}</Note>
         <div className="card" style={{ marginTop: 8 }}>
           <div className="explain">
@@ -74,7 +74,7 @@ export function EconomyTab({ id }: { id: number }) {
         )}
       </Section>
 
-      <Section title="Productive capacity" hint="the real economy">
+      <Section fold="ecocap" closed title="Productive capacity" hint="the real economy">
         <div className="grid3">
           <Stat label="Workforce" value={fmtNum(e.laborForce)} sub={`${fmtNum(Math.max(0, e.laborForce * (1 - e.unemployment) - c.mil.troops * 0.9))} employed`} />
           <Stat label="Industry" value={fmtMoney(e.capital)} sub={`capital stock · ${(e.capital / e.realGdp).toFixed(1)}× GDP`} />
@@ -94,7 +94,7 @@ export function EconomyTab({ id }: { id: number }) {
 
       {mine && !delegated && (
         <>
-          <Section title="Taxes" hint="immediate effect on revenue">
+          <Section fold="taxes" title="Taxes" hint="immediate effect on revenue">
             <div className="card">
               <Slider label="Income tax" value={c.budget.taxIncome} min={BUDGET_LIMITS.taxIncome[0]} max={BUDGET_LIMITS.taxIncome[1]} step={0.005} format={fmtPct} onChange={(v) => set('taxIncome', v)}
                 hint={`Yields ≈ ${fmtMoney(0.5 * c.budget.taxIncome * e.collection * e.gdp)}/yr. Above ~30% it discourages work.`} />
@@ -107,7 +107,7 @@ export function EconomyTab({ id }: { id: number }) {
             </div>
           </Section>
 
-          <Section title="Government spending" hint="% of GDP">
+          <Section fold="spending" title="Government spending" hint="% of GDP">
             <div className="card">
               <Slider label="Public services & pensions" value={c.budget.social} min={0} max={0.35} step={0.0025} format={fmtPct} onChange={(v) => set('social', v)}
                 hint={`${fmtMoney(c.budget.social * e.gdp)}/yr · baseline ${pct(e.baseSocial)}. Cutting it saves money but erodes stability and population health.`} />
@@ -123,7 +123,7 @@ export function EconomyTab({ id }: { id: number }) {
 
           <ProjectsSection />
 
-          <Section title="Instant projects" hint="built immediately">
+          <Section fold="instant" closed title="Instant projects" hint="built immediately">
             <div style={{ marginBottom: 8 }}>
               <Segmented value={preset} onChange={setPreset} label="Project size"
                 options={PRESETS.map((p) => ({ v: p, label: `${(p * 100).toFixed(p < 0.01 ? 2 : 1)}% GDP` }))} />
@@ -138,7 +138,7 @@ export function EconomyTab({ id }: { id: number }) {
             <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>One-off costs come from the treasury ({fmtMoney(e.cash)} now); whatever it cannot cover is borrowed and added to debt. Each button shows the split.</div>
           </Section>
 
-          <Section title="Borrowing and repayment" hint="moves money between the treasury and debt">
+          <Section fold="borrow" closed title="Borrowing and repayment" hint="moves money between the treasury and debt">
             <div className="btnrow">
               <button className="btn" onClick={() => store.act((g) => borrow(g, g.player, 0.02))}>Borrow 2% GDP<small>+{fmtMoney(0.02 * e.gdp)} cash, +{fmtMoney(0.02 * e.gdp * e.avgRate)}/yr interest</small></button>
               <button className="btn" disabled={e.cash <= 0 || e.debt <= 0} onClick={() => store.act((g) => repayDebt(g, g.player, 0.02))}>Repay up to 2% GDP<small>{fmtMoney(Math.min(0.02 * e.gdp, e.cash, e.debt))} from the treasury, saves {fmtMoney(Math.min(0.02 * e.gdp, e.cash, e.debt) * e.avgRate)}/yr</small></button>
@@ -148,7 +148,7 @@ export function EconomyTab({ id }: { id: number }) {
         </>
       )}
 
-      <Section title="Trade & resources" hint={`${partners.length} trade agreement${partners.length === 1 ? '' : 's'}`}>
+      <Section fold="traderes" closed title="Trade & resources" hint={`${partners.length} trade agreement${partners.length === 1 ? '' : 's'}`}>
         <div className="grid2">
           <Stat label="Exports" value={fmtMoney(e.exports)} sub={`${pct(e.exports / e.gdp, 0)} of GDP`} />
           <Stat label="Imports" value={fmtMoney(e.imports)} />
@@ -170,7 +170,7 @@ export function EconomyTab({ id }: { id: number }) {
 
       {mine && <WorldEconomy c={c} />}
 
-      <Section title="Trends">
+      <Section fold="ecotrends" closed title="Trends">
         <div className="card">
           {mine ? (
             <>

@@ -9,6 +9,7 @@ import { PATH_LABEL, pathOf, type Path } from '../../sim/goals2';
 import { raceOf, tierLabel } from '../../sim/power';
 import { seedOf } from '../../sim/story';
 import { goalHelp, guideLevel } from '../guides';
+import { priced } from './Desk';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
 const THEME_ICON: Record<string, string> = { economy: '📈', politics: '🏛', military: '⚔' };
@@ -48,18 +49,20 @@ export function MissionCard() {
         {goals.map((g) => {
           const p = g.progress(s, c);
           const help = level !== 'none' ? goalHelp(g.id, s, c, geo) : null;
-          const fix = help?.fix && (level === 'full' || !help.fix.run) ? help.fix : null;
+          const fix = help?.fix ?? null;
+          const pr = fix ? priced(c, fix.label) : null;
+          const pledged = s.plan?.pledge?.id === g.id && !s.plan.pledge.done;
           return (
             <li key={g.id} style={{ ['--gc' as string]: THEME_COL[g.theme] }}>
               <span className="mg-icon" aria-hidden>{THEME_ICON[g.theme]}</span>
               <div className="mg-body">
-                <div className="mg-top"><b>{g.title}</b><span className="mg-pct">{Math.round(p.value * 100)}%</span></div>
+                <div className="mg-top"><b>{pledged ? '🤝 ' : ''}{g.title}</b><span className="mg-pct">{Math.round(p.value * 100)}%</span></div>
                 <div className="mg-bar"><i style={{ width: `${Math.round(p.value * 100)}%` }} /></div>
                 <div className="mg-meta"><span>{p.text}</span></div>
               </div>
               {fix && (
-                <button className="btn sm mg-go" title={help?.how} onClick={() => { if (fix.run) store.act((x) => fix.run!(x, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
-                  {fix.run ? 'Do it' : 'Go'}
+                <button className="btn sm mg-go" title={`${pr?.label ?? ''}${help?.how ? ` · ${help.how}` : ''}`} onClick={() => { if (fix.run) store.act((x) => fix.run!(x, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
+                  {fix.run ? 'Do it' : 'Go'}{fix.run && pr?.price ? <small>{pr.price}</small> : null}
                 </button>
               )}
             </li>

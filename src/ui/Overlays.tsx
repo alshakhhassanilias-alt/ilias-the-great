@@ -401,7 +401,7 @@ export function YearReview() {
   useStore();
   const s = store.state;
   const r = s?.review;
-  if (!s || !r || store.reviewSeen >= r.tick || s.tick - r.tick > 30) return null;
+  if (!s || !r || store.reviewSeen >= r.tick || s.tick - r.tick > 30 || (s.plan && s.settings.yearPlan !== false)) return null; // the State of the Nation has the year in review
   return (
     <div className="ripple review" role="status">
       <button className="x" aria-label="Dismiss" onClick={() => { store.reviewSeen = r.tick; store.notify(); }}>×</button>

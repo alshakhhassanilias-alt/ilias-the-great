@@ -6,15 +6,18 @@ import { dateLabel } from '../../sim/tick';
 import { ProjectsMini } from './Projects';
 import { NationPath } from './NationPath';
 import { StorylinePanel } from './Storyline';
+import { ScenarioPanel } from '../Scenario';
+import { priced } from './Desk';
 import { countryChecks, goalHelp, guideLevel, topPriority, type Check, type Fix } from '../guides';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
 const STATUS_ICON: Record<Check['status'], string> = { good: '●', warn: '▲', bad: '■' };
 
 function FixButton({ fix }: { fix: Fix }) {
+  const pr = priced(store.state!.countries[store.state!.player], fix.label);
   return (
-    <button className="btn sm" onClick={() => { if (fix.run) store.act((g) => fix.run!(g, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
-      {fix.label}
+    <button className="desk-do" onClick={() => { if (fix.run) store.act((g) => fix.run!(g, store.geo)); else if (fix.open) fix.open(); else if (fix.tab) store.setTab(fix.tab); }}>
+      <b>{pr.label}</b>{pr.price ? <small>{pr.price}</small> : null}
     </button>
   );
 }
@@ -32,6 +35,7 @@ export function GoalsTab() {
   const [showDone, setShowDone] = useState(false);
   return (
     <>
+      <ScenarioPanel />
       <StorylinePanel />
       <NationPath />
       <div className={`guide-level ${level}`}>
@@ -53,7 +57,7 @@ export function GoalsTab() {
                 <Meter value={p.value} color={THEME_COL[g.theme]} />
                 <div className="gc-meta"><span>{p.text}</span><span>{g.reward.replace('Reward: ', '🎁 ')} · +6 political capital</span></div>
                 {help?.how && <div className="gc-how">💡 {help.how}</div>}
-                {help?.fix && (level === 'full' || !help.fix.run) && <div style={{ marginTop: 6 }}><FixButton fix={help.fix} /></div>}
+                {help?.fix && <div style={{ marginTop: 8 }}><FixButton fix={help.fix} /></div>}
               </div>
             );
           })}
@@ -84,7 +88,7 @@ export function GoalsTab() {
                       <b>{x.title}</b>
                       {level === 'full' && <div className="faint">{x.detail}</div>}
                     </div>
-                    {level === 'full' && x.fix && x.status !== 'good' && <FixButton fix={x.fix} />}
+                    {x.fix && x.status !== 'good' && <FixButton fix={x.fix} />}
                   </div>
                 ))}
               </div>

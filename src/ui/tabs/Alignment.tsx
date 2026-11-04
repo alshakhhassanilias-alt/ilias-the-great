@@ -41,7 +41,7 @@ export function AlignmentSection() {
   const wait = Math.max(0, 52 - (s.tick - (s.stats.realignAt ?? -999)));
   const pc = c.politics?.pc ?? 100;
   return (
-    <Section title="Your place in the world" hint={orientLabel(o)}>
+    <Section fold="place" title="Your place in the world" hint={orientLabel(o)}>
       <div className="card">
         <OrientBar o={o} target={t.target} />
         <div className="hint" style={{ marginTop: 6 }}>
@@ -72,7 +72,7 @@ export function OrgsSection() {
   const [open, setOpen] = useState<number | null>(null);
   const orgs = [...(s.orgs ?? [])].sort((a, b) => Number(b.members.includes(me)) - Number(a.members.includes(me)) || b.members.length - a.members.length);
   return (
-    <Section title="Organisations" hint="alliances, unions and clubs: membership changes">
+    <Section fold="orgs" closed title="Organisations" hint="alliances, unions and clubs: membership changes">
       <div className="list">
         {orgs.map((o) => {
           const member = o.members.includes(me);

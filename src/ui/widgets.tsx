@@ -1,11 +1,25 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { clamp } from '../sim/util';
 
-export function Section({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
-  return (
+const foldKey = (k: string) => `wo-fold:${k}`;
+function readFold(k: string, dflt: boolean) { try { const v = localStorage.getItem(foldKey(k)); return v === null ? dflt : v === '1'; } catch { return dflt; } }
+/**
+ * A section of a tab. With `fold`, the section can be collapsed (its title is a button) and remembers whether it was
+ * open; `closed` makes it start collapsed, so the important things stay on top and the detail is one tap away.
+ */
+export function Section({ title, hint, children, fold, closed }: { title: string; hint?: ReactNode; children: ReactNode; fold?: string; closed?: boolean }) {
+  const [open, setOpen] = useState(() => (fold ? readFold(fold, !closed) : true));
+  if (!fold) return (
     <section className="section">
       <h3>{title}{hint ? <small>{hint}</small> : null}</h3>
       {children}
+    </section>
+  );
+  const toggle = () => { setOpen(!open); try { localStorage.setItem(foldKey(fold), open ? '0' : '1'); } catch { /* storage unavailable */ } };
+  return (
+    <section className={`section fold ${open ? 'open' : 'shut'}`}>
+      <h3><button type="button" className="fold-h" aria-expanded={open} onClick={toggle}><span className="fold-chev" aria-hidden="true">▸</span>{title}</button>{hint ? <small>{hint}</small> : null}</h3>
+      {open ? children : null}
     </section>
   );
 }

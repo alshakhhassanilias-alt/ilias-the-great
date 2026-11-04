@@ -17,7 +17,7 @@ export function DoctrinesSection() {
   const wait = Math.max(0, REFORM_COOLDOWN - (s.tick - cur.changed));
   const cost = REFORM_COST * c.eco.gdp;
   return (
-    <Section title="National doctrines" hint={wait > 0 && cur.changed > -9000 ? `next reform in ${wait} wk` : 'each has a catch'}>
+    <Section fold="doctrines" closed title="National doctrines" hint={wait > 0 && cur.changed > -9000 ? `next reform in ${wait} wk` : 'each has a catch'}>
       <div className="card">
         {SLOTS.map((slot) => {
           const chosen = cur[slot];

@@ -14,6 +14,7 @@
  * falls behind); in defence, each level makes your forces hit harder and hold better than an enemy a level below.
  */
 import { clamp } from './util';
+import { focusById, focusMult } from './focus';
 import { hash01 } from './rng';
 import { logEvent } from './log';
 import { addRelation, alliesOf, getRelation } from './relations';
@@ -209,6 +210,8 @@ export function researchPoints(s: GameState, c: Country): { v: number; parts: Rp
   if (laws.some((l) => l.id === 'migration')) { mult += 0.06; named.push('open labour migration'); }
   const friends = alliesOf(s, c.id).filter((a) => (s.countries[a].rs?.lv[2] ?? 0) > (c.rs?.lv[2] ?? 0)).length;
   if (friends) { mult += Math.min(0.2, 0.025 * friends); named.push(`${friends} more advanced all${friends > 1 ? 'ies' : 'y'}`); }
+  const fm = focusMult(c, 'rp');
+  if (fm !== 1) { mult += fm - 1; named.push(`${focusById(c.focus)!.name} year`); }
   if (e.stability < 40) { mult -= 0.2; named.push('turmoil at home'); }
   if (c.mil.exhaustion > 0.3) { mult -= 0.15; named.push('the war'); }
   const raw = (0.5 + e.tech / 100) * edu;

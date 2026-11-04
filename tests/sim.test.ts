@@ -2996,3 +2996,146 @@ describe('QA round: what the deep QA pass found', () => {
     expect(coursesFor(s, c, geo).some((k) => k.id === 'lead')).toBe(true);
   });
 });
+
+import { FOCI, focusMult } from '../src/sim/focus';
+import { actBeginYear, actSwitchFocus, ensurePlan, stepPlan, yearReport, SWITCH_PC } from '../src/sim/plan';
+import { ensureRivals, headToHead, rivalFocus, stepRivals } from '../src/sim/rivals';
+import { SCENARIOS, ensureScenario, scenarioGoals, scenarioPlayer, stepScenario } from '../src/sim/scenarios';
+import { demandFix, expandFix, lawFix } from '../src/sim/fixes';
+import { activeGoals } from '../src/sim/goals';
+
+describe('round 34: the desk, the State of the Nation, rivals and scenarios', () => {
+  it('every coalition demand has a one-click fix or says what must hold, and the fix delivers it', () => {
+    const s = fresh('Germany');
+    const c = s.countries[s.player];
+    const G = ensureCoalition(s, c)!;
+    for (const id of ['social', 'infra', 'defence', 'army', 'corp_tax']) {
+      const f = G.partners[0];
+      const base = id === 'army' ? c.mil.troops : id === 'corp_tax' ? c.budget.taxCorporate : (c.budget as unknown as Record<string, number>)[id === 'defence' ? 'military' : id];
+      const target = id === 'army' ? base * 1.1 : id === 'corp_tax' ? base - 0.02 : base + 0.006;
+      const d = { f, id, due: s.tick + 60, since: s.tick, base, target };
+      const fx = demandFix(s, c, d)!;
+      expect(fx.run, id).toBeTruthy();
+      expect(fx.price, id).toBeTruthy();
+      c.eco.cash = c.eco.gdp; // enough money for the recruits
+      expect(fx.run!(s).ok, id).toBe(true);
+      expect(demandProgress(s, c, d), id).toBeGreaterThanOrEqual(1);
+    }
+    expect(demandFix(s, c, { f: 'business', id: 'inflation', due: 99, since: 0, base: 0, target: 0.04 })!.note).toBeTruthy();
+    const lf = lawFix(c, 'tech_fund')!;
+    expect(lf.price).toMatch(/capital/);
+    expect(expandFix(s, c)!.price).toMatch(/\$/);
+  });
+  it('a national focus changes the systems it names, for whoever declares it', () => {
+    const s = fresh('Poland');
+    const c = s.countries[s.player];
+    run(s, 2);
+    const rp0 = researchPoints(s, c).v, cost0 = expansionOf(s, c, 'manuf').cost, tfp0 = mods(c).tfp;
+    c.focus = 'science';
+    expect(researchPoints(s, c).v).toBeGreaterThan(rp0 * 1.25);
+    expect(expansionOf(s, c, 'manuf').cost).toBeGreaterThan(cost0 * 1.1);
+    c.focus = 'industry';
+    expect(expansionOf(s, c, 'manuf').cost).toBeLessThan(cost0 * 0.8);
+    expect(mods(c).tfp).toBeGreaterThan(tfp0);
+    c.focus = 'welfare';
+    expect(approvalParts(s, c).some((p) => p.key === 'focus' && p.v > 0)).toBe(true);
+    c.focus = 'reform';
+    expect(focusMult(c, 'law')).toBeLessThan(1);
+    expect(FOCI.every((f) => f.pros.length && f.cons.length)).toBe(true);
+  });
+  it('1 January: last year is graded, the promise judged, and the State of the Nation waits for the player', () => {
+    const s = fresh('Poland');
+    const P = ensurePlan(s);
+    const g = activeGoals(s)[0];
+    expect(actBeginYear(s, 'industry', g.id, g.title).ok).toBe(true);
+    expect(s.countries[s.player].focus).toBe('industry');
+    expect(P.pledge?.id).toBe(g.id);
+    run(s, 52);
+    expect(P.pending).toBe(true);
+    expect(P.report?.year).toBe(2024);
+    expect(['S', 'A', 'B', 'C', 'D', 'F']).toContain(P.report!.grade);
+    expect(P.report!.lines.some((l) => l.key === 'pledge')).toBe(true);
+    expect(P.history.length).toBe(1);
+    expect(P.year).toBe(2025);
+    // a broken promise costs approval; the new year starts with no promise
+    expect(P.pledge).toBeUndefined();
+    actBeginYear(s, 'science', null);
+    expect(P.pending).toBe(false);
+    expect(s.countries[s.player].focus).toBe('science');
+  });
+  it('a promise kept pays capital and approval; changing course mid-year costs capital, once', () => {
+    const s = fresh('Germany');
+    const c = s.countries[s.player];
+    ensurePlan(s);
+    const G0 = GOALS[0];
+    s.goalsActive = [G0.id];
+    expect(actBeginYear(s, 'industry', G0.id, G0.title).ok).toBe(true);
+    const orig = G0.progress;
+    G0.progress = () => ({ value: 1, text: '' });
+    try {
+      c.politics!.pc = 20; s.stats.apprBoost = 0; s.tick = 8;
+      stepGoals(s);
+    } finally { G0.progress = orig; }
+    expect(s.plan!.pledge!.done).toBe(true);
+    expect(c.politics!.pc).toBeGreaterThanOrEqual(20 + 12);
+    expect(s.stats.apprBoost).toBeGreaterThanOrEqual(3);
+    expect(s.log.some((l) => /PROMISE KEPT/.test(l.text))).toBe(true);
+    run(s, 8);
+    c.politics!.pc = 40;
+    expect(actSwitchFocus(s, 'rearm').ok).toBe(true);
+    expect(c.politics!.pc).toBe(40 - SWITCH_PC);
+    expect(actSwitchFocus(s, 'welfare').ok).toBe(false);
+  });
+  it('rivals: the nation above you and your nemesis, head to head, and they declare a focus each January', () => {
+    const s = fresh('Poland');
+    const R = ensureRivals(s);
+    const rows = powerTable(s);
+    const i = rows.findIndex((r) => r.id === s.player);
+    expect(R.chase).toBe(rows[i - 1].id);
+    const h = headToHead(s, s.player, R.chase);
+    expect(h.rows.length).toBe(8);
+    expect(h.you + h.them).toBeLessThanOrEqual(8);
+    run(s, 54);
+    const nem = s.rival;
+    expect(s.countries[R.chase].focus ?? s.countries[nem].focus).toBeTruthy();
+    expect((s.cables ?? []).some((x) => x.from === R.chase || x.from === nem)).toBe(true);
+    // a rival answers your rearmament with its own
+    s.countries[s.player].focus = 'rearm';
+    expect(rivalFocus(s, s.countries[nem], true)).toBe('rearm');
+  });
+  it('overtaking the nation above you is a moment: news, capital, and their reaction', () => {
+    const s = fresh('Poland');
+    const R = ensureRivals(s);
+    const above = R.chase;
+    s.tick = 43; // the monthly check (tick % 4 === 3)
+    s.countries[s.player].eco.gdp *= 3; // a sudden leap past them
+    stepRivals(s);
+    expect(R.won).toBeGreaterThanOrEqual(1);
+    expect(R.passed[above]).toBeDefined();
+    expect(s.log.some((l) => /OVERTAKES/.test(l.text))).toBe(true);
+  });
+  it('scenarios: each starts as its nation and year, and stars are won, judged and ended', () => {
+    for (const sc of SCENARIOS) expect(scenarioPlayer(sc), sc.id).toBeDefined();
+    const sc = SCENARIOS.find((x) => x.id === 'poland')!;
+    const s = createGame(geo, { ...DEFAULT_SETTINGS, startYear: sc.year, scenario: sc.id }, scenarioPlayer(sc));
+    const st = ensureScenario(s)!;
+    expect(st.until - st.start).toBe(sc.years * 52);
+    expect(scenarioGoals(s).length).toBe(3);
+    run(s, 8);
+    expect(st.done).toBeUndefined();
+    // reach the top 10 and keep the debt low: the first star, then the end on the deadline
+    s.tick = st.until;
+    s.countries[s.player].eco.gdp *= 6;
+    stepScenario(s);
+    expect(st.stars[0]).toBe(true);
+    expect(st.done?.won).toBe(true);
+    expect(st.done!.stars).toBeGreaterThanOrEqual(1);
+  });
+  it('a scenario is lost when the nation falls', () => {
+    const sc = SCENARIOS.find((x) => x.id === 'argentina')!;
+    const s = createGame(geo, { ...DEFAULT_SETTINGS, startYear: sc.year, scenario: sc.id }, scenarioPlayer(sc));
+    s.countries[s.player].eco.stability = 5;
+    stepScenario(s);
+    expect(s.scen!.done?.won).toBe(false);
+  });
+});

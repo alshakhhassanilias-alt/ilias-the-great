@@ -36,6 +36,10 @@ export interface Settings {
   storylines?: boolean;
   /** the year the game begins: 2021 (before the wars of 2022–24) or 2024 (today). Older saves: 2024 */
   startYear?: 2021 | 2024;
+  /** a curated scenario (see scenarios.ts) */
+  scenario?: string;
+  /** open the State of the Nation at the start of every year (default on) */
+  yearPlan?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -262,6 +266,8 @@ export interface Country {
   rs?: import('./research').Research;
   /** industries: capacity in each of the eight sectors (see industry.ts) */
   ind?: import('./industry').Industry;
+  /** this year's national focus (see focus.ts and plan.ts) */
+  focus?: import('./focus').FocusId;
 }
 
 export type FactionId = 'labour' | 'business' | 'military' | 'nationalists' | 'liberals' | 'regions';
@@ -520,6 +526,12 @@ export interface GameState {
   sph?: Record<number, number>;
   /** the world's research: who knows what, the frontier, the leaders (refreshed monthly; see research.ts) */
   rsw?: import('./research').WorldResearch;
+  /** the player's year: State of the Nation, focus, pledge and report cards (see plan.ts) */
+  plan?: import('./plan').Plan;
+  /** the leaders the player is measured against (see rivals.ts) */
+  rivals?: import('./rivals').Rivals;
+  /** a scenario being played: goals, stars, the clock (see scenarios.ts) */
+  scen?: import('./scenarios').ScenarioState;
 }
 /** a peace obligation: `b` pays reparations to `a`, or `b` is demilitarised by `a`, until a tick */
 export interface PeaceDeal { kind: 'rep' | 'demil'; a: CountryId; b: CountryId; until: number; share?: number; paid?: number }

@@ -3,6 +3,8 @@
  * player's situation (so a peaceful trader and a warlord see different tasks). Completing one pays out
  * immediately and the next relevant goal takes its place.
  */
+/** a promise kept (plan.ts) pays this much */
+export const PLEDGE_PC = 12, PLEDGE_APPR = 3;
 import { gainPC } from './domestic';
 import { fiscalNow } from './economy';
 import { clamp } from './util';
@@ -226,6 +228,14 @@ export function stepGoals(s: GameState) {
       for (const k of Object.keys(s.stats)) if (k.startsWith(`g0:${id}`) || k.startsWith(`g1:${id}`)) delete s.stats[k];
       gainPC(s, 6);
       logEvent(s, `Objective complete: ${g.title}. ${g.reward.replace('Reward: ', 'You received ')}`, 'info', [s.player], true);
+      // the promise made in the State of the Nation (plan.ts): kept
+      const pl = s.plan?.pledge;
+      if (pl && pl.id === id && !pl.done) {
+        pl.done = true;
+        gainPC(s, PLEDGE_PC);
+        s.stats.apprBoost = (s.stats.apprBoost ?? 0) + PLEDGE_APPR;
+        logEvent(s, `🤝 PROMISE KEPT: "${pl.title}". You said you would, and you did. Political capital +${PLEDGE_PC}, approval +${PLEDGE_APPR}.`, 'info', [s.player], true, { big: true });
+      }
     }
   }
   refill(s, c);

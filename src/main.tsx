@@ -17,5 +17,6 @@ import './desktop.css';
 import './legacy.css';
 import './people.css';
 import './motion.css';
+import './desk.css';
 
 createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);

@@ -14,7 +14,7 @@ export function RegimeSection() {
   const paths = R ? [pathById(R.path)!] : pathsFor(c);
   const go = (id: string) => { const r = store.act((g) => actRegimeStep(g, id), true); store.toast(r.message, r.ok ? 'info' : 'danger'); };
   return (
-    <Section title="The system" hint="change it if you dare: three steps, each a gamble">
+    <Section fold="regime" closed title="The system" hint="change it if you dare: three steps, each a gamble">
       <div className="card regime-now">
         <b>🏛 {c.name}: {govName(c, GOV_LABEL)}</b>
         <div className="hint">{GOV_MEANS[c.gov] ?? ''}{c.politics?.laws.some((l) => ['federal', 'central_bank', 'term_limits', 'presidential', 'crown', 'clerics'].includes(l.id)) ? ` Constitution: ${c.politics.laws.filter((l) => ['federal', 'central_bank', 'term_limits', 'presidential', 'crown', 'clerics'].includes(l.id)).map((l) => l.id.replace('_', ' ')).join(', ')}.` : ' Constitutional features (federalism, an independent central bank, term limits, a presidential system, a crown, a council of clerics) are laws: see Laws → Constitution.'}</div>

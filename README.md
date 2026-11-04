@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `preview` | Vite dev server / production build (also type-checks) / serve the build |
-| `npm test` | 226 deterministic simulation tests (Vitest) |
+| `npm test` | 234 deterministic simulation tests (Vitest) |
 | `npm run desktop` / `desktop:dist` | Run the desktop app / build it for release (see `desktop/STEAM.md`) |
 | `python3 tools/music/tracks.py` | Re-render the score into `public/music/` (numpy, scipy, ffmpeg) |
 | `npm run e2e` | Browser smoke test (Playwright): desktop + mobile play-through; run after `npm run build` |
@@ -61,6 +61,49 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **20 laws** in five areas (minimum wage, universal healthcare, retirement age, flat tax or wealth tax, privatisation or nationalisation, technology fund, farm support, green deal, conscription, police powers, war powers, border fortification, media control, anti-corruption agency, regional autonomy, labour migration, free trade, foreign aid), each with real effects and faction reactions. In a democracy they go to a **parliamentary vote**: a hemicycle shows the seats, the forecast is given faction by faction, and you can whip votes with political capital (a defeat costs half the capital). Hybrid regimes rig the vote; autocracies rule by decree at a higher price.
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
+
+## Round 34: a desk, a year, rivals and endings
+
+Fewer, sharper choices and a clear thing to do every minute:
+
+* **Your desk** (top of the Overview): one list of everything that wants you now, most pressing first:
+  emergencies, coalition demands with their deadlines, your promise for the year, idle research and industry, capital
+  piling up, opportunities. Every item has **one "Do it" button with the price on it** (`src/sim/fixes.ts`: the single
+  action that delivers each coalition demand, from passing a law to recruiting the troops or raising a budget line).
+  Objectives in the Goals tab and on the mission card get the same priced buttons at every difficulty.
+* **The State of the Nation** (`src/sim/plan.ts`, `src/ui/YearPlan.tsx`): every 1 January the clock stops for last
+  year's report card (graded S–F against the country's own normal: growth, order, approval, world power, debt, what
+  was delivered, the promise), your rivals, and two decisions:
+  * a **national focus** (`src/sim/focus.ts`): six options, each much stronger in one area and paying for it
+    elsewhere (e.g. research push: research +35%, industry 15% dearer, the army sulks). It hooks into research points,
+    industry costs and build times, influence gains, the doctrine effects (productivity, stability, army costs,
+    offence, defence, treaty acceptance, reputation), faction moods, law costs and approval. One mid-year change costs
+    15 capital;
+  * a **promise**: one of your objectives. Kept within the year: +12 capital, +3 approval. Broken: −4 approval.
+  Good years pay capital; a disastrous one costs approval. The record of grades builds up year by year. The pause can
+  be switched off in Settings.
+* **Rivals as characters** (`src/sim/rivals.ts`, `src/ui/tabs/Rivals.tsx`): the leader of the nation just above you in
+  the power race (or the one hunting you at the top) and your nemesis, with portraits, their focus, their latest words
+  and a head-to-head on eight measures. They declare a focus every January (often answering yours: rearm and your
+  nemesis rearms), the nemesis courts your client states, and every overtake either way is big news with a reward or
+  a sting and a message from the leader concerned.
+* **Scenarios** (`src/sim/scenarios.ts`, `src/ui/Scenario.tsx`): a third mode on the start screen. Eight curated
+  challenges (Poland: The Eagle Rises; Argentina: Never Again; Turkey: The Bridge Between Worlds; Ukraine: Survive and
+  Rebuild; India: The Next Superpower; Japan: The Comeback; Saudi Arabia: Beyond Oil; Nigeria: Africa's Giant), each
+  with a deadline and three goals (one star each; reached once, held for a year, or judged on the last day). A clock
+  and stars in the top bar, the goals on top of the Overview and the Goals tab, a result screen with your score and a
+  best kept per scenario.
+* **Consolidation**: sections can fold (their title is a button, the choice is remembered). The Overview leads with
+  the mission, the desk and the rivals; the detail (sectors, why stability moves, trade partners, histories,
+  doctrines, national character) and the less-used parts of the Economy, Military, Diplomacy and Politics tabs start
+  folded.
+* **Design**: glowing desk cards by urgency with shimmering brass buttons, rival cards with portraits and VS bars, a
+  cinematic State of the Nation with a stamped grade seal, focus cards with their pros and cons, popping stars on the
+  scenario result; all of it in the war-room theme on desktop and laid out for one-handed use on phones.
+
+Checked with 8 new simulation tests (234 in all), new end-to-end checks (the January plan, scenarios), a bot playing
+four countries for 15 years each through every January, save/load determinism across a new year, and the UI crawler
+on desktop and phone.
 
 ## QA round: what a deep check found and fixed
 

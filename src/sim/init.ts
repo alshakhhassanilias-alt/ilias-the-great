@@ -5,6 +5,9 @@
  * baseline rate. Values derived here (capital stock, tech, infrastructure, tax-rate split ...) are
  * game-generated estimates, not real statistics.
  */
+import { ensurePlan } from './plan';
+import { ensureRivals } from './rivals';
+import { ensureScenario } from './scenarios';
 import { setPriceLevel } from './util';
 import { rewindTo2021 } from './start2021';
 import { ensureAlignment } from './alignment';
@@ -322,5 +325,9 @@ export function createGame(geo: Geo, settings: Settings, player: number): GameSt
     const f = NAME_TO_ID[from], t = NAME_TO_ID[to];
     if (f !== undefined && t !== undefined && f !== player && !state.guarantees.includes(`${f}>${t}`)) state.guarantees.push(`${f}>${t}`);
   }
+  // the player's year, rivals and scenario (plan.ts, rivals.ts, scenarios.ts)
+  ensurePlan(state);
+  ensureRivals(state);
+  ensureScenario(state);
   return state;
 }

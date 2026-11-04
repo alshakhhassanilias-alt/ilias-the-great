@@ -131,7 +131,7 @@ export function MilitaryTab({ id }: { id: number }) {
       {mine && wars.length > 0 && (() => {
         const diary = [...s.log].reverse().filter((l) => l.countries.includes(id) && (l.kind === 'territory' || l.kind === 'war')).slice(0, 8);
         return diary.length > 0 && (
-          <Section title="War diary" hint="latest first">
+          <Section fold="wardiary" closed title="War diary" hint="latest first">
             <div className="card diary">
               {diary.map((l) => <div key={l.seq} className={`diary-row ${/captured it from/.test(l.text) ? (l.countries[0] === id ? 'good' : 'bad') : ''}`}><span className="faint">{dateLabel(l.tick)}</span> {l.text}</div>)}
             </div>
@@ -171,7 +171,7 @@ export function MilitaryTab({ id }: { id: number }) {
       )}
 
       {mine && wars.length > 0 && milCtl !== 'auto' && (
-        <Section title="Operations">
+        <Section fold="ops" title="Operations">
           <div className="card">
             <Slider label="Offensive commitment" value={m.commit} min={0.05} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => store.act((g) => setCommit(g, g.player, v), true)}
               hint="Share of the army sent on offensive operations. The rest defends; committing more leaves your own front thinner." />
@@ -208,7 +208,7 @@ export function MilitaryTab({ id }: { id: number }) {
         const a = assessAttack(s, geo, me, c);
         const inv = assessAttack(s, geo, c, me);
         return (
-          <Section title="If it came to war">
+          <Section fold="ifwar" closed title="If it came to war">
             <div className="card">
               <div className="row" style={{ border: 'none' }}>
                 <div className="grow"><div className="lab">Your attack</div><div className="hint">your forces × supply {pct(a.supply, 0)} vs their defence{a.allies > 0 ? ` incl. allies` : ''}{a.nuclear ? ' · nuclear deterrent ×4' : ''}</div></div>
@@ -235,7 +235,7 @@ function Programmes() {
   const c = s.countries[s.player];
   const running = (c.progs ?? []).filter((p) => !p.done).length;
   return (
-    <Section title="Weapons programmes" hint={`${(c.progs ?? []).filter((p) => p.done).length} operational · 2 at a time`}>
+    <Section fold="progs" title="Weapons programmes" hint={`${(c.progs ?? []).filter((p) => p.done).length} operational · 2 at a time`}>
       <div className="progs">
         {PROGRAMMES.map((p) => {
           const st = c.progs?.find((x) => x.id === p.id);

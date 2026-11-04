@@ -13,6 +13,7 @@ import { logEvent } from './log';
 import { cabinetEff, cabinetKey } from './cabinet';
 import { researchKey, researchLasting } from './research';
 import { armsCostMult, industryKey } from './industry';
+import { focusById } from './focus';
 
 export interface Eff {
   tfp?: number;      // productivity growth, points per year (0.005 = +0.5%/yr)
@@ -63,7 +64,7 @@ const ONE: Required<Eff> = { tfp: 0, stab: 0, cost: 1, manpower: 1, off: 1, def:
 /** Combined effect of a country's three doctrines. */
 export function mods(c: Country): Required<Eff> {
   const d = doctorOf(c);
-  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}|${politicsKey(c)}|${c.nat?.done.length ?? 0}|${c.progs ? progKey(c) : ''}|${researchKey(c)}|${industryKey(c)}`;
+  const key = `${d.eco}|${d.mil}|${d.dip}|${c.cabinet ? cabinetKey(c) : ''}|${politicsKey(c)}|${c.nat?.done.length ?? 0}|${c.progs ? progKey(c) : ''}|${researchKey(c)}|${industryKey(c)}|${c.focus ?? ''}`;
   const hit = cache.get(c);
   if (hit && hit.key === key) return hit.eff;
   const out = { ...ONE };
@@ -94,6 +95,11 @@ export function mods(c: Country): Required<Eff> {
     const r = researchLasting(c);
     out.stab += r.stab; out.accept += r.accept; out.ops += r.ops;
     out.off *= 1 + r.off; out.def *= 1 + r.def; out.cost *= Math.max(0.5, 1 + r.cost); out.manpower *= 1 + r.manpower; out.deter *= Math.max(0.5, 1 + r.deter);
+  }
+  const fe = focusById(c.focus)?.eff;
+  if (fe) {
+    out.tfp += fe.tfp ?? 0; out.stab += fe.stab ?? 0; out.accept += fe.accept ?? 0; out.rep += fe.rep ?? 0;
+    out.cost *= fe.cost ?? 1; out.off *= fe.off ?? 1; out.def *= fe.def ?? 1; out.deter *= fe.deter ?? 1;
   }
   if (c.ind) out.cost *= armsCostMult(c); // a home defence industry makes weapons cheaper
   cache.set(c, { key, eff: out });

@@ -4,6 +4,7 @@ import { fiscalNow } from '../sim/economy';
 import { warSupport } from '../sim/warsupport';
 import { isAtWar } from '../sim/relations';
 import { LegacyChip } from './Legacy';
+import { ScenarioChip } from './Scenario';
 import { Tween, DeltaPop } from './Tween';
 import { raceOf, tierLabel } from '../sim/power';
 
@@ -21,6 +22,7 @@ export function TopBar() {
         <span>World Order</span>
       </div>
       <LegacyChip />
+      <ScenarioChip />
       <div className="kpis" role="list">
         {(() => {
           const r = raceOf(s);

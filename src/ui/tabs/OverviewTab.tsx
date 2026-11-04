@@ -4,22 +4,23 @@ import { store } from '../../state/store';
 import { Meter, Note, RelationBar, Section, Stat } from '../widgets';
 import { GOV, REGION, fog, fmtMoney, fmtNum, pct, relLabel, signedPct, sizeClass } from '../format';
 import { LineChart } from '../LineChart';
-import { advisor, alertsFor, sectorsOf, stabilityParts, tradeProfile } from '../explain';
+import { alertsFor, sectorsOf, stabilityParts, tradeProfile } from '../explain';
 import { CabinetSection } from './Cabinet';
 import { Portrait, faceFor } from '../art/Portrait';
 import { getRelation, isAtWar, warsOf } from '../../sim/relations';
 import { strengthIndex } from '../../sim/military';
 import { warScore } from '../../sim/war';
-import { activeGoals } from '../../sim/goals';
 import { popGrowthRate } from '../../sim/economy';
 import { traitById, grudgesOf } from '../../sim/leaders';
 import { dateLabel } from '../../sim/tick';
-import { guideLevel } from '../guides';
 import { SituationSection } from './Situation';
 import { DoctrinesSection } from './Doctrines';
 import { ProvincePanel } from './ProvincePanel';
 import { CharacterSection } from './Character';
 import { MissionCard } from './Mission';
+import { DeskSection } from './Desk';
+import { RivalsSection } from './Rivals';
+import { ScenarioPanel } from '../Scenario';
 
 const TIP = {
   gdp: 'Gross domestic product: the total value of everything the economy produces in a year (nominal US dollars).',
@@ -31,7 +32,6 @@ const TIP = {
 
 export function OverviewTab({ id }: { id: number }) {
   const s = store.state!;
-  const geo = store.geo;
   const c = s.countries[id];
   const mine = id === s.player;
   const e = c.eco;
@@ -40,35 +40,21 @@ export function OverviewTab({ id }: { id: number }) {
   const rl = relLabel(rel);
   const gdp = fog(s, c, e.gdp, 'gdp');
   const alerts = mine ? alertsFor(c, s) : [];
-  const gl = guideLevel(s);
-  const advice = mine && gl !== 'none' ? advisor(c, s, geo).slice(0, gl === 'full' ? 4 : 1) : [];
   const pr = store.selectedProv;
   const wars = warsOf(s, id);
   const sectors = sectorsOf(c);
   const parts = stabilityParts(c);
   const maxStab = Math.max(6, ...parts.map((p) => Math.abs(p.v)));
   const partners = tradeProfile(s, c);
-  const goals = activeGoals(s);
 
   return (
     <>
+      {mine && <ScenarioPanel />}
       {mine && <MissionCard />}
-      {mine && <CabinetSection />}
-
+      {mine && <DeskSection />}
+      {mine && <RivalsSection />}
       {mine && <SituationSection />}
-
-      {mine && advice.length > 0 && (
-        <Section title="Your advisor recommends" hint="one tap to act">
-          <div className="list" style={{ gap: 8, display: 'grid' }}>
-            {advice.map((a) => (
-              <div className="card advice" key={a.id}>
-                <div className="advice-text"><span className={`dot`} style={{ background: a.level === 'urgent' ? 'var(--red)' : a.level === 'opportunity' ? 'var(--green)' : 'var(--amber)' }} /> {a.text}</div>
-                <button className="btn" onClick={() => { const r = store.act((g) => a.run(g, geo)); void r; }}>{a.label}</button>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
+      {mine && <CabinetSection />}
 
       {!mine && c.leader && (
         <Section title="Leadership" hint={`in power ${Math.max(0, (s.tick - c.leader.since) / 52).toFixed(1)} yr`}>
@@ -104,14 +90,6 @@ export function OverviewTab({ id }: { id: number }) {
 
       {pr !== null && <ProvincePanel p={pr} />}
 
-      {mine && goals.length > 0 && (
-        <Section title="Objectives" hint="details in the Goals tab">
-          <button className="card goals-peek" onClick={() => store.setTab('goals')}>
-            {goals.map((g) => { const p = g.progress(s, c); return <div className="why-row" key={g.id}><span>{g.title}</span><b>{Math.round(p.value * 100)}%</b></div>; })}
-          </button>
-        </Section>
-      )}
-
       {mine && <DoctrinesSection />}
 
       <Section title="Snapshot" hint={`${sizeClass(c)} · #${rank} economy`}>
@@ -129,7 +107,7 @@ export function OverviewTab({ id }: { id: number }) {
 
       <CharacterSection c={c} />
 
-      <Section title="Economy by sector" hint="game estimate">
+      <Section fold="sectors" closed={mine} title="Economy by sector" hint="game estimate">
         <div className="card">
           <div className="stack" role="img" aria-label="Sector shares">{sectors.map((x) => <i key={x.key} style={{ width: `${x.share * 100}%`, background: x.color }} title={`${x.label} ${(x.share * 100).toFixed(0)}%`} />)}</div>
           <div className="legend-row" style={{ marginTop: 8 }}>{sectors.map((x) => <span key={x.key}><i style={{ background: x.color }} />{x.label} {(x.share * 100).toFixed(0)}%</span>)}</div>
@@ -137,7 +115,7 @@ export function OverviewTab({ id }: { id: number }) {
       </Section>
 
       {mine && (
-        <Section title="Why is stability like this?" hint={`${e.stability.toFixed(0)} / 100`}>
+        <Section fold="whystab" closed title="Why is stability like this?" hint={`${e.stability.toFixed(0)} / 100`}>
           <div className="card">
             <div className="explain">
               {parts.filter((p) => Math.abs(p.v) >= 0.4 || p.key === 'base').map((p) => p.key === 'base' ? (
@@ -156,7 +134,7 @@ export function OverviewTab({ id }: { id: number }) {
       )}
 
       {partners.length > 0 && (
-        <Section title="Main trade partners" hint="est. share of exports">
+        <Section fold="partners" closed={mine} title="Main trade partners" hint="est. share of exports">
           <div className="card">
             {partners.map((p) => (
               <button key={p.id} className="listitem" style={{ padding: '6px 2px' }} onClick={() => store.select(p.id, null, true)}>
@@ -172,7 +150,7 @@ export function OverviewTab({ id }: { id: number }) {
       )}
 
       {alerts.length > 0 && mine && (
-        <Section title="Warnings" hint={`${alerts.length}`}>
+        <Section fold="warnings" closed title="Warnings" hint={`${alerts.length}`}>
           <div className="list card" style={{ padding: 4 }}>
             {alerts.slice(0, 6).map((a, i) => (
               <button key={i} className="listitem" onClick={() => a.tab && store.setTab(a.tab)}>
@@ -200,10 +178,10 @@ export function OverviewTab({ id }: { id: number }) {
         </Section>
       )}
 
-      <Section title="Economic history" hint="GDP (nominal)">
+      <Section fold="ecohist" closed={mine} title="Economic history" hint="GDP (nominal)">
         <div className="card"><LineChart endTick={s.tick} series={[{ label: 'GDP', color: 'var(--teal)', data: c.hist.gdp, fmt: (v) => fmtMoney(v) }]} /></div>
       </Section>
-      {mine && <Section title="Stability history"><div className="card"><LineChart endTick={s.tick} series={[{ label: 'Stability', color: 'var(--amber)', data: c.hist.stab, fmt: (v) => v.toFixed(0) }]} height={80} /></div></Section>}
+      {mine && <Section fold="stabhist" closed title="Stability history"><div className="card"><LineChart endTick={s.tick} series={[{ label: 'Stability', color: 'var(--amber)', data: c.hist.stab, fmt: (v) => v.toFixed(0) }]} height={80} /></div></Section>}
       <p className="faint" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
         {c.estimated ? 'Baseline values for this country are rough game estimates. ' : 'Baseline: approximate 2023–24 real-world figures (rounded). '}
         Everything else (capital stock, tech, infrastructure, sectors, trade shares) is game-generated.

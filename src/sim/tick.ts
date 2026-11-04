@@ -1,3 +1,6 @@
+import { stepPlan } from './plan';
+import { stepRivals } from './rivals';
+import { stepScenario } from './scenarios';
 import { stepFiscalRule } from './levers';
 import { stepEpochs } from './epochs';
 import { stepLoans, stepTracks } from './detente';
@@ -193,7 +196,10 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCalendar(s);
   rollPlayerEvent(s, geo);
   stepGoals(s);
+  stepPlan(s);
   stepRace(s);
+  stepRivals(s);
+  stepScenario(s);
   turningPoint(s, (id) => !!pushInbox(s, id, {}, 20));
   stepLegacy(s, geo);
   checkVictory(s, geo);

@@ -13,6 +13,7 @@
  * advanced sectors need the research (and the energy) to back them. Each level adds to output (more in a dear market)
  * and has its own payoff: food, energy, cheaper weapons, technology, tax revenue.
  */
+import { focusMult } from './focus';
 import { clamp, fmtMoney, keyOf } from './util';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
@@ -186,8 +187,8 @@ export const MAX_PROGS = 2;
 export function expansionOf(s: GameState, c: Country, id: SectorId): { cost: number; weeks: number; why: string | null } {
   const ind = ensureIndustry(c), sec = sectorById(id);
   const built = ind.lv[id] - ind.lv0[id];
-  const cost = 0.005 * sec.costK * c.eco.gdp * Math.pow(1.22, Math.max(0, built));
-  const weeks = Math.round(26 + 6 * Math.max(0, built));
+  const cost = 0.005 * sec.costK * c.eco.gdp * Math.pow(1.22, Math.max(0, built)) * focusMult(c, 'indCost');
+  const weeks = Math.round((26 + 6 * Math.max(0, built)) * focusMult(c, 'indWeeks'));
   const rs = ensureResearch(c);
   const need = Math.floor(ind.lv[id] / 2) - 1; // the research rung this level needs
   let why: string | null = null;

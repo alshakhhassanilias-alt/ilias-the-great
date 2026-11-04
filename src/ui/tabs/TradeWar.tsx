@@ -33,7 +33,7 @@ export function WorldEconomy({ c }: { c: Country }) {
   const myBans = bansOf(s).filter((b) => b.from === c.id || b.to === c.id);
   const myTariffs = Object.keys(s.tariffs ?? {}).map((k) => k.split('>').map(Number)).filter(([a, b]) => a === c.id || b === c.id);
   return (
-    <Section title="World economy" hint={r.phase}>
+    <Section fold="worldeco" closed title="World economy" hint={r.phase}>
       <div className="card we-cycle">
         <div className="we-risk">
           <span>Risk of a world recession within a year</span>

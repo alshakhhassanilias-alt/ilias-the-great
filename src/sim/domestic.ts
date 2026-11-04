@@ -15,6 +15,7 @@
  * with PC), are rubber-stamped with a little help in a hybrid regime, and are simply decreed in an autocracy,
  * at a higher price and with a cost to legitimacy. Only the player has politics; AI countries are unaffected.
  */
+import { focusById, focusMood, focusMult } from './focus';
 import { clamp, keyOf } from './util';
 import { hash01, nextRand } from './rng';
 import { logEvent } from './log';
@@ -238,6 +239,7 @@ export function factionTarget(s: GameState, c: Country, f: Faction): { target: n
   // a seat at the table: partners in government (or pillars of the regime) are kinder; the opposition is harsher
   const G = P.gov;
   if (G) add(G.partners.includes(f.id) ? (free(c) ? 'In your government' : 'A pillar of the regime') : free(c) ? 'In opposition' : '', G.partners.includes(f.id) ? 5 : free(c) ? -2 : 0);
+  if (c.focus) add(`National focus: ${focusById(c.focus)!.name}`, focusMood(c, f.id));
   if (Math.abs(f.mem) >= 0.5) add('Recent decisions', f.mem);
   const target = clamp(50 + parts.reduce((t, p) => t + p.v, 0), 0, 100);
   return { target, parts: parts.sort((a, b2) => Math.abs(b2.v) - Math.abs(a.v)) };
@@ -296,7 +298,7 @@ export function forecast(c: Country, law: Law, whip: number): Forecast {
   });
   let yes = by.reduce((t, x) => t + (x.seats / 100) * x.p, 0) + whip * 0.008 + (mode === 'rigged' ? 0.1 : 0) - (minority(c) ? 0.1 : 0);
   if (mode === 'decree') yes = 1;
-  const cmult = (hasLaw(c, 'federal') && law.id !== 'federal' ? 1.1 : 1) * (hasLaw(c, 'presidential') && law.id !== 'presidential' ? 0.85 : 1) * (P.lawMult ?? 1);
+  const cmult = (hasLaw(c, 'federal') && law.id !== 'federal' ? 1.1 : 1) * (hasLaw(c, 'presidential') && law.id !== 'presidential' ? 0.85 : 1) * (P.lawMult ?? 1) * focusMult(c, 'law');
   return { yes: clamp(yes, 0, 1), by, mode, cost: Math.round(law.pc * (mode === 'decree' ? 1.3 : 1) * cmult) };
 }
 

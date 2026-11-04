@@ -69,7 +69,7 @@ export function CoursesSection() {
   }
   const list = coursesFor(s, c, geo);
   return (
-    <Section title="Change course" hint="a multi-step story: who you court, who you leave">
+    <Section fold="course" closed title="Change course" hint="a multi-step story: who you court, who you leave">
       <div className="list">
         {list.map((k) => {
           const since = s.tick - (s.stats[`courseAt:${c.id}:${k.id}`] ?? -9999);

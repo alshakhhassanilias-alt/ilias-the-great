@@ -35,7 +35,7 @@ export function CabinetSection() {
   let nearSet: Set<number> | null = null;
   const near = () => (nearSet ??= new Set(neighborsOf(s, store.geo, c.id)));
   return (
-    <Section title="Cabinet briefing" hint={`${c.cabinet.length} ministers · tap one for more`}>
+    <Section fold="cabinet" title="Cabinet briefing" hint={`${c.cabinet.length} ministers · tap one for more`}>
       <div className="cabinet">
         {c.cabinet.map((m) => {
           const r = cachedReport(s, c, m, near);
