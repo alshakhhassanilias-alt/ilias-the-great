@@ -541,6 +541,8 @@ export interface GameState {
   rivals?: import('./rivals').Rivals;
   /** the player's wars as main events: tier, council, chapters (see warmode.ts) */
   warx?: Record<number, import('./warmode').WarX>;
+  /** who is stepping in for whom, in each war (redlines.ts) */
+  react?: Record<string, import('./redlines').ReactX>;
   /** a scenario being played: goals, stars, the clock (see scenarios.ts) */
   scen?: import('./scenarios').ScenarioState;
 }

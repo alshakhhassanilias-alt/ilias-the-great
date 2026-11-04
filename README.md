@@ -82,6 +82,30 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
   * A great war slows the clock to a speed you can follow, and the score changes to *Great Powers*.
   * Starting in 2024, the wars of 2024 are on: the Russo-Ukrainian War (with Western sponsors sending aid every year)
     and the Gaza War. Nations with a cause to hold on keep fighting while they can.
+* **For every action, a reaction.** No country with friends is quietly wiped off the map. Whenever a country is
+  attacked, or a war turns against it, the countries that care about it climb a ladder one rung a month as the danger
+  grows. **Arms and sanctions** come first. Then a **red line**: a public warning that one step further and they fight,
+  which slows the attacker's advance into its homeland and makes the attacker readier for peace. If the line is
+  crossed they **intervene**. How much a country cares depends on an alliance, close relations, its sphere, hostility
+  to the attacker and **strategic interest**: a great power does not let its rival swallow a country of its own camp,
+  so the United States answers for Taiwan and Ukraine as well as for Israel and Japan. How far it goes depends on its
+  strength, its other wars and its stability at home. The danger is measured from the homeland lost, the capital, who
+  has joined the other side and the balance of strength.
+  * A country that started the war is protected only once the war reaches its own soil.
+  * A protector does not sign a separate peace while its friend is still in danger, and comes back if it was pulled
+    out.
+  * Every escalation draws its own answer: when a great power steps in for one side, the other side's patrons climb
+    their own ladder.
+  * A nuclear power facing destruction warns that it will use every weapon it has: the advance on its homeland all
+    but stops and peace becomes very likely.
+  * The war panel shows **who steps in** for each side, rung by rung, and how much danger you are in; a great power
+    standing behind your enemy raises the war's tier at the council.
+  * As the attacker, a red line comes to you as a decision: halt at the line, call their bluff (if they don't act they
+    lose face) or seek a ceasefire. As a nuclear power in danger you choose whether to give the warning, appeal to your
+    friends or seek terms. As a protector you are asked whether to honour the alliance.
+  * Checked: the Israel–Syria war from the last round (Israel was wiped out) now ends in a ceasefire with Israel alive,
+    after Russia's red line and intervention for Syria and the American answer for Israel; Taiwan, Poland, Lithuania
+    and Georgia are each protected; 15-year world runs stay calm (at most three wars at once, every one ended).
 * **Rivals who scheme.** Your nemesis remembers what passed between you (who overtook whom, insults, schemes) and
   every few months works against you: a smear, turning one of your allies, funding your opposition, a border
   incident, a squeeze on your trade. Answer it from your desk. Their cables recall the past; the rival card shows the

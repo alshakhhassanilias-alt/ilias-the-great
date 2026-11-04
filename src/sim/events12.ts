@@ -10,6 +10,10 @@ import { bumpSupport, warSupport } from './warsupport';
 import { warScore } from './war';
 import { actPeace, setBudget } from './actions';
 import { actMobilise } from './warmode';
+import { linesAgainst, nuclearWarning, protectorsOf } from './redlines';
+import { addRelation } from './relations';
+import { strength } from './military';
+import { isMajor } from './drama';
 import type { Country, GameState, War } from './types';
 
 const nm = (s: GameState, id: number) => s.countries[id]?.name ?? 'the enemy';
@@ -91,6 +95,66 @@ export const EVENTS12: EventDef[] = [
       { label: 'Rebuild what was destroyed', hint: 'Costs 1% of GDP · war damage repaired faster · stability +3', enabled: canPay(0.01), apply: (s, c) => { pay(s, c, 0.01); c.eco.damage = Math.max(0, c.eco.damage - 0.1); stab(c, 3); return 'Cranes over the ruined towns.'; } },
       { label: 'Never again: rearm', hint: 'Defence budget +0.5% of GDP · the army pleased · liberals uneasy', apply: (s, c) => { setBudget(s, c.id, 'military', c.budget.military + 0.005); sway(c, 'military', 6); sway(c, 'liberals', -3); return `Never again (${money(c, 0.01)} a year more for defence).`; } },
       { label: 'A memorial to the fallen', hint: 'Stability +4 · approval +2', apply: (s, c) => { stab(c, 4); s.stats.apprBoost = (s.stats.apprBoost ?? 0) + 2; return 'A memorial is unveiled in the capital.'; } },
+    ],
+  },
+  {
+    id: 'war_redline', icon: '⚠', title: 'A red line', weight: 0, cooldown: 0, urgent: true, ttl: 6,
+    eligible: () => null,
+    lapse: (s, _c, d) => { for (const r of linesAgainst(s, d.war)) r.answer = 'bluff'; return 'We said nothing and pressed on: they take it as defiance.'; },
+    text: (s, c, d) => {
+      const ls = linesAgainst(s, d.war);
+      const who = ls.length ? [...new Set(ls.map((r) => r.f))] : s.countries[d.f] ? [d.f] : [];
+      const names = who.map((f) => nm(s, f));
+      const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? 'Its friends';
+      const st = who.reduce((t, f) => t + strength(s.countries[f]), 0), ratio = st / Math.max(1, strength(c));
+      return `${list} ${who.length > 1 ? 'have' : 'has'} drawn a red line over ${nm(s, d.x)}: one step further into its homeland and ${who.length > 1 ? 'they enter' : `${list} enters`} the war. ${who.length > 1 ? 'Together they are' : `${list} is`} ${ratio >= 1.5 ? `${ratio.toFixed(1)} times as strong as we are` : ratio >= 0.7 ? 'about as strong as we are' : 'weaker than we are, but not alone'}. Our generals want to know: do we stop?`;
+    },
+    options: [
+      { label: 'Halt at the line', hint: 'We stop advancing into their homeland · they stand down unless the war spreads · war support −3 · reputation +2', apply: (s, c, d) => {
+        for (const r of linesAgainst(s, d.war)) r.answer = 'halt';
+        s.stats[`rlb:${d.war}:${d.x}`] = 0.1; ws(c, -0.03); rep(c, 2);
+        return 'We hold our lines. They stand down, for now.';
+      } },
+      { label: 'Call their bluff', hint: 'We press on. If they mean it they fight; if not, they lose face · relations with them −10 · war support +2', apply: (s, c, d) => {
+        for (const r of linesAgainst(s, d.war)) { r.answer = 'bluff'; addRelation(s, c.id, r.f, -10); }
+        ws(c, 0.02);
+        return 'We will not be told where our armies may go. Now they must choose.';
+      } },
+      { label: 'Seek a ceasefire on the current lines', hint: 'Peace with what we hold, if they accept', apply: (s, _c, d, geo) => {
+        for (const r of linesAgainst(s, d.war)) r.answer = 'talks';
+        const r = actPeace(s, geo, s.player, d.x, { kind: 'status_quo' });
+        return r.ok ? 'A ceasefire on the current lines. We keep what we hold.' : `They refuse: ${r.message.toLowerCase()}`;
+      } },
+    ],
+  },
+  {
+    id: 'war_existential', icon: '☢', title: 'The survival of the nation', weight: 0, cooldown: 0, urgent: true, ttl: 4,
+    eligible: () => null,
+    text: (s, c, d) => {
+      const w = s.wars.find((x) => x.id === d.war);
+      const foes = w ? (w.attackers.includes(c.id) ? w.defenders : w.attackers) : [];
+      const friends = w ? protectorsOf(s, w, c.id).filter((p) => p.rung < 3).map((p) => nm(s, p.f)) : [];
+      return `${foes.map((e) => nm(s, e)).slice(0, 3).join(', ')} ${foes.length > 1 ? 'are' : 'is'} deep in our homeland${c.provinces.includes(c.capital) ? '' : ' and the capital has fallen'}. We are a nuclear power. Our generals ask what you are prepared to do.${friends.length ? ` ${friends.join(' and ')} could still come to our side.` : ' No one else is coming.'}`;
+    },
+    options: [
+      { label: 'Warn the world: every weapon we have', hint: 'Their advance on our homeland all but stops and they will want peace · reputation −4 · relations with every great power −5', apply: (s, c, d) => {
+        const w = s.wars.find((x) => x.id === d.war); if (!w) return 'The war is over.';
+        nuclearWarning(s, w, c.id);
+        for (const g of s.countries) if (g.alive && g.id !== c.id && isMajor(s, g.id)) addRelation(s, g.id, c.id, -5);
+        return 'The warning is heard in every capital.';
+      } },
+      { label: 'Appeal to our friends', hint: 'Every country that cares about us decides now whether to fight for us', apply: (s, c, d) => {
+        const w = s.wars.find((x) => x.id === d.war); if (!w) return 'The war is over.';
+        const ps = protectorsOf(s, w, c.id).filter((p) => p.rung < 3);
+        for (const p of ps) { const r = s.react?.[`${w.id}:${c.id}:${p.f}`]; if (r) { r.rung = Math.max(2, r.rung) as 2; r.line = 0; } }
+        return ps.length ? `Envoys leave for ${ps.map((p) => nm(s, p.f)).join(' and ')}.` : 'There is no one left to ask.';
+      } },
+      { label: 'Seek terms', hint: 'Give up some land to save the rest, if they accept', apply: (s, c, d, geo) => {
+        const w = s.wars.find((x) => x.id === d.war); if (!w) return 'The war is over.';
+        const lead = (w.attackers.includes(c.id) ? w.defenders : w.attackers)[0];
+        const r = actPeace(s, geo, s.player, lead, { kind: 'concede', share: 0.15 });
+        return r.ok ? 'A bitter peace. The nation survives.' : `They refuse: ${r.message.toLowerCase()}`;
+      } },
     ],
   },
 ];

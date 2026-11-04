@@ -22,6 +22,7 @@ import { logEvent } from './log';
 import { computeBlocs } from './politics';
 import { aiExtras } from './peaceterms';
 import { charDeter } from './character';
+import { boundTo } from './redlines';
 import { claimStrength, declareWar, evaluatePeace, makePeace, warScore, type PeaceTerms, isCoastalCountry } from './war';
 import { buildProject, demobilize, recruit } from './actions';
 import { build, levelOf } from './buildings';
@@ -303,6 +304,8 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     const E = s.countries[e];
     const score = warScore(s, w, c.id);
     const years = (s.tick - w.start) / 52;
+    // a country that came in to save a friend does not leave it alone while it is still in danger (redlines.ts)
+    if ((boundTo(s, w, c.id) && c.mil.exhaustion < 0.85) || (e !== s.player && boundTo(s, w, e) && E.mil.exhaustion < 0.85)) continue;
     // decide proposed terms
     let terms: PeaceTerms | null = null;
     const myWill = evaluatePeace(s, geo, e, c.id, { kind: 'status_quo' }).willingness; // how much *I* want peace

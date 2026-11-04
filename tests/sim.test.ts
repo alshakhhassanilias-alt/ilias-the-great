@@ -3339,3 +3339,59 @@ describe('replay and tidy-up (round 35)', () => {
     expect(back.countries[s.player].eco.gdp / s.countries[s.player].eco.gdp).toBeCloseTo(1, 7);
   });
 });
+
+import { advanceBrake, boundTo, protectorsOf, stepRedLines, threatOf } from '../src/sim/redlines';
+describe('for every action, a reaction (red lines)', () => {
+  const overrun = (s: GameState, victim: number, to: number, n: number) => { for (const p of s.countries[victim].provinces.filter((q) => q !== s.countries[victim].capital).slice(0, n)) transferProvince(s, geo, p, to); };
+  const months = (s: GameState, n: number) => { for (let i = 0; i < n; i++) { s.tick += 4; stepRedLines(s); } };
+  it('an ally that is being overrun is armed, then a red line is drawn, then its friends fight', () => {
+    const s = fresh('Germany');
+    const isr = id('Israel'), syr = id('Syria'), us = id('United States of America');
+    declareWar(s, geo, syr, isr);
+    const w = s.wars.find((x) => x.defenders.includes(isr))!;
+    w.defenders = w.defenders.filter((d) => d === isr); // its friends stayed out at first
+    stepRedLines(s);
+    overrun(s, isr, syr, 3);
+    const t = threatOf(s, w, isr);
+    expect(t.v).toBeGreaterThan(0.3);
+    expect(protectorsOf(s, w, isr).some((p) => p.f === us)).toBe(true);
+    months(s, 8);
+    expect(w.defenders).toContain(us);
+    expect(s.log.some((e) => /RED LINE/.test(e.text) && e.text.includes('United States'))).toBe(true);
+    // Israel is a nuclear power whose existence is at stake: the advance on its homeland all but stops
+    expect(advanceBrake(s, w, isr)).toBeLessThan(0.5);
+    // and the protector does not sign a separate peace while Israel is still in danger
+    expect(boundTo(s, w, us)).toBe(true);
+  });
+  it('the one who started the war is protected only once the war reaches its own soil', () => {
+    const s = fresh('Germany');
+    const isr = id('Israel'), syr = id('Syria'), us = id('United States of America');
+    declareWar(s, geo, isr, syr);
+    const w = s.wars.find((x) => x.attackers.includes(isr))!;
+    months(s, 4);
+    expect(s.react?.[`${w.id}:${isr}:${us}`]?.rung ?? 0).toBe(0);
+    overrun(s, isr, syr, 3);
+    months(s, 2);
+    expect(s.react?.[`${w.id}:${isr}:${us}`]?.rung ?? 0).toBeGreaterThan(0);
+  });
+  it('a great power protects a country of its camp from its rival, and the attacking player is warned', () => {
+    const s = fresh('China');
+    const tw = id('Taiwan'), us = id('United States of America');
+    declareWar(s, geo, s.player, tw);
+    const w = s.wars.find((x) => x.defenders.includes(tw))!;
+    w.defenders = w.defenders.filter((d) => d === tw);
+    stepRedLines(s);
+    expect(protectorsOf(s, w, tw).some((p) => p.f === us)).toBe(true);
+    overrun(s, tw, s.player, 3);
+    months(s, 3);
+    expect(s.scheduled.some((x) => x.id === 'war_redline')).toBe(true);
+  });
+  it('reading the danger from the interface does not change the game', () => {
+    const s = fresh('Germany');
+    declareWar(s, geo, id('Syria'), id('Israel'));
+    const w = s.wars[s.wars.length - 1];
+    const before = JSON.stringify(s.stats);
+    threatOf(s, w, id('Israel'));
+    expect(JSON.stringify(s.stats)).toBe(before);
+  });
+});

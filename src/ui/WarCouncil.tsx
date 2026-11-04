@@ -15,6 +15,8 @@ import { warScore } from '../sim/war';
 import { strength } from '../sim/military';
 import { warSupport } from '../sim/warsupport';
 import { actCallAllies } from '../sim/actions';
+import { RUNG_LABEL, threatOf, warReactions } from '../sim/redlines';
+import { warSideOf } from '../sim/relations';
 import { dateLabel } from '../sim/tick';
 import { fmtMoney, fmtNum } from './format';
 import { Emblem } from './art/Emblem';
@@ -156,6 +158,29 @@ export function WarStrip() {
 
 const PHASES: [WarX['phase'], string][] = [['opening', 'Opening battles'], ['grind', 'The long war'], ['turning', 'Turning point'], ['endgame', 'Endgame']];
 /** The Overview's first section while you are at war. */
+/** Who is stepping in, for each side: arming, a red line, at war. For every action, a reaction (redlines.ts). */
+function Reactions({ s, w }: { s: GameState; w: War }) {
+  const me = s.player, mine = warSideOf(w, me);
+  const rs = warReactions(s, w);
+  const us = rs.filter((r) => r.side === mine), them = rs.filter((r) => r.side !== mine);
+  const t = threatOf(s, w, me);
+  const row = (list: typeof rs, label: string) => (
+    <div className="wp-react"><small>{label}</small>
+      {list.length ? list.slice(0, 6).map((r) => {
+        const out = r.rung === 3 && warSideOf(w, r.f) < 0;
+        return <span key={`${r.x}:${r.f}`} className={`wr-chip r${out ? 1 : r.rung}`} title={`${s.countries[r.f].name} for ${s.countries[r.x].name}: ${out ? 'fought, then left the war' : RUNG_LABEL[r.rung]}`}><Emblem c={s.countries[r.f]} size={16} crest={false} />{s.countries[r.f].name}<i>{out ? 'left' : RUNG_LABEL[r.rung]}</i></span>;
+      }) : <span className="faint">no one</span>}
+    </div>
+  );
+  return (
+    <div className="wp-reacts">
+      <div className="wp-react-h"><b>Who steps in</b><span className="faint">{t.v >= 0.05 ? `our danger ${Math.round(t.v * 100)}%: ${t.why.join(', ') || 'the war is going against us'}` : 'friends arm you, draw red lines and, if the line is crossed, fight'}</span></div>
+      {row(us, 'For us')}
+      {row(them, 'For them')}
+    </div>
+  );
+}
+
 export function WarPanel() {
   const s = store.state!;
   const mw = mainWar(s);
@@ -180,6 +205,7 @@ export function WarPanel() {
           <div><small>Exhaustion</small><b>{Math.round(c.mil.exhaustion * 100)}% / {Math.round((E?.mil.exhaustion ?? 0) * 100)}%</b></div>
           <div><small>War aim</small><b>{goal ? GOALS_META[goal as WarGoal].title : '—'}</b></div>
         </div>
+        <Reactions s={s} w={w} />
         <div className="wp-row"><small>Mobilisation</small>
           <div className="wp-seg">{MOBILISATION.map((m) => <button key={m.level} className={`${M.level === m.level ? 'on' : ''} m${m.level}`} title={[...m.pros, ...m.cons].join(' · ')} onClick={() => store.act((g) => actMobilise(g, m.level))}>{m.short}</button>)}</div>
         </div>

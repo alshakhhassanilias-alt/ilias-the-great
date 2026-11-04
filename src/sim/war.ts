@@ -17,6 +17,7 @@ import { settleGoal } from './wargoals';
 import { legacyWarEnded } from './legacy';
 import { cable } from './cables';
 import { voicesOn } from './reactions';
+import { advanceBrake, noteWarStart, peacePressure } from './redlines';
 import { mods } from './doctrines';
 import type { Geo } from './geo';
 import { hash01, nextRand } from './rng';
@@ -233,6 +234,7 @@ export function declareWar(s: GameState, geo: Geo, a: CountryId, d: CountryId, w
   }
   if (d === s.player) cable(s, a, 'war_on_you'); else if (a === s.player) cable(s, d, 'you_declared');
   if (a === s.player) voicesOn(s, 'declare', d); else if (d === s.player) voicesOn(s, 'attacked', a);
+  noteWarStart(s, war);
   if (a === s.player || d === s.player) registerPlayerWarFn?.(s, war);
   if ((a === s.player || d === s.player) && !s.inbox.some((x) => x.id === 'war_goal') && !(s.warx?.[war.id]?.council)) s.inbox.push({ uid: s.nextInbox++, id: 'war_goal', tick: s.tick, expires: s.tick + 6, urgent: true, data: { w: war.id, e: a === s.player ? d : a } });
   return { ok: true };
@@ -316,6 +318,8 @@ export function evaluatePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId
   will += 0.7 * (0.5 - ws);
   if (ws < 0.35) reasons.push(`War support only ${(ws * 100).toFixed(0)}%`); else if (ws > 0.7) reasons.push(`War support ${(ws * 100).toFixed(0)}%: the public wants victory`);
   will -= 0.25 * B.ai.aggression;
+  const rl = peacePressure(s, w, b);
+  if (rl > 0) { will += rl; reasons.push('Red lines drawn against them: they fear a wider war'); }
   const gainsB = (w.gained[b] ?? 0);
   let required = 0.4;
   const terms = termProvinces(s, geo, a, b, t);
@@ -591,7 +595,9 @@ export function stepWars(s: GameState, geo: Geo) {
       const nuclearBrake = E.mil.nuclear ? contrib.reduce((t, x) => t + (x.st.c.mil.nuclear ? 0.85 : 0.45) * x.pa, 0) / Pa : 1; // fear of escalation limits advances on nuclear powers
       const amph = contrib.every((x) => x.st.amphibious) ? 0.7 : 1;
       const raw = 0.055 * clamp(Math.log(ratio) + 0.25, -1.2, 1.6) * sizeScale;
-      const delta = (raw > 0 ? Math.min(raw, pocket ? 0.07 : 0.045) * nuclearBrake : raw) * (raw > 0 ? amph : 1);
+      // red lines and nuclear warnings hold back an advance into the defender's own homeland (redlines.ts)
+      const redLine = s.core[p] === e ? advanceBrake(s, w, e) : 1;
+      const delta = (raw > 0 ? Math.min(raw, pocket ? 0.07 : 0.045) * nuclearBrake * redLine : raw) * (raw > 0 ? amph : 1);
       // casualties
       const defShare = defTroops;
       const gunner = contrib.some((x) => generalAt(x.st.c, p)?.trait === 'artillery');

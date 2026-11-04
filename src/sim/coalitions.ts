@@ -19,6 +19,7 @@ import { isMajor } from './drama';
 import { cable } from './cables';
 import { voicesOn } from './reactions';
 import { onEnterWar } from './warsupport';
+import { stepRedLines } from './redlines';
 import type { CountryId, GameState, War } from './types';
 
 export const aggOf = (s: GameState, id: CountryId) => s.stats[`agg:${id}`] ?? 0;
@@ -33,7 +34,7 @@ export function stepCoalitions(s: GameState, geo: Geo) {
   // aggression fades
   if (s.tick % 4 === 0) for (const k of Object.keys(s.stats)) if (k.startsWith('agg:')) { s.stats[k] *= 0.975; if (s.stats[k] < 1) delete s.stats[k]; }
   // friends step in to save a country being overrun (monthly)
-  if (s.tick % 4 === 1) for (const w of [...s.wars]) intervene(s, w);
+  if (s.tick % 4 === 1) stepRedLines(s);
   if (s.tick % 8 !== 3) return;
   s.coalitions ??= [];
   // dissolve coalitions whose target has calmed down (or died)
@@ -79,56 +80,13 @@ export function stepCoalitions(s: GameState, geo: Geo) {
   if (s.tick % 16 === 3) for (const w of s.wars) backSides(s, w);
 }
 
-/**
- * Nobody watches a friend being swallowed. When a country has lost its capital or a third of its land, a strong
- * friend that is not already fighting (an ally, or a country very close to it that dislikes the conqueror) may enter
- * the war to save it, whoever started it. The player is asked instead (the "ally_attacked" decision).
- */
-function intervene(s: GameState, w: War) {
-  for (const side of [w.attackers, w.defenders]) {
-    const foes = side === w.attackers ? w.defenders : w.attackers;
-    const lead = foes[0];
-    if (lead === undefined) continue;
-    for (const x of [...side]) {
-      const X = s.countries[x];
-      if (!X?.alive) continue;
-      const start = w.startProvs?.[x] ?? X.provinces.length;
-      const lostShare = start > 0 ? 1 - X.provinces.length / start : 0;
-      const capLost = (s.stats[`capfall:${x}`] ?? -1e9) >= w.start;
-      if (lostShare < 0.33 && !capLost) continue;
-      if (s.stats[`interv:${w.id}:${x}`] && s.tick - s.stats[`interv:${w.id}:${x}`] < 26) continue;
-      s.stats[`interv:${w.id}:${x}`] = s.tick;
-      const L = s.countries[lead];
-      const cands = s.countries.filter((F) => F.alive && F.id !== x && !side.includes(F.id) && !foes.includes(F.id) && !warsOf(s, F.id).length
-        && (hasAlliance(s, F.id, x) || getRelation(s, F.id, x) > 60) && getRelation(s, F.id, lead) < 10 && !hasAlliance(s, F.id, lead)
-        && strength(F) > 0.25 * strength(L) && F.eco.stability > 35)
-        .sort((a, b) => strength(b) - strength(a)).slice(0, 2);
-      for (const F of cands) {
-        if (F.id === s.player) {
-          if (!s.scheduled.some((y) => y.id === 'ally_attacked')) s.scheduled.push({ tick: s.tick, id: 'ally_attacked', data: { ally: x, aggressor: lead, war: w.id } });
-          continue;
-        }
-        const pr = (hasAlliance(s, F.id, x) ? 0.55 : 0.3) * (1 - 0.5 * F.ai.caution) * (L.mil.nuclear && !F.mil.nuclear ? 0.4 : 1) * (capLost ? 1.3 : 1);
-        if (nextRand(s) > pr) continue;
-        side.push(F.id);
-        w.startProvs[F.id] = F.provinces.length;
-        onEnterWar(s, F, 'ally');
-        addRelation(s, F.id, lead, -25);
-        addRec(s, F.id, 'loyal', 0.5);
-        const mine = x === s.player || lead === s.player;
-        logEvent(s, `⚔ INTERVENTION: ${F.name} enters the ${w.name} to save ${X.name}${capLost ? ', whose capital has fallen' : ''}.`, 'war', [F.id, x, lead], true, { big: mine || isMajor(s, F.id), prov: X.capital });
-        if (lead === s.player) voicesOn(s, 'intervene', F.id, `${F.name} has declared war on you to save ${X.name}.`);
-        if (x === s.player) cable(s, F.id, 'warm');
-      }
-    }
-  }
-}
-
 function backSides(s: GameState, w: War) {
   const A = w.attackers[0], D = w.defenders[0];
   if (A === undefined || D === undefined) return;
   for (const G of s.countries) {
     if (!G.alive || !isMajor(s, G.id) || warSideOf(w, G.id) >= 0 || G.id === s.player) continue;
+    // already climbing the ladder of reactions for one side (redlines.ts): no second channel of arms
+    if (Object.values(s.react ?? {}).some((r) => r.war === w.id && r.f === G.id && r.rung >= 1)) continue;
     const ra = getRelation(s, G.id, A), rd = getRelation(s, G.id, D);
     // patrons arm a friend that was attacked; an aggressor only when it is a close friend fighting a declared enemy
     const side = rd > 30 && ra < 0 ? D : ra > 55 && rd < -35 ? A : -1;

@@ -15,6 +15,7 @@ import { clamp } from './util';
 import { logEvent } from './log';
 import { strength } from './military';
 import { powerRank } from './power';
+import { protectorsOf } from './redlines';
 import { setRegisterPlayerWar, warScore } from './war';
 import { fund } from './actions';
 import { sway } from './domestic';
@@ -68,6 +69,9 @@ export function warScale(s: GameState, w: War, me: CountryId): { tier: number; l
   const onSoil = w.fronts.filter((f) => s.owner[f.prov] === me).length;
   if (onSoil >= 3 || w.fronts.some((f) => f.prov === M.capital)) { pts += 1; reasons.push(w.fronts.some((f) => f.prov === M.capital) ? 'the capital itself is under attack' : 'the fighting is on our soil'); }
   if ((w.lost[me] ?? 0) > 0.15) { pts += 1; reasons.push('we have lost much of our land'); }
+  // a great power that would step in for them (redlines.ts)
+  const guard = theirs[0] !== undefined ? protectorsOf(s, w, theirs[0]).find((p) => p.commit >= 0.45 && p.rung < 3 && powerRank(s, p.f) <= 10) : undefined;
+  if (guard) { pts += 1; reasons.push(`${s.countries[guard.f].name} stands behind them`); }
   const tier = clamp(1 + pts, 1, 5);
   return { tier, label: TIER_LABEL[tier], reasons };
 }
