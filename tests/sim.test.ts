@@ -3480,3 +3480,17 @@ describe('a legacy that lasts (round 36)', () => {
     expect(p.text).toContain('60');
   });
 });
+
+import { voteParts as votePartsR36b } from '../src/sim/legacy';
+describe('the polls tell the truth (round 36b)', () => {
+  it('a promise not yet kept already counts against you in the forecast, as it will on election day', () => {
+    const s = fresh('Poland', { mode: 'legacy' });
+    const L = s.legacy!;
+    actChooseAgenda(s, L.hand.slice(0, 2));
+    const p = votePartsR36b(s).find((x) => x.key === 'promises');
+    // two open promises, neither met yet: -2.5 each, exactly what the count would do today
+    expect(p?.v).toBeCloseTo(-5, 5);
+    L.agenda[0].done = true;
+    expect(votePartsR36b(s).find((x) => x.key === 'promises')?.v).toBeCloseTo(1, 5);
+  });
+});

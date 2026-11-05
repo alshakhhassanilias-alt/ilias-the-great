@@ -103,6 +103,10 @@ is about the long game.
   (the Hall of Nations, the Triumphal Arch, the Century Tower...), a real reward, legacy points and prestige for the
   house. Finish one and choose the next. The desk reminds you when one is open or a stage is close.
 * **The higher you rise, the harder they push.** A top-five power is schemed against by its nemesis far more often.
+* **The polls tell the truth.** Promises still open on election day are judged in the count (−2.5 each), but the
+  forecast used to leave them out: a poll of 53% could become a defeat on the day. The forecast now counts open
+  promises as they would be judged if the vote were today, and the result lands within three points of the last poll.
+  Measured with a bot that takes its ministers' advice: re-elected in 24 of 39 elections across eight democracies.
 * **Checked.** 261 unit tests; three sixty-year Legacy games with a successor chosen at every career end (six to seven
   generations each, no errors, three objectives at all times); the whole path in the browser on desktop and phone
   (design the leader, the yearly feature, a great ambition, the verdict, then and now, the succession, the successor's

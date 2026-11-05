@@ -205,13 +205,21 @@ export function stepLegacy(s: GameState, geo: Geo) {
 /** Vote share at an election (or loyalty at a party congress), with every part the player can see. */
 export function voteParts(s: GameState): { key: string; label: string; v: number }[] {
   const L = s.legacy, c = s.countries[s.player];
-  const kept = L ? L.agenda.filter((a) => a.done).length : 0, failed = L ? L.agenda.filter((a) => a.failed).length : 0;
+  // promises still open are judged on election day, so the poll counts them as they would be judged if the vote were today
+  // (it used to leave them out, and a comfortable poll could turn into a defeat on the day)
+  let kept = 0, failed = 0;
+  if (L && L.status === 'office') for (const a of L.agenda) {
+    if (a.done) { kept++; continue; }
+    if (a.failed) { failed++; continue; }
+    const card = agendaById(a.id), v = card.progress(s, c, a).value;
+    if (v >= 0.999 || (card.atTermEnd && v >= 0.98)) kept++; else failed++;
+  }
   const diff = s.settings.difficulty === 'easy' ? 3 : s.settings.difficulty === 'hard' ? -3 : 0;
   const cab = c.cabinet?.length ? clamp((avgLoyalty(c) - 50) * 0.06, -3, 2) : 0; // a divided cabinet leaks against you
   const parts = [
     { key: 'base', label: 'Even race', v: 50 },
     { key: 'approval', label: 'Your government’s approval', v: (approval(s, c) - 50) * 0.7 },
-    { key: 'promises', label: 'Promises kept and broken', v: 3.5 * kept - 2.5 * failed },
+    { key: 'promises', label: 'Promises kept and broken (open ones as they stand today)', v: 3.5 * kept - 2.5 * failed },
     { key: 'fatigue', label: 'Voters ready for a change', v: -Math.max(0, (L?.term ?? 1) - 2) * 2 },
     { key: 'cabinet', label: 'Cabinet unity', v: cab },
     { key: 'charisma', label: 'Your personal appeal (charisma)', v: charismaVote(s) },
