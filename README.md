@@ -62,6 +62,29 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 37: no two games alike
+
+Played as Jordan, two years brought only five to seven decisions, the same ones in the same order every game, and
+nothing in the first five months. Two causes: ordinary events could come at most once every 26 weeks in Legacy (44 in
+Sandbox), an over-correction from the decluttering round, and the first world crisis struck in week 70 of every game.
+
+* **The director** (`src/sim/director.ts`) opens every game with a hook that fits the country in its first weeks, then
+  starts a new situation every five to eleven weeks: sooner after a quiet spell, later while the desk is full. It never
+  tells the same situation twice until the rest have been told, and the order is different with every seed.
+* **Thirty-two situations** (`src/sim/events13.ts`), stories over months with two or three stages where your choice
+  decides the next: refugees from a war next door, the wells running dry, a rich neighbour's money and the favour it
+  buys, smugglers and a border firefight, the IMF and the price of bread, whispers at court, shells from the war next
+  door, a gas field and who develops it, a minister's villa, the general strike, an earthquake, a cyber blackout, a
+  startup champion, a spy ring, the angry young, a giant factory, the final, an outbreak, a run on the currency, a plot
+  against you, a heatwave, trapped miners, hostages abroad, a preacher's sermon, a minority's language, doctors
+  leaving, a tycoon with a television channel, whose mobile network, an embassy stormed, a reporter's story, debt for
+  nature and a too-popular general. Each fits the countries it makes sense for (no IMF bread riots in Germany, no
+  earthquakes in Poland) and happens in one of your own regions, by name.
+* Ordinary events come every two to three months again, and the first world crisis comes at a different time in
+  every game.
+* As Jordan, the first two years now bring 23 to 29 decisions, from the third to sixth week on, in a different order
+  in every game.
+
 ## Round 36: a legacy that lasts
 
 Played as Legacy, the game started strong and then went flat: the goals stopped renewing, the end of a career was a

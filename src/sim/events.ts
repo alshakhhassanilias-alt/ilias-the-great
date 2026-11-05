@@ -9,6 +9,8 @@ import { EVENTS6 } from './events6';
 import { EVENTS8 } from './events8';
 import { EVENTS11 } from './events11';
 import { EVENTS12 } from './events12';
+import { EVENTS13 } from './events13';
+import { stepDirector } from './director';
 import { EVENTS7, rememberChoice } from './events7';
 import { storyEvents } from './story';
 import type { Geo } from './geo';
@@ -205,7 +207,7 @@ import { EVENTS10 } from './events10';
 let all: EventDef[] | null = null;
 let byId: Map<string, EventDef> | null = null;
 export function allEvents(): EventDef[] {
-  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...EVENTS12, ...storyEvents()]);
+  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...EVENTS12, ...EVENTS13, ...storyEvents()]);
 }
 /** (the list as an array-like for older callers and the tests) */
 export const ALL_EVENTS: EventDef[] = new Proxy([] as EventDef[], {
@@ -273,8 +275,10 @@ export function rollPlayerEvent(s: GameState, geo: Geo) {
     pushInbox(s, id, sc.data);
     return;
   }
+  stepDirector(s, geo);
   if (s.settings.randomEvents === false) return;
-  if (s.inbox.length >= 2 || s.tick < 14 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 26 : 44) || s.tick % 2 !== 0) return;
+  // ordinary events between the director's situations: one every two or three months, not one every half-year
+  if (s.inbox.length >= 2 || s.tick < 8 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 9 : 12) || s.tick % 2 !== 0) return;
   if (nextRand(s) > 0.3) return;
   const pool: { def: EventDef; d: D; w: number }[] = [];
   for (const def of allEvents()) {

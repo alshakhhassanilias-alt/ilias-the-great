@@ -544,6 +544,8 @@ export interface GameState {
   rivals?: import('./rivals').Rivals;
   /** the player's wars as main events: tier, council, chapters (see warmode.ts) */
   warx?: Record<number, import('./warmode').WarX>;
+  /** the director: the opening hook and the next situation (director.ts) */
+  dir?: import('./director').Director;
   /** the nation's great ambition: three stages over decades (great.ts) */
   great?: import('./great').GreatState;
   /** Legacy: the house that rules across generations (dynasty.ts) */
