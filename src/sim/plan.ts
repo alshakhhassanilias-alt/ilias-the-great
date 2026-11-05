@@ -6,6 +6,7 @@
  *   - then "Begin the year".
  * A good year is rewarded (political capital and approval), and the grades build a record you can look back on.
  */
+import { snapshot } from './dynasty';
 import { clamp } from './util';
 import { logEvent } from './log';
 import { approval } from './approval';
@@ -31,6 +32,10 @@ export interface Plan {
   history: { year: number; grade: Grade; score: number; focus?: FocusId; pledge?: boolean }[];
   /** a mid-year change of focus has been made */
   switched?: boolean;
+  /** the country when the game began (the yearly 'then and now') */
+  snap0?: import('./dynasty').Snapshot;
+  /** the world power race: the top ten now, and as it stood a year ago */
+  top?: number[]; topPrev?: number[];
 }
 
 export const PLEDGE_MISS = 4;
@@ -48,6 +53,7 @@ export const yearNow = (s: GameState) => START_YEAR + Math.floor(s.tick / 52);
 
 export function ensurePlan(s: GameState): Plan {
   if (!s.plan) s.plan = { year: yearNow(s), pending: false, started: s.tick, snap: snapOf(s), history: [] };
+  if (!s.plan.snap0 && s.countries[s.player]?.alive) s.plan.snap0 = snapshot(s);
   return s.plan;
 }
 
@@ -106,6 +112,8 @@ export function stepPlan(s: GameState) {
   if (P.history.length > 80) P.history.splice(0, P.history.length - 80);
   logEvent(s, `📋 ${P.year} in review: grade ${R.grade}. ${R.headline}`, 'info', [s.player], true);
   P.report = R;
+  if (P.top) P.topPrev = P.top;
+  P.top = s.countries.filter((x) => x.alive).map((x) => x.id).sort((a, b) => powerRank(s, a) - powerRank(s, b)).slice(0, 10);
   P.year = yearNow(s);
   P.snap = snapOf(s);
   P.pledge = undefined;

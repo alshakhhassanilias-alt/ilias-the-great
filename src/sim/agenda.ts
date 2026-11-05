@@ -11,6 +11,7 @@ import { alliesOf, isAtWar, partnersOf } from './relations';
 import { fund } from './actions';
 import { levelOf } from './buildings';
 import { approval } from './events3';
+import { AMBITIONS, ambByKey, ambLevel, ambOpen, ambPitch, ambProgress, ambTitle } from './ambitions';
 
 export type AgendaCat = 'economy' | 'power' | 'diplomacy' | 'society' | 'territory';
 export interface AgendaCard {
@@ -97,14 +98,66 @@ export const AGENDA: AgendaCard[] = [
     base: (_s, c) => c.reputation, progress: (_s, c) => ({ value: clamp(c.reputation / 75, 0, 1), text: `${c.reputation.toFixed(0)} / 75` }),
     action: { label: 'World tour', desc: 'Reputation +4, relations with 6 partners +5', cost: 0.001, run: (s, c) => { c.reputation = clamp(c.reputation + 4, 0, 100); for (const x of partnersOf(s, c.id, 'trade').slice(0, 6)) { const k = c.id < x ? `${c.id}-${x}` : `${x}-${c.id}`; s.relDelta[k] = clamp((s.relDelta[k] ?? 0) + 5, -80, 80); } return 'Your world tour made headlines everywhere.'; } } },
 ];
-export const agendaById = (id: string) => AGENDA.find((a) => a.id === id)!;
+/** Each fixed card's place among the endless ambitions: once kept, it returns only as its generated, harder twin. */
+export const TWIN: Record<string, string> = { miracle: 'gdp', books: 'debt', jobs: 'jobs', energy: 'energy', tech: 'tech', build: 'infra', climb: 'econrank', harmony: 'stab', popular: 'appr', rearm: 'army', great: 'power', alliance: 'allies', trade: 'deals', respect: 'rep' };
+const GEN_CACHE = new Map<string, AgendaCard>();
+/**
+ * A generated promise: "g:<ambition>:<level>:<target×10000>". The target is fixed when the card is dealt, so the
+ * promise means the same thing from the day it is made to the day it is judged.
+ */
+function genCard(id: string): AgendaCard | undefined {
+  const hit = GEN_CACHE.get(id);
+  if (hit) return hit;
+  const [, key, lvS, tS] = id.split(':');
+  const a = ambByKey(key);
+  if (!a) return undefined;
+  const lv = Number(lvS), t = Number(tS) / 10000;
+  const card: AgendaCard = {
+    id, cat: a.cat, icon: a.icon, title: ambTitle(a, lv), pitch: ambPitch(a, lv), goal: a.goal(t, t), points: Math.min(170, 60 + 15 * lv + (a.cat === 'power' ? 10 : 0)),
+    atTermEnd: a.endOnly,
+    base: (s, c) => a.measure(s, c),
+    progress: (s, c, p) => ambProgress(a, s, c, p.base, lv, t),
+  };
+  if (a.cmp === 'rank') card.goal = card.goal.replace(/ \(from #\d+\)/, '');
+  if (GEN_CACHE.size > 400) GEN_CACHE.clear();
+  GEN_CACHE.set(id, card);
+  return card;
+}
+const FALLBACK: AgendaCard = { id: '?', cat: 'society', icon: '📜', title: 'A forgotten promise', pitch: '', goal: '', points: 0, base: () => 0, progress: () => ({ value: 0, text: '' }) };
+export const agendaById = (id: string): AgendaCard => (id.startsWith('g:') ? genCard(id) : AGENDA.find((a) => a.id === id)) ?? FALLBACK;
+/** A generated promise for this country now, at the next level of that ambition. */
+export function genPromise(s: GameState, c: Country, key: string): string | null {
+  const a = ambByKey(key);
+  if (!a) return null;
+  const lv = ambLevel(s, key, 'p');
+  const t = a.target(a.measure(s, c), lv, s, c);
+  if (!Number.isFinite(t)) return null;
+  return `g:${key}:${lv}:${Math.round(t * 10000)}`;
+}
+/** A promise kept: the next time this ambition comes round it asks for more. */
+export function promiseKept(s: GameState, id: string) {
+  const key = id.startsWith('g:') ? id.split(':')[1] : TWIN[id];
+  if (!id.startsWith('g:')) s.stats[`agk:${id}`] = 1;
+  if (key) { s.stats[`ambp:${key}`] = ambLevel(s, key, 'p') + 1; }
+}
 
 /** Deal a hand of five cards, mixing categories, from those that make sense for the country right now. */
 export function dealHand(s: GameState, c: Country, salt: number): string[] {
-  // only ambitions that make sense now and are not already fulfilled
-  const ok = AGENDA.filter((a) => (!a.when || a.when(s, c)) && a.progress(s, c, { id: a.id, start: s.tick, base: a.base(s, c), done: false }).value < 0.85);
-  const rnd = (i: number) => { let x = (s.tick * 7919 + salt * 104729 + i * 15485863 + c.id * 31) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967295; };
-  const shuffled = ok.map((a, i) => ({ a, r: rnd(i) })).sort((x, y) => x.r - y.r).map((x) => x.a);
+  // only ambitions that make sense now and are not already fulfilled; a fixed card once kept returns as its harder twin
+  const fixedOk = AGENDA.filter((a) => !s.stats[`agk:${a.id}`] && (!a.when || a.when(s, c)) && a.progress(s, c, { id: a.id, start: s.tick, base: a.base(s, c), done: false }).value < 0.85);
+  const term = s.legacy?.term ?? 1;
+  // the first term leans on the classic promises; later terms more and more on the endless ones, which grow with you
+  const nFixed = term <= 1 ? 3 : term === 2 ? 2 : 1;
+  const rnd0 = (i: number) => { let x = (s.tick * 7919 + salt * 104729 + i * 15485863 + c.id * 31) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967295; };
+  const fx = fixedOk.map((a, i) => ({ a, r: rnd0(i) })).sort((x, y) => x.r - y.r).map((x) => x.a);
+  const first = fx.slice(0, nFixed);
+  const firstKeys = new Set(first.map((a) => TWIN[a.id]).filter(Boolean));
+  const gen = ambOpen(s, c, 'p').filter((a) => !firstKeys.has(a.key)).map((a) => genPromise(s, c, a.key)).filter((x): x is string => !!x).map((id) => agendaById(id))
+    .map((a, i) => ({ a, r: rnd0(i + 50) })).sort((x, y) => x.r - y.r).map((x) => x.a);
+  void AMBITIONS;
+  void 0;
+  // the chosen classics, then the endless ambitions, and only then the other classics as a fallback
+  const shuffled = [...first, ...gen, ...fx.slice(nFixed)];
   const hand: AgendaCard[] = [];
   const cats = new Set<string>();
   for (const a of shuffled) { if (hand.length >= 5) break; if (!cats.has(a.cat) || hand.length >= 4) { hand.push(a); cats.add(a.cat); } }

@@ -62,6 +62,52 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 36: a legacy that lasts
+
+Played as Legacy, the game started strong and then went flat: the goals stopped renewing, the end of a career was a
+paragraph, every year looked the same, and once everything was done there was nothing left that mattered. This round
+is about the long game.
+
+* **Goals that never run out.** Objectives used to come from a fixed list, and a strong player emptied it: over a
+  forty-year test game there were 186 weeks with no objective at all and 658 with fewer than three. Now, once the fixed
+  and path-based objectives are spent, **endless ones** take over (`src/sim/ambitions.ts`, nineteen kinds: growth,
+  living standards, the power and economy rankings, research, the army, stability, approval, reputation,
+  infrastructure, debt, reserves, jobs, energy, exports, allies, client states, trade deals). Each is sized from where
+  your country stands now, and each time you meet one, the next of its kind asks for more and pays more: *Economic
+  Miracle*, then *The Second Miracle*, then *A Golden Age*. Over the same forty years there are now always three.
+* **Promises that grow with you.** A Legacy term no longer deals the same twenty cards: once a classic promise is
+  kept it only comes back as its harder, generated twin, and later terms are dealt mostly generated promises whose
+  target is fixed when they are dealt ("grow the economy by 11%", "reach 84% approval", "rise 4 places").
+* **Your leader, your face.** On the start screen you design your leader: man or woman, skin, hair and its colour,
+  beard, glasses, expression and the age they take office. You can rename or redesign them at any time from the
+  dossier (click the portrait), and name your successor yourself.
+* **A career end that means something.** The history book is replaced by **the verdict of history**: the grade
+  stamped on, an epithet, what history says, written from your actual record (how much richer people became, where the
+  country moved in the world, the wars, the promises, the debt, the calm or the anger), the **honours** the nation
+  gives you (from a statue in the capital, an airport and your face on the banknotes, down to your portrait quietly
+  taken down), and **the country, then and now**: fourteen measures from the day you took office to the day you left.
+* **A house, not just a career.** When a career ends and the country still stands, the house goes on. You choose who
+  carries it: **your child** (your family name, half your skills, your face: they take your skin and hair), **your
+  protégé** (your best minister: a safe pair of hands) or **the party's rising star** (charismatic, untested). You can
+  rename them and change their face, then spend the house's **prestige**, earned by every ruler before them, on a head
+  start: a famous name, the party machine, a loyal party, an education for power, the family fortune, old friends
+  abroad. They take office at once if the house still holds power, or lead the opposition if it does not, and the next
+  forty years are theirs. Every ruler's chapter (years, grade, epithet, verdict, the country before and after) is kept
+  in the history of the house, in the dossier. Surnames follow the person (Kowalski and Kowalska, Ivanov and Ivanova).
+* **Every year a little different.** The State of the Nation now opens with a line on what has changed since you
+  took office, and a feature that changes each year: the race for world power (who rose, who fell), the people (every
+  faction's mood), the biggest changes since you took office, and on every fifth anniversary the country then and now.
+* **Something to strive for late in the game.** **Great Ambitions** open in your third year: *A World Power*, *The
+  Prosperous Nation*, *A Sphere of Influence*, *The Frontier of Science*, *Master of the Region*, *A Nation at Peace*.
+  Each has three stages over decades; each stage is a moment for the nation, a monument raised in the leader's name
+  (the Hall of Nations, the Triumphal Arch, the Century Tower...), a real reward, legacy points and prestige for the
+  house. Finish one and choose the next. The desk reminds you when one is open or a stage is close.
+* **The higher you rise, the harder they push.** A top-five power is schemed against by its nemesis far more often.
+* **Checked.** 261 unit tests; three sixty-year Legacy games with a successor chosen at every career end (six to seven
+  generations each, no errors, three objectives at all times); the whole path in the browser on desktop and phone
+  (design the leader, the yearly feature, a great ambition, the verdict, then and now, the succession, the successor's
+  first agenda) with no errors.
+
 ## Round 35: war as the main event, rivals who scheme, a challenge every day
 
 * **War takes over when it should, and as much as it should.** Every war of yours is measured the moment it starts,

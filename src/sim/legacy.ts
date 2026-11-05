@@ -9,9 +9,11 @@
  */
 import { rememberCables } from './minds';
 import type { Geo } from './geo';
-import type { AgendaPick, Country, GameState, LegacyState, TermRecord, WarRecord } from './types';
+import type { AgendaPick, Country, GameState, LegacyState, Look, TermRecord, WarRecord } from './types';
+import { actSucceed, closeChapter, ensureDynasty, snapshot, surnameFor, surnameOf, type Candidate } from './dynasty';
+import type { Persona } from './persona';
 import { START_YEAR, TICKS_PER_YEAR } from './types';
-import { agendaById, dealHand } from './agenda';
+import { agendaById, dealHand, promiseKept } from './agenda';
 import { approval } from './approval';
 import { avgLoyalty, ensureCabinet } from './cabinet';
 import { personName } from './leaders';
@@ -46,6 +48,7 @@ export function initLegacy(s: GameState) {
     start: { gdppc: gdppc(c), rank: powerRank(s, c), provinces: c.provinces.length, pop: c.eco.pop, stability: c.eco.stability, tick: 0, power: strength(c), rep: c.reputation, allies: alliesOf(s, c.id).length },
     maxYear: START_YEAR + 40,
     traits: s.settings.leaderTraits ?? ['pragmatist', 'reformer'],
+    ...(s.settings.leaderLook ? { look: s.settings.leaderLook } : {}), origin: 'founder',
     chronicle: [{ tick: 0, text: `${s.settings.leaderName || personName(c, 'me', 1)} takes office as ${titleFor(c.gov)} of ${c.name}.` }],
   };
   delete s.stats.nextVote; // the legacy calendar replaces the generic one
@@ -78,7 +81,7 @@ export function scoreParts(s: GameState): Record<string, number> {
 }
 export const totalScore = (parts: Record<string, number>) => Object.values(parts).reduce((t, v) => t + v, 0);
 export function grade(score: number) { return score >= 900 ? 'S' : score >= 600 ? 'A' : score >= 350 ? 'B' : score >= 150 ? 'C' : score >= 0 ? 'D' : 'F'; }
-export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises (kept − broken)', deeds: 'Deeds for the history books', wars: 'Wars you fought', aims: 'War aims', terms: 'Mandates', heir: 'Your successor' };
+export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises (kept − broken)', deeds: 'Deeds for the history books', wars: 'Wars you fought', aims: 'War aims', terms: 'Mandates', heir: 'Your successor', great: 'Great ambitions' };
 /** What each part of the score measures, in one line (shown under the bar). */
 export function partHint(s: GameState, k: string): string {
   const L = s.legacy!;
@@ -117,8 +120,9 @@ export function legacyWarAim(s: GameState, aim: string, ok: boolean, pts: number
   if (w && w.tick === s.tick) { w.aim = aim; w.aimOk = ok; w.aimPts = pts; }
   L.parts.aims = (L.parts.aims ?? 0) + pts;
 }
-function judge(L: LegacyState, a: AgendaPick, kept: boolean) {
+function judge(L: LegacyState, a: AgendaPick, kept: boolean, s?: GameState) {
   const card = agendaById(a.id);
+  if (kept && s) promiseKept(s, a.id);
   a.pts = kept ? card.points : -Math.round(card.points * 0.25);
   if (kept) a.done = true; else a.failed = true;
   L.parts.agenda = (L.parts.agenda ?? 0) + a.pts;
@@ -143,6 +147,7 @@ export function stepLegacy(s: GameState, geo: Geo) {
   const L = s.legacy;
   if (!L || s.settings.mode !== 'legacy' || L.status === 'ended') return;
   const c = s.countries[s.player];
+  if (!L.snap0 && c.alive) { L.snap0 = snapshot(s); ensureDynasty(s); }
   if (!c.alive) { if (L.status === 'office') closeTerm(s, 'ended', `${c.name} falls; the government is swept away.`); endLegacy(s, `${c.name} was wiped off the map. ${L.leader}'s story ends in defeat and exile.`); return; }
   if (isAtWar(s, c.id)) s.stats[`legacyWar:${c.id}`] = s.tick;
   if (L.status === 'office') {
@@ -154,7 +159,7 @@ export function stepLegacy(s: GameState, geo: Geo) {
       const card = agendaById(a.id);
       if (card.atTermEnd) continue;
       if (card.progress(s, c, a).value >= 1) {
-        judge(L, a, true);
+        judge(L, a, true, s);
         L.chronicle.push({ tick: s.tick, text: `Promise kept: ${card.title}.` });
         logEvent(s, `🏅 PROMISE KEPT: ${card.title}. Your legacy grows (+${card.points}).`, 'info', [s.player], true, { big: true, prov: c.capital });
       }
@@ -225,7 +230,7 @@ function holdVote(s: GameState) {
   for (const a of L.agenda) {
     if (a.done || a.failed) continue;
     const card = agendaById(a.id);
-    judge(L, a, card.progress(s, c, a).value >= 0.999 || (!!card.atTermEnd && card.progress(s, c, a).value >= 0.98));
+    judge(L, a, card.progress(s, c, a).value >= 0.999 || (!!card.atTermEnd && card.progress(s, c, a).value >= 0.98), s);
   }
   const share = clamp(voteShare(s) + (nextRand(s) - 0.5) * 6, 1, 97); // polls are rarely off by more than three points
   s.stats.campaign = 0;
@@ -391,6 +396,7 @@ export function actRetire(s: GameState) {
       const share = clamp(voteShare(s) - 2 + (nextRand(s) - 0.5) * 8, 1, 97);
       const won = share >= 50;
       L.parts.heir = won ? 80 : -20;
+      if (!won) s.stats.heirLost = 1;
       L.chronicle.push({ tick: s.tick, text: won ? `${heir} wins the election with ${share.toFixed(0)}%: the work goes on.` : `${heir} loses the election (${share.toFixed(0)}%).` });
       logEvent(s, `🗳 ${won ? `${heir}, ${L.leader}'s successor, wins with ${share.toFixed(1)}%!` : `${heir}, ${L.leader}'s successor, is defeated (${share.toFixed(1)}%).`}`, won ? 'info' : 'danger', [s.player], true, { big: true });
     }
@@ -439,15 +445,66 @@ export function endLegacy(s: GameState, reason: string) {
   // wars were counted as each one ended (legacyWarEnded), so nothing is recounted here
   L.parts = scoreParts(s);
   L.score = totalScore(L.parts);
+  // the house goes on: a successor takes over in office if the career ended there (and a named heir did not lose)
+  s.stats.succOffice = L.status === 'office' && !s.stats.heirLost ? 1 : 0;
+  s.stats.heirLost = 0;
+  const ep = epithet(s), gr = grade(L.score);
   L.status = 'ended';
   L.endReason = reason;
   L.chronicle.push({ tick: s.tick, text: reason });
   logEvent(s, `📖 THE HISTORY BOOKS: ${reason}`, 'info', [s.player], true, { big: true });
+  closeChapter(s, ep, gr);
+}
+
+/** A new career for the chosen successor (dynasty.ts): in office if the house still holds it, else leading the opposition. */
+function initLegacyFor(s: GameState, name: string, office: boolean) {
+  const c = s.countries[s.player], old = s.legacy!;
+  const free = isFree(c.gov);
+  const nextVote = office ? (old.nextVote > s.tick + 26 ? old.nextVote : s.tick + TERM) : s.tick + TERM;
+  s.legacy = {
+    leader: name, title: titleFor(c.gov), status: office ? 'office' : 'opposition', term: 1, termStart: s.tick, nextVote,
+    agenda: [], hand: office ? dealHand(s, c, 1 + (s.dynasty?.gen ?? 1) * 13) : [], score: 0, parts: {}, terms: [],
+    start: { gdppc: gdppc(c), rank: powerRank(s, c), provinces: c.provinces.length, pop: c.eco.pop, stability: c.eco.stability, tick: s.tick, power: strength(c), rep: c.reputation, allies: alliesOf(s, c.id).length },
+    maxYear: Math.floor(yearOfTick(s.tick)) + 40, traits: old.traits, chronicle: [],
+    ...(office ? {} : { opposition: { support: 34, since: s.tick, attempts: 0, gov: old.opposition?.gov ?? (free ? 'The governing party' : 'The ruling council'), base: 34, boost: 0 } }),
+  };
+  s.legacy.snap0 = snapshot(s);
+  s.stats[`termGdp:1`] = gdppc(c);
+  s.stats.reviewTerm = 0;
+}
+function personaFor(s: GameState, cand: Candidate): Persona {
+  const c = s.countries[s.player];
+  return { age: cand.age, health: 90, skills: { ...cand.skills }, xp: { cha: 0, adm: 0, dip: 0, cmd: 0 }, rival: { name: personName(c, 'rival', (s.tick + 7) % 97), power: 10, since: s.tick, tries: 0 }, deeds: {}, snap: {}, born: s.tick - cand.age * 52 };
+}
+/** Choose who carries the house on (dynasty.ts), and play on as them. */
+export function actChooseSuccessor(s: GameState, idx: number, opts: { name?: string; look?: Look; perks?: string[] } = {}) {
+  const r = actSucceed(s, idx, opts, { initLegacyFor, personaFor });
+  if (r.ok && s.settings.mode !== 'legacy') s.settings.mode = 'legacy';
+  return r;
+}
+/** Let the house end here. */
+export function actEndDynasty(s: GameState) {
+  if (s.dynasty) { delete s.dynasty.pending; s.dynasty.closed = true; }
+  return { ok: true, message: 'The house’s story ends here.' };
+}
+/** Rename the leader you play, or redesign their face. */
+export function actEditLeader(s: GameState, name: string, look?: Look) {
+  const L = s.legacy;
+  if (!L) return { ok: false, message: 'Only in Legacy' };
+  const n = name.trim().slice(0, 32);
+  if (n && n !== L.leader) {
+    L.chronicle.push({ tick: s.tick, text: `${L.leader} is known from now on as ${n}.` });
+    if (s.dynasty && s.dynasty.gen === 1 && !s.dynasty.rulers.length) s.dynasty.house = surnameFor(surnameOf(n, s.countries[s.player].region), false);
+    L.leader = n;
+  }
+  if (look) L.look = look;
+  return { ok: true, message: 'Your leader is updated.' };
 }
 
 /** After the end, keep playing the same world as a sandbox. */
 export function continueAsSandbox(s: GameState) {
   s.settings.mode = 'sandbox';
+  if (s.dynasty) { delete s.dynasty.pending; s.dynasty.closed = true; }
   return { ok: true, message: 'The world goes on. You keep playing in Sandbox mode.' };
 }
 

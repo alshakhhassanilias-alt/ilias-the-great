@@ -16,6 +16,12 @@ import { shareCard } from './share';
 import type { GameState } from '../sim/types';
 import { FOCUS_GLYPH, Glyph } from './art/Glyphs';
 import { RivalCard, rivalIds } from './tabs/Rivals';
+import { BeforeAfter } from './Dynasty';
+import { leaderFace } from './LookEditor';
+import { snapshot } from '../sim/dynasty';
+import { powerRank } from '../sim/power';
+import { factionMeta } from '../sim/domestic';
+import { START_YEAR } from '../sim/types';
 
 const WEIGHTS: [RegExp, number][] = [[/declared war|WAR:|GREAT-POWER|INTERVENTION/, 10], [/defaulted/, 9], [/OVERTAKES|overtakes/, 8], [/STAR WON|PROMISE KEPT|PROMISE BROKEN/, 8], [/elect|ELECTION|vote of confidence/i, 7], [/leave your coalition|turn against the regime/, 6], [/passes parliament|signed into force|is law/, 5], [/sphere of influence/, 5], [/RESEARCH COMPLETE|first nation/, 4], [/INDUSTRY:/, 3], [/peace|armistice|ceasefire/i, 7]];
 /** The year's three biggest stories about you, from the news (for the front page of the State of the Nation). */
@@ -54,6 +60,64 @@ function ReportCard({ r }: { r: Report }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Every year something different: on a round anniversary the country then and now; otherwise, in turn, the power race
+ * (who rose, who fell), the people (every faction's mood) and what has changed since you took office.
+ */
+function YearFeature({ s }: { s: GameState }) {
+  const P = s.plan!, c = s.countries[s.player];
+  const L = s.legacy && s.settings.mode === 'legacy' ? s.legacy : null;
+  const from = L?.snap0 ?? P.snap0;
+  if (!from) return null;
+  const now = snapshot(s);
+  const yrs = Math.round((s.tick - from.tick) / 52);
+  const who = L ? 'you took office' : 'the game began';
+  const year0 = Math.floor(START_YEAR + from.tick / 52);
+  const kind = yrs > 0 && yrs % 5 === 0 ? 'anniv' : (['race', 'people', 'then'] as const)[P.year % 3];
+  // a line that is always there: then and now in three numbers
+  const strip = (
+    <div className="yf-strip">
+      <span>Since {who} ({year0}):</span>
+      <b className={now.power < from.power ? 'good' : now.power > from.power ? 'bad' : ''}>power #{from.power} → #{now.power}</b>
+      <b className={now.gdppc >= from.gdppc ? 'good' : 'bad'}>income {now.gdppc >= from.gdppc ? '+' : ''}{((now.gdppc / Math.max(1, from.gdppc) - 1) * 100).toFixed(0)}%</b>
+      <b className={now.regions >= from.regions ? '' : 'bad'}>{now.regions - from.regions >= 0 ? '+' : ''}{now.regions - from.regions} regions</b>
+    </div>
+  );
+  if (kind === 'anniv') return (
+    <div className="yf yf-anniv">{strip}
+      <h3 className="sotn-h">{['', 'Five', 'Ten', 'Fifteen', 'Twenty', 'Twenty-five', 'Thirty', 'Thirty-five', 'Forty'][yrs / 5] ?? yrs} years since {who}</h3>
+      <BeforeAfter a={from} b={now} labelA={String(year0)} labelB="Today" limit={8} />
+    </div>
+  );
+  if (kind === 'race') {
+    const top = P.top ?? [], prev = P.topPrev ?? [];
+    const mine = top.includes(c.id) ? top : [...top.slice(0, 9), c.id];
+    return (
+      <div className="yf">{strip}
+        <h3 className="sotn-h">The race for world power <small>last year's moves</small></h3>
+        <ol className="yf-race">{mine.map((id, i) => {
+          const was = prev.indexOf(id);
+          const mv = was < 0 ? 'new' : was - top.indexOf(id);
+          return <li key={id} className={id === c.id ? 'me' : ''}><span className="yf-n">#{top.includes(id) ? i + 1 : powerRank(s, id)}</span><Emblem c={s.countries[id]} size={18} crest={false} /><span className="grow">{s.countries[id].name}</span><span className={`yf-mv ${typeof mv === 'number' ? (mv > 0 ? 'good' : mv < 0 ? 'bad' : '') : 'good'}`}>{mv === 'new' ? 'new' : mv === 0 ? '=' : mv > 0 ? `▲${mv}` : `▼${-mv}`}</span></li>;
+        })}</ol>
+      </div>
+    );
+  }
+  if (kind === 'people' && c.politics) return (
+    <div className="yf">{strip}
+      <h3 className="sotn-h">The people <small>how every part of the country feels about you</small></h3>
+      <div className="yf-people">{c.politics.factions.map((f) => { const m = factionMeta(f.id); return (
+        <div key={f.id} className="yf-fac"><span>{m.icon} {m.short}<small>{Math.round(f.support * 100)}% of the people</small></span><div className="bar"><i style={{ width: `${Math.max(3, f.mood)}%`, background: f.mood > 60 ? 'var(--green)' : f.mood > 35 ? 'var(--amber)' : 'var(--red)' }} /></div><b>{f.mood.toFixed(0)}</b></div>); })}</div>
+    </div>
+  );
+  return (
+    <div className="yf">{strip}
+      <h3 className="sotn-h">Then and now <small>the biggest changes since {who}</small></h3>
+      <BeforeAfter a={from} b={now} labelA={String(year0)} labelB="Today" limit={5} />
     </div>
   );
 }
@@ -110,13 +174,14 @@ export function YearPlanModal() {
             <div className="sotn-kicker">{pending ? `1 January ${P.year}` : dateLabel(s.tick)} · State of the Nation</div>
             <h2>{pending ? `${leader ? `${leader}, w` : 'W'}hat is ${P.year} for?` : `Your plan for ${P.year}`}</h2>
           </div>
-          {leader && <span className="desk-only sotn-face"><Portrait f={faceFor(c, leader, 'leader')} size={64} title={leader} /></span>}
+          {leader && <span className="desk-only sotn-face"><Portrait f={s.legacy && s.settings.mode === 'legacy' ? leaderFace(s) : faceFor(c, leader, 'leader')} size={64} title={leader} /></span>}
           {!pending && <button className="iconbtn" aria-label="Close" onClick={close}>✕</button>}
         </header>
         <div className="sotn-body">
           {pending && (() => { const hs = yearHeadlines(s); return hs.length > 0 && (
             <div className="sotn-news"><div className="sn-mast">The {c.name} Herald · {P.year - 1} in headlines</div>{hs.map((h, i) => <p key={i} className={i === 0 ? 'lead' : ''}>{h}</p>)}</div>); })()}
           {P.report && (pending || P.report.year === P.year - 1) && <ReportCard r={P.report} />}
+          {pending && <YearFeature s={s} />}
           {hist.length > 1 && <div className="sotn-hist" aria-label="Your record">{hist.map((h) => <span key={h.year} className={`g-${h.grade}`} title={`${h.year}: ${GRADE_WORD[h.grade]}${h.pledge === undefined ? '' : h.pledge ? ' · promise kept' : ' · promise broken'}`}><b>{h.grade}</b><small>{h.year}</small></span>)}</div>}
           {rivals.length > 0 && (
             <>

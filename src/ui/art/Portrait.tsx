@@ -28,7 +28,14 @@ const SKIN: Record<string, string[]> = {
 const HAIR = ['#1c1714', '#2b2019', '#3b2a1f', '#5a3e2a', '#7a5a3a', '#a07a4c', '#c8a468', '#8a3d22'];
 const HAIR_BY: Record<string, number[]> = { EU: [1, 2, 3, 4, 5, 6, 7], NA: [1, 2, 3, 4, 5, 6], RU: [2, 3, 4, 5, 6], OC: [2, 3, 4, 5, 6], LA: [0, 1, 2, 3], ME: [0, 1, 2], AF: [0, 1], SA: [0, 1], EA: [0, 0, 1], SEA: [0, 1] };
 
-export interface FaceSpec { seed: string; region: string; female: boolean; age: number; dress: 'suit' | 'uniform' | 'royal'; accent: string; cap?: boolean }
+export interface FaceSpec { seed: string; region: string; female: boolean; age: number; dress: 'suit' | 'uniform' | 'royal'; accent: string; cap?: boolean; look?: Look }
+/** A face the player designed: each field overrides what the name would have given (see sim/types Look). */
+export type { Look } from '../../sim/types';
+import type { Look } from '../../sim/types';
+export const ALL_SKIN = ['#f3d9c6', '#f1d2bd', '#eac3a6', '#e3b897', '#d9a882', '#c98f68', '#b47a52', '#a26c47', '#8d5a3c', '#6f4329', '#5a341f'];
+export const ALL_HAIR = ['#1c1714', '#2b2019', '#3b2a1f', '#5a3e2a', '#7a5a3a', '#a07a4c', '#c8a468', '#8a3d22', '#7d756c', '#9d968c', '#c9c4bc'];
+export const HAIR_STYLES = { male: ['short', 'side', 'swept', 'receding', 'bald'], female: ['bob', 'long', 'bun', 'shoulder'] };
+export const FACIAL = ['none', 'stubble', 'moustache', 'beard'];
 
 /** a face for someone from country c */
 export function faceFor(c: Pick<Country, 'id' | 'region' | 'gov' | 'color' | 'name'>, name: string, role: 'leader' | 'minister' | 'general', seedAge = 0): FaceSpec {
@@ -45,17 +52,20 @@ export function faceFor(c: Pick<Country, 'id' | 'region' | 'gov' | 'color' | 'na
 /** The face as an SVG element tree (pure: no hooks, so it can be turned into an image). */
 function faceSvg(f: FaceSpec, size: number, title: string | undefined, uid: string): ReactElement {
   const R = (i: number) => h(f.seed, i);
-  const skin = pick(SKIN[f.region] ?? SKIN.EU, R(1));
+  const L0 = f.look ?? {};
+  // the face runs in the family: a child takes skin and hair from the parent's face unless they were chosen
+  const K = L0.kin ? (i: number) => h(`${L0.kin}|${f.seed.split('|')[1] ?? ''}`, i) : R;
+  const skin = L0.skin !== undefined ? ALL_SKIN[L0.skin] ?? ALL_SKIN[0] : pick(SKIN[f.region] ?? SKIN.EU, K(1));
   const grey = f.age > 62 ? 1 : f.age > 52 ? 0.55 : f.age > 46 ? 0.2 : 0;
-  const baseHair = HAIR[pick(HAIR_BY[f.region] ?? HAIR_BY.EU, R(2))];
-  const hair = grey >= 1 && R(3) < 0.7 ? (R(4) < 0.5 ? '#c9c4bc' : '#9d968c') : grey > 0.5 && R(3) < 0.5 ? '#7d756c' : baseHair;
+  const baseHair = HAIR[pick(HAIR_BY[f.region] ?? HAIR_BY.EU, K(2))];
+  const hair = L0.hairColor !== undefined ? ALL_HAIR[L0.hairColor] ?? ALL_HAIR[0] : grey >= 1 && R(3) < 0.7 ? (R(4) < 0.5 ? '#c9c4bc' : '#9d968c') : grey > 0.5 && R(3) < 0.5 ? '#7d756c' : baseHair;
   const jaw = 15.5 + R(5) * 3.2; // half-width of the jaw
   const chinY = 69 + R(6) * 3;
-  const glasses = R(7) < (f.age > 55 ? 0.42 : 0.2);
-  const smile = R(8) < 0.45;
+  const glasses = L0.glasses ?? R(7) < (f.age > 55 ? 0.42 : 0.2);
+  const smile = L0.smile ?? R(8) < 0.45;
   const male = !f.female;
-  const facial = male ? (f.region === 'ME' || f.region === 'SA' ? pick(['beard', 'moustache', 'beard', 'none'], R(9)) : pick(['none', 'none', 'none', 'moustache', 'stubble', 'beard'], R(9))) : 'none';
-  const style = male ? (f.age > 58 && R(10) < 0.45 ? 'receding' : R(10) < 0.08 ? 'bald' : pick(['side', 'short', 'swept', 'side'], R(11))) : pick(['bob', 'long', 'bun', 'shoulder', 'bob'], R(11));
+  const facial = !male ? 'none' : L0.facial ?? (male ? (f.region === 'ME' || f.region === 'SA' ? pick(['beard', 'moustache', 'beard', 'none'], R(9)) : pick(['none', 'none', 'none', 'moustache', 'stubble', 'beard'], R(9))) : 'none');
+  const style = L0.hair && (HAIR_STYLES[male ? 'male' : 'female'] as string[]).includes(L0.hair) ? L0.hair : (male ? (f.age > 58 && R(10) < 0.45 ? 'receding' : R(10) < 0.08 ? 'bald' : pick(['side', 'short', 'swept', 'side'], R(11))) : pick(['bob', 'long', 'bun', 'shoulder', 'bob'], R(11)));
   const suit = f.dress === 'uniform' ? pick(['#4a5130', '#3c4636', '#2a3550', '#4b4a3a'], R(12)) : pick(['#22262e', '#1f2733', '#2b2a2e', '#33302c', '#1b2230'], R(12));
   const shirt = f.dress === 'uniform' ? '#c9c2a6' : '#eeeae2';
   const brow = hair === '#c9c4bc' ? '#8c8478' : hair;

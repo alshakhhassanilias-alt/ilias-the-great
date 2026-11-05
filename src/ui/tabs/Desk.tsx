@@ -3,6 +3,7 @@
  * with their deadlines, the promise you made this year, your objectives, idle programmes and opportunities. Every item
  * has one button that does it, with the price on the button.
  */
+import { greatById, greatOpen } from '../../sim/great';
 import { useState } from 'react';
 import { store } from '../../state/store';
 import type { Tab } from '../../state/store';
@@ -52,6 +53,9 @@ export function deskItems(s: GameState, c: Country, geo: Geo, opts: { missionSho
   if (sch && !sch.answered && s.tick - sch.tick < 13 && s.countries[sch.by]?.alive) out.push({ key: 'scheme', tone: 'urgent', icon: 'eye', title: `${SCHEMES[sch.id].title} by ${s.countries[sch.by].name}`, sub: 'Your nemesis is working against you. Answer it, or let it go.', act: { label: SCHEMES[sch.id].answer, price: '8 capital', run: (g) => actAnswerScheme(g) } });
   // the State of the Nation
   const P = s.plan;
+  // a great ambition to choose, or the next stage of the one under way (great.ts)
+  if (greatOpen(s) && !s.great) out.push({ key: 'great', tone: 'chance', icon: 'star', title: 'Choose a great ambition for the decades ahead', sub: 'Three stages each: a moment for the nation, a monument in your name, prestige for your house.', act: { label: 'Choose', tab: 'goals' } });
+  else if (s.great && s.great.stage < 3) { const g = greatById(s.great.id); const st = g?.stages[s.great.stage]; if (g && st) { const pr = st.test(s, c, s.great); if (pr.value >= 0.6) out.push({ key: 'great', tone: 'goal', icon: 'star', title: `${g.title} · stage ${s.great.stage + 1}: ${st.goal}`, sub: `${pr.text} · then ${st.monument} is raised`, p: pr.value, act: { label: 'Goals', tab: 'goals' } }); } }
   if (P?.pending) out.push({ key: 'plan', tone: 'urgent', icon: 'clipboard', title: `The State of the Nation ${P.year} is waiting`, sub: 'Last year’s report card, this year’s focus and your promise.', act: { label: 'Open', open: () => store.openPlan() } });
   else if (P && !c.focus) out.push({ key: 'focus', tone: 'promise', icon: 'compass', title: `Declare what ${P.year} is for`, sub: 'Pick a national focus and make one promise: real bonuses, real trade-offs.', act: { label: 'Plan the year', open: () => store.openPlan() } });
   // coalition demands, soonest deadline first

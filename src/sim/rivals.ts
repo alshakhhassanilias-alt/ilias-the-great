@@ -162,7 +162,8 @@ function schemes(s: GameState) {
   const N = s.countries[n], me = s.countries[s.player];
   const rel = getRelation(s, n, s.player);
   if (rel > 10 || isAtWar(s, n)) return;
-  const gap = 52 - Math.min(30, Math.max(0, -rel) / 2);
+  // the higher you rise, the harder they push: a top-five power is schemed against far more often
+  const gap = (52 - Math.min(30, Math.max(0, -rel) / 2)) * (R.rank > 0 && R.rank <= 5 ? 0.6 : R.rank > 0 && R.rank <= 12 ? 0.8 : 1);
   if (s.tick - (R.scheme?.tick ?? -999) < gap || hash01('sch', n, s.tick) > 0.25) return;
   const allies = alliesOf(s, s.player).filter((a) => a !== n && s.countries[a]?.alive);
   const opts: SchemeId[] = ['smear', 'squeeze', ...(allies.length ? ['ally' as SchemeId] : []), ...(me.gov === 'D' || me.gov === 'F' ? ['opposition' as SchemeId] : []), ...(s.countries[n].region === me.region ? ['incident' as SchemeId] : [])];

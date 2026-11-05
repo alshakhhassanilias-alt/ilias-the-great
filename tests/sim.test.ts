@@ -3395,3 +3395,88 @@ describe('for every action, a reaction (red lines)', () => {
     expect(JSON.stringify(s.stats)).toBe(before);
   });
 });
+
+import { activeGoals as activeGoalsR36 } from '../src/sim/goals';
+import { agendaById as agendaByIdR36, dealHand as dealHandR36, promiseKept } from '../src/sim/agenda';
+import { actChooseSuccessor, actEditLeader, actRetire as actRetireR36 } from '../src/sim/legacy';
+import { surnameFor } from '../src/sim/dynasty';
+import { actChooseGreat, stepGreat } from '../src/sim/great';
+import { ambByKey, ambProgress } from '../src/sim/ambitions';
+describe('a legacy that lasts (round 36)', () => {
+  const legacy = (name = 'Poland') => fresh(name, { mode: 'legacy' });
+  it('objectives never run out, even for a player who completes everything', () => {
+    const s = fresh('Germany');
+    const c = s.countries[s.player];
+    for (let round = 0; round < 40; round++) {
+      for (const g of activeGoalsR36(s)) { s.goalsDone[g.id] = s.tick; g.pay(c, s); }
+      s.tick += 4;
+      expect(activeGoalsR36(s).length).toBe(3);
+    }
+    // the endless objectives grow: the same ambition asks for more the next time
+    const a = ambByKey('gdp')!;
+    expect(a.target(1, 3, s, c)).toBeGreaterThan(a.target(1, 0, s, c));
+  });
+  it('later terms are dealt harder, generated promises that keep their target', () => {
+    const s = legacy();
+    const c = s.countries[s.player];
+    s.legacy!.term = 5;
+    for (let i = 0; i < 6; i++) promiseKept(s, 'g:gdp:' + i + ':700');
+    const hand = dealHandR36(s, c, 5);
+    expect(hand.length).toBe(5);
+    expect(hand.filter((id) => id.startsWith('g:')).length).toBeGreaterThanOrEqual(3);
+    const gdp = hand.find((id) => id.startsWith('g:gdp:'));
+    if (gdp) expect(agendaByIdR36(gdp).title).not.toBe('Economic Miracle');
+    const card = agendaByIdR36('g:gdp:2:1100');
+    expect(card.goal).toContain('11%');
+    const p = card.progress(s, c, { id: card.id, start: 0, base: c.eco.realGdp / 1.2, done: false });
+    expect(p.value).toBe(1);
+  });
+  it('a career ends with a verdict, and a successor carries the house on', () => {
+    const s = legacy();
+    run(s, 30);
+    actEditLeader(s, 'Anna Kowalska', { skin: 3, female: true });
+    expect(s.legacy!.leader).toBe('Anna Kowalska');
+    actRetireR36(s);
+    const d = s.dynasty!;
+    expect(d.rulers.length).toBe(1);
+    expect(d.rulers[0].verdict.length).toBeGreaterThanOrEqual(3);
+    expect(d.rulers[0].honours.length).toBeGreaterThan(0);
+    expect(d.prestige).toBeGreaterThan(0);
+    expect(d.pending?.candidates.length).toBe(3);
+    const child = d.pending!.candidates[0];
+    expect(child.name.endsWith('Kowalska') || child.name.endsWith('Kowalski')).toBe(true);
+    expect(child.look.kin).toBe('Anna Kowalska');
+    const r = actChooseSuccessor(s, 0, { perks: ['machine'] });
+    expect(r.ok).toBe(true);
+    expect(s.legacy!.status).toBe('office');
+    expect(s.legacy!.leader).toBe(child.name);
+    expect(s.dynasty!.gen).toBe(2);
+    run(s, 10);
+    const back = deserialize(serialize(s), geo.provinces.length);
+    expect(back.dynasty?.rulers[0].name).toBe('Anna Kowalska');
+  });
+  it('family names follow the person', () => {
+    expect(surnameFor('Kowalski', true)).toBe('Kowalska');
+    expect(surnameFor('Kowalska', false)).toBe('Kowalski');
+    expect(surnameFor('Ivanov', true)).toBe('Ivanova');
+    expect(surnameFor('Schmidt', true)).toBe('Schmidt');
+  });
+  it('a great ambition is chosen from the third year and pays out stage by stage', () => {
+    const s = fresh('Germany');
+    expect(actChooseGreat(s, 'superpower').ok).toBe(false);
+    s.tick = 110;
+    expect(actChooseGreat(s, 'superpower').ok).toBe(true);
+    s.tick = 114; // stage 1: the top ten (Germany starts there)
+    stepGreat(s);
+    expect(s.great!.stage).toBe(1);
+    expect(s.great!.monuments[0].name).toContain('Hall of Nations');
+  });
+  it('generated ambitions measure progress from where they started', () => {
+    const s = fresh('Germany');
+    const c = s.countries[s.player];
+    const a = ambByKey('stab')!;
+    const p = ambProgress(a, s, c, 50, 0, 60);
+    expect(p.value).toBeGreaterThanOrEqual(0);
+    expect(p.text).toContain('60');
+  });
+});

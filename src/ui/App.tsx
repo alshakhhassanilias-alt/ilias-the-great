@@ -16,7 +16,8 @@ import { BreakingBanner, Splash, YearReview, InboxTray, MapModes, NotesColumn, O
 import { StartScreen } from './StartScreen';
 import { BattleCard } from './BattleCard';
 import { ArmyPanel } from './ArmyPanel';
-import { AgendaDraft, HistoryBook, TermReview } from './Legacy';
+import { AgendaDraft, TermReview } from './Legacy';
+import { CareerEnd, Succession } from './Dynasty';
 import { YearPlanModal } from './YearPlan';
 import { WarCouncil, WarStrip } from './WarCouncil';
 import { PopLayer } from './PopLayer';
@@ -126,7 +127,8 @@ export function App() {
       <TermReview />
       <NegotiationTable />
       <WarRoom />
-      <HistoryBook />
+      <CareerEnd />
+      <Succession />
       <Walkthrough />
       <AskDialog />
     </div>

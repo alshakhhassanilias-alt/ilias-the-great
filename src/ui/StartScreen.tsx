@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, type Difficulty, type Settings, type StartCondition, 
 import { ControlPicker } from './ControlPicker';
 import { TRAITS, personName } from '../sim/leaders';
 import { titleFor } from '../sim/legacy';
+import { LookEditor } from './LookEditor';
 import { GOV, REGION, fmtMoney, fmtNum, pct, sizeClass } from './format';
 import { Segmented, Slider, Stat } from './widgets';
 import { strengthIndex } from '../sim/military';
@@ -97,6 +98,8 @@ export function StartScreen() {
           {settings.mode === 'legacy' && c && (
             <div className="field"><label>Your name <span className="faint">{titleFor(c.gov)} of {c.name}</span></label>
               <input type="text" value={leaderName || personName(c, 'me', 1)} maxLength={32} onChange={(e) => setLeaderName(e.target.value)} aria-label="Your name" />
+              <LookEditor c={c} name={leaderName || personName(c, 'me', 1)} look={settings.leaderLook ?? {}} age={settings.leaderAge} size={96} onChange={(l) => upd({ leaderLook: l })} />
+              <div className="look-row look-age"><small>Age on taking office</small><input type="range" min={32} max={72} value={settings.leaderAge ?? 52} onChange={(e) => upd({ leaderAge: Number(e.target.value) })} aria-label="Age" /><b>{settings.leaderAge ?? 'any'}</b></div>
             </div>
           )}
           {settings.mode === 'legacy' && c && (

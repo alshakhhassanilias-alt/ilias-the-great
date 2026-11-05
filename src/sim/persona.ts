@@ -52,7 +52,7 @@ export function initPersona(s: GameState): Persona {
   const traits = s.legacy?.traits ?? s.settings.leaderTraits ?? ['pragmatist', 'reformer'];
   const skills: Record<Skill, number> = { cha: 4, adm: 4, dip: 4, cmd: 3 };
   for (const t of traits) for (const [k, v] of Object.entries(TRAIT_SKILL[t] ?? {})) skills[k as Skill] += v as number;
-  const age = 46 + Math.floor(hash01('age', c.id, s.settings.seed) * 12);
+  const age = s.settings.leaderAge ?? 46 + Math.floor(hash01('age', c.id, s.settings.seed) * 12);
   return { age, health: 88, skills, xp: { cha: 0, adm: 0, dip: 0, cmd: 0 }, rival: { name: personName(c, 'rival', s.settings.seed % 97), power: 10, since: s.tick, tries: 0 }, deeds: {}, snap: {}, born: s.tick - age * 52 };
 }
 export function personaOf(s: GameState): Persona | null {
@@ -155,12 +155,12 @@ export function stepPersona(s: GameState) {
 const approvalNow = (s: GameState, c: Country) => approval(s, c);
 
 /** Name a protégé who will carry on after you (once). */
-export function actNameHeir(s: GameState) {
+export function actNameHeir(s: GameState, name?: string) {
   const p = personaOf(s), L = s.legacy;
   if (!p || !L) return { ok: false, message: 'Only in Legacy' };
   if (p.heir) return { ok: false, message: `${p.heir} is already your chosen successor` };
   const c = s.countries[s.player];
-  p.heir = personName(c, 'heir', s.tick % 101);
+  p.heir = name?.trim().slice(0, 32) || personName(c, 'heir', s.tick % 101);
   p.rival.power = clamp(p.rival.power + 10, 0, 100); // the rival does not like it
   L.chronicle.push({ tick: s.tick, text: `${L.leader} names ${p.heir} as successor.` });
   return { ok: true, message: `${p.heir} is your chosen successor. Retire while popular and they may win the next election for you (legacy +80). Your party rival is not pleased.` };

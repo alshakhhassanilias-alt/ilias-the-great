@@ -15,6 +15,8 @@ import { computeBlocs } from './politics';
 import { hash01 } from './rng';
 import type { Country, GameState } from './types';
 import { dynCandidates, dynGoal, dynKey, dynKind, pathOf, type Path } from './goals2';
+import { ambByKey, ambDone, ambLevel, ambOpen, ambProgress, ambTitle, type AmbCat } from './ambitions';
+import { fmtMoney } from './util';
 
 export interface GoalProgress { value: number; text: string } // value 0..1
 export interface Goal {
@@ -135,7 +137,35 @@ function relevant(g: Goal, s: GameState, c: Country) { return !g.when || g.when(
 
 /** A goal by id: one of the fixed objectives above, or one generated for the player's path (goals2.ts). */
 export function goalById(s: GameState, id: string): Goal | undefined {
+  if (id.startsWith('s:')) return scaledGoal(s, id);
   return GOALS.find((g) => g.id === id) ?? dynGoal(s, id) ?? undefined;
+}
+const THEME: Record<AmbCat, Goal['theme']> = { economy: 'economy', society: 'politics', diplomacy: 'politics', power: 'military', territory: 'military' };
+/**
+ * An objective that never runs out: "s:<ambition>:<level>:<tick>" (ambitions.ts). Its target is set from where the
+ * country stood when it was given, and each time you meet that ambition the next one asks for more and pays more.
+ */
+function scaledGoal(s: GameState, id: string): Goal | undefined {
+  const [, key, lvS] = id.split(':');
+  const a = ambByKey(key);
+  if (!a) return undefined;
+  const lv = Number(lvS);
+  const c = s.countries[s.player];
+  const baseOf = () => { const k = `g0:${id}`; if (!s.goalsActive.includes(id)) return s.stats[k] ?? a.measure(s, c); return (s.stats[k] ??= a.measure(s, c)); };
+  const cashPct = Math.min(0.012, 0.003 + 0.0015 * lv);
+  return {
+    id, theme: THEME[a.cat], title: `${ambTitle(a, lv)}${lv >= 3 ? ` (${['', '', '', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][Math.min(lv, 10)] || `×${lv}`})` : ''}`,
+    desc: `${a.goal(a.target(baseOf(), lv, s, c), baseOf())}.`,
+    reward: `Reward: ${fmtMoney(cashPct * c.eco.gdp)} · reputation +${2 + Math.min(4, lv)}${lv >= 2 ? ' · stability +2' : ''}`,
+    progress: (s2, c2) => ambProgress(a, s2, c2, baseOf(), lv),
+    pay: (c2, s2) => { c2.eco.cash += cashPct * c2.eco.gdp; c2.reputation = clamp(c2.reputation + 2 + Math.min(4, lv), 0, 100); if (lv >= 2) c2.eco.stability = clamp(c2.eco.stability + 2, 0, 100); ambDone(s2, key, 'g'); },
+  };
+}
+/** the endless objectives that fit now, not already set and not met in the last half-year */
+function scaledCandidates(s: GameState, c: Country): string[] {
+  const have = new Set(s.goalsActive.filter((id) => id.startsWith('s:')).map((id) => id.split(':')[1]));
+  return ambOpen(s, c, 'g').filter((a) => !have.has(a.key) && s.tick - (s.stats[`ambgt:${a.key}`] ?? -999) > 26)
+    .sort((x, y) => hash01('sg', x.key, s.tick >> 4) - hash01('sg', y.key, s.tick >> 4)).map((a) => `s:${a.key}:${ambLevel(s, a.key, 'g')}:${s.tick}`);
 }
 export function activeGoals(s: GameState): Goal[] {
   if (!s.goalsActive.length && s.countries[s.player]?.alive) refill(s, s.countries[s.player]);
@@ -175,7 +205,13 @@ function refill(s: GameState, c: Country) {
       dynGoal(s, pickD.id)!.progress(s, c); // fix its starting point now
       continue;
     }
-    if (!fixed.length) break;
+    // the fixed objectives are spent (or a veteran deserves something bigger): the endless ones carry on, sized to the nation
+    const nScaled = s.goalsActive.filter((id) => id.startsWith('s:')).length;
+    if (!fixed.length || (nScaled === 0 && goalsDoneCount(s) >= 8)) {
+      const sc = scaledCandidates(s, c);
+      if (sc.length) { s.goalsActive.push(sc[0]); scaledGoal(s, sc[0])!.progress(s, c); continue; }
+      if (!fixed.length) break;
+    }
     fixed.sort((a, b) => (have.has(a.theme) ? 1 : 0) - (have.has(b.theme) ? 1 : 0) || hash01('goal', a.id, c.id, s.goalsActive.length) - hash01('goal', b.id, c.id, s.goalsActive.length));
     s.goalsActive.push(fixed[0].id);
   }
@@ -198,6 +234,7 @@ export function turningPoint(s: GameState, push: (id: string) => boolean) {
 const PATHS: Path[] = ['conqueror', 'strongman', 'reformer', 'trader', 'peacemaker', 'builder'];
 /** a generated goal lapses after four years, a war goal when that war is over, a reconquest goal when nothing is left to take */
 function stale(s: GameState, id: string): boolean {
+  if (id.startsWith('s:')) return s.tick - Number(id.split(':')[3]) > 156 || !goalById(s, id);
   if (!id.startsWith('d:')) return false;
   const [, kind, a, t] = id.split(':');
   if (s.tick - Number(t) > 208) return true;

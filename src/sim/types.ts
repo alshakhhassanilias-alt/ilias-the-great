@@ -32,6 +32,9 @@ export interface Settings {
   leaderName?: string;
   /** Legacy: your own leadership style (two traits); the world reacts to it */
   leaderTraits?: [string, string];
+  /** Legacy: the face you designed for your leader, and their age when they take office */
+  leaderLook?: Look;
+  leaderAge?: number;
   /** Sandbox: your national storyline on (default) or off */
   storylines?: boolean;
   /** the year the game begins: 2021 (before the wars of 2022–24) or 2024 (today). Older saves: 2024 */
@@ -541,6 +544,10 @@ export interface GameState {
   rivals?: import('./rivals').Rivals;
   /** the player's wars as main events: tier, council, chapters (see warmode.ts) */
   warx?: Record<number, import('./warmode').WarX>;
+  /** the nation's great ambition: three stages over decades (great.ts) */
+  great?: import('./great').GreatState;
+  /** Legacy: the house that rules across generations (dynasty.ts) */
+  dynasty?: import('./dynasty').Dynasty;
   /** who is stepping in for whom, in each war (redlines.ts) */
   react?: Record<string, import('./redlines').ReactX>;
   /** a scenario being played: goals, stars, the clock (see scenarios.ts) */
@@ -569,6 +576,8 @@ export interface AgendaPick { id: string; start: number; base: number; done: boo
 /** one war of yours during the career, as the legacy score counts it */
 export interface LegacyWar { tick: number; name: string; foe: string; result: 'won' | 'lost' | 'draw'; pts: number; aim?: string; aimOk?: boolean; aimPts?: number }
 export interface TermRecord { term: number; start: number; end: number; score: number; headline: string; lines: string[]; result: 'reelected' | 'defeated' | 'retired' | 'ended' | 'ousted' | 'returned' | 'removed' }
+/** A face designed by the player: every field overrides the one a name would give (ui/art/Portrait.tsx). */
+export interface Look { skin?: number; hairColor?: number; hair?: string; facial?: string; glasses?: boolean; smile?: boolean; female?: boolean; /** a relative's name: skin and hair run in the family */ kin?: string }
 export interface LegacyState {
   leader: string; title: string;
   status: 'office' | 'opposition' | 'ended';
@@ -594,6 +603,12 @@ export interface LegacyState {
   rec?: Record_;
   /** the leader as a person: age, health, skills, the party rival, career deeds (see persona.ts) */
   persona?: import('./persona').Persona;
+  /** the face the player designed for this leader */
+  look?: Look;
+  /** where this leader comes from in the house: founder, child, protégé, rising star (dynasty.ts) */
+  origin?: string;
+  /** the country as this leader found it (dynasty.ts) */
+  snap0?: import('./dynasty').Snapshot;
 }
 
 export type ArmyOrder = 'advance' | 'hold' | 'encircle' | 'raid' | 'defend';

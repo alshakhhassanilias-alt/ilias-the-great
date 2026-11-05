@@ -3,6 +3,8 @@
  * desk and the history book at the end.
  */
 import { Portrait, faceFor } from './art/Portrait';
+import { leaderFace } from './LookEditor';
+import { DynastyPanel, LeaderEditor } from './Dynasty';
 import { useState } from 'react';
 import { store, useStore } from '../state/store';
 import { AGENDA, actAgendaAction, agendaById, type AgendaCat } from '../sim/agenda';
@@ -74,7 +76,7 @@ export function AgendaDraft() {
     <div className="scrim legacy-scrim" role="presentation">
       <div className="agenda-draft" role="dialog" aria-label="Choose your agenda">
         <div className="ad-kicker">{L.term === 1 ? `${dateLabel(s.tick)} · Inauguration` : `${ordinal(L.term)} term · ${dateLabel(s.tick)}`}</div>
-        <div className="ad-who"><Portrait f={faceFor(c, L.leader, 'leader')} size={64} title={L.leader} /><h2>{L.term === 1 ? `${L.title} ${L.leader}, what will you promise ${c.name}?` : 'A new term. A new agenda.'}</h2></div>
+        <div className="ad-who"><Portrait f={leaderFace(s)} size={64} title={L.leader} /><h2>{L.term === 1 ? `${L.title} ${L.leader}, what will you promise ${c.name}?` : 'A new term. A new agenda.'}</h2></div>
         <p className="ad-sub">Choose up to three promises. Keep them before the next {isFree(c.gov) ? 'election' : 'party congress'} and your legacy grows and voters reward you. Break them and they remember.</p>
         <div className="ad-cards">{L.hand.map((id) => <Card key={id} id={id} picked={sel.includes(id)} onClick={() => toggle(id)} />)}</div>
         <div className="ad-foot">
@@ -106,7 +108,7 @@ export function TermReview() {
         <h2 className="gz-head">{t.headline}</h2>
         <div className="gz-body">
           <div className="gz-col">{t.lines.map((l, i) => <p key={i} className={i === 0 ? 'lead' : ''}>{l}</p>)}</div>
-          <aside className="gz-side"><span className="gz-photo"><Portrait f={faceFor(c, L.leader, 'leader')} size={110} title={L.leader} /><small>{L.title} {L.leader}</small></span><div className="gz-grade">Legacy<br /><b className={`grade g-${grade(t.score)}`}>{grade(t.score)}</b><small>{t.score.toFixed(0)} points</small></div></aside>
+          <aside className="gz-side"><span className="gz-photo"><Portrait f={leaderFace(s)} size={110} title={L.leader} /><small>{L.title} {L.leader}</small></span><div className="gz-grade">Legacy<br /><b className={`grade g-${grade(t.score)}`}>{grade(t.score)}</b><small>{t.score.toFixed(0)} points</small></div></aside>
         </div>
         <button className="btn primary" onClick={close}>{L.status === 'opposition' ? (isFree(c.gov) ? 'Lead the opposition' : 'Go into exile') : L.status === 'ended' ? 'Read the history books' : 'Begin the new term'}</button>
       </article>
@@ -122,14 +124,16 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
   const parts = scoreParts(s);
   const score = totalScore(parts);
   const [confirm, setConfirm] = useState(false);
+  const [edit, setEdit] = useState(false);
   const yearsIn = (s.tick - L.start.tick) / TICKS_PER_YEAR;
+  if (edit) return <LeaderEditor onClose={() => setEdit(false)} />;
   return (
     <div className="scrim" role="presentation" onClick={onClose}>
       <div className="modal legacy-modal" role="dialog" aria-label="Your legacy" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><h2>Your Legacy</h2><button className="iconbtn" aria-label="Close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
           <div className="ld-head">
-            <Portrait f={faceFor(c, L.leader, 'leader')} size={84} title={L.leader} />
+            <button className="ld-face" title="Rename or redesign your leader" onClick={() => setEdit(true)}><Portrait f={leaderFace(s)} size={84} title={L.leader} /><small>✎ edit</small></button>
             <Emblem c={c} size={70} />
             <div className="grow">
               <div className="ld-kicker">{L.status === 'office' ? `${ordinal(L.term)} term · ${yearsIn.toFixed(1)} years` : L.status === 'opposition' ? (isFree(c.gov) ? 'Leader of the opposition' : 'In exile') : 'The career is over'}</div>
@@ -176,6 +180,7 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
             {L.terms.map((t, i) => <div key={i} className={`ld-term r-${t.result}`}><b>{t.result === 'returned' ? '↩' : `T${t.term}`}</b><span>{t.headline}</span><small>{dateLabel(t.start)} – {dateLabel(t.end)}</small></div>)}
             {L.status === 'office' && <div className="ld-term r-now"><b>T{L.term}</b><span>In office</span><small>since {dateLabel(L.termStart)}</small></div>}
           </div>
+          <DynastyPanel s={s} />
           <h4 className="ld-sub">Chronicle</h4>
           <ul className="ld-chron">{[...L.chronicle].reverse().slice(0, 14).map((e, i) => <li key={i}><span>{dateLabel(e.tick)}</span>{e.text}</li>)}</ul>
           {L.status !== 'ended' && (
@@ -223,7 +228,17 @@ export function PersonaPanel() {
         })}
       </ul>
       {L.status === 'office' && (p.heir ? <p className="faint" style={{ fontSize: 12 }}>Your chosen successor: <b>{p.heir}</b>. Retire while popular and they may win the next election (+80).</p>
-        : <button className="btn sm" onClick={() => store.act((g) => actNameHeir(g))}>Name a successor<small>retire while popular and they may carry on your work (+80) · your rival will not like it</small></button>)}
+        : <HeirNamer />)}
+    </div>
+  );
+}
+
+function HeirNamer() {
+  const [n, setN] = useState('');
+  return (
+    <div className="heir-namer">
+      <input type="text" placeholder="Their name (or leave empty)" value={n} maxLength={32} onChange={(e) => setN(e.target.value)} aria-label="Successor's name" />
+      <button className="btn sm" onClick={() => store.act((g) => actNameHeir(g, n))}>Name a successor<small>they will be first in line when your career ends · your rival will not like it</small></button>
     </div>
   );
 }
@@ -290,7 +305,7 @@ export function HistoryBook() {
       <article className="history-book" role="dialog" aria-label="The history books">
         <div className="hb-page hb-left">
           <div className="hb-kicker">A History of {c.name}</div>
-          <div className="hb-faces"><Portrait f={faceFor(c, L.leader, 'leader')} size={110} title={L.leader} /><Emblem c={c} size={96} /></div>
+          <div className="hb-faces"><Portrait f={leaderFace(s)} size={110} title={L.leader} /><Emblem c={c} size={96} /></div>
           <h2>{L.leader}</h2>
           <div className="hb-epithet">{epithet(s)}</div>
           <div className="hb-years">{L.title} · {Math.floor(from)}–{Math.floor(to)}</div>

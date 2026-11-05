@@ -360,7 +360,7 @@ class Store {
     }
     // Legacy: the agenda draft and the newspaper are big moments: the clock stops for them
     const L = s.legacy;
-    if (L && s.settings.mode === 'legacy' && !this.preview && this.speed !== 0 && ((L.status === 'office' && L.hand.length > 0) || (s.stats.reviewTerm ?? 0) > this.termSeen || (L.status === 'ended' && !this.bookSeen))) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
+    if (L && s.settings.mode === 'legacy' && !this.preview && this.speed !== 0 && ((L.status === 'office' && L.hand.length > 0) || (s.stats.reviewTerm ?? 0) > this.termSeen || (L.status === 'ended' && !this.bookSeen) || !!s.dynasty?.pending)) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }
     if (s.victory && !this.victoryShown) { this.victoryShown = true; this.speed = 0; }
     // the State of the Nation (plan.ts) and the end of a scenario stop the clock
     if (!this.preview && this.speed !== 0 && s.plan?.pending && s.settings.yearPlan !== false) { this.lastSpeed = this.speed || this.lastSpeed; this.speed = 0; }

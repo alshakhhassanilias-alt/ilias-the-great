@@ -7,6 +7,7 @@ import { ProjectsMini } from './Projects';
 import { NationPath } from './NationPath';
 import { StorylinePanel } from './Storyline';
 import { ScenarioPanel } from '../Scenario';
+import { GreatPanel } from './Great';
 import { DoctrinesSection } from './Doctrines';
 import { CharacterSection } from './Character';
 import { priced } from './Desk';
@@ -38,6 +39,7 @@ export function GoalsTab() {
   return (
     <>
       <ScenarioPanel />
+      <GreatPanel />
       <StorylinePanel />
       <NationPath />
       {/* the nation's long-term direction, in one place: its path (above), its doctrines and its character */}

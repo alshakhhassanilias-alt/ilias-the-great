@@ -1,4 +1,5 @@
 import { stepOngoing } from './ongoing';
+import { stepGreat } from './great';
 import { stepWarMode } from './warmode';
 import { stepPlan } from './plan';
 import { stepRivals } from './rivals';
@@ -199,6 +200,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepCalendar(s);
   rollPlayerEvent(s, geo);
   stepGoals(s);
+  stepGreat(s);
   stepWarMode(s);
   stepPlan(s);
   stepRace(s);
