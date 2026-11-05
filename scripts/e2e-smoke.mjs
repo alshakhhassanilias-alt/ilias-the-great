@@ -30,7 +30,8 @@ async function startGame(pg, country, opts = {}) {
   await pg.waitForSelector('.app');
   await quiet(pg, true);
 }
-const quiet = (pg, on) => pg.evaluate((o) => { window.__store.state.lastEventTick = o ? 1e9 : window.__store.state.tick; }, on);
+// quiet: no ordinary events and no new situations from the director (director.ts), so the checks see only what they set up
+const quiet = (pg, on) => pg.evaluate((o) => { const s = window.__store.state; s.lastEventTick = o ? 1e9 : s.tick; s.dir = o ? { next: 1e9, opened: true, told: [] } : { ...(s.dir ?? { opened: true, told: [] }), next: s.tick }; if (o && !s.crisis) s.nextCrisis = 1e9; }, on);
 async function answerEvent(pg) {
   const o = pg.locator('.event-opt:not([disabled])').first();
   if (await o.count()) { await o.click(); return true; }
@@ -40,6 +41,8 @@ async function answerEvent(pg) {
 const sotn = { n: 0, ok: true };
 const clearSotn = async (pg) => {
   if (!(await pg.locator('.sotn').count())) return false;
+  // a situation that just arrived may be open over the plan: fold the inbox first
+  await pg.evaluate(() => window.__store.openInbox(null)); await new Promise((r) => setTimeout(r, 100));
   sotn.n++;
   sotn.ok = sotn.ok && (await pg.locator('.sotn-focus').count()) === 6 && (await pg.locator('.sotn-report .sotn-grade').count()) === 1;
   await pg.click('.sotn-focus >> nth=1'); await pg.click('.sotn-go'); await new Promise((r) => setTimeout(r, 200));
@@ -124,7 +127,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await answerEvent(pg);
   await pg.evaluate(() => window.__store.openInbox(null));
   await clearSotn(pg); await pg.click('button[aria-label="Very fast"]'); await sleep(1500);
-  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > s1.tick + 5, `(tick ${(await S(pg)).tick}, from ${s1.tick}, lastChance ${lastChance})`);
+  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > s1.tick + 5, `(tick ${(await S(pg)).tick}, from ${s1.tick}, lastChance ${lastChance}, speed ${(await S(pg)).speed}, inbox ${await pg.evaluate(() => window.__store.state.inbox.map((x) => x.id + (x.urgent ? '!' : '')).join(','))}, holds ${await pg.evaluate(() => JSON.stringify(window.__store.holds ?? null))}, council ${await pg.evaluate(() => Object.values(window.__store.state.warx ?? {}).some((x) => x.council))})`);
   // the State of the Nation: step to the next January and it opens, with the report card, the rivals and six foci
   await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
   await pg.evaluate(() => { const st = window.__store; st.state.settings.yearPlan = true; for (let i = 0; i < 60 && !st.state.plan.pending; i++) { st.state.inbox = []; st.stepOnce(); } st.notify(); });
