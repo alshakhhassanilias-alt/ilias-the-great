@@ -1,0 +1,48 @@
+import { useEffect, useRef, useState } from 'react';
+import { store } from '../state/store';
+
+/** A number that glides to its new value instead of jumping (desktop polish; instant when motion is reduced). */
+export function useTween(value: number, ms = 650): number {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value), to = useRef(value), t0 = useRef(0), raf = useRef(0), cur = useRef(value);
+  useEffect(() => {
+    const reduce = typeof matchMedia !== 'undefined' && (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width: 900px)').matches);
+    // while the clock runs fast the numbers change several times a second: counting animations would keep the
+    // whole interface repainting on every frame, so the numbers simply jump (they still glide when paused or slow)
+    const busy = store.speed >= 2 && !store.lastUser;
+    if (reduce || busy || !Number.isFinite(value) || Math.abs(value - cur.current) < 1e-9) { cur.current = value; setShown(value); return; }
+    from.current = cur.current; to.current = value; t0.current = performance.now();
+    cancelAnimationFrame(raf.current);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0.current) / ms);
+      const e = 1 - Math.pow(1 - t, 3);
+      cur.current = from.current + (to.current - from.current) * e;
+      setShown(cur.current);
+      if (t < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf.current);
+  }, [value, ms]);
+  return shown;
+}
+
+export function Tween({ value, format, ms }: { value: number; format: (v: number) => string; ms?: number }) {
+  const v = useTween(value, ms);
+  return <>{format(v)}</>;
+}
+
+/** A floating "+6" / "−$2B" that drifts up from a number when it changes noticeably (desktop flourish; CSS hides it on phones). */
+export function DeltaPop({ value, min, fmt }: { value: number; min: number; fmt: (d: number) => string }) {
+  const prev = useRef(value);
+  const [pops, setPops] = useState<{ id: number; d: number }[]>([]);
+  useEffect(() => {
+    const d = value - prev.current;
+    prev.current = value;
+    if (!Number.isFinite(d) || Math.abs(d) < min || (store.speed >= 3 && !store.lastUser)) return;
+    const id = performance.now() + Math.random();
+    setPops((p) => [...p.slice(-2), { id, d }]);
+    const t = setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1400);
+    return () => clearTimeout(t);
+  }, [value, min]);
+  return <>{pops.map((p) => <span key={p.id} className={`delta-pop ${p.d > 0 ? 'up' : 'down'}`} aria-hidden="true">{fmt(p.d)}</span>)}</>;
+}

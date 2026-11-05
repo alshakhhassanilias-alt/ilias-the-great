@@ -1,0 +1,111 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: 'CinzelT'; src: url('../fonts/f3.ttf'); font-weight: 900; }
+@font-face { font-family: 'CinzelT'; src: url('../fonts/f2.ttf'); font-weight: 700; }
+@font-face { font-family: 'CinzelT'; src: url('../fonts/f1.ttf'); font-weight: 500; }
+@font-face { font-family: 'BarlowT'; src: url('../fonts/f6.ttf'); font-weight: 600; }
+html, body { margin: 0; background: #000; }
+canvas { display: block; }
+</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<img id="bg" src="bg.jpg" style="display:none">
+<script>
+const c = document.getElementById('c'), x = c.getContext('2d'), W = 1920, H = 1080;
+const bg = document.getElementById('bg');
+// seeded particles: embers drifting up through the light
+let seed = 12345; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const P = Array.from({ length: 160 }, () => ({ x: rnd() * W, y: rnd() * H, r: 0.6 + rnd() * 2.2, vy: 8 + rnd() * 30, vx: -6 + rnd() * 12, a: 0.25 + rnd() * 0.75, ph: rnd() * 6.28 }));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = (v) => { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); };
+const TITLE = 'THE WORLD ORDER', TAG = ['ONE PLANET.', 'COUNTLESS POSSIBILITIES.', 'YOUR DECISIONS.'];
+function spaced(ctx, text, cx, y, track) {
+  const ws = [...text].map((ch) => ctx.measureText(ch).width);
+  const total = ws.reduce((a, b) => a + b, 0) + track * (text.length - 1);
+  let px = cx - total / 2;
+  [...text].forEach((ch, i) => { ctx.fillText(ch, px, y); px += ws[i] + track; });
+  return total;
+}
+window.draw = (t) => {   // t in seconds from the cut to the title (0 .. 5.5)
+  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+  // 1. the world map, deep in the dark, drifting toward us
+  const bgA = 0.16 * ease(t / 2.2) * (1 - ease((t - 4.9) / 0.6));
+  if (bgA > 0) {
+    const s = 1.12 + t * 0.012;
+    x.save(); x.globalAlpha = bgA; x.filter = 'blur(2px) saturate(0.35) brightness(0.8)';
+    x.drawImage(bg, (W - W * s) / 2, (H - H * s) / 2 - 20, W * s, H * s); x.restore(); x.filter = 'none';
+  }
+  // vignette
+  const vg = x.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.95);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.92)');
+  x.fillStyle = vg; x.fillRect(0, 0, W, H);
+  // 2. the title: gilded letters revealed by a sweep of light
+  const reveal = ease((t - 0.05) / 1.6), track = 34 - 14 * ease(t / 3.5);
+  const ty = 548;
+  x.save();
+  x.font = '900 128px CinzelT'; x.textBaseline = 'alphabetic';
+  // glow under the letters (only where the light has passed)
+  x.save(); x.beginPath(); x.rect(0, 0, W * (-0.05 + 1.1 * reveal), H); x.clip();
+  x.globalAlpha = 0.55 * reveal * (1 - ease((t - 4.9) / 0.6));
+  x.shadowColor = 'rgba(230,170,70,0.85)'; x.shadowBlur = 46; x.fillStyle = 'rgba(230,170,70,0.35)';
+  spaced(x, TITLE, W / 2, ty, track);
+  x.shadowBlur = 0; x.restore();
+  // the letters: a gold gradient, revealed left to right
+  const g = x.createLinearGradient(0, ty - 100, 0, ty + 12);
+  g.addColorStop(0, '#fff6dc'); g.addColorStop(0.35, '#f2cf7c'); g.addColorStop(0.62, '#c08a33'); g.addColorStop(0.85, '#7a5218'); g.addColorStop(1, '#3d2809');
+  x.globalAlpha = 1 - ease((t - 4.9) / 0.6);
+  x.save();
+  const rx = W * (-0.05 + 1.1 * reveal);
+  x.beginPath(); x.rect(0, 0, rx, H); x.clip();
+  x.fillStyle = '#000'; x.globalAlpha *= 0.85; spaced(x, TITLE, W / 2 + 3, ty + 5, track); // a hard drop shadow
+  x.globalAlpha = 1 - ease((t - 4.9) / 0.6);
+  x.fillStyle = g; spaced(x, TITLE, W / 2, ty, track);
+  x.restore();
+  // a moving highlight across the metal
+  const hx = W * (-0.2 + 1.4 * ease((t - 0.9) / 2.2));
+  const hl = x.createLinearGradient(hx - 160, 0, hx + 160, 0);
+  hl.addColorStop(0, 'rgba(255,255,255,0)'); hl.addColorStop(0.5, 'rgba(255,250,235,0.85)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+  x.save(); x.globalCompositeOperation = 'source-atop'; x.restore();
+  x.save(); x.beginPath(); x.rect(0, 0, rx, H); x.clip();
+  x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.45 * (1 - ease((t - 4.9) / 0.6));
+  x.fillStyle = hl; spaced(x, TITLE, W / 2, ty, track); x.restore();
+  x.restore();
+  // 3. the anamorphic flare: a thin horizontal streak where the light passes
+  const fl = Math.exp(-(((t - 0.75) / 0.55) ** 2));
+  if (fl > 0.01) {
+    const fx = W * (-0.05 + 1.1 * reveal);
+    const sg = x.createLinearGradient(0, 0, W, 0);
+    sg.addColorStop(0, 'rgba(120,170,255,0)'); sg.addColorStop(clamp(fx / W, 0.01, 0.99), `rgba(255,236,190,${0.9 * fl})`); sg.addColorStop(1, 'rgba(120,170,255,0)');
+    x.save(); x.globalCompositeOperation = 'lighter';
+    x.fillStyle = sg; x.fillRect(0, ty - 50, W, 3); x.globalAlpha = 0.35; x.fillRect(0, ty - 56, W, 15);
+    const rg = x.createRadialGradient(fx, ty - 48, 0, fx, ty - 48, 240);
+    rg.addColorStop(0, `rgba(255,240,205,${0.75 * fl})`); rg.addColorStop(1, 'rgba(255,200,120,0)');
+    x.globalAlpha = 1; x.fillStyle = rg; x.fillRect(fx - 240, ty - 290, 480, 480);
+    x.restore();
+  }
+  // thin rules either side of the tagline
+  const la = ease((t - 1.4) / 0.8) * (1 - ease((t - 4.9) / 0.6));
+  x.save(); x.globalAlpha = la; x.strokeStyle = 'rgba(214,171,82,0.7)'; x.lineWidth = 1.2;
+  const lw = 520 * ease((t - 1.4) / 1.2);
+  x.beginPath(); x.moveTo(W / 2 - lw, ty + 62); x.lineTo(W / 2 + lw, ty + 62); x.stroke(); x.restore();
+  // 4. the tagline, phrase by phrase
+  x.save(); x.font = '600 30px BarlowT'; x.textBaseline = 'alphabetic';
+  const total = (() => { x.save(); const w = TAG.join('   ').length; x.restore(); return w; })();
+  const parts = TAG.map((p, i) => ({ p, a: ease((t - (1.7 + i * 0.45)) / 0.6) * (1 - ease((t - 4.9) / 0.6)) }));
+  const tr = 9; const widths = parts.map((q) => [...q.p].reduce((a, ch) => a + x.measureText(ch).width, 0) + tr * (q.p.length - 1));
+  const gap = 46, sum = widths.reduce((a, b) => a + b, 0) + gap * (parts.length - 1);
+  let px = W / 2 - sum / 2;
+  parts.forEach((q, i) => { x.globalAlpha = q.a; x.fillStyle = '#efe4c8'; x.shadowColor = 'rgba(0,0,0,0.9)'; x.shadowBlur = 8; spaced(x, q.p, px + widths[i] / 2, ty + 118, tr); px += widths[i] + gap; });
+  x.restore();
+  // 5. embers
+  x.save(); x.globalCompositeOperation = 'lighter';
+  for (const p of P) {
+    const yy = ((p.y - p.vy * t) % H + H) % H, xx = p.x + p.vx * t + 6 * Math.sin(p.ph + t * 1.3);
+    const a = p.a * 0.55 * ease(t / 1.2) * (1 - ease((t - 4.9) / 0.6)) * (0.6 + 0.4 * Math.sin(p.ph + t * 3));
+    x.fillStyle = `rgba(255,${170 + Math.round(60 * p.a)},90,${a})`; x.beginPath(); x.arc(xx, yy, p.r, 0, 6.283); x.fill();
+  }
+  x.restore();
+};
+document.fonts.ready.then(() => { window.ready = true; });
+</script></body></html>

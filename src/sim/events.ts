@@ -1,0 +1,393 @@
+/**
+ * Things that happen. Decision events put a choice in front of the player (the game pauses until
+ * answered); world events hit AI countries and appear in the news, shifting the global situation.
+ * Everything is driven by the seeded RNG, so a seed + the same choices give the same history.
+ */
+import { EVENTS4 } from './events4';
+import { EVENTS5 } from './events5';
+import { EVENTS6 } from './events6';
+import { EVENTS8 } from './events8';
+import { EVENTS11 } from './events11';
+import { EVENTS12 } from './events12';
+import { EVENTS13 } from './events13';
+import { stepDirector } from './director';
+import { EVENTS7, rememberChoice } from './events7';
+import { storyEvents } from './story';
+import type { Geo } from './geo';
+import { nextRand } from './rng';
+import { clamp } from './util';
+import { logEvent } from './log';
+import { addRelation, alliesOf, areAtWar, getRelation, isAtWar, partnersOf } from './relations';
+import { applyTreaty, neighborsOf } from './diplomacy';
+import { declareWar, forcePeaceAll } from './war';
+import type { Country, GameState, InboxItem } from './types';
+
+import { type D, type EventDef, type EventOption, name, pay, stab, rep, money, canPay } from './eventkit';
+import { asPurchase } from './treasury';
+import { changeGov } from './alignment';
+import { FACTIONS } from './domestic';
+export type { EventDef, EventOption };
+
+export const EVENTS: EventDef[] = [
+  {
+    id: 'strike', icon: '✊', title: 'General strike threatened', weight: 1.2, cooldown: 90,
+    eligible: (_s, c) => (c.eco.stability < 80 ? {} : null),
+    text: (_s, c) => `Trade unions across ${c.name} are threatening a general strike over wages and living costs.`,
+    options: [
+      { label: 'Grant pay rises', hint: 'Costs 0.6% of GDP · stability +6 · inflation +0.4pt', enabled: canPay(0.006), apply: (s, c) => { pay(s, c, 0.006); stab(c, 6); c.eco.monetary += 0.004; return `Pay rises agreed (${money(c, 0.006)}). Unrest eases.`; } },
+      { label: 'Negotiate', hint: 'Free · stability +2, but talks may drag on', apply: (s, c) => { if (nextRand(s) < 0.45) { stab(c, -3); return 'Talks collapsed; protests flare up.'; } stab(c, 2); return 'A compromise was reached.'; } },
+      { label: 'Break the strike', hint: 'Stability −7 · reputation −3', apply: (_s, c) => { stab(c, -7); rep(c, -3); return 'Police broke the strike. Resentment simmers.'; } },
+    ],
+  },
+  {
+    id: 'oil_spike', icon: '🛢', title: 'Energy price spike', weight: 1, cooldown: 120,
+    eligible: (_s, c) => (c.eco.energyCap < c.eco.energyDemand * 0.9 ? {} : null),
+    text: () => 'A supply shock has sent energy prices soaring. Households and industry are feeling it.',
+    options: [
+      { label: 'Subsidise energy', hint: 'Costs 0.8% of GDP · stability +1', enabled: canPay(0.008), apply: (s, c) => { pay(s, c, 0.008); stab(c, 1); return 'Energy subsidies shield households.'; } },
+      { label: 'Let prices pass through', hint: 'Inflation +1.5pt · stability −3', apply: (_s, c) => { c.eco.monetary += 0.015; stab(c, -3); return 'Prices rise across the economy.'; } },
+      { label: 'Emergency power build-out', hint: 'Costs 0.5% of GDP · energy capacity +2.5%', enabled: canPay(0.005), apply: (s, c) => { pay(s, c, 0.005); c.eco.energyCap *= 1.025; return 'Emergency generation comes online.'; } },
+    ],
+  },
+  {
+    id: 'border_incident', icon: '⚠', title: 'Border incident', weight: 1.1, cooldown: 80,
+    eligible: (s, c, geo) => {
+      const n = neighborsOf(s, geo, c.id).filter((x) => getRelation(s, c.id, x) < 25 && !areAtWar(s, c.id, x));
+      return n.length ? { n: n[Math.floor(nextRand(s) * n.length)] } : null;
+    },
+    text: (s, _c, d) => `Troops from ${name(s, d.n)} clashed with your border guards. Casualties are reported on both sides.`,
+    options: [
+      { label: 'Formal protest', hint: 'Relations −4', apply: (s, c, d) => { addRelation(s, c.id, d.n, -4); return 'Your protest was lodged.'; } },
+      { label: 'Reinforce the border', hint: 'Costs 0.2% of GDP · readiness +5% · relations −10', enabled: canPay(0.002), apply: (s, c, d) => { pay(s, c, 0.002); c.mil.readiness = clamp(c.mil.readiness + 0.05, 0, 1); addRelation(s, c.id, d.n, -10); stab(c, 1); return 'Units were rushed to the frontier.'; } },
+      { label: 'Offer talks', hint: 'Relations +8 · stability −1', apply: (s, c, d) => { addRelation(s, c.id, d.n, 8); stab(c, -1); return 'De-escalation talks opened.'; } },
+      { label: 'Retaliate — declare war', hint: 'War begins immediately', apply: (s, c, d, geo) => { const r = declareWar(s, geo, c.id, d.n); return r.ok ? `You declared war on ${name(s, d.n)}!` : (r.reason ?? 'Could not declare war'); } },
+    ],
+  },
+  {
+    id: 'tech', icon: '🔬', title: 'Research breakthrough', weight: 0.9, cooldown: 150,
+    eligible: (_s, c) => (c.eco.tech > 20 ? {} : null),
+    text: (_s, c) => `Researchers in ${c.name} have made a promising breakthrough and are asking for funding to commercialise it.`,
+    options: [
+      { label: 'Fund it fully', hint: 'Costs 1% of GDP · technology +4 · productivity +0.4%', enabled: canPay(0.01), apply: (s, c) => { pay(s, c, 0.01); c.eco.tech = clamp(c.eco.tech + 4, 0, 100); c.eco.tfp *= 1.004; c.mil.milTech += 1.5; return 'The breakthrough is in production.'; } },
+      { label: 'License to industry', hint: 'Costs 0.3% of GDP · technology +1.5', enabled: canPay(0.003), apply: (s, c) => { pay(s, c, 0.003); c.eco.tech = clamp(c.eco.tech + 1.5, 0, 100); return 'Industry licenses the technology.'; } },
+      { label: 'Let it go abroad', hint: 'Free · nothing happens', apply: () => 'Foreign firms snapped it up.' },
+    ],
+  },
+  {
+    id: 'disaster', icon: '🌊', title: 'Natural disaster', weight: 0.8, cooldown: 140,
+    eligible: () => ({}),
+    text: (_s, c) => `A devastating flood and earthquake swarm has struck ${c.name}. Roads and homes are destroyed.`,
+    options: [
+      { label: 'Full reconstruction', hint: 'Costs 2% of GDP · infrastructure +1', enabled: canPay(0.02), apply: (s, c) => { pay(s, c, 0.02); c.eco.infra = clamp(c.eco.infra + 1, 5, 100); stab(c, 2); return 'A full rebuilding programme begins.'; } },
+      { label: 'Basic relief only', hint: 'Costs 0.8% of GDP · infrastructure −3 · stability −2', enabled: canPay(0.008), apply: (s, c) => { pay(s, c, 0.008); c.eco.infra = clamp(c.eco.infra - 3, 5, 100); stab(c, -2); return 'Relief reaches the worst-hit areas.'; } },
+      { label: 'Appeal for foreign aid', hint: 'Gain 0.5% of GDP · stability −4 · reputation +2', apply: (_s, c) => { c.eco.cash += 0.005 * c.eco.gdp; stab(c, -4); rep(c, 2); c.eco.infra = clamp(c.eco.infra - 2, 5, 100); return 'Aid arrives from abroad.'; } },
+    ],
+  },
+  {
+    id: 'scandal', icon: '📰', title: 'Corruption scandal', weight: 0.9, cooldown: 120,
+    eligible: (_s, c) => (c.eco.stability < 85 ? {} : null),
+    text: (_s, c) => `Newspapers expose a corruption scandal reaching deep into the government of ${c.name}.`,
+    options: [
+      { label: 'Launch real reforms', hint: 'Costs 0.3% of GDP · stability +3 · tax collection +1pt', enabled: canPay(0.003), apply: (s, c) => { pay(s, c, 0.003); stab(c, 3); c.eco.collection = clamp(c.eco.collection + 0.01, 0.4, 0.98); return 'An anti-corruption drive begins.'; } },
+      { label: 'Cover it up', hint: 'Stability −4 · reputation −5', apply: (_s, c) => { stab(c, -4); rep(c, -5); return 'The cover-up holds, for now.'; } },
+      { label: 'Sacrifice a minister', hint: 'Stability +1, 30% chance of backlash (−6)', apply: (s, c) => { if (nextRand(s) < 0.3) { stab(c, -6); return 'The scapegoat talked. Backlash.'; } stab(c, 1); return 'The minister resigned; the story fades.'; } },
+    ],
+  },
+  {
+    id: 'investment', icon: '🏭', title: 'Foreign investment offer', weight: 1, cooldown: 100,
+    eligible: (s, c) => { const p = partnersOf(s, c.id, 'trade'); return p.length ? { from: p[Math.floor(nextRand(s) * p.length)] } : null; },
+    text: (s, c, d) => `${name(s, d.from)} is offering a large investment package in ${c.name}'s industry — with strings attached.`,
+    options: [
+      { label: 'Accept the package', hint: 'Industrial capital +1.5% · relations +5 · stability −1', apply: (s, c, d) => { c.eco.capital *= 1.015; addRelation(s, c.id, d.from, 5); stab(c, -1); return 'New factories open.'; } },
+      { label: 'Negotiate better terms', hint: 'Capital +0.8% · relations −2', apply: (s, c, d) => { c.eco.capital *= 1.008; addRelation(s, c.id, d.from, -2); return 'A leaner deal was signed.'; } },
+      { label: 'Decline', hint: 'Stability +1', apply: (_s, c) => { stab(c, 1); return 'You kept the economy in national hands.'; } },
+    ],
+  },
+  {
+    id: 'refugees', icon: '🚸', title: 'Refugee crisis', weight: 1, cooldown: 100,
+    eligible: (s, c, geo) => { const n = neighborsOf(s, geo, c.id).find((x) => isAtWar(s, x)); return n !== undefined ? { n } : null; },
+    text: (s, _c, d) => `War in ${name(s, d.n)} is driving thousands of refugees towards your border.`,
+    options: [
+      { label: 'Admit them', hint: 'Costs 0.3% of GDP · population +0.2% · reputation +5 · stability −3', enabled: canPay(0.003), apply: (s, c) => { pay(s, c, 0.003); c.eco.pop *= 1.002; rep(c, 5); stab(c, -3); return 'Refugees are admitted and housed.'; } },
+      { label: 'Close the border', hint: 'Stability +2 · reputation −5', apply: (_s, c) => { stab(c, 2); rep(c, -5); return 'The border is sealed.'; } },
+      { label: 'Fund camps abroad', hint: 'Costs 0.15% of GDP · reputation +2', enabled: canPay(0.0015), apply: (s, c) => { pay(s, c, 0.0015); rep(c, 2); return 'Camps are funded across the border.'; } },
+    ],
+  },
+  {
+    id: 'rates', icon: '🏦', title: 'Central bank decision', weight: 1.2, cooldown: 100,
+    eligible: (_s, c) => (c.eco.inflation > 0.05 ? {} : null),
+    text: (_s, c) => `Inflation in ${c.name} is running at ${(c.eco.inflation * 100).toFixed(1)}%. The central bank wants your backing for a rate decision.`,
+    options: [
+      { label: 'Raise interest rates', hint: 'Inflation −2pt · unemployment +0.6pt · stability −1', apply: (_s, c) => { c.eco.monetary = 0; c.eco.inflation = Math.max(0.02, c.eco.inflation - 0.02); c.eco.unemployment += 0.006; stab(c, -1); return 'Rates go up; inflation cools.'; } },
+      { label: 'Hold steady', hint: 'Stability −1', apply: (_s, c) => { stab(c, -1); return 'No change; the public grumbles.'; } },
+    ],
+  },
+  {
+    id: 'coup_plot', icon: '🪖', title: 'Coup plot uncovered', weight: 1.4, cooldown: 120,
+    eligible: (_s, c) => (c.eco.stability < 55 && c.gov !== 'D' ? {} : null),
+    text: () => 'Intelligence reports that a group of senior officers is plotting to seize power.',
+    options: [
+      { label: 'Purge the officer corps', hint: 'Readiness −10% · stability +4 · reputation −3', apply: (_s, c) => { c.mil.readiness = clamp(c.mil.readiness - 0.1, 0.05, 1); stab(c, 4); rep(c, -3); return 'The plotters were arrested.'; } },
+      { label: 'Buy their loyalty', hint: 'Costs 0.5% of GDP · stability +5', enabled: canPay(0.005), apply: (s, c) => { pay(s, c, 0.005); stab(c, 5); return 'Bonuses calm the barracks.'; } },
+      { label: 'Open political reforms', hint: 'Stability +2 · reputation +3 · tax collection −1pt', apply: (_s, c) => { stab(c, 2); rep(c, 3); c.eco.collection = clamp(c.eco.collection - 0.01, 0.4, 0.98); return 'Concessions defuse the plot.'; } },
+    ],
+  },
+  {
+    id: 'trade_offer', icon: '🤝', title: 'Trade delegation', weight: 1.3, cooldown: 60,
+    eligible: (s, c) => {
+      const cand = s.countries.filter((x) => x.alive && x.id !== c.id && !areAtWar(s, x.id, c.id) && !s.treaties[c.id < x.id ? `${c.id}-${x.id}` : `${x.id}-${c.id}`]?.trade && getRelation(s, c.id, x.id) > -10 && x.eco.gdp > c.eco.gdp * 0.15);
+      if (!cand.length) return null;
+      cand.sort((a, b) => b.eco.gdp - a.eco.gdp);
+      return { from: cand[Math.floor(nextRand(s) * Math.min(6, cand.length))].id };
+    },
+    text: (s, _c, d) => `A delegation from ${name(s, d.from)} proposes a trade agreement.`,
+    options: [
+      { label: 'Sign the agreement', hint: 'Trade boost for both economies · relations up', apply: (s, c, d) => { applyTreaty(s, c.id, d.from, 'trade'); return `Trade agreement signed with ${name(s, d.from)}.`; } },
+      { label: 'Decline politely', hint: 'No change', apply: () => 'The delegation left empty-handed.' },
+    ],
+  },
+  {
+    id: 'arms_deal', icon: '💼', title: 'Arms export deal', weight: 0.7, cooldown: 150,
+    eligible: (_s, c) => (c.mil.equipArmy > c.mil.troops * 80_000 ? {} : null),
+    text: () => 'A foreign government wants to buy a large batch of your surplus military equipment.',
+    options: [
+      { label: 'Sell the weapons', hint: 'Gain 0.6% of GDP · readiness −4% · army equipment −3%', apply: (_s, c) => { c.eco.cash += 0.006 * c.eco.gdp; c.mil.readiness = clamp(c.mil.readiness - 0.04, 0.05, 1); c.mil.equipArmy *= 0.97; return `You earned ${money(c, 0.006)} from arms sales.`; } },
+      { label: 'Refuse', hint: 'Reputation +1', apply: (_s, c) => { rep(c, 1); return 'You refused the deal.'; } },
+    ],
+  },
+  {
+    id: 'harvest', icon: '🌾', title: 'Harvest failure', weight: 0.8, cooldown: 140,
+    eligible: () => ({}),
+    text: (_s, c) => `Drought has ruined much of this year's harvest in ${c.name}.`,
+    options: [
+      { label: 'Emergency food imports', hint: 'Costs 0.6% of GDP', enabled: canPay(0.006), apply: (s, c) => { pay(s, c, 0.006); return 'Grain shipments arrive in time.'; } },
+      { label: 'Ration supplies', hint: 'Stability −4 · food output −2%', apply: (_s, c) => { stab(c, -4); c.eco.foodCap *= 0.98; return 'Rationing begins.'; } },
+      { label: 'Subsidise farmers', hint: 'Costs 0.4% of GDP · food capacity +1.5%', enabled: canPay(0.004), apply: (s, c) => { pay(s, c, 0.004); c.eco.foodCap *= 1.015; return 'Irrigation projects are funded.'; } },
+    ],
+  },
+  {
+    id: 'tax_demand', icon: '🗳', title: 'Opposition demands tax cuts', weight: 1, cooldown: 100,
+    eligible: (_s, c) => (c.budget.taxVat > 0.12 ? {} : null),
+    text: () => 'The opposition is campaigning loudly for lower consumption taxes.',
+    options: [
+      { label: 'Cut VAT by 2 points', hint: 'Stability +4 · revenue falls', apply: (_s, c) => { c.budget.taxVat = Math.max(0, c.budget.taxVat - 0.02); stab(c, 4); return 'VAT cut by two points.'; } },
+      { label: 'Cut income tax by 1 point', hint: 'Stability +2', apply: (_s, c) => { c.budget.taxIncome = Math.max(0, c.budget.taxIncome - 0.01); stab(c, 2); return 'Income tax trimmed.'; } },
+      { label: 'Refuse', hint: 'Stability −2', apply: (_s, c) => { stab(c, -2); return 'You held firm.'; } },
+    ],
+  },
+  {
+    id: 'ally_aid', icon: '🛡', title: 'Ally asks for help', weight: 1.1, cooldown: 90,
+    eligible: (s, c) => { const a = alliesOf(s, c.id).find((x) => isAtWar(s, x)); return a !== undefined ? { a } : null; },
+    text: (s, _c, d) => `${name(s, d.a)}, your ally, is at war and asks for arms and ammunition.`,
+    options: [
+      { label: 'Send equipment', hint: 'Costs 0.5% of GDP · relations +15 · reputation +2', enabled: canPay(0.005), apply: (s, c, d) => { pay(s, c, 0.005); addRelation(s, c.id, d.a, 15); s.countries[d.a].mil.equipArmy += 0.004 * c.eco.gdp; rep(c, 2); return 'A shipment of arms is on its way.'; } },
+      { label: 'Decline', hint: 'Relations −8 · reputation −2', apply: (s, c, d) => { addRelation(s, c.id, d.a, -8); rep(c, -2); return 'Your ally was left disappointed.'; } },
+    ],
+  },
+  {
+    id: 'deposit', icon: '⛏', title: 'Major resource discovery', weight: 0.5, cooldown: 260,
+    eligible: () => ({}),
+    text: (_s, c) => `Surveyors have found huge energy and mineral deposits in ${c.name}.`,
+    options: [
+      { label: 'State-led development', hint: 'Costs 1% of GDP · energy capacity +6%', enabled: canPay(0.01), apply: (s, c) => { pay(s, c, 0.01); c.eco.energyCap *= 1.06; return 'State companies begin drilling.'; } },
+      { label: 'Auction licences', hint: 'Gain 0.8% of GDP · energy capacity +3%', apply: (_s, c) => { c.eco.cash += 0.008 * c.eco.gdp; c.eco.energyCap *= 1.03; return `Licences raised ${money(c, 0.008)}.`; } },
+    ],
+  },
+];
+
+import { EVENTS2 } from './events2';
+import { finalizeResolution, proposeResolution } from './politics';
+import { EVENTS3 } from './events3';
+import { EVENTS9 } from './events9';
+import { EVENTS10 } from './events10';
+/**
+ * Every decision in the game. Built on first use rather than when this module loads: the event tables import modules
+ * that import this one back, so whichever module happens to load first must not find a half-built list.
+ */
+let all: EventDef[] | null = null;
+let byId: Map<string, EventDef> | null = null;
+export function allEvents(): EventDef[] {
+  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...EVENTS12, ...EVENTS13, ...storyEvents()]);
+}
+/** (the list as an array-like for older callers and the tests) */
+export const ALL_EVENTS: EventDef[] = new Proxy([] as EventDef[], {
+  get: (_t, k) => { const a = allEvents() as unknown as Record<string | symbol, unknown>; const v = a[k]; return typeof v === 'function' ? (v as (...x: unknown[]) => unknown).bind(a) : v; },
+  has: (_t, k) => k in allEvents(),
+  ownKeys: () => Reflect.ownKeys(allEvents()),
+  getOwnPropertyDescriptor: (_t, k) => Reflect.getOwnPropertyDescriptor(allEvents(), k),
+});
+export function eventById(id: string) { return (byId ??= new Map(allEvents().map((e) => [e.id, e]))).get(id)!; }
+
+export const INBOX_MAX = 4;
+const URGENT_TTL = 14;
+const NORMAL_TTL = 40;
+
+/** Put a decision in the player's inbox. It never stops the clock; it lapses if ignored. */
+export function pushInbox(s: GameState, id: string, data: D, ttl?: number): InboxItem | null {
+  const def = eventById(id);
+  if (!def) return null;
+  // out of power (Legacy opposition or exile) the government's decisions are not yours: only your own campaign's are
+  if (s.legacy && s.settings.mode === 'legacy' && s.legacy.status !== 'office' && !id.startsWith('legacy_') && !id.startsWith('opp_')) return null;
+  const urgent = !!def.urgent;
+  const it: InboxItem = { uid: s.nextInbox++, id, tick: s.tick, expires: s.tick + (ttl ?? def.ttl ?? (urgent ? URGENT_TTL : NORMAL_TTL)), urgent, data };
+  s.inbox.push(it);
+  s.lastEventTick = s.tick;
+  s.recentEvents.push(id);
+  if (s.recentEvents.length > 12) s.recentEvents.shift();
+  return it;
+}
+
+/** Decision about the World Assembly: every half year a resolution is put to the vote. */
+export function stepAssembly(s: GameState, geo: Geo) {
+  if (s.tick % 26 !== 13 || s.tick < 20) return;
+  const r = proposeResolution(s);
+  if (!r) return;
+  s.resolutions.push(r);
+  if (s.resolutions.length > 12) s.resolutions.shift();
+  const P = s.countries[s.player];
+  if (!P.alive || r.target === s.player || s.inbox.length >= INBOX_MAX || r.victim === s.player || s.tick % 104 !== 13) { finalizeResolution(s, geo, r); return; }
+  pushInbox(s, 'assembly', { rid: r.id }, 20);
+}
+
+/** Items the player ignored for too long lapse; their default consequence (if any) applies. */
+function expireInbox(s: GameState, geo: Geo) {
+  const c = s.countries[s.player];
+  for (const it of s.inbox.filter((x) => x.expires <= s.tick)) {
+    s.inbox = s.inbox.filter((x) => x !== it);
+    const def = eventById(it.id);
+    const msg = def.lapse ? def.lapse(s, c, it.data, geo) : 'The chance passed.';
+    rememberChoice(s, it.id, -1, it.data);
+    logEvent(s, `${def.title}: you let it lapse. ${msg}`, 'info', [s.player], it.urgent);
+  }
+}
+
+/** Roll for new decisions. Rare by design: a few a year, never more than a handful waiting, never the same one twice in a row. */
+export function rollPlayerEvent(s: GameState, geo: Geo) {
+  const c = s.countries[s.player];
+  if (!c.alive || s.victory) return;
+  expireInbox(s, geo);
+  // follow-ups and queued decisions (ally attacked, ultimatums, ...) take priority
+  const due = s.scheduled.findIndex((x) => x.tick <= s.tick);
+  if (due >= 0) {
+    const sc = s.scheduled.splice(due, 1)[0];
+    let id = sc.id;
+    if (id === 'pipeline') id = getRelation(s, s.player, sc.data.from) > 40 ? 'pipeline_bonus' : 'pipeline_cutoff';
+    pushInbox(s, id, sc.data);
+    return;
+  }
+  stepDirector(s, geo);
+  if (s.settings.randomEvents === false) return;
+  // ordinary events between the director's situations: one every two or three months, not one every half-year
+  if (s.inbox.length >= 2 || s.tick < 8 || s.tick - s.lastEventTick < (s.settings.mode === 'legacy' ? 9 : 12) || s.tick % 2 !== 0) return;
+  if (nextRand(s) > 0.3) return;
+  const pool: { def: EventDef; d: D; w: number }[] = [];
+  for (const def of allEvents()) {
+    if (def.weight <= 0) continue;
+    if ((s.eventCooldown[def.id] ?? -9999) + def.cooldown > s.tick) continue;
+    if (s.recentEvents.includes(def.id)) continue;
+    const d = def.eligible(s, c, geo);
+    if (d) pool.push({ def, d, w: def.weight });
+  }
+  if (!pool.length) return;
+  let r = nextRand(s) * pool.reduce((t, x) => t + x.w, 0);
+  let pick = pool[0];
+  for (const x of pool) { r -= x.w; if (r <= 0) { pick = x; break; } }
+  s.eventCooldown[pick.def.id] = s.tick;
+  pushInbox(s, pick.def.id, pick.d);
+}
+
+/** Answer an inbox item (`uid`; defaults to the oldest). */
+export function resolveEvent(s: GameState, geo: Geo, option: number, uid?: number): { ok: boolean; message: string } {
+  const it = uid === undefined ? s.inbox[0] : s.inbox.find((x) => x.uid === uid);
+  if (!it) return { ok: false, message: 'No decision pending' };
+  const def = eventById(it.id);
+  const c = s.countries[s.player];
+  const opt = def.options[option];
+  if (!opt) return { ok: false, message: 'Unknown option' };
+  if (opt.enabled && !opt.enabled(s, c)) return { ok: false, message: 'Cannot afford that option' };
+  // every cost, income and loan in this decision is one line in the treasury ledger
+  const msg = asPurchase(s, c, def.title, () => opt.apply(s, c, it.data, geo));
+  s.inbox = s.inbox.filter((x) => x !== it);
+  rememberChoice(s, it.id, option, it.data);
+  logEvent(s, `${def.title}: ${msg}`, 'info', [s.player]);
+  return { ok: true, message: msg };
+}
+
+// ------------------------------------------------------------------ world events (AI countries)
+const WORLD: { id: string; w: number; run: (s: GameState, c: Country, geo: Geo) => string | null }[] = [
+  { id: 'quake', w: 1, run: (_s, c) => { c.eco.damage = Math.min(1, c.eco.damage + 0.04); c.eco.infra = Math.max(5, c.eco.infra - 3); stab(c, -3); return `A major earthquake devastates ${c.name}`; } },
+  { id: 'flood', w: 1, run: (_s, c) => { c.eco.foodCap *= 0.97; c.eco.damage = Math.min(1, c.eco.damage + 0.02); stab(c, -2); return `Severe floods hit ${c.name}, destroying crops and roads`; } },
+  { id: 'strike', w: 1.4, run: (_s, c) => { stab(c, -5); return `Nationwide strikes paralyse ${c.name}`; } },
+  { id: 'scandal', w: 1, run: (_s, c) => { stab(c, -4); return `Corruption scandal rocks the government of ${c.name}`; } },
+  { id: 'boom', w: 1, run: (_s, c) => { c.eco.tfp *= 1.01; stab(c, 3); return `Tech boom lifts ${c.name}'s economy`; } },
+  { id: 'deposit', w: 0.7, run: (_s, c) => { c.eco.energyCap *= 1.05; return `${c.name} announces a huge new energy discovery`; } },
+  { id: 'coup', w: 0.5, run: (s, c, geo) => { if (c.eco.stability > 45 || (c.gov === 'D' && c.eco.stability > 22)) return null; c.eco.stability = 40; forcePeaceAll(s, geo, c.id, 'the army has seized power'); changeGov(s, c, 'A', 'the army seizes power and suspends the constitution'); return null; } },
+  // regimes fall too: a weak autocracy can be swept away by its own people, a failing democracy by a strongman
+  { id: 'revolution', w: 0.45, run: (s, c) => {
+    if (c.gov === 'D' || c.gov === 'F' || c.eco.stability > 32) return null;
+    const free = nextRand(s) < 0.55;
+    c.eco.stability = 45;
+    changeGov(s, c, free ? 'D' : 'A', free ? 'crowds topple the regime and free elections follow' : 'the regime falls, and a new strongman takes its place');
+    return null;
+  } },
+  { id: 'emergency_rule', w: 0.35, run: (s, c) => {
+    if ((c.gov !== 'D' && c.gov !== 'F') || c.eco.stability > 28) return null;
+    changeGov(s, c, 'A', 'the president declares a state of emergency and rules by decree');
+    return null;
+  } },
+  { id: 'famine', w: 0.6, run: (_s, c) => { if (c.eco.gdp / c.eco.pop > 6000) return null; c.eco.foodCap *= 0.95; stab(c, -6); return `Drought and food shortages push ${c.name} towards famine`; } },
+  { id: 'incident', w: 1.6, run: (s, c, geo) => {
+    const n = neighborsOf(s, geo, c.id).filter((x) => getRelation(s, c.id, x) < 15 && !areAtWar(s, c.id, x));
+    if (!n.length) return null;
+    const o = n[Math.floor(nextRand(s) * n.length)];
+    addRelation(s, c.id, o, -12);
+    return `Border clashes between ${c.name} and ${s.countries[o].name} raise tensions`;
+  } },
+  { id: 'summit', w: 0.8, run: (s, c, geo) => {
+    const n = neighborsOf(s, geo, c.id).filter((x) => getRelation(s, c.id, x) > -20 && !areAtWar(s, c.id, x));
+    if (!n.length) return null;
+    const o = n[Math.floor(nextRand(s) * n.length)];
+    addRelation(s, c.id, o, 10);
+    return `${c.name} and ${s.countries[o].name} hold a friendly summit`;
+  } },
+];
+
+export function stepWorldEvents(s: GameState, geo: Geo) {
+  if (s.settings.randomEvents === false) return;
+  if (s.tick % 2 !== 0 || nextRand(s) > 0.42) return;
+  const alive = s.countries.filter((c) => c.alive && c.id !== s.player);
+  // larger countries draw more headlines
+  let r = nextRand(s) * alive.reduce((t, c) => t + Math.sqrt(c.eco.gdp), 0);
+  let c = alive[0];
+  for (const x of alive) { r -= Math.sqrt(x.eco.gdp); if (r <= 0) { c = x; break; } }
+  const total = WORLD.reduce((t, e) => t + e.w, 0);
+  let rr = nextRand(s) * total;
+  let ev = WORLD[0];
+  for (const e of WORLD) { rr -= e.w; if (rr <= 0) { ev = e; break; } }
+  const text = ev.run(s, c, geo);
+  if (text) logEvent(s, `${text}.`, 'info', [c.id], false);
+}
+
+/** What happens if the player lets a decision lapse: run its default outcome on a copy of the world. */
+export function previewLapse(s: GameState, geo: Geo, uid: number): { text: string; fx: string[] } {
+  const it = s.inbox.find((x) => x.uid === uid);
+  if (!it) return { text: '', fx: [] };
+  const def = eventById(it.id);
+  if (!def.lapse) return { text: 'Nothing happens: the chance simply passes.', fx: [] };
+  const t = structuredClone(s) as GameState;
+  const a = s.countries[s.player], b = t.countries[t.player];
+  let text = '';
+  try { text = def.lapse(t, b, { ...it.data }, geo); } catch { return { text: 'The matter is decided without you.', fx: [] }; }
+  const fx: string[] = [];
+  const d = (label: string, v: number, unit = '', dp = 0) => { if (Math.abs(v) >= (dp ? 0.05 : 0.5)) fx.push(`${label} ${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(dp)}${unit}`); };
+  d('stability', b.eco.stability - a.eco.stability);
+  const money = (b.eco.cash - b.eco.debt) - (a.eco.cash - a.eco.debt);
+  if (Math.abs(money) > 0.0002 * a.eco.gdp) fx.push(`${money < 0 ? 'costs' : 'gains'} ${(Math.abs(money) / a.eco.gdp * 100).toFixed(2)}% of GDP`);
+  d('reputation', b.reputation - a.reputation);
+  if (a.politics && b.politics) {
+    d('political capital', b.politics.pc - a.politics.pc);
+    for (const f of b.politics.factions) { const f0 = a.politics.factions.find((x) => x.id === f.id); if (f0) d(FACTIONS.find((x) => x.id === f.id)?.short ?? f.id, f.mood - f0.mood); }
+  }
+  if (t.wars.length > s.wars.length && t.wars.some((w) => (w.attackers.includes(t.player) || w.defenders.includes(t.player)) && !s.wars.some((x) => x.id === w.id))) fx.unshift('WAR');
+  return { text, fx: fx.slice(0, 5) };
+}

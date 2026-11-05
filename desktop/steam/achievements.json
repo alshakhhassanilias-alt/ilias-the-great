@@ -1,0 +1,146 @@
+[
+ {
+  "id": "ACH_FIRST_CONQUEST",
+  "icon": "🏴",
+  "title": "First conquest",
+  "desc": "Capture land from another country."
+ },
+ {
+  "id": "ACH_EMPIRE",
+  "icon": "👑",
+  "title": "Empire",
+  "desc": "Double the number of regions you started with."
+ },
+ {
+  "id": "ACH_ANNEXER",
+  "icon": "☠",
+  "title": "Wiped off the map",
+  "desc": "Annex a whole country."
+ },
+ {
+  "id": "ACH_TOP10",
+  "icon": "📈",
+  "title": "Top ten economy",
+  "desc": "Reach the ten largest economies."
+ },
+ {
+  "id": "ACH_TOP3",
+  "icon": "🥉",
+  "title": "Economic giant",
+  "desc": "Reach the top three economies."
+ },
+ {
+  "id": "ACH_NUMBER1",
+  "icon": "🥇",
+  "title": "World number one",
+  "desc": "Become the largest economy on Earth."
+ },
+ {
+  "id": "ACH_TRILLION",
+  "icon": "💰",
+  "title": "Trillion-dollar club",
+  "desc": "Reach $1 trillion GDP."
+ },
+ {
+  "id": "ACH_DEBTFREE",
+  "icon": "🧾",
+  "title": "Clean books",
+  "desc": "Get public debt below 10% of GDP after the first year."
+ },
+ {
+  "id": "ACH_NUCLEAR",
+  "icon": "☢",
+  "title": "Nuclear club",
+  "desc": "Become a nuclear power."
+ },
+ {
+  "id": "ACH_SPACEPOWER",
+  "icon": "🚀",
+  "title": "Space pioneer",
+  "desc": "Complete the Space Programme."
+ },
+ {
+  "id": "ACH_BUILDER",
+  "icon": "🏗",
+  "title": "Master builder",
+  "desc": "Complete three megaprojects."
+ },
+ {
+  "id": "ACH_NETWORK",
+  "icon": "🕸",
+  "title": "Network of friends",
+  "desc": "Have ten allies."
+ },
+ {
+  "id": "ACH_STRONGEST",
+  "icon": "🛡",
+  "title": "Mightiest army",
+  "desc": "Have the strongest military in the world."
+ },
+ {
+  "id": "ACH_DECADE",
+  "icon": "⏳",
+  "title": "A decade in power",
+  "desc": "Rule for ten years."
+ },
+ {
+  "id": "ACH_QUARTER",
+  "icon": "🏛",
+  "title": "A generation",
+  "desc": "Rule for twenty-five years."
+ },
+ {
+  "id": "ACH_GIANT",
+  "icon": "🌆",
+  "title": "Hundred million",
+  "desc": "Govern a hundred million people."
+ },
+ {
+  "id": "ACH_SURVIVOR",
+  "icon": "🔥",
+  "title": "Survivor",
+  "desc": "Be at war for a full year and come through with a stable country."
+ },
+ {
+  "id": "ACH_VICTORS_PEACE",
+  "icon": "💰",
+  "title": "Victor's peace",
+  "desc": "Make a defeated enemy pay reparations."
+ },
+ {
+  "id": "ACH_INTEGRATED",
+  "icon": "🤝",
+  "title": "Hearts and minds",
+  "desc": "Fully integrate a region you conquered."
+ },
+ {
+  "id": "ACH_PROBLEM_SOLVED",
+  "icon": "🧩",
+  "title": "Problem solved",
+  "desc": "Overcome one of your national challenges."
+ },
+ {
+  "id": "ACH_ECONOMIC_WAR",
+  "icon": "🧱",
+  "title": "Economic warfare",
+  "desc": "Put an export ban on a rival."
+ },
+ {
+  "id": "ACH_BLOCKADE",
+  "icon": "⚓",
+  "title": "Rule the waves",
+  "desc": "Blockade an enemy's ports."
+ },
+ {
+  "id": "ACH_RECONCILED",
+  "icon": "🕊",
+  "title": "No enemy is forever",
+  "desc": "Sign a treaty of friendship with a former rival."
+ },
+ {
+  "id": "ACH_LIBERATOR",
+  "icon": "✊",
+  "title": "Liberator",
+  "desc": "See a conquered country reborn."
+ }
+]
