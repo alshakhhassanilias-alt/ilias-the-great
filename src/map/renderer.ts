@@ -60,6 +60,18 @@ const MAP_ABBR: Record<string, string> = {
   Turkmenistan: 'Turkmen.', 'Burkina Faso': 'Burkina', 'Guinea-Bissau': 'G.-Bissau', 'Sierra Leone': 'S. Leone', 'United Arab Emirates': 'UAE',
 };
 /** Tileable fractal value noise: fine grain that keeps land crisp when zoomed far in. */
+/** A deeper, richer tone of a map colour: what a country is shaded with towards its own edge. */
+const deepCache = new Map<string, string>();
+function deepTone(color: string | undefined): string {
+  if (!color) return 'rgb(70,64,58)';
+  let d = deepCache.get(color);
+  if (d) return d;
+  const m = /hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/.exec(color);
+  d = m ? `hsl(${m[1]},${Math.min(92, Number(m[2]) + 22)}%,${Math.max(24, Math.min(44, Number(m[3]) * 0.62))}%)` : 'rgb(84,76,70)';
+  if (deepCache.size > 600) deepCache.clear();
+  deepCache.set(color, d);
+  return d;
+}
 function grainTile(size = 192): HTMLCanvasElement {
   return tile(size, (c) => {
     const img = c.createImageData(size, size);
@@ -248,8 +260,10 @@ export class MapRenderer {
       this.labels.style.width = this.base.style.width; this.labels.style.height = this.base.style.height;
     }
     const [x0, y0, x1, y1] = this.geom.bounds;
-    this.fitK = Math.min(w / (x1 - x0 + 20), h / (y1 - y0 + 20));
-    this.minK = this.fitK * 0.85;
+    // the whole world fills the panel: on a tall panel the far Pacific edges are cropped a little rather than
+    // leaving the map a small strip in a black void
+    this.fitK = Math.min((w / (x1 - x0 + 20)) * 1.24, h / (y1 - y0 + 20));
+    this.minK = this.fitK * 0.94;
     if (first) { this.fitWorld(); this.targetK = this.view.k; } else this.constrain();
     this.baseValid = false;
     this.dirty = true;
@@ -346,8 +360,16 @@ export class MapRenderer {
   /** floating words over a region ("CAPTURED", "ENCIRCLED" ...) */
   private callouts: { prov: number; text: string; color: string; t0: number }[] = [];
   callout(prov: number, text: string, color = '#ffd36a') {
+    if (this.callouts.some((c) => c.prov === prov && c.text === text)) return; // three powers drawing the same red line is one word on the map, not three
     this.callouts.push({ prov, text, color, t0: performance.now() });
     if (this.callouts.length > 10) this.callouts.splice(0, this.callouts.length - 10);
+    this.dirty = true;
+  }
+  /** something big just exploded in a region (a missile, a bomb run, a capital falling) */
+  strike(prov: number) {
+    const sd = this.geom.geo.provinces[prov]?.seed;
+    if (!sd || this.quality < 2) return;
+    this.fx.blast(sd[0], sd[1], performance.now());
     this.dirty = true;
   }
   ping(prov: number, color = '#ffd36a') { this.effects.push({ prov, t0: performance.now(), color, kind: 'ping' }); this.dirty = true; }
@@ -551,7 +573,10 @@ export class MapRenderer {
     const nP = geo.provinces.length;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const W = this.base.width, H = this.base.height;
-    ctx.fillStyle = '#03070c';
+    // beyond the edge of the map: not a black void but deep water under a dark sky, lighter towards the middle
+    const sky = ctx.createRadialGradient(W / 2, H * 0.55, 0, W / 2, H * 0.55, Math.max(W, H) * 0.75);
+    sky.addColorStop(0, '#0d2036'); sky.addColorStop(0.55, '#081627'); sky.addColorStop(1, '#040a13');
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (x + m), dpr * (y + m));
     const vx0 = -(x + m) / k, vy0 = -(y + m) / k, vx1 = (W / dpr - (x + m)) / k, vy1 = (H / dpr - (y + m)) / k;
@@ -642,16 +667,45 @@ export class MapRenderer {
    * Steps 2–7b of the base layer, shared by the full redraw and the dirty-rectangle repaint: country colours,
    * occupation hatching, lakes and rivers, region lines, coasts, borders, allies/enemies, your realm, frontlines.
    */
-  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null }) {
-    // 2. translucent country colours over the terrain (data map modes are more opaque so they read clearly)
+  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null; rims?: Map<number, Path2D> }) {
     const colors = this.colorSnap;
     const political = this.mode === 'political';
-    ctx.globalAlpha = political ? (this.terrain ? 0.64 : 0.9) : 0.84;
+    // 1b. shallow water: a soft pale band hugging every coast (drawn before the land, which covers its inner half)
+    if (this.quality > 0) {
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (const [w, a] of [[30, 0.045], [18, 0.06], [9, 0.085]] as const) { ctx.strokeStyle = `rgba(130,205,235,${a})`; ctx.lineWidth = (w * Math.min(1.25, 0.6 + zoomIn * 0.08)) / k; ctx.stroke(paths.coast); }
+    }
+    // 2. translucent country colours over the terrain (data map modes are more opaque so they read clearly); closer in,
+    //    where the painted terrain runs out of detail, the colour carries more of the picture
+    ctx.globalAlpha = political ? (this.terrain ? clamp(0.62 + (zoomIn - 3) * 0.02, 0.62, 0.76) : 0.9) : 0.84;
     for (const p of provs) {
       ctx.fillStyle = colors[state.owner[p]] || '#555';
       ctx.fill(this.geom.provPaths[p], 'evenodd');
     }
     ctx.globalAlpha = 1;
+
+    // 2b. depth: every country is shaded towards its own border and coast, in a deeper tone of its own colour, so
+    //     nations read as raised plates, not flat stains (each band is clipped to the country it belongs to)
+    if (paths.rims && this.quality > 0) {
+      const groups = new Map<number, Path2D>();
+      for (const p of provs) { const o = state.owner[p]; let g = groups.get(o); if (!g) { g = new Path2D(); groups.set(o, g); } g.addPath(this.geom.provPaths[p]); }
+      const band = clamp(5 + zoomIn * 1.7, 6, 20) / k;
+      const passes: [number, number][] = this.quality === 2 ? [[1, 0.2], [0.58, 0.2], [0.26, 0.24]] : [[0.7, 0.3]];
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (const [o, rim] of paths.rims) {
+        const clip = groups.get(o);
+        if (!clip) continue;
+        ctx.save();
+        ctx.clip(clip, 'evenodd');
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.strokeStyle = deepTone(colors[o]);
+        for (const [w, a] of passes) { ctx.globalAlpha = a; ctx.lineWidth = band * 2 * w; ctx.stroke(rim); }
+        // a hairline of light just inside the edge: the lip of the plate
+        if (this.quality === 2 && zoomIn > 1.6) { ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(255,246,224,0.9)'; ctx.lineWidth = 2.6 / k; ctx.stroke(rim); }
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
 
     // 3. occupied land: hatched with the original owner's colour until it is integrated
     for (const p of provs) {
@@ -692,13 +746,14 @@ export class MapRenderer {
     }
 
     // 6. coastlines: soft light rim, then a crisp dark edge
-    ctx.strokeStyle = 'rgba(190,225,240,0.16)'; ctx.lineWidth = 3.4 / k; ctx.stroke(paths.coast);
-    ctx.strokeStyle = 'rgba(14,20,26,0.85)'; ctx.lineWidth = 1 / k; ctx.stroke(paths.coast);
+    ctx.strokeStyle = 'rgba(200,232,246,0.2)'; ctx.lineWidth = 3.6 / k; ctx.stroke(paths.coast);
+    ctx.strokeStyle = 'rgba(10,16,22,0.9)'; ctx.lineWidth = 1.15 / k; ctx.stroke(paths.coast);
 
     // 7. national borders: a heavy dark band with a pale stitch, like a printed atlas
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(12,8,4,0.35)'; ctx.lineWidth = 4.2 / k; ctx.stroke(paths.land);
-    ctx.strokeStyle = 'rgba(18,12,8,0.92)'; ctx.lineWidth = 1.8 / k; ctx.stroke(paths.land);
+    ctx.strokeStyle = 'rgba(8,5,2,0.2)'; ctx.lineWidth = 7.5 / k; ctx.stroke(paths.land);
+    ctx.strokeStyle = 'rgba(12,8,4,0.4)'; ctx.lineWidth = 4.2 / k; ctx.stroke(paths.land);
+    ctx.strokeStyle = 'rgba(14,9,5,0.96)'; ctx.lineWidth = 1.9 / k; ctx.stroke(paths.land);
     ctx.strokeStyle = 'rgba(255,238,210,0.42)'; ctx.lineWidth = 0.6 / k;
     ctx.setLineDash([3 / k, 2.4 / k]); ctx.stroke(paths.land); ctx.setLineDash([]);
 
@@ -784,6 +839,8 @@ export class MapRenderer {
   private borderPaths(state: GameState, provs: number[], lod: number, box: [number, number, number, number]) {
     const own = state.owner, P = state.player;
     const inner = new Path2D(), coast = new Path2D(), land = new Path2D(), ally = new Path2D(), enemy = new Path2D(), player = new Path2D(), front = new Path2D();
+    const rims = new Map<number, Path2D>();
+    const rim = (o: number, path: Path2D) => { if (o < 0) return; let r = rims.get(o); if (!r) { r = new Path2D(); rims.set(o, r); } r.addPath(path); };
     const showSides = !this.plain && this.mode === 'political';
     const en = new Set<number>(), al = new Set<number>();
     if (showSides) for (const c of state.countries) { if (!c.alive || c.id === P) continue; if (areAtWar(state, c.id, P)) en.add(c.id); else if (hasAlliance(state, c.id, P)) al.add(c.id); }
@@ -797,14 +854,14 @@ export class MapRenderer {
         const bb = e.bbox;
         if (bb[2] < x0 || bb[0] > x1 || bb[3] < y0 || bb[1] > y1) continue;
         const path = lod >= 0 ? e.lod[lod] : e.path;
-        if (e.n < 0) coast.addPath(path); else if (own[e.n] === a) inner.addPath(path); else land.addPath(path);
+        if (e.n < 0) { coast.addPath(path); rim(a, path); } else if (own[e.n] === a) inner.addPath(path); else { land.addPath(path); rim(a, path); rim(own[e.n], path); }
         if (showSides && al.size && outlineOf(al, a, e.n)) ally.addPath(path);
         if (showSides && en.size && outlineOf(en, a, e.n)) enemy.addPath(path);
         if (showPlayer && outlineOf(P, a, e.n)) player.addPath(path);
         if (sides.length && e.n >= 0 && own[e.n] !== a) { const b = own[e.n]; if (sides.some(([A, D]) => (A.has(a) && D.has(b)) || (D.has(a) && A.has(b)))) front.addPath(path); }
       }
     }
-    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null };
+    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null, rims };
   }
 
   // ------------------------------------------------------------------ overlays
@@ -1393,23 +1450,51 @@ export class MapRenderer {
       // Beautiful: soft shell bursts, sparks, rings and drifting smoke; contrails; pulses down the arrows
       const dt = Math.min(0.1, Math.max(0, (now - (this.lastFxT || now)) / 1000));
       this.lastFxT = now;
+      // the front burns: a wide ember glow under the line, breathing with the fighting
+      if (fronts.length) {
+        ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (const fr of fronts) {
+          if (!fr.path) continue;
+          const beat = 0.6 + 0.4 * Math.sin(t * (2.2 + fr.heat * 2.4) + fr.bx);
+          ctx.strokeStyle = `rgba(255,96,28,${(0.1 + 0.16 * fr.heat * beat).toFixed(3)})`; ctx.lineWidth = (11 + 6 * fr.heat) / k; ctx.stroke(fr.path);
+          ctx.strokeStyle = `rgba(255,170,70,${(0.12 + 0.2 * fr.heat * beat).toFixed(3)})`; ctx.lineWidth = 4.2 / k; ctx.stroke(fr.path);
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
       if (this.running) for (const fr of fronts) {
-        const rate = 3.2 * fr.heat; // shells per second on this front
-        if (Math.random() >= 1 - Math.exp(-rate * dt)) continue;
-        let px = fr.bx, py = fr.by;
-        if (fr.segs.length) { const i = Math.floor(Math.random() * (fr.segs.length / 4)) * 4; const u = Math.random(); px = fr.segs[i] + (fr.segs[i + 2] - fr.segs[i]) * u; py = fr.segs[i + 1] + (fr.segs[i + 3] - fr.segs[i + 1]) * u; }
+        // a point on this front, and the direction across it
+        const pick = (): [number, number, number, number] => {
+          if (!fr.segs.length) return [fr.bx, fr.by, 0, 1];
+          const i = Math.floor(Math.random() * (fr.segs.length / 4)) * 4, u = Math.random();
+          const ax = fr.segs[i], ay = fr.segs[i + 1], bx = fr.segs[i + 2], by = fr.segs[i + 3];
+          const l = Math.hypot(bx - ax, by - ay) || 1;
+          return [ax + (bx - ax) * u, ay + (by - ay) * u, -(by - ay) / l, (bx - ax) / l];
+        };
         const jit = fr.size * 0.7;
-        this.fx.shell(px + (Math.random() - 0.5) * jit, py + (Math.random() - 0.5) * jit, now, 0.75 + 0.5 * fr.heat);
+        // artillery: the guns fire from behind the line, the shell climbs, falls and bursts
+        if (Math.random() < 1 - Math.exp(-3.6 * fr.heat * dt)) {
+          const [px, py, nx, ny] = pick();
+          const side = Math.random() < 0.5 ? 1 : -1, back = (34 + 46 * Math.random()) / k;
+          const tx = px + (Math.random() - 0.5) * jit - nx * side * (6 / k), ty = py + (Math.random() - 0.5) * jit - ny * side * (6 / k);
+          if (Math.random() < 0.7) this.fx.arc(px + nx * side * back + (Math.random() - 0.5) * (16 / k), py + ny * side * back + (Math.random() - 0.5) * (16 / k), tx, ty, now, 0.8 + 0.55 * fr.heat);
+          else this.fx.shell(tx, ty, now, 0.75 + 0.5 * fr.heat);
+        }
+        // small arms: tracer fire snapping across the line
+        if (Math.random() < 1 - Math.exp(-5.5 * fr.heat * dt)) {
+          const [px, py, nx, ny] = pick();
+          const side = Math.random() < 0.5 ? 1 : -1, d = (9 + 9 * Math.random()) / k;
+          this.fx.tracer(px + nx * side * d, py + ny * side * d, px - nx * side * d * 0.9, py - ny * side * d * 0.9, now, side > 0);
+        }
       }
       for (const a of this.battleData.arrows ?? []) this.fx.arrowPulse(ctx, a, k, this.running ? t : 0);
-      this.fx.draw(ctx, k, now);
+      this.fx.draw(ctx, k, now, clamp(0.5 + 0.2 * Math.log2(k / this.fitK), 0.5, 1.15));
       for (const pl of planes) {
         const speed = 0.35;
         const at = (back: number): [number, number] => { const ph = ((((t - back) * speed + pl.seed) % 1) + 1) % 1; return [pl.x0 + (pl.x1 - pl.x0) * ph * 1.3, pl.y0 + (pl.y1 - pl.y0) * ph * 1.3 - 4 / k]; };
         const ph = ((t * speed + pl.seed) % 1);
         this.fx.plane(ctx, at, Math.atan2(pl.y1 - pl.y0, pl.x1 - pl.x0), pl.color, k, Math.sin(ph * Math.PI), now);
         // bombs fall where the aircraft cross the target
-        if (this.running && ph > 0.7 && ph < 0.78 && Math.random() < 0.25) { const [bx2, by2] = at(0.15); this.fx.shell(bx2, by2, now, 0.6); }
+        if (this.running && ph > 0.7 && ph < 0.78 && Math.random() < 0.3) { const [bx2, by2] = at(0.15); this.fx.shell(bx2, by2, now, 1.15); }
       }
     } else {
     // artillery: flashes and smoke along the lines (only while time runs)

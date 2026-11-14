@@ -23,6 +23,7 @@ import { WarCouncil, WarStrip } from './WarCouncil';
 import { PopLayer } from './PopLayer';
 import { mainWar } from '../sim/warmode';
 import { ScenarioResult } from './Scenario';
+import { CineBanner, DangerPulse, ElectionNight, ImpactLayer } from './Thrill';
 
 const insetBottom = () => {
   if (window.innerWidth >= 900) return 0;
@@ -114,6 +115,7 @@ export function App() {
           <WarStrip />
           {!desk && <YearReview />}
           <Splash />
+          <DangerPulse />
         </div>
         <SidePanel />
       </div>
@@ -124,12 +126,15 @@ export function App() {
       <WarCouncil />
       <PopLayer />
       <ScenarioResult />
+      <ElectionNight />
       <TermReview />
       <NegotiationTable />
       <WarRoom />
       <CareerEnd />
       <Succession />
       <Walkthrough />
+      <CineBanner />
+      <ImpactLayer />
       <AskDialog />
     </div>
   );

@@ -101,9 +101,11 @@ export type Sfx =
   // interface
   | 'tick' | 'tab' | 'fold' | 'select' | 'open' | 'confirm' | 'deny'
   // the year, promises, rivals, scenarios
-  | 'bell' | 'stamp' | 'begin' | 'promise' | 'broken' | 'overtake' | 'slip' | 'rival' | 'star' | 'victory' | 'defeat' | 'law' | 'met' | 'walkout';
+  | 'bell' | 'stamp' | 'begin' | 'promise' | 'broken' | 'overtake' | 'slip' | 'rival' | 'star' | 'victory' | 'defeat' | 'law' | 'met' | 'walkout'
+  // the pulse of the game: a heartbeat under danger, the slam of a headline, the count on election night
+  | 'heart' | 'slam' | 'slam-gold' | 'count' | 'roll' | 'impact' | 'siren';
 const UI = new Set<Sfx>(['tick', 'tab', 'fold', 'select', 'open', 'confirm', 'deny', 'click']);
-const GAP: Partial<Record<Sfx, number>> = { boom: 60, tab: 60, fold: 60, select: 50, tick: 80 };
+const GAP: Partial<Record<Sfx, number>> = { boom: 60, tab: 60, fold: 60, select: 50, tick: 80, count: 45, heart: 300, impact: 220 };
 const last: Partial<Record<Sfx, number>> = {};
 /** C major pentatonic, for pitched interface sounds that never clash */
 const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
@@ -153,6 +155,13 @@ export function sfx(kind: Sfx, n = 0) {
     case 'defeat': chord(c, 'fx', t, [220, 261.63, 329.63], 1.2, 0.05, 'sawtooth'); chord(c, 'fx', t + 1, [207.65, 246.94, 311.13], 2.2, 0.05, 'sawtooth'); thump(c, 'fx', t, 55, 0.35, 0.8); break;
     case 'law': thump(c, 'fx', t, 180, 0.3, 0.12); thump(c, 'fx', t + 0.16, 180, 0.35, 0.14); bell(c, 'fx', t + 0.32, 659.25, 0.8, 0.03, 1.5, 0.6); break;
     case 'met': chord(c, 'fx', t, [587.33, 739.99, 880], 0.6, 0.05); break;
+    case 'heart': { const v = 0.16 + 0.22 * Math.min(1, n / 100); thump(c, 'fx', t, 58, v, 0.16); thump(c, 'fx', t + 0.21, 50, v * 0.72, 0.2); break; }
+    case 'slam': thump(c, 'fx', t, 48, 0.6, 0.9); noise(c, 'fx', t, 0.5, 0.22, 'lowpass', 520, 90); tone(c, 'fx', t + 0.02, 82.4, 1.6, 'sawtooth', 0.07, { slide: 61.7, lp: 700, detune: 12 }); bell(c, 'fx', t + 0.04, 164.8, 2.2, 0.06, 1.41, 2.6); break;
+    case 'slam-gold': thump(c, 'fx', t, 62, 0.5, 0.7); chord(c, 'fx', t + 0.03, [196, 293.66, 392, 493.88], 1.6, 0.06, 'sawtooth'); bell(c, 'fx', t + 0.2, 1174.66, 1.6, 0.04, 2, 0.9); break;
+    case 'count': tone(c, 'fx', t, 620 + (Math.abs(n) % 60) * 9, 0.035, 'square', 0.022, { lp: 2600 }); break;
+    case 'roll': for (let i = 0; i < 22; i++) { const u = i / 22; thump(c, 'fx', t + 1.9 * (1 - Math.pow(1 - u, 1.7)) * 1.0 + u * 0.35, 96 + u * 34, 0.1 + 0.22 * u, 0.09); } break;
+    case 'impact': { const v = 0.25 + 0.3 * Math.min(1, n / 100); thump(c, 'fx', t, 44, v, 0.5); noise(c, 'fx', t, 0.35, v * 0.5, 'lowpass', 380, 70); break; }
+    case 'siren': tone(c, 'fx', t, 440, 0.55, 'sawtooth', 0.045, { slide: 660, lp: 1800 }); tone(c, 'fx', t + 0.55, 660, 0.6, 'sawtooth', 0.045, { slide: 440, lp: 1800 }); break;
     case 'walkout': thump(c, 'fx', t, 90, 0.3, 0.3); tone(c, 'fx', t + 0.05, 293.66, 0.7, 'sawtooth', 0.04, { slide: 196, lp: 1000 }); break;
   }
   void ui;

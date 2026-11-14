@@ -18,5 +18,6 @@ import './legacy.css';
 import './people.css';
 import './motion.css';
 import './desk.css';
+import './thrill.css';
 
 createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);

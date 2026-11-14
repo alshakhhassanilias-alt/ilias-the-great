@@ -28,7 +28,7 @@ import { actMissileStrike, actStartProgramme, goalOf, settleGoal } from '../src/
 import { addAggression, coalitionAgainst } from '../src/sim/coalitions';
 import { STORIES } from '../src/data/stories';
 import { issueNow, possibleEndings, seedOf, storyEvents } from '../src/sim/story';
-import { actTrigger } from '../src/sim/story';
+import { actTrigger, actKind, openingIssue } from '../src/sim/story';
 import { addRec, makeAgenda, moodTraitWeight, opinionOf } from '../src/sim/minds';
 import { choosePlan, pursuePlan } from '../src/sim/plans';
 import { memberValue, stepMembership } from '../src/sim/membership';
@@ -364,7 +364,7 @@ describe('things to do: events, goals, covert ops, war actions', () => {
       }
     }
     expect(seen).toBeGreaterThanOrEqual(8); // a couple of decisions every year
-    expect(seen).toBeLessThanOrEqual(52 * 6 / 6); // but never a flood
+    expect(seen).toBeLessThanOrEqual(52 * 6 / 5); // but never a flood (more situations now have a second stage)
     expect(maxInbox).toBeLessThanOrEqual(5);
     // variety: no event twice in a row, and many different ones
     for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
@@ -1815,7 +1815,7 @@ describe('round 17: every country can change course; alliances live and evolve',
     expect(us.find((k) => k.id === 'west')!.ok).toBe(false);
   });
   it('turning West step by step moves a country, changes its friends and can end in membership', () => {
-    const s = fresh('Kazakhstan', { randomEvents: false });
+    const s = fresh('Kazakhstan', { randomEvents: false, storylines: false }); // the course alone, without a storyline pulling the other way
     const c = s.countries[s.player];
     const o0 = c.orient!, us0 = getRelation(s, s.player, id('United States of America'));
     expect(actStartCourse(s, geo, 'west').ok).toBe(true);
@@ -1903,7 +1903,7 @@ describe('round 18: national storylines for every country, steered by the player
         c.politics!.pc = 100;
         if (it.id.startsWith('story')) {
           seen.push(it.id);
-          const want = picks[(c.story?.act ?? 1) - 1] ?? 0;
+          const want = picks[actKind(c.story) - 1] ?? 0; // picks are by what the act is about, whatever order this telling puts them in
           const k = d.options[want] && (!d.options[want].enabled || d.options[want].enabled!(s, c)) ? want : d.options.length - 1;
           resolveEvent(s, geo, k, it.uid);
         } else resolveEvent(s, geo, 0, it.uid);
@@ -1928,7 +1928,9 @@ describe('round 18: national storylines for every country, steered by the player
     const s = fresh('Turkey', { randomEvents: false });
     const c = s.countries[s.player];
     const seen = playStory(s, [1, 3, 0, 4], 52 * 8);
-    expect(seen.slice(0, 4)).toEqual([`story1_${seedOf(c).issue}`, 'story2_iron', `story3_${seedOf(c).econ}_iron`, 'story4']);
+    // the trouble of the age always comes first; the other three acts come in this game's own order
+    expect(seen[0]).toMatch(/^story1_/);
+    expect(seen.slice(1, 4).sort()).toEqual(['story2_iron', `story3_${seedOf(c).econ}_iron`, 'story4'].sort());
     expect(eventById('story2_iron').options[3].label).toBe('Prepare for war');
     expect(eventById('story2_reform').options[3].label).toBe('International arbitration');
     expect(c.story!.arch).toBe('iron');
@@ -2084,6 +2086,7 @@ describe('round 19: a world of minds: agendas, plans, membership sums and judgem
     const c = s.countries[s.player];
     run(s, 1);
     const st = c.story!;
+    delete st.order; // the classic order: the second act is the neighbour
     st.act = 2; st.rival = id('Greece'); st.why = undefined;
     st.snap = { t: s.tick, rel: getRelation(s, c.id, id('Greece')), troops: s.countries[id('Greece')].mil.troops, ws: 0.7, gdp: c.eco.gdp, nb: '', ml: '' };
     expect(actTrigger(s, geo, c, st)).toBeNull();
@@ -3494,3 +3497,101 @@ describe('the polls tell the truth (round 36b)', () => {
     expect(votePartsR36b(s).find((x) => x.key === 'promises')?.v).toBeCloseTo(1, 5);
   });
 });
+
+import { SITUATIONS as SITS38 } from '../src/sim/events13';
+import { thrillOf, dangerOf, countAt } from '../src/thrill';
+describe('no two tellings alike, and a pulse (round 38)', () => {
+  it('there are over fifty situations, each with its own id and stages that can be played', () => {
+    expect(SITS38.length).toBeGreaterThanOrEqual(54);
+    expect(new Set(SITS38.map((x) => x.id)).size).toBe(SITS38.length);
+    for (const x of SITS38) {
+      expect(x.stages.length, x.id).toBeGreaterThan(0);
+      for (const st of x.stages) expect(st.options.length, x.id).toBeGreaterThan(0);
+      expect(eventById(`sit_${x.id}_0`), x.id).toBeTruthy();
+    }
+  });
+  it('every choice in every situation can be taken, and leaves a sane country behind', () => {
+    const s = fresh('Jordan', { mode: 'legacy' });
+    const c = s.countries[s.player];
+    const n = s.countries.find((x) => x.alive && x.id !== c.id)!.id;
+    const d = { p: c.capital, n, a: n, b: s.countries.find((x) => x.alive && x.id !== c.id && x.id !== n)!.id, k: 3, f: n, t: n };
+    for (const x of SITS38) for (const st of x.stages) {
+      expect(typeof st.text(s, c, { ...d }), x.id).toBe('string');
+      for (const o of st.options) {
+        c.eco.cash = c.eco.gdp; // rich enough to afford each one
+        const out = o.apply(s, c, { ...d });
+        expect(typeof out, `${x.id}: ${o.label}`).toBe('string');
+        expect(out.length, `${x.id}: ${o.label}`).toBeGreaterThan(3);
+      }
+    }
+    for (const v of [c.eco.gdp, c.eco.stability, c.eco.debt, c.eco.foodCap, c.eco.energyCap, c.mil.readiness, c.mil.intel, c.mil.troops]) expect(Number.isFinite(v)).toBe(true);
+    expect(c.eco.stability).toBeGreaterThanOrEqual(0);
+    expect(c.mil.intel).toBeLessThanOrEqual(1);
+  });
+  it('the same country opens with a different trouble and a different order of acts from game to game', () => {
+    const tell = (seed: number) => { const s = fresh('Jordan', { seed }); run(s, 1); const st = s.countries[s.player].story!; return `${st.issue ?? seedOf(s.countries[s.player]).issue}|${(st.order ?? [2, 3, 4]).join('')}`; };
+    const all = Array.from({ length: 24 }, (_, i) => tell(i + 1));
+    expect(new Set(all.map((x) => x.split('|')[0])).size).toBeGreaterThanOrEqual(3); // several different first pages
+    expect(new Set(all.map((x) => x.split('|')[1])).size).toBeGreaterThanOrEqual(4); // several different orders
+    expect(new Set(all).size).toBeGreaterThanOrEqual(8);
+    expect(tell(7)).toBe(tell(7)); // the same seed tells the same story
+    // the real trouble still opens a good share of games, and the alternatives fit the country (a kingdom is never "polarised")
+    const s = fresh('Jordan');
+    const kinds = new Set(Array.from({ length: 60 }, (_, i) => { s.settings.seed = i + 1; return openingIssue(s, s.countries[s.player]); }));
+    expect(kinds.has(seedOf(s.countries[s.player]).issue)).toBe(true);
+    expect(kinds.has('polarised')).toBe(false);
+  });
+  it('a story told out of order still reaches its ending, with every act played once', () => {
+    for (const seed of [3, 5, 8, 11]) {
+      const s = fresh('Turkey', { randomEvents: false, seed });
+      const c = s.countries[s.player];
+      const seen = playStory38(s, 52 * 9);
+      expect(seen.length, `seed ${seed}`).toBeGreaterThanOrEqual(4);
+      expect(new Set(seen.slice(0, 4).map((x) => x.slice(0, 6))).size, `seed ${seed}`).toBe(4);
+      expect(c.story!.path.filter((x) => x !== undefined).length).toBeGreaterThanOrEqual(4);
+      expect((c.story!.past?.length ?? 0) > 0 || !!c.story!.ending, `seed ${seed}`).toBe(true);
+    }
+  });
+  it('the screen knows a blow from a triumph', () => {
+    const me = 5;
+    expect(thrillOf({ text: '🏛 CAPITAL FALLS: A has taken B.', kind: 'war', countries: [me, 9], big: true, prov: 3 }, me).cine?.tone).toBe('gold');
+    const lost = thrillOf({ text: '🏛 CAPITAL FALLS: A has taken B.', kind: 'war', countries: [9, me], big: true, prov: 3 }, me);
+    expect(lost.cine?.tone).toBe('red');
+    expect(lost.jolt?.kind).toBe('hit');
+    expect(lost.strike).toBe(3);
+    expect(thrillOf({ text: 'X declared war on Y', kind: 'war', countries: [9, me] }, me).jolt?.kind).toBe('hit');
+    expect(thrillOf({ text: 'X captured it from Y', kind: 'territory', countries: [me, 9] }, me).jolt?.kind).toBe('glory');
+    expect(thrillOf({ text: '🌋 WORLD CRISIS: The Great Freeze. Markets stop.', kind: 'danger', countries: [], big: true }, me).cine?.title).toBe('WORLD CRISIS');
+    // what happens far away to others leaves the screen alone
+    expect(thrillOf({ text: 'X captured it from Y', kind: 'territory', countries: [1, 2] }, me)).toEqual({});
+    expect(thrillOf({ text: 'A trade deal is signed.', kind: 'info', countries: [me] }, me)).toEqual({});
+  });
+  it('danger rises with trouble, and election night ends on the real result', () => {
+    const s = fresh('Jordan', { mode: 'legacy' });
+    const c = s.countries[s.player];
+    c.eco.stability = 70;
+    expect(dangerOf(s).level).toBeLessThan(0.35);
+    c.eco.stability = 10;
+    const d = dangerOf(s);
+    expect(d.level).toBeGreaterThan(0.6);
+    expect(d.why.length).toBeGreaterThan(5);
+    for (const seed of [1, 77, 4242]) {
+      expect(countAt(51.3, 1, seed)).toBeCloseTo(51.3, 6);
+      expect(Math.max(...[0.05, 0.1, 0.2, 0.3].map((p) => Math.abs(countAt(51.3, p, seed) - 51.3)))).toBeGreaterThan(1.5); // early boxes mislead
+      expect(countAt(51.3, 0.4, seed)).toBe(countAt(51.3, 0.4, seed));
+    }
+  });
+});
+function playStory38(s: GameState, weeks: number) {
+  const c = s.countries[s.player];
+  const seen: string[] = [];
+  for (let w = 0; w < weeks; w++) {
+    for (const it of [...s.inbox]) {
+      c.politics!.pc = 100;
+      if (it.id.startsWith('story')) { if (!seen.includes(it.id)) seen.push(it.id); resolveEvent(s, geo, 0, it.uid); } else resolveEvent(s, geo, 0, it.uid);
+    }
+    tick(s, geo);
+    if ((c.story?.past?.length ?? 0) > 0) break;
+  }
+  return seen;
+}

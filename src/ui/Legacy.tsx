@@ -94,7 +94,7 @@ export function TermReview() {
   useStore();
   const s = store.state;
   const L = s?.legacy;
-  if (!s || !L || s.settings.mode !== 'legacy' || store.splash) return null;
+  if (!s || !L || s.settings.mode !== 'legacy' || store.splash || store.election) return null; // the count comes before the morning paper
   const n = s.stats.reviewTerm ?? 0;
   if (!n || store.termSeen >= n) return null;
   const t = L.terms[n - 1];

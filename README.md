@@ -62,6 +62,39 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 38: a pulse
+
+The game now reacts the way a player does: it flinches, holds its breath and celebrates.
+
+* **The screen has a body** (`src/thrill.ts`, `src/ui/Thrill.tsx`). When you are struck (war declared on you, a region
+  lost, a missile strike, a coup) the map jolts and the edge of the screen flashes red; a triumph flashes gold. The
+  biggest moments (a capital falling, an intervention, a red line, a world crisis, a default, a snap election) take the
+  whole screen for under four seconds: black bars close in and the word lands. It never takes a click, and the same word
+  is not shown twice in a minute.
+* **Danger you can feel.** `dangerOf` reads the state every week: a war going against you, enemy troops on your soil,
+  your capital in enemy hands, stability near collapse, a decision in its last weeks, an election too close to call.
+  Above a threshold the edge of the map glows and breathes; higher still, you hear a heartbeat that quickens with the
+  danger, and a line says why. A decision in its final weeks pulses on the desk.
+* **Election night.** An election is no longer a line in the news. The count comes in live: early boxes mislead, the
+  lead swings, regions of your own country report one by one, a drum roll under the last ten percent, and only then
+  the call. The same seed gives the same night; a click skips the count. The morning paper follows.
+* **War on the map.** Fronts glow like embers and breathe with the fighting. Shells fly in arcs and burst where they
+  land with a flash, a shock ring, sparks, a fire that burns on and black smoke that drifts; tracers cross the line;
+  missile strikes and fallen capitals get a larger blast at the place itself. Effects shrink when the camera is far
+  out, so a wide view shows sparks and a close one shows the battle.
+* **A map with depth.** Each country is shaded darker towards its own borders and coasts, coasts sit in a band of pale
+  shallow water, borders are heavier, the world fills the window, and beyond its edge there is dark water instead of a
+  black void.
+* **Twenty-two more situations (54 in all)**, most of them with real stakes and real gambles: a hijacked jet on your
+  runway, a seventy-two-hour ultimatum, shots at the border, a bank that will not open on Monday, a critic shot in the
+  square, a mutinous garrison, a river about to top its dykes, drones over the capital, ransomware in the hospitals, a
+  rocket on the pad, a find of rare earths, a televised debate. Where an option is a gamble, the hint gives the odds.
+* **Your national story changes from game to game.** The first act is still the trouble of the age, but in about six
+  games in ten it is a different trouble that fits the country as it stands (`openingIssue`), and the other three acts
+  (the neighbour, the economy, your place in the world) come in one of six orders (`actKind`, `order`). Endings and
+  history read the same whatever the order. Other countries keep the classic order.
+* Tests: 268 unit tests, plus end-to-end checks for the banner, the jolt and election night.
+
 ## Round 37: no two games alike
 
 Played as Jordan, two years brought only five to seven decisions, the same ones in the same order every game, and

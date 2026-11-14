@@ -240,6 +240,42 @@ export const storyTitle = (c: Country) => `${c.name}: ${seedOf(c).ambition}`;
 /** The problem of the current chapter (chapter I: the real one from 2024; later: what the country faces by then). */
 export const issueOf = (c: Country): IssueKind => (c.story?.issue as IssueKind | undefined) ?? seedOf(c).issue;
 export const ISSUE_TITLE = (k: IssueKind) => ISSUE[k].title;
+/** The trouble of the current chapter in words: the country's own 2024 text when the chapter is about that, else the general one. */
+export const troubleText = (c: Country) => ((c.story?.ch ?? 1) === 1 && issueOf(c) === seedOf(c).issue ? seedOf(c).text : NEW_TROUBLE[issueOf(c)]);
+/**
+ * What an act is about. The first act is always the trouble of the age; in your own story the other three (2 the
+ * neighbour, 3 the economy, 4 your place in the world) come in an order of their own in every game and every chapter.
+ * `path` stays indexed by what the act is about, so endings read the same whatever the order.
+ */
+export const actKind = (st: Pick<StoryState, 'act' | 'order'> | undefined, pos = st?.act ?? 1): number => (pos <= 1 || pos > 4 ? pos : st?.order?.[pos - 2] ?? pos);
+const ORDERS = [[2, 3, 4], [3, 2, 4], [2, 4, 3], [4, 2, 3], [3, 4, 2], [4, 3, 2]];
+/** No two tellings alike: the order of the acts for this game and chapter (your story only; the world keeps the classic order). */
+function shuffleActs(s: GameState, c: Country, st: StoryState) {
+  delete st.order;
+  if (!c.isPlayer) return;
+  const o = ORDERS[Math.floor(hash01('order', c.id, st.ch ?? 1, s.settings.seed) * ORDERS.length)];
+  if (o[0] !== 2 || o[1] !== 3) st.order = [...o];
+}
+/**
+ * The trouble your first chapter opens with. In about four games in ten it is the country's real one; in the others
+ * it is another trouble that fits the country as it stands (its debt, its prices, its form of government ...), so
+ * leading the same nation twice does not mean reading the same first page twice.
+ */
+export function openingIssue(s: GameState, c: Country): IssueKind {
+  const real = seedOf(c).issue;
+  if (hash01('open', c.id, s.settings.seed) < 0.4) return real;
+  const e = c.eco, free = c.gov === 'D' || c.gov === 'F';
+  const pool: IssueKind[] = [];
+  if (e.debt / Math.max(1, e.gdp) > 0.6) pool.push('debt');
+  if (e.inflation > 0.05) pool.push('inflation');
+  if (e.collection < 0.72) pool.push('corruption');
+  if (e.stability < 60) pool.push(free ? 'polarised' : 'army');
+  if (c.gov === 'A' || c.gov === 'M') pool.push('succession');
+  if (e.unemployment > 0.09) pool.push('exodus');
+  pool.push('energy', 'climate', 'corruption', free ? 'polarised' : 'crime');
+  const fit = [...new Set(pool)].filter((k) => k !== real);
+  return fit[Math.floor(hash01('open2', c.id, s.settings.seed) * fit.length)] ?? real;
+}
 /** "Chapter II · Act III of 4" */
 export const storyChip = (c: Country) => { const st = c.story; return st ? `Chapter ${roman(st.ch ?? 1)} · ${st.act > 4 ? 'written' : `act ${roman(st.act)} of IV`}` : ''; };
 
@@ -283,7 +319,7 @@ export function storyEvents(): EventDef[] {
   for (const [k, v] of Object.entries(ISSUE) as [IssueKind, (typeof ISSUE)[IssueKind]][]) {
     out.push({
       id: `story1_${k}`, icon: '📖', title: `Act I: ${v.title}`, weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
-      text: (_s, c) => (c.story?.ch ?? 1) > 1 ? `${storyTitle(c)}, chapter ${roman(c.story!.ch!)}. ${c.story!.past?.length ? `The last chapter ended as ${c.story!.past[c.story!.past.length - 1].ending}. ` : ''}Now a new trouble defines the age: ${NEW_TROUBLE[k]}. ${whyLine(c)}${brief(_s, c, 1, c.story?.rival ?? -1)} A new chapter means a new road: answer as you see fit.` : `${storyTitle(c)}. ${whyLine(c)}The question of your age: ${seedOf(c).text}. ${brief(_s, c, 1, c.story?.rival ?? -1)} How you answer will decide what kind of leader history remembers.`,
+      text: (_s, c) => (c.story?.ch ?? 1) > 1 ? `${storyTitle(c)}, chapter ${roman(c.story!.ch!)}. ${c.story!.past?.length ? `The last chapter ended as ${c.story!.past[c.story!.past.length - 1].ending}. ` : ''}Now a new trouble defines the age: ${NEW_TROUBLE[k]}. ${whyLine(c)}${brief(_s, c, 1, c.story?.rival ?? -1)} A new chapter means a new road: answer as you see fit.` : `${storyTitle(c)}. ${whyLine(c)}The question of your age: ${troubleText(c)}. ${brief(_s, c, 1, c.story?.rival ?? -1)} How you answer will decide what kind of leader history remembers.`,
       options: v.opts.map((o, i) => opt(o, 1, i)),
       lapse: (s, c, d) => choose(s, c, 1, -1, { stab: -2 }, d, 'Events decide for you; the problem festers.'),
     });
@@ -298,7 +334,7 @@ export function storyEvents(): EventDef[] {
       : a === 'iron' ? ['Prepare for war', '', { mil: 0.006, readiness: 0.08, cb: true, rival: -20, rep: -4, fac: { military: 12, nationalists: 10, liberals: -8 } }, 'Mobilisation plans are dusted off; the generals get a casus belli.']
       : ['A deal behind closed doors', '', { cash: -0.004, rival: 20, fac: { business: 6, nationalists: -4 } }, 'A quiet bargain: money and concessions, no cameras.'];
     out.push({
-      id: `story2_${a}`, icon: '📖', title: 'Act II: The Neighbour', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
+      id: `story2_${a}`, icon: '📖', title: 'The Neighbour', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
       text: (s, c, d) => { const r = d.rv >= 0 ? s.countries[d.rv] : null; const claim = r && CLAIMS.some(([x, y]) => (x === c.name && y === r.name) || (y === c.name && x === r.name)); return `${pathLine(c.story)}${whyLine(c)}Now ${r ? `${r.name} ${claim ? 'and the land you both claim' : getRelation(s, c.id, r.id) < -30 ? 'and the old enmity between you' : getRelation(s, c.id, r.id) < 10 ? 'and the cold distrust between you' : 'and its ambitions'}` : 'your neighbourhood'} will test you. Relations stand at ${r ? getRelation(s, c.id, r.id).toFixed(0) : '?'}. ${brief(s, c, 2, d.rv ?? -1)} ${a === 'reform' ? 'As a reformer you can take it to an international court.' : a === 'iron' ? 'As the iron hand you can prepare for war.' : 'As a pragmatist you can strike a quiet deal.'}`; },
       options: [...base, extra].map((o, i) => opt(o, 2, i)),
       lapse: (s, c, d) => choose(s, c, 2, -1, { rival: -5 }, d, 'You let it drift; the tension grows.'),
@@ -309,14 +345,14 @@ export function storyEvents(): EventDef[] {
       : a === 'iron' ? ['State champions under the government\'s thumb', '', { capital: 0.02, rep: -3, fac: { business: -6, nationalists: 8 } }, 'The state takes stakes in the biggest companies.']
       : ['Play the great powers against each other for investment', '', { cash: 0.006, west: 4, east: 4, capital: 0.01 }, 'Washington and Beijing bid for your favour.'];
     out.push({
-      id: `story3_${k}_${a}`, icon: '📖', title: `Act III: ${v.title}`, weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
+      id: `story3_${k}_${a}`, icon: '📖', title: v.title, weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
       text: (s, c) => `${pathLine(c.story)}${whyLine(c)}To reach ${seedOf(c).ambition}, the economy must change. ${v.frame} ${brief(s, c, 3, -1)}`,
       options: [...v.opts, extra].map((o, i) => opt(o, 3, i)),
       lapse: (s, c, d) => choose(s, c, 3, -1, {}, d, 'The economy carries on as before.'),
     });
   }
   out.push({
-    id: 'story4', icon: '📖', title: 'Act IV: Your Place in the World', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
+    id: 'story4', icon: '📖', title: 'Your Place in the World', weight: 0, cooldown: 0, ttl: 30, eligible: () => null,
     text: (s, c) => `${pathLine(c.story)}${whyLine(c)}The world is choosing sides, and ${c.name} must decide where it stands. ${brief(s, c, 4, -1)} ${c.story?.path[1] === 2 ? 'Your protector expects loyalty. ' : ''}Whatever you choose sets out a course of several steps (you will walk it in Diplomacy).`,
     options: ([['west', 'Turn toward the West'], ['east', 'Turn toward the East'], ['third', 'A third way'], ['region', 'Lead your region']] as [CourseId, string][]).map(([id, label], i): EventOption => ({
       label, hint: 'Starts a change-of-course storyline in Diplomacy', enabled: (s, c) => { const g = geoRefGet(); return !!g && !c.course && !!coursesFor(s, c, g).find((k) => k.id === id)?.ok; },
@@ -355,7 +391,8 @@ export function possibleEndings(c: Country): string[] {
 }
 /** Act titles of the current chapter, for the panel. */
 export function actTitles(c: Country): string[] {
-  return [`Act I: ${ISSUE[issueOf(c)].title}`, 'Act II: The Neighbour', `Act III: ${ECON[seedOf(c).econ].title}`, 'Act IV: Your Place in the World'];
+  const about: Record<number, string> = { 2: 'The Neighbour', 3: ECON[seedOf(c).econ].title, 4: 'Your Place in the World' };
+  return [`Act I: ${ISSUE[issueOf(c)].title}`, ...[2, 3, 4].map((pos) => `Act ${ROMAN[pos - 1]}: ${about[actKind(c.story, pos)]}`)];
 }
 /** The label of the option taken in an act (or how it lapsed). */
 export function choiceLabel(c: Country, act: number, idx: number | undefined): string {
@@ -372,14 +409,14 @@ function choose(s: GameState, c: Country, act: number, idx: number, fx: Fx, d: D
   st.path[act - 1] = idx;
   if (act === 1) st.arch = idx >= 0 ? ARCHS[idx] : 'pragmatic';
   const extra = applyFx(s, c, fx, d);
-  st.act = act + 1;
+  st.act = (st.order ? st.act : act) + 1; // with an order of its own, the story moves on by position
   // the next act waits for something to happen (at least half a year), or arrives anyway when its time runs out
   st.next = s.tick + 26;
   st.due = s.tick + 70 + Math.floor(hash01('story', c.id, act, st.ch ?? 1, s.settings.seed) * 40);
   delete st.why;
   const g = geoRefGet();
   if (g) st.snap = snapOf(s, g, c, st);
-  if (act === 4) {
+  if (st.act > 4) {
     st.ending = endingOf(c, st);
     st.next = s.tick + CHAPTER_GAP + Math.floor(hash01('chapter', c.id, st.ch ?? 1, s.settings.seed) * 80); // the next chapter opens years later
     // in Legacy your chapters follow your terms: the next one opens when the next term begins
@@ -402,7 +439,9 @@ export function* stepStoriesGen(s: GameState, geo: Geo): Generator<void> {
     if (!c.alive) continue;
     if (++n % 30 === 0) yield;
     if (c.isPlayer && s.settings.storylines === false) continue; // a pure sandbox: no storyline for you (the world keeps its own)
+    const fresh = !c.story;
     const st = (c.story ??= { act: 1, next: 8, due: 16 + Math.floor(hash01('story0', c.id, s.settings.seed) * 40), path: [] });
+    if (fresh && c.isPlayer) { const k = openingIssue(s, c); if (k !== seedOf(c).issue) st.issue = k; shuffleActs(s, c, st); }
     if (s.tick < st.next) continue;
     if (st.act > 4) { newChapter(s, c, geo); continue; }
     if (st.rival === undefined || (st.rival >= 0 && !s.countries[st.rival]?.alive)) st.rival = storyRival(s, c, geo);
@@ -414,7 +453,8 @@ export function* stepStoriesGen(s: GameState, geo: Geo): Generator<void> {
       if (!why && s.tick < st.due) continue;
       st.why = why ?? '';
     }
-    const id = st.act === 1 ? `story1_${issueOf(c)}` : st.act === 2 ? `story2_${st.arch ?? 'pragmatic'}` : st.act === 3 ? `story3_${seedOf(c).econ}_${st.arch ?? 'pragmatic'}` : 'story4';
+    const kind = actKind(st);
+    const id = kind === 1 ? `story1_${issueOf(c)}` : kind === 2 ? `story2_${st.arch ?? 'pragmatic'}` : kind === 3 ? `story3_${seedOf(c).econ}_${st.arch ?? 'pragmatic'}` : 'story4';
     const data = { rv: st.rival ?? -1 };
     if (c.isPlayer) {
       if (s.inbox.some((x) => x.id.startsWith('story')) || s.inbox.length >= 4 || (s.legacy && s.legacy.status !== 'office')) { st.next = s.tick + 4; continue; }
@@ -436,8 +476,8 @@ function snapOf(s: GameState, geo: Geo, c: Country, st: StoryState): NonNullable
 }
 /** Has something happened that makes this the moment for the next act? Returns what happened, in words. */
 export function actTrigger(s: GameState, geo: Geo, c: Country, st: StoryState): string | null {
-  const e = c.eco, sn = st.snap!;
-  if (st.act === 1) {
+  const e = c.eco, sn = st.snap!, kind = actKind(st);
+  if (kind === 1) {
     switch (issueOf(c)) {
       case 'inflation': return e.inflation > 0.12 ? `inflation has hit ${pct(e.inflation)}` : null;
       case 'debt': return e.debt / e.gdp > 1 ? `the national debt has reached ${pct(e.debt / e.gdp)} of GDP` : null;
@@ -449,7 +489,7 @@ export function actTrigger(s: GameState, geo: Geo, c: Country, st: StoryState): 
       default: return e.stability < 45 ? `stability has fallen to ${e.stability.toFixed(0)}` : null;
     }
   }
-  if (st.act === 2) {
+  if (kind === 2) {
     const R = st.rival !== undefined && st.rival >= 0 ? s.countries[st.rival] : undefined;
     if (!R?.alive) return null;
     const war = s.wars.find((w) => w.attackers[0] === R.id && w.start > sn.t);
@@ -461,7 +501,7 @@ export function actTrigger(s: GameState, geo: Geo, c: Country, st: StoryState): 
     if (R.leader && R.leader.since > sn.t && R.leader.traits.some((t) => t === 'hawk' || t === 'nationalist' || t === 'strongman')) return `${R.name} has a new hard-line leader, ${R.leader.name}`;
     return null;
   }
-  if (st.act === 3) {
+  if (kind === 3) {
     if (e.growth < -0.005) return `the economy is shrinking (${(e.growth * 100).toFixed(1)}% a year)`;
     if (e.unemployment > e.uNat + 0.03) return `unemployment has climbed to ${pct(e.unemployment)}`;
     if (e.growth > 0.05) return `a boom (growth ${(e.growth * 100).toFixed(1)}%) gives you room to choose`;
@@ -540,6 +580,7 @@ function newChapter(s: GameState, c: Country, geo: Geo) {
   st.issue = issueNow(s, c);
   st.ch = (st.ch ?? 1) + 1;
   st.act = 1; st.path = []; delete st.arch; delete st.ending; delete st.rival;
+  shuffleActs(s, c, st);
   st.next = s.tick + (c.isPlayer ? 0 : Math.floor(hash01('ch0', c.id, st.ch, s.settings.seed) * 10));
   st.due = st.next + 8; delete st.why; st.snap = snapOf(s, geo, c, st);
   if (c.isPlayer) logEvent(s, `📖 Chapter ${roman(st.ch)} of your story opens: ${ISSUE[st.issue as IssueKind].title}.`, 'info', [c.id], true);
@@ -549,16 +590,17 @@ function newChapter(s: GameState, c: Country, geo: Geo) {
 function aiAct(s: GameState, c: Country, id: string, data: D) {
   const st = c.story!;
   let idx: number;
-  if (st.act === 1) idx = c.gov === 'D' ? 0 : c.gov === 'A' || c.gov === 'C' || c.ai.aggression > 0.8 ? 1 : 2;
-  else if (st.act === 2) idx = c.ai.aggression > 0.9 && st.arch === 'iron' && !isAtWar(s, c.id) ? 3 : c.ai.caution > 0.6 ? 2 : c.ai.trade > 0.6 ? 0 : Math.floor(hash01('a2', c.id, s.settings.seed) * 3);
-  else if (st.act === 3) idx = Math.floor(hash01('a3', c.id, s.settings.seed) * 4);
+  const kind = actKind(st);
+  if (kind === 1) idx = c.gov === 'D' ? 0 : c.gov === 'A' || c.gov === 'C' || c.ai.aggression > 0.8 ? 1 : 2;
+  else if (kind === 2) idx = c.ai.aggression > 0.9 && st.arch === 'iron' && !isAtWar(s, c.id) ? 3 : c.ai.caution > 0.6 ? 2 : c.ai.trade > 0.6 ? 0 : Math.floor(hash01('a2', c.id, s.settings.seed) * 3);
+  else if (kind === 3) idx = Math.floor(hash01('a3', c.id, s.settings.seed) * 4);
   else idx = 4; // AI governments change course through their own logic, not their storyline
   const def = storyEventsCache().find((e) => e.id === id);
   const o = def?.options[idx] ?? def?.options[0];
   if (!def || !o) { st.act = 5; return; }
-  if (o.enabled && !o.enabled(s, c)) { choose(s, c, st.act, -1, {}, data, ''); return; }
+  if (o.enabled && !o.enabled(s, c)) { choose(s, c, kind, -1, {}, data, ''); return; }
   o.apply(s, c, data, geoRefGet()!);
-  if (isMajor(s, c.id) && st.act <= 4 && st.act !== 1) logEvent(s, `📖 ${c.name}: ${def.title.replace(/^Act [IV]+: /, '')}: ${o.label.toLowerCase()}.`, 'info', [c.id], false);
+  if (isMajor(s, c.id) && st.act <= 4 && kind !== 1) logEvent(s, `📖 ${c.name}: ${def.title.replace(/^Act [IV]+: /, '')}: ${o.label.toLowerCase()}.`, 'info', [c.id], false);
 }
 let cache: EventDef[] | null = null;
 const storyEventsCache = () => (cache ??= storyEvents());

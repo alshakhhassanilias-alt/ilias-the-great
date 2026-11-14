@@ -95,6 +95,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
   useEffect(() => {
     const rr = rendRef.current;
     if (rr && lastPing.current !== store.pingSeq) { lastPing.current = store.pingSeq; if (store.pingProv >= 0) rr.ping(store.pingProv, store.pingColor); }
+    if (rr && store.strikes.length) { for (const p of store.strikes) rr.strike(p); store.strikes = []; }
     if (rr && store.callouts.length) { for (const c of store.callouts) rr.callout(c.prov, c.text, c.color); store.callouts = []; }
   });
   useEffect(() => {

@@ -20,6 +20,7 @@ import { achieve, saves, type SaveMeta } from '../platform';
 import type { Ask } from '../ui/SystemScreens';
 import { prefs, setPrefs } from '../prefs';
 import { dateLabel } from '../sim/tick';
+import { thrillOf, type Cine, type Jolt } from '../thrill';
 
 export type Tab = 'overview' | 'politics' | 'goals' | 'research' | 'economy' | 'military' | 'diplomacy';
 export type MapMode = 'political' | 'blocs' | 'spheres' | 'diplomacy' | 'wealth' | 'power' | 'stability';
@@ -112,6 +113,40 @@ class Store {
     sfx(sp.kind === 'war' ? 'drums' : sp.rec.winner === 'draw' ? 'peace' : (sp.rec.winner === 'a') === (sp.rec.a === this.state?.player) ? 'fanfare' : 'lost');
   }
   closeSplash() { this.splash = null; clearTimeout(this.splashTimer); this.notify(); }
+  // ---- the feel of the game (thrill.ts decides, ui/Thrill.tsx shows)
+  /** the screen's physical reaction to a blow or a triumph */
+  jolt: (Jolt & { seq: number }) | null = null;
+  private joltAt = 0;
+  shake(kind: Jolt['kind'], power = 1) {
+    if (this.preview) return;
+    const now = performance.now();
+    if (this.jolt && now - this.joltAt < 500 && this.jolt.power >= power) return; // the bigger blow wins
+    this.joltAt = now;
+    this.jolt = { seq: (this.jolt?.seq ?? 0) + 1, kind, power };
+  }
+  /** a moment that takes the whole screen for a few seconds */
+  cine: (Cine & { seq: number }) | null = null;
+  private cineTimer = 0;
+  private cineAt = 0;
+  private cineLast = '';
+  showCine(c: Cine) {
+    if (this.preview) return;
+    const now = performance.now();
+    if (this.cine && now - this.cineAt < 2600 && c.tone !== 'red') return; // let the last one be read
+    if (c.title === this.cineLast && now - this.cineAt < 45000) return; // the same word twice in a minute is noise, not drama
+    this.cineLast = c.title;
+    this.cineAt = now;
+    this.cine = { ...c, seq: (this.cine?.seq ?? 0) + 1 };
+    sfx(c.tone === 'gold' ? 'slam-gold' : 'slam');
+    clearTimeout(this.cineTimer);
+    this.cineTimer = window.setTimeout(() => { this.cine = null; this.notify(); }, 3900);
+  }
+  closeCine() { this.cine = null; clearTimeout(this.cineTimer); this.notify(); }
+  /** regions where something just exploded (a missile, a bomb run, a fallen capital), handed to the map renderer */
+  strikes: number[] = [];
+  /** election night: the count plays out before the morning paper */
+  election: { seq: number; share: number; won: boolean; free: boolean; term: number } | null = null;
+  closeElection() { this.election = null; this.notify(); }
   /** floating words over the map ("CAPTURED", "ENCIRCLED" ...), handed to the map renderer */
   callouts: { prov: number; text: string; color: string }[] = [];
   private lastHist = 0;
@@ -215,7 +250,7 @@ class Store {
     this.scenResultOpen = false;
     this.scenClosed = s.scen?.done?.tick ?? -1;
     this.achSent = new Set();
-    this.splash = null; this.callouts = [];
+    this.splash = null; this.callouts = []; this.jolt = null; this.cine = null; this.election = null; this.strikes = [];
     this.focusRequest++;
     this.startLoop();
     this.notify();
@@ -330,7 +365,19 @@ class Store {
       this.lastSeq = e.seq;
       const mine = e.countries.includes(s.player);
       if (e.important) this.unread++;
-      if (e.big) this.announce(e);
+      // an election is not a headline: it is a night of counting (ui/Thrill.tsx), so the banner must not give the result away
+      const vote = !this.preview && mine && s.stats.lastVote !== undefined && /^🗳 (ELECTION|PARTY CONGRESS|PALACE COUP):.*( wins a | loses with |is ousted)/.exec(e.text);
+      if (e.big && !vote) this.announce(e);
+      if (!this.preview) {
+        const th = thrillOf(e, s.player, e.big ? this.relevant(e) : false);
+        if (th.jolt) this.shake(th.jolt.kind, th.jolt.power);
+        if (th.cine && !this.splash) this.showCine(th.cine);
+        if (th.strike !== undefined) { this.strikes.push(th.strike); if (this.strikes.length > 6) this.strikes.shift(); }
+        if (vote) {
+          this.election = { seq: e.seq, share: s.stats.lastVote!, won: / wins a /.test(e.text), free: vote[1] === 'ELECTION', term: s.legacy?.term ?? 1 };
+          if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; }
+        }
+      }
       if (!this.preview && mine && e.kind === 'war' && /declared war on/.test(e.text)) this.showSplash({ kind: 'war', a: e.countries[0], d: e.countries[1] });
       if (!this.preview && e.prov !== undefined && (mine || e.big)) {
         const tag = /captured it from/.test(e.text) ? (e.countries[0] === s.player ? 'CAPTURED' : e.countries[1] === s.player ? 'LOST' : '') : (/^\S*\s?([A-Z][A-Z ]{3,}[A-Z]):/.exec(e.text)?.[1] ?? (/at the gates/.test(e.text) ? 'AT THE GATES' : ''));

@@ -233,6 +233,21 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.click('.legacy-chip');
   const dossier = (await pg.locator('.legacy-modal').innerText()).toLowerCase();
   check('Legacy: the chip opens the legacy dossier', dossier.includes('legacy') && dossier.includes('prosperity'));
+  await pg.keyboard.press('Escape'); await pg.locator('.legacy-modal .iconbtn').click().catch(() => {});
+  // the pulse of the game: a big moment takes the screen without taking a click; an election is a night of counting
+  await pg.evaluate(() => { const st = window.__store; st.showCine({ kicker: 'A test', title: 'TEST MOMENT', sub: 'It lands.', tone: 'gold' }); st.shake('hit', 1); st.notify(); });
+  check('Pulse: a big moment takes the screen', (await pg.locator('.cine-title').innerText()) === 'TEST MOMENT');
+  check('Pulse: it never takes a click', (await pg.locator('.cine').evaluate((el) => getComputedStyle(el).pointerEvents)) === 'none');
+  check('Pulse: the screen reacts to a blow', (await pg.locator('.impact.hit').count()) === 1);
+  await pg.evaluate(() => { const st = window.__store; st.closeCine(); st.election = { seq: 9, share: 52.4, won: true, free: true, term: 1 }; st.notify(); });
+  await pg.waitForSelector('.night');
+  check('Election night: the count starts open', (await pg.locator('.night .btn.primary').count()) === 0);
+  await pg.mouse.click(6, 6); // a click anywhere skips the count
+  await pg.waitForSelector('.night .btn.primary');
+  const night = await pg.locator('.night').innerText();
+  check('Election night: it ends on the real result', night.includes('52.4') && /RE-ELECTED/.test(night));
+  await pg.click('.night .btn.primary');
+  check('Election night: then the morning comes', (await pg.locator('.night').count()) === 0);
   await pg.close();
 }
 // ---------------- scenarios ----------------

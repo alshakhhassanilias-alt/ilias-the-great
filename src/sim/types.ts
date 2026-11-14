@@ -250,7 +250,7 @@ export interface Country {
   /** a change of foreign-policy course under way: West, East, a third way, or leading the region */
   course?: { id: 'west' | 'east' | 'third' | 'region' | 'lead'; stage: number; until: number; started: number; leaders: number[]; old: number[]; neighbors: number[]; org?: number; name?: string };
   /** the national storyline: next act, when it comes, choices made, path, rival, ending */
-  story?: { act: number; next: number; path: number[]; arch?: 'reform' | 'iron' | 'pragmatic'; rival?: number; ending?: string; ch?: number; issue?: string; past?: { ch: number; ending: string; arch: string; issue: string; path: number[]; tick: number }[];
+  story?: { act: number; next: number; path: number[]; /** what the second, third and fourth acts are about in this telling (2 the neighbour, 3 the economy, 4 the world); absent = in that order */ order?: number[]; arch?: 'reform' | 'iron' | 'pragmatic'; rival?: number; ending?: string; ch?: number; issue?: string; past?: { ch: number; ending: string; arch: string; issue: string; path: number[]; tick: number }[];
     /** reactive acts: the act waits (from `next`) for something to happen, or until `due`; `why` is what happened; `snap` the world when the last act closed */
     due?: number; why?: string; snap?: { t: number; rel: number; troops: number; ws: number; gdp: number; nb: string; ml: string } };
   /** courses completed, for the record */
