@@ -1,0 +1,1243 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Wortwerk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,600..900&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column, like a transit app. A departure board on top, the course drawn as a U-Bahn line map. */
+:root{
+  --bg:#ECEEF3; --card:#FFFFFF; --sunk:#E1E4EB; --ink:#10131A; --mute:#586172; --line:#D3D8E2;
+  --accent:#FFCE00; --accent-ink:#10131A; --board:#10131A; --board-ink:#F4F5F8; --board-mute:#9AA3B5;
+  --good:#16864A; --good-bg:#DDF3E6; --bad:#C92F25; --bad-bg:#FBE1DE;
+  --u1:#1F9D55; --u2:#E2600F; --u3:#1F6FD6; --u4:#8A3FD1;
+  --der:#1F6FD6; --die:#C92F25; --das:#16864A;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0C0F15; --card:#161A24; --sunk:#1E2330; --ink:#F1F3F8; --mute:#98A2B5; --line:#2A3142;
+  --board:#1B2030; --board-ink:#F4F5F8; --board-mute:#9AA3B5;
+  --good:#3FCB82; --good-bg:#12301F; --bad:#FF7468; --bad-bg:#3A1714;
+  --u1:#34C272; --u2:#FF8235; --u3:#5A9DF5; --u4:#B57BF0;
+  --der:#5A9DF5; --die:#FF7468; --das:#3FCB82; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0C0F15; --card:#161A24; --sunk:#1E2330; --ink:#F1F3F8; --mute:#98A2B5; --line:#2A3142;
+  --board:#1B2030; --board-ink:#F4F5F8; --board-mute:#9AA3B5;
+  --good:#3FCB82; --good-bg:#12301F; --bad:#FF7468; --bad-bg:#3A1714;
+  --u1:#34C272; --u2:#FF8235; --u3:#5A9DF5; --u4:#B57BF0;
+  --der:#5A9DF5; --die:#FF7468; --das:#3FCB82; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+:focus-visible{outline:3px solid var(--u3);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{font-family:var(--display);font-stretch:112%;font-weight:800;letter-spacing:-.01em;line-height:1.1;text-wrap:balance}
+h1{font-size:1.9rem} h2{font-size:1.35rem} h3{font-size:1.05rem}
+.wrap{max-width:720px;margin:0 auto;padding-block:20px 120px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.wrap.focus{padding-block:14px 32px}
+.lab{font:500 .72rem/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+.mute{color:var(--mute)} .small{font-size:.875rem}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap} .sp{flex:1}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:center;gap:10px}
+.mark{font:900 1.3rem/1 var(--display);font-stretch:125%;letter-spacing:-.02em}
+.mark i{font-style:normal;background:var(--accent);color:var(--accent-ink);padding:2px 6px;border-radius:5px;margin-right:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 11px;font:500 .78rem/1 var(--mono)}
+.chip b{font-weight:500;color:var(--mute)}
+.roundel{display:inline-grid;place-items:center;min-width:34px;height:24px;padding:0 6px;border-radius:6px;font:500 .78rem/1 var(--mono);color:#fff;background:var(--lc,var(--u1))}
+.A1{--lc:var(--u1)} .A2{--lc:var(--u2)} .B1{--lc:var(--u3)} .B2{--lc:var(--u4)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:600;transition:transform .08s}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-family:var(--display);font-stretch:112%;font-weight:800;font-size:1.05rem;box-shadow:0 3px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.btn.pri:active{box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 60%,#000);transform:translateY(2px)}
+.btn.wide{width:100%} .btn.sm{min-height:38px;padding:0 12px;font-size:.875rem;border-radius:10px}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.ghost{background:transparent}
+.back{font:500 .8rem/1 var(--mono);color:var(--mute);padding:8px 0;align-self:flex-start}
+
+/* departure board */
+.board{background:var(--board);color:var(--board-ink);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.board .lab{color:var(--accent)}
+.board h1{font-size:1.7rem}
+.board .dest{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.brow{display:flex;gap:18px;flex-wrap:wrap;font:500 .82rem/1.3 var(--mono);color:var(--board-mute)}
+.brow b{color:var(--board-ink);font-weight:500}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.bar{height:10px;background:var(--sunk);border-radius:99px;overflow:hidden;display:flex}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .35s}
+.bar.seg{gap:3px;background:none} .bar.seg>span{flex:1;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar.seg>span>i{display:block;height:100%;background:var(--lc)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.week span{font:500 .68rem/1 var(--mono);color:var(--mute);display:flex;flex-direction:column;gap:6px;align-items:center}
+.week i{width:100%;max-width:38px;aspect-ratio:1;border-radius:9px;background:var(--sunk);display:block}
+.week i.some{background:color-mix(in srgb,var(--accent) 45%,var(--sunk))} .week i.hit{background:var(--accent)}
+.week .now{color:var(--ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tile b{font-family:var(--display);font-stretch:112%;font-weight:800;overflow-wrap:anywhere;hyphens:auto}
+.tile span{font-size:.82rem;color:var(--mute)}
+.tile[disabled]{opacity:.5}
+
+/* nav */
+#nav{position:fixed;left:0;right:0;bottom:0;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;justify-content:center;pointer-events:none;z-index:5}
+#nav div{pointer-events:auto;display:flex;gap:2px;background:var(--board);border-radius:16px;padding:5px;box-shadow:0 8px 28px rgba(0,0,0,.28);max-width:100%}
+#nav button{color:var(--board-mute);font:600 .8rem/1 var(--body);padding:12px 13px;border-radius:12px}
+#nav button.on{background:var(--accent);color:var(--accent-ink)}
+
+/* line map */
+.linehd{display:flex;align-items:center;gap:10px;margin-top:6px}
+.stops{display:flex;flex-direction:column;position:relative;padding-left:30px}
+.stops:before{content:"";position:absolute;left:10px;top:18px;bottom:18px;width:5px;border-radius:9px;background:var(--lc)}
+.stop{position:relative;display:flex;align-items:center;gap:12px;text-align:left;padding:11px 12px;border-radius:12px;width:100%}
+.stop:hover{background:var(--card)}
+.stop:before{content:"";position:absolute;left:-27.5px;top:50%;width:14px;height:14px;margin-top:-10px;border-radius:50%;background:var(--bg);border:3px solid var(--lc)}
+.stop.done:before{background:var(--lc)} .stop.cur:before{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 80%,transparent);background:var(--accent);border-color:var(--ink)}
+.stop .t{flex:1;min-width:0} .stop .t b{display:block;font-family:var(--display);font-stretch:112%;font-weight:800}
+.stop .t span{font-size:.82rem;color:var(--mute)}
+.stop .num{font-size:.78rem;color:var(--mute)}
+.gram{gap:10px} .gram li{margin-left:18px;padding-left:2px} .gram ul{margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.gram b{background:color-mix(in srgb,var(--accent) 38%,transparent);padding:0 2px;border-radius:4px;font-weight:600;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.sent{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.sent:first-of-type{border-top:0}
+.sent div{flex:1;min-width:0} .sent small{color:var(--mute);display:block}
+.pips{display:flex;gap:2px;margin-top:8px} .pips i{width:7px;height:7px;border-radius:2px;background:var(--sunk)} .pips i.f{background:var(--good)}
+.spk{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none}
+.spk svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ride */
+.ridebar{display:flex;align-items:center;gap:12px}
+.ridebar .bar{flex:1} .x{font:500 1.3rem/1 var(--mono);color:var(--mute);width:38px;height:38px}
+.combo{font:500 .78rem/1 var(--mono);background:var(--accent);color:var(--accent-ink);padding:6px 9px;border-radius:8px}
+.ex{display:flex;flex-direction:column;gap:18px;padding-top:8px}
+.de{font-family:var(--display);font-stretch:108%;font-weight:700;font-size:1.5rem;line-height:1.3;overflow-wrap:anywhere}
+.en{color:var(--mute);font-size:1.02rem}
+.prompt{font-family:var(--display);font-weight:700;font-size:1.35rem;line-height:1.3}
+.gap{display:inline-block;min-width:74px;border-bottom:3px solid var(--ink);text-align:center;padding:0 6px;color:var(--good)}
+.gap.bad{color:var(--bad)}
+.opts{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-radius:12px;background:var(--card);border:1.5px solid var(--line);font-weight:600;font-size:1.1rem;text-align:left}
+.opt kbd{font:500 .72rem/1 var(--mono);color:var(--mute);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+.opt.ok{border-color:var(--good);background:var(--good-bg)} .opt.no{border-color:var(--bad);background:var(--bad-bg)}
+.slot{min-height:64px;border-bottom:2px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;padding-bottom:10px;align-content:flex-start}
+.pool{display:flex;flex-wrap:wrap;gap:8px}
+.tk{padding:10px 13px;border-radius:10px;background:var(--card);border:1.5px solid var(--line);font-weight:600;box-shadow:0 2px 0 var(--line)}
+.tk.used{visibility:hidden}
+.inp{width:100%;min-height:54px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:1.1rem}
+textarea.inp{resize:vertical;min-height:90px}
+.inp:focus{outline:none;border-color:var(--ink)}
+.uml{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.uml button{min-width:40px;height:38px;border-radius:9px;background:var(--sunk);font-weight:600}
+.mic.on{background:var(--bad);color:#fff}
+.bigplay{width:84px;height:84px;border-radius:24px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.bigplay svg{width:36px;height:36px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fb{border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--good-bg);border:1.5px solid var(--good);animation:rise .18s ease-out}
+.fb.no{background:var(--bad-bg);border-color:var(--bad)}
+.fb h3{color:var(--good)} .fb.no h3{color:var(--bad)}
+.fb .ans{font-weight:600;font-size:1.08rem;overflow-wrap:anywhere}
+.why{background:var(--card);border-radius:10px;padding:10px 12px;font-size:.92rem;white-space:pre-wrap}
+@keyframes rise{from{transform:translateY(8px);opacity:.4}}
+.center{align-items:center;text-align:center}
+.hero-n{font:900 3.6rem/1 var(--display);font-stretch:125%}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px}
+.stats.four{grid-template-columns:repeat(2,1fr)}
+@media (min-width:600px){.stats.four{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.stat b{display:block;font:800 1.5rem/1.1 var(--display);font-stretch:112%}
+.stat span{font-size:.78rem;color:var(--mute)}
+.chart{display:flex;align-items:flex-end;gap:4px;height:90px}
+.chart i{flex:1;background:var(--sunk);border-radius:4px 4px 0 0;min-height:3px}
+.chart i.hit{background:var(--accent)} .chart i.some{background:color-mix(in srgb,var(--accent) 45%,var(--sunk))}
+
+/* games */
+.noun{font:900 clamp(2rem,9vw,3.4rem)/1.1 var(--display);font-stretch:118%;overflow-wrap:anywhere}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.g3 button{min-height:72px;border-radius:14px;color:#fff;font:800 1.3rem/1 var(--display);font-stretch:112%}
+.g3 .r{background:var(--der)} .g3 .e{background:var(--die)} .g3 .s{background:var(--das)}
+.flash{font-weight:600;min-height:1.6em}
+.flash.ok{color:var(--good)} .flash.no{color:var(--bad)}
+.r-c{color:var(--der)} .e-c{color:var(--die)} .s-c{color:var(--das)}
+
+/* tutor */
+.msgs{display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:11px 14px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.them{background:var(--card);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+.msg.me{background:var(--board);color:var(--board-ink);align-self:flex-end;border-bottom-right-radius:5px}
+.note{align-self:flex-end;max-width:88%;font-size:.86rem;background:color-mix(in srgb,var(--accent) 22%,var(--card));border-radius:10px;padding:8px 12px;white-space:pre-wrap}
+.msgact{align-self:flex-start;display:flex;gap:8px}
+.send{display:flex;flex-direction:column;gap:8px;position:sticky;bottom:0;background:var(--bg);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px))}
+.story{font-size:1.12rem;line-height:1.7;white-space:pre-wrap}
+.gloss{display:flex;flex-wrap:wrap;gap:6px} .gloss span{background:var(--sunk);border-radius:8px;padding:4px 9px;font-size:.85rem}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--ink);animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(1turn)}}
+.seg-ctl{display:inline-flex;background:var(--sunk);border-radius:10px;padding:3px}
+.seg-ctl button{padding:8px 12px;border-radius:8px;font-weight:600;font-size:.875rem}
+.seg-ctl button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--board);color:var(--board-ink);padding:10px 16px;border-radius:12px;font-size:.9rem;opacity:0;transition:.2s;pointer-events:none;z-index:9;max-width:calc(100% - 32px)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.cf{position:fixed;left:50%;top:38%;width:10px;height:10px;border-radius:2px;pointer-events:none;z-index:8;animation:cf 1s ease-out forwards}
+@keyframes cf{to{transform:translate(var(--x),var(--y)) rotate(var(--rt));opacity:0}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@media (min-width:560px){.opts.h{grid-template-columns:repeat(3,1fr)}}
+</style>
+<main id="app" class="wrap"></main>
+<nav id="nav" aria-label="Sections"></nav>
+<div id="toast" role="status"></div>
+<script>
+/* Wortwerk course data.
+   Item format: "German with {answer/wrong1/wrong2}|English". Exactly one brace group per item. */
+window.WW_DATA = {
+levels: { A1: 'U1', A2: 'U2', B1: 'U3', B2: 'U4' },
+stations: [
+{ id:'s01', lvl:'A1', name:'Sein & haben', sub:'Present tense basics', g:[
+ '*sein*: ich bin, du bist, er/sie ist, wir sind, ihr seid, sie/Sie sind',
+ '*haben*: ich habe, du hast, er/sie hat, wir haben, ihr habt, sie/Sie haben',
+ 'Regular verbs: stem + *-e, -st, -t, -en, -t, -en* → ich wohne, du wohnst, er wohnt',
+ 'Stems ending in -t/-d add an extra e: er arbeit*e*t' ], items:[
+ 'Ich {bin/habe/ist} neu in Berlin.|I\'m new in Berlin.',
+ '{Hast/Bist/Hat} du heute Zeit?|Do you have time today?',
+ 'Wir {wohnen/wohnt/wohnst} seit einem Jahr in Hamburg.|We\'ve been living in Hamburg for a year.',
+ 'Meine Schwester {arbeitet/arbeite/arbeiten} bei einer Bank.|My sister works at a bank.',
+ 'Woher {kommst/kommt/kommen} du eigentlich?|Where are you actually from?',
+ 'Ihr {seid/sind/bist} wirklich sehr nett.|You (all) are really very nice.',
+ 'Er {hat/ist/habt} zwei Kinder und einen Hund.|He has two children and a dog.',
+ '{Sprechen/Sprecht/Spricht} Sie Englisch?|Do you speak English? (formal)' ]},
+{ id:'s02', lvl:'A1', name:'Der, die, das', sub:'Articles and the accusative', g:[
+ 'Every noun has a gender: *der* (masc.), *die* (fem.), *das* (neuter). Learn it with the noun.',
+ 'Accusative (the thing you have, need, see, buy): only masculine changes → *den / einen*',
+ 'die, das, eine, ein stay the same in the accusative',
+ 'Ich brauche *einen* Laptop (der) · Ich kaufe *eine* Flasche (die) · Ich nehme *das* Auto' ], items:[
+ 'Ich brauche {einen/ein/einem} neuen Laptop.|I need a new laptop.',
+ 'Hast du {den/der/dem} Schlüssel gesehen?|Have you seen the key?',
+ '{Die/Der/Das} Wohnung ist klein, aber hell.|The flat is small but bright.',
+ 'Wir nehmen {das/den/die} Auto, nicht den Bus.|We\'re taking the car, not the bus.',
+ 'Sie kauft {eine/einen/ein} Flasche Wasser.|She\'s buying a bottle of water.',
+ '{Der/Den/Das} Kaffee hier schmeckt super.|The coffee here tastes great.',
+ 'Ich suche {meinen/mein/meinem} Geldbeutel.|I\'m looking for my wallet.',
+ 'Kennst du {die/der/den} Frau da drüben?|Do you know the woman over there?' ]},
+{ id:'s03', lvl:'A1', name:'Verb auf Platz 2', sub:'Word order and questions', g:[
+ 'In a statement the conjugated verb is always the *second element*.',
+ 'Start with time or place and the subject moves behind the verb: *Heute gehe ich* …',
+ 'W-questions: question word, then verb → *Wann fährt* der Zug?',
+ 'Yes/no questions start with the verb → *Kommst* du mit?' ], items:[
+ 'Heute {gehe/gehen/geht} ich früh ins Bett.|Today I\'m going to bed early.',
+ 'Am Wochenende {besuchen/besucht/besuche} wir meine Eltern.|At the weekend we\'re visiting my parents.',
+ '{Wann/Wo/Wer} fährt der nächste Zug nach Köln?|When does the next train to Cologne leave?',
+ 'Morgen {habe/hat/haben} ich leider keine Zeit.|Tomorrow I unfortunately have no time.',
+ '{Warum/Wohin/Wie} lernst du Deutsch?|Why are you learning German?',
+ 'Nach der Arbeit {trinkt/trinken/trinke} er gern ein Bier.|After work he likes to have a beer.',
+ '{Wie/Was/Wo} lange bleibst du in Deutschland?|How long are you staying in Germany?',
+ 'Jetzt {verstehe/verstehst/versteht} ich das Problem.|Now I understand the problem.' ]},
+{ id:'s04', lvl:'A1', name:'Können, müssen, wollen', sub:'Modal verbs', g:[
+ 'Modal verb in position 2, the other verb as an *infinitive at the very end*.',
+ 'ich/er forms have no ending: ich *kann*, er *muss*, sie *will*, man *darf*',
+ '*möchte* = would like (polite) · *wollen* = want · *dürfen* = be allowed · *sollen* = be supposed to',
+ 'Ich muss morgen früh *aufstehen*.' ], items:[
+ 'Ich {muss/musst/müssen} morgen früh aufstehen.|I have to get up early tomorrow.',
+ '{Kannst/Kann/Könnt} du mir bitte helfen?|Can you help me please?',
+ 'Wir wollen am Samstag ins Kino {gehen/geht/gegangen}.|We want to go to the cinema on Saturday.',
+ 'Hier {darf/muss/will} man nicht rauchen.|You\'re not allowed to smoke here.',
+ 'Sie {will/wollt/wollen} unbedingt Ärztin werden.|She absolutely wants to become a doctor.',
+ 'Ich {möchte/möchtest/mögen} einen Tisch für zwei Personen.|I\'d like a table for two.',
+ 'Du {sollst/soll/sollen} mehr Wasser trinken.|You should drink more water.',
+ '{Können/Kann/Könnt} Sie das bitte wiederholen?|Could you repeat that please? (formal)' ]},
+{ id:'s05', lvl:'A1', name:'Trennbare Verben', sub:'Separable verbs', g:[
+ 'Verbs like *aufstehen, anrufen, einkaufen* split: the prefix goes to the end.',
+ 'Ich *stehe* um sechs *auf*. · Ich *rufe* dich *an*.',
+ 'With a modal verb they stay together at the end: Ich muss früh *aufstehen*.',
+ 'Stress is on the prefix: *AN*rufen, *EIN*kaufen, *MIT*kommen' ], items:[
+ 'Ich stehe jeden Tag um sechs Uhr {auf/an/aus}.|I get up at six every day.',
+ 'Wann fängt der Film {an/auf/ein}?|When does the film start?',
+ 'Wir kaufen heute Abend zusammen {ein/an/auf}.|We\'re going shopping together tonight.',
+ 'Ich rufe dich später {an/auf/zu}.|I\'ll call you later.',
+ 'Der Zug kommt um halb neun {an/auf/ein}.|The train arrives at half past eight.',
+ 'Mach bitte das Fenster {zu/an/ein}!|Please close the window!',
+ 'Kommst du heute Abend {mit/an/zu}?|Are you coming along tonight?',
+ 'Am Sonntag sehe ich den ganzen Tag {fern/an/auf}.|On Sunday I watch TV all day.' ]},
+{ id:'s06', lvl:'A1', name:'Mein, dein, kein', sub:'Possessives and negation', g:[
+ '*mein, dein, sein, ihr, unser, euer* take the same endings as ein/eine.',
+ '*kein* negates a noun with ein or no article: Ich habe *keine* Zeit.',
+ '*nicht* negates everything else: Ich verstehe das *nicht*. Das ist *nicht* mein Problem.',
+ 'Masculine accusative again: *keinen*, *meinen*, *deinen*' ], items:[
+ 'Das ist nicht {mein/meine/meinen} Problem.|That\'s not my problem.',
+ 'Ich habe {keine/kein/nicht} Ahnung.|I have no idea.',
+ 'Wie heißt {deine/dein/deinen} Freundin?|What\'s your girlfriend\'s name?',
+ 'Er trinkt {keinen/kein/nicht} Alkohol.|He doesn\'t drink alcohol.',
+ 'Ich verstehe das {nicht/kein/keine}.|I don\'t understand that.',
+ '{Unsere/Unser/Unseren} Nachbarn sind sehr laut.|Our neighbours are very loud.',
+ 'Wo ist {ihr/ihre/ihren} Büro?|Where is her office?',
+ 'Wir haben heute {kein/keine/keinen} Brot mehr.|We have no bread left today.' ]},
+
+{ id:'s07', lvl:'A2', name:'Perfekt mit haben', sub:'Talking about the past', g:[
+ 'Spoken past = *haben* (position 2) + *Partizip II* (end): Ich *habe* Pizza *gegessen*.',
+ 'Regular: ge-…-t → gemacht, gekauft, gewartet',
+ 'Strong verbs: ge-…-en, often with a vowel change → gesehen, geschrieben, gegessen',
+ 'No ge- for verbs on -ieren and with be-, ver-, er-, ent-: studiert, bezahlt, vergessen' ], items:[
+ 'Ich habe gestern Pizza {gegessen/geesst/essen}.|I ate pizza yesterday.',
+ 'Was {hast/bist/hat} du am Wochenende gemacht?|What did you do at the weekend?',
+ 'Wir haben den Film schon {gesehen/gesieht/sehen}.|We\'ve already seen the film.',
+ 'Sie hat mir eine Nachricht {geschrieben/geschreibt/schreiben}.|She wrote me a message.',
+ 'Ich habe mein Handy zu Hause {vergessen/vergesst/gevergessen}.|I forgot my phone at home.',
+ 'Hast du schon {bezahlt/gebezahlt/bezahlen}?|Have you already paid?',
+ 'Er hat drei Jahre in Wien {studiert/gestudiert/studieren}.|He studied in Vienna for three years.',
+ 'Wir {haben/sind/hat} lange auf den Bus gewartet.|We waited a long time for the bus.' ]},
+{ id:'s08', lvl:'A2', name:'Perfekt mit sein', sub:'Movement and change', g:[
+ 'Verbs of *movement from A to B* use sein: gegangen, gefahren, gekommen, geflogen',
+ 'Verbs of *change of state* too: aufgestanden, eingeschlafen, umgezogen, geworden',
+ 'Plus three to memorise: *geblieben, gewesen, passiert*',
+ 'Separable verbs put ge- in the middle: an*ge*kommen, auf*ge*standen' ], items:[
+ 'Ich {bin/habe/ist} gestern nach München gefahren.|I went to Munich yesterday.',
+ 'Wann bist du heute {aufgestanden/aufgesteht/aufstehen}?|When did you get up today?',
+ 'Sie {ist/hat/sind} letzte Woche umgezogen.|She moved house last week.',
+ 'Wir sind bis Mitternacht {geblieben/gebleibt/bleiben}.|We stayed until midnight.',
+ 'Was ist {passiert/gepassiert/passieren}?|What happened?',
+ 'Der Zug ist pünktlich {angekommen/angekommt/ankommen}.|The train arrived on time.',
+ 'Ich bin erst um zwei Uhr {eingeschlafen/eingeschlaft/einschlafen}.|I didn\'t fall asleep until two.',
+ '{Seid/Habt/Sind} ihr zu Fuß gegangen?|Did you (all) walk?' ]},
+{ id:'s09', lvl:'A2', name:'Der Dativ', sub:'To whom, with whom', g:[
+ 'Dative articles: *dem* (der/das), *der* (die), *den* + n (plural) · einem, einer',
+ 'Always dative after: *mit, bei, nach, von, zu, aus, seit*',
+ 'Pronouns: *mir, dir, ihm, ihr, uns, euch, ihnen/Ihnen*',
+ 'Dative verbs: *helfen, gehören, danken, gefallen, schmecken* → Ich helfe *dir*.' ], items:[
+ 'Ich fahre mit {dem/den/der} Fahrrad zur Arbeit.|I ride my bike to work.',
+ 'Kannst du {mir/mich/ich} das Salz geben?|Can you pass me the salt?',
+ 'Sie wohnt noch bei {ihren/ihre/ihrer} Eltern.|She still lives with her parents.',
+ 'Ich helfe {dir/dich/du} gern.|I\'m happy to help you.',
+ 'Nach {der/die/dem} Schule gehen wir schwimmen.|After school we go swimming.',
+ 'Das Buch gehört {meinem/meinen/mein} Bruder.|The book belongs to my brother.',
+ 'Wie geht es {Ihnen/Sie/Ihr}?|How are you? (formal)',
+ 'Ich komme gerade von {einem/einen/ein} Freund.|I\'m just coming from a friend\'s.' ]},
+{ id:'s10', lvl:'A2', name:'Wo oder wohin?', sub:'Two-way prepositions', g:[
+ '*in, an, auf, vor, hinter, über, unter, neben, zwischen* take two cases.',
+ '*Wo?* (location, no movement) → dative: Die Schlüssel liegen auf *dem* Tisch.',
+ '*Wohin?* (direction, movement to) → accusative: Ich lege sie auf *den* Tisch.',
+ 'Pairs: liegen/legen · stehen/stellen · hängen/hängen · sitzen/setzen' ], items:[
+ 'Die Schlüssel liegen auf {dem/den/der} Tisch.|The keys are lying on the table.',
+ 'Ich lege die Schlüssel auf {den/dem/der} Tisch.|I\'m putting the keys on the table.',
+ 'Wir gehen heute in {die/der/den} Stadt.|We\'re going into town today.',
+ 'Er arbeitet in {der/die/dem} Stadt.|He works in the city.',
+ 'Häng das Bild bitte an {die/der/den} Wand.|Please hang the picture on the wall.',
+ 'Das Auto steht vor {dem/das/den} Haus.|The car is in front of the house.',
+ 'Stell die Milch in {den/dem/das} Kühlschrank.|Put the milk in the fridge.',
+ 'Die Katze schläft unter {dem/das/den} Bett.|The cat is sleeping under the bed.' ]},
+{ id:'s11', lvl:'A2', name:'Weil & dass', sub:'Subordinate clauses', g:[
+ 'After *weil, dass, ob* the conjugated verb goes to the *end* of the clause.',
+ 'Ich bleibe zu Hause, weil ich krank *bin*.',
+ '*denn* also means because, but keeps normal word order: …, denn ich *bin* krank.',
+ '*ob* = whether/if (for yes/no questions inside a sentence)' ], items:[
+ 'Ich bleibe zu Hause, weil ich krank {bin/habe/sein}.|I\'m staying home because I\'m ill.',
+ 'Ich glaube, {dass/weil/ob} er recht hat.|I think that he\'s right.',
+ 'Sie lernt Deutsch, {weil/dass/denn} sie in Berlin arbeiten will.|She\'s learning German because she wants to work in Berlin.',
+ 'Schade, dass du nicht kommen {kannst/können/kann}.|Too bad you can\'t come.',
+ 'Er ist müde, weil er schlecht geschlafen {hat/ist/haben}.|He\'s tired because he slept badly.',
+ 'Weißt du, {ob/dass/weil} der Supermarkt noch offen ist?|Do you know whether the supermarket is still open?',
+ 'Ich hoffe, dass wir uns bald {wiedersehen/wiedergesehen/wiedersieht}.|I hope we see each other again soon.',
+ 'Wir nehmen ein Taxi, {denn/weil/dass} es regnet stark.|We\'re taking a taxi, because it\'s raining hard.' ]},
+{ id:'s12', lvl:'A2', name:'Wenn & als', sub:'When and if', g:[
+ '*wenn* = if, and when for the present, future, or repeated past events',
+ '*als* = when for one single time or period in the past: *Als* ich ein Kind war …',
+ '*wann* = when only in questions (direct or indirect)',
+ 'Clause first? Then the main clause starts with its verb: Wenn ich Zeit habe, *koche* ich.' ], items:[
+ '{Wenn/Als/Wann} ich Zeit habe, koche ich gern.|When I have time, I like to cook.',
+ '{Als/Wenn/Wann} ich ein Kind war, hatte ich einen Hund.|When I was a child, I had a dog.',
+ 'Ruf mich an, wenn du angekommen {bist/hast/sein}.|Call me when you\'ve arrived.',
+ 'Wenn es morgen regnet, {bleiben/bleibt/geblieben} wir zu Hause.|If it rains tomorrow, we\'ll stay home.',
+ 'Als wir in Rom waren, {haben/sind/hat} wir jeden Tag Pasta gegessen.|When we were in Rome, we ate pasta every day.',
+ 'Ich weiß nicht, {wann/wenn/als} der Kurs beginnt.|I don\'t know when the course starts.',
+ 'Immer {wenn/als/wann} ich ihn sehe, lacht er.|Whenever I see him, he\'s laughing.',
+ '{Als/Wenn/Ob} sie den Job bekam, war sie überglücklich.|When she got the job, she was overjoyed.' ]},
+{ id:'s13', lvl:'A2', name:'Größer, am größten', sub:'Comparing things', g:[
+ 'Comparative: adjective + *-er* (+ als) · many short ones add an umlaut: größer, älter, kürzer',
+ 'Superlative: *am …-sten* or der/die/das *…-ste*',
+ 'Irregular: gut → besser → am besten · gern → lieber → am liebsten · viel → mehr → am meisten',
+ 'Equal: *genauso … wie* · Unequal: *…-er als*' ], items:[
+ 'Berlin ist {größer/großer/mehr groß} als München.|Berlin is bigger than Munich.',
+ 'Das ist der {beste/gutste/besser} Döner der Stadt.|That\'s the best döner in town.',
+ 'Ich trinke {lieber/gerner/mehr gern} Tee als Kaffee.|I prefer drinking tea to coffee.',
+ 'Der Zug ist genauso schnell {wie/als/so} das Auto.|The train is just as fast as the car.',
+ 'Im Winter sind die Tage {kürzer/kurzer/kürzeste}.|In winter the days are shorter.',
+ 'Sie spricht am {schnellsten/schnellste/schneller} von uns allen.|She speaks the fastest of all of us.',
+ 'Dieses Handy ist viel {teurer/teuerer/teuer} als meins.|This phone is much more expensive than mine.',
+ 'Je mehr ich lerne, desto {mehr/viel/meisten} verstehe ich.|The more I learn, the more I understand.' ]},
+{ id:'s14', lvl:'A2', name:'Sich freuen', sub:'Reflexive verbs', g:[
+ 'Reflexive pronouns: *mich, dich, sich, uns, euch, sich*',
+ 'Common: sich freuen, sich treffen, sich interessieren, sich ärgern, sich entscheiden, sich setzen',
+ 'If the sentence has another object, use dative *mir/dir*: Ich wasche *mir* die Hände.',
+ '*uns/euch/sich* can also mean each other: Wir sehen *uns* morgen.' ], items:[
+ 'Ich freue {mich/mir/sich} auf das Wochenende.|I\'m looking forward to the weekend.',
+ 'Wir treffen {uns/sich/euch} um acht vor dem Kino.|We\'re meeting at eight in front of the cinema.',
+ 'Er interessiert {sich/ihn/ihm} für Geschichte.|He\'s interested in history.',
+ 'Ich wasche {mir/mich/sich} schnell die Hände.|I\'ll quickly wash my hands.',
+ 'Hast du {dich/dir/sich} schon entschieden?|Have you decided yet?',
+ 'Setzen Sie {sich/Sie/Ihnen} bitte!|Please sit down!',
+ 'Wir haben {uns/sich/wir} lange nicht gesehen.|We haven\'t seen each other in a long time.',
+ 'Sie ärgert {sich/ihr/sie} über den Lärm.|She\'s annoyed about the noise.' ]},
+{ id:'s15', lvl:'A2', name:'War, hatte, konnte', sub:'Simple past of key verbs', g:[
+ 'For sein, haben and modals Germans use the *Präteritum* even when speaking.',
+ '*sein*: ich war, du warst, er war, wir waren, ihr wart, sie waren',
+ '*haben*: ich hatte, du hattest, er hatte, wir hatten, ihr hattet, sie hatten',
+ 'Modals drop the umlaut: *konnte, musste, durfte, wollte, sollte*' ], items:[
+ 'Gestern {war/wurde/hatte} ich den ganzen Tag im Büro.|Yesterday I was at the office all day.',
+ 'Wir {hatten/waren/haben} leider keine Zeit.|Unfortunately we had no time.',
+ 'Als Kind {konnte/könnte/kann} ich gut schwimmen.|As a child I could swim well.',
+ 'Ich {musste/müsste/muss} gestern bis neun arbeiten.|I had to work until nine yesterday.',
+ '{Wart/Waren/Wär} ihr schon mal in Österreich?|Have you (all) ever been to Austria?',
+ 'Er {wollte/will/wolltet} eigentlich Pilot werden.|He actually wanted to become a pilot.',
+ 'Wir {durften/dürften/dürfen} als Kinder nicht lange fernsehen.|As kids we weren\'t allowed to watch TV for long.',
+ 'Wo {warst/wart/bist} du gestern Abend?|Where were you last night?' ]},
+{ id:'s16', lvl:'A2', name:'Ein guter Wein', sub:'Adjective endings', g:[
+ 'After *ein/kein/mein* (nominative): ein gut*er* Wein · eine gut*e* Idee · ein gut*es* Buch',
+ 'After *der/die/das* (nominative): always *-e* → der alt*e* Mann, die neu*e* Wohnung',
+ 'Masculine accusative, all dative, all plural after an article: *-en*',
+ 'No article? The adjective shows the case itself: mit frisch*em* Brot' ], items:[
+ 'Das ist ein {guter/gute/guten} Wein.|That\'s a good wine.',
+ 'Ich suche eine {günstige/günstiger/günstigen} Wohnung.|I\'m looking for an affordable flat.',
+ 'Er hat einen {neuen/neue/neuer} Job gefunden.|He found a new job.',
+ 'Wir wohnen in einem {kleinen/kleine/kleines} Dorf.|We live in a small village.',
+ 'Der {alte/alter/alten} Mann füttert die Tauben.|The old man is feeding the pigeons.',
+ 'Sie trägt ein {rotes/rote/roten} Kleid.|She\'s wearing a red dress.',
+ 'Mit {frischem/frisches/frischen} Brot schmeckt alles besser.|Everything tastes better with fresh bread.',
+ 'Die {netten/nette/netter} Nachbarn haben uns eingeladen.|The nice neighbours invited us.' ]},
+
+{ id:'s17', lvl:'B1', name:'Der Mann, der …', sub:'Relative clauses', g:[
+ 'The relative pronoun takes its *gender from the noun* and its *case from its job* in the clause.',
+ 'Forms look like articles, except dative plural *denen* and genitive *dessen/deren*.',
+ 'Verb at the end; a preposition goes before the pronoun: die Frau, *mit der* ich spreche',
+ 'After alles, etwas, nichts, das Beste use *was*' ], items:[
+ 'Das ist der Mann, {der/den/dem} nebenan wohnt.|That\'s the man who lives next door.',
+ 'Der Film, {den/der/dem} wir gesehen haben, war langweilig.|The film we watched was boring.',
+ 'Die Frau, mit {der/die/dem} ich gesprochen habe, war sehr freundlich.|The woman I spoke with was very friendly.',
+ 'Das ist das Buch, {das/dass/den} ich dir empfohlen habe.|That\'s the book I recommended to you.',
+ 'Die Kollegen, {denen/die/den} ich geholfen habe, haben sich bedankt.|The colleagues I helped said thank you.',
+ 'Ich kenne jemanden, {dessen/deren/der} Vater Pilot ist.|I know someone whose father is a pilot.',
+ 'Das Haus, in {dem/das/den} sie wohnen, ist sehr alt.|The house they live in is very old.',
+ 'Alles, {was/das/dass} er sagt, stimmt.|Everything he says is true.' ]},
+{ id:'s18', lvl:'B1', name:'Werden', sub:'Future, change and guesses', g:[
+ 'Futur I: *werden* + infinitive at the end → Ich *werde* dich nie *vergessen*.',
+ '*werden*: ich werde, du wirst, er wird, wir werden, ihr werdet, sie werden',
+ 'On its own it means become/get: Es *wird* dunkel. Sie will Ärztin *werden*.',
+ 'With *wohl* it is a guess about now: Er *wird wohl* im Stau stehen.' ], items:[
+ 'Ich {werde/will/wurde} dich nie vergessen.|I will never forget you.',
+ 'Morgen {wird/will/wirst} es den ganzen Tag regnen.|Tomorrow it will rain all day.',
+ 'Sie möchte später Lehrerin {werden/sein/bekommen}.|She\'d like to become a teacher later.',
+ 'Es {wird/ist/bekommt} langsam dunkel.|It\'s slowly getting dark.',
+ 'Wirst du nächstes Jahr noch hier {wohnen/gewohnt/wohnst}?|Will you still be living here next year?',
+ 'Er wird wohl noch im Stau {stehen/steht/gestanden}.|He\'s probably still stuck in traffic.',
+ 'Wir {werden/wollen/wurden} sehen, was passiert.|We\'ll see what happens.',
+ 'Mein Bruder ist letztes Jahr Vater {geworden/gewesen/bekommen}.|My brother became a father last year.' ]},
+{ id:'s19', lvl:'B1', name:'Hätte, wäre, würde', sub:'Konjunktiv II', g:[
+ 'For wishes, politeness and unreal ifs: *würde* + infinitive for most verbs.',
+ 'Own forms for the big ones: *wäre, hätte, könnte, müsste, dürfte, sollte, wüsste*',
+ 'Unreal condition: Wenn ich reich *wäre*, *würde* ich reisen.',
+ 'Polite: *Könnten* Sie …? · Ich *hätte* gern … · Advice: Du *solltest* …' ], items:[
+ 'Ich {hätte/habe/hatte} gern einen Kaffee, bitte.|I\'d like a coffee, please.',
+ '{Könnten/Konnten/Kannst} Sie mir bitte helfen?|Could you help me please?',
+ 'Wenn ich reich {wäre/war/würde}, würde ich um die Welt reisen.|If I were rich, I\'d travel around the world.',
+ 'An deiner Stelle {würde/wurde/werde} ich das nicht machen.|In your place, I wouldn\'t do that.',
+ 'Wenn ich mehr Zeit {hätte/habe/wäre}, würde ich öfter Sport machen.|If I had more time, I\'d exercise more often.',
+ 'Du {solltest/sollst/solltet} wirklich zum Arzt gehen.|You really should see a doctor.',
+ 'Es {wäre/würde/war} schön, wenn du mitkommen könntest.|It\'d be nice if you could come along.',
+ '{Dürfte/Darf/Durfte} ich Sie etwas fragen?|Might I ask you something?' ]},
+{ id:'s20', lvl:'B1', name:'Es wird gemacht', sub:'The passive', g:[
+ 'Passive = *werden* + Partizip II: Das Haus *wird renoviert*.',
+ 'Past: *wurde* + Partizip II · Perfect: ist … Partizip II + *worden* (not geworden)',
+ 'The doer, if mentioned, comes with *von* + dative: von der Polizei',
+ 'Used a lot for rules, processes and news: Hier *wird* Deutsch *gesprochen*.' ], items:[
+ 'Das Haus {wird/ist/hat} gerade renoviert.|The house is being renovated right now.',
+ 'Hier wird nur Deutsch {gesprochen/sprechen/gesprecht}.|Only German is spoken here.',
+ 'Das Paket {wurde/wird/war} gestern geliefert.|The parcel was delivered yesterday.',
+ 'Die Rechnung ist schon bezahlt {worden/geworden/wurde}.|The bill has already been paid.',
+ 'In Deutschland wird viel Brot {gegessen/geessen/essen}.|A lot of bread is eaten in Germany.',
+ 'Der Dieb wurde {von/durch/bei} der Polizei gefasst.|The thief was caught by the police.',
+ 'Wann {wurde/war/hat} diese Kirche gebaut?|When was this church built?',
+ 'Die Fenster {werden/wird/sind} einmal im Monat geputzt.|The windows are cleaned once a month.' ]},
+{ id:'s21', lvl:'B1', name:'Um … zu', sub:'Infinitive clauses', g:[
+ 'After many verbs and phrases: *zu* + infinitive at the end → Ich habe vergessen, dich *anzurufen*.',
+ 'Separable verbs take zu in the middle: an*zu*rufen, um*zu*ziehen',
+ '*um … zu* = in order to (same subject) · *damit* = so that (different subject)',
+ '*ohne … zu* = without doing · *statt … zu* = instead of doing' ], items:[
+ 'Ich habe vergessen, dich {anzurufen/zu anrufen/anrufen}.|I forgot to call you.',
+ 'Er lernt Deutsch, {um/damit/für} in Deutschland zu studieren.|He\'s learning German in order to study in Germany.',
+ 'Es ist nicht leicht, eine Wohnung {zu/um/für} finden.|It isn\'t easy to find a flat.',
+ 'Hast du Lust, heute Abend essen zu {gehen/geht/gegangen}?|Do you feel like going out to eat tonight?',
+ 'Sie ist gegangen, {ohne/um/statt} sich zu verabschieden.|She left without saying goodbye.',
+ 'Ich spare Geld, {damit/um/dass} meine Kinder studieren können.|I\'m saving money so that my kids can go to university.',
+ 'Wir haben beschlossen, nach Leipzig {umzuziehen/zu umziehen/umziehen}.|We\'ve decided to move to Leipzig.',
+ '{Statt/Ohne/Um} zu lernen, hat er den ganzen Tag gespielt.|Instead of studying, he played all day.' ]},
+{ id:'s22', lvl:'B1', name:'Der Genitiv', sub:'Of, because of, despite', g:[
+ 'Genitive articles: *des* + noun-(e)s (der/das) · *der* (die and plural)',
+ 'It shows possession: das Auto *meines Vaters* · die Meinung *der Kollegen*',
+ 'Genitive prepositions: *wegen, trotz, während, statt, innerhalb, außerhalb*',
+ 'Speech often uses von + dative instead; writing prefers the genitive.' ], items:[
+ 'Das ist das Auto {meines/meinem/meiner} Vaters.|That\'s my father\'s car.',
+ '{Wegen/Trotz/Während} des Streiks fahren heute keine Züge.|Because of the strike, no trains are running today.',
+ '{Trotz/Wegen/Statt} des Regens sind wir spazieren gegangen.|Despite the rain, we went for a walk.',
+ 'Während {der/die/dem} Pause trinken wir Kaffee.|During the break we drink coffee.',
+ 'Am Ende {des/dem/der} Tages war ich total erschöpft.|At the end of the day I was totally exhausted.',
+ 'Die Meinung {der/den/des} Kollegen ist mir wichtig.|My colleagues\' opinion is important to me.',
+ '{Innerhalb/Außerhalb/Während} einer Woche bekommen Sie eine Antwort.|You\'ll get an answer within a week.',
+ 'Die Miete {dieser/diese/diesem} Wohnung ist viel zu hoch.|The rent of this flat is far too high.' ]},
+{ id:'s23', lvl:'B1', name:'Obwohl & trotzdem', sub:'Linking ideas', g:[
+ '*obwohl* (although) starts a subordinate clause: verb at the end.',
+ '*trotzdem* (nevertheless) and *deshalb* (therefore) are adverbs: the verb comes right after.',
+ '*sondern* = but rather, after a negation · *aber* = but',
+ '*indem* = by doing · *falls* = in case · *seit* = since (time)' ], items:[
+ '{Obwohl/Trotzdem/Weil} es regnet, gehen wir spazieren.|Although it\'s raining, we\'re going for a walk.',
+ 'Es regnet. {Trotzdem/Obwohl/Deshalb} gehen wir spazieren.|It\'s raining. Nevertheless, we\'re going for a walk.',
+ 'Ich war krank, {deshalb/trotzdem/weil} bin ich zu Hause geblieben.|I was ill, so I stayed home.',
+ 'Er hat viel gelernt, {aber/sondern/oder} die Prüfung nicht bestanden.|He studied a lot but didn\'t pass the exam.',
+ 'Wir fahren nicht ans Meer, {sondern/aber/trotzdem} in die Berge.|We\'re not going to the sea, but to the mountains.',
+ 'Sie spart Geld, {indem/damit/obwohl} sie selbst kocht.|She saves money by cooking herself.',
+ '{Falls/Obwohl/Deshalb} du Hilfe brauchst, sag einfach Bescheid.|In case you need help, just let me know.',
+ '{Seit/Bis/Als} ich hier wohne, fahre ich nur noch Fahrrad.|Since I\'ve lived here, I only ride my bike.' ]},
+{ id:'s24', lvl:'B1', name:'Es war einmal', sub:'The written past', g:[
+ 'Stories, news and books use the *Präteritum* instead of the Perfekt.',
+ 'Regular: stem + *-te* → sagte, spielte, machte (ich and er are identical)',
+ 'Strong verbs change the vowel and take no ending for ich/er: *ging, kam, gab, blieb, sah*',
+ 'Mixed: *wusste, dachte, brachte, kannte*' ], items:[
+ 'Es {war/gab/hatte} einmal ein König, der drei Töchter hatte.|Once upon a time there was a king who had three daughters.',
+ 'Er {ging/gehte/gang} jeden Morgen zu Fuß zur Arbeit.|He walked to work every morning.',
+ 'Plötzlich {kam/kommte/kamte} ein Mann ins Zimmer.|Suddenly a man came into the room.',
+ 'Sie {sagte/sagt/sagtet} kein Wort und verließ das Haus.|She didn\'t say a word and left the house.',
+ 'Früher {gab/gibt/gebte} es hier einen kleinen Buchladen.|There used to be a small bookshop here.',
+ 'Ich {wusste/weißte/wisste} nicht, dass du heute Geburtstag hast.|I didn\'t know it\'s your birthday today.',
+ 'Wir {blieben/bleibten/geblieben} drei Wochen in Portugal.|We stayed in Portugal for three weeks.',
+ 'Die Kinder {spielten/spielen/gespielt} im Garten, während ich kochte.|The children played in the garden while I cooked.' ]},
+{ id:'s25', lvl:'B1', name:'Warten auf', sub:'Verbs with prepositions', g:[
+ 'Many verbs own a fixed preposition. Learn them as one unit: *warten auf* + accusative.',
+ 'sich freuen *auf* (ahead) / *über* (now) · denken *an* · sich kümmern *um* · abhängen *von*',
+ 'Things: *da(r)-* + preposition → dafür, darauf, darüber · Questions: *wo(r)-* → worauf, wofür',
+ 'People keep the preposition + pronoun: Ich warte *auf ihn*.' ], items:[
+ 'Ich warte seit einer Stunde {auf/für/an} den Bus.|I\'ve been waiting for the bus for an hour.',
+ 'Sie hat sich sehr {über/auf/für} das Geschenk gefreut.|She was very happy about the present.',
+ '{Worauf/Wofür/Worüber} wartest du?|What are you waiting for?',
+ 'Ich denke oft {an/über/auf} meine Zeit in Spanien.|I often think of my time in Spain.',
+ 'Er interessiert sich nicht {dafür/darauf/darüber}.|He isn\'t interested in it.',
+ 'Kannst du dich {um/für/auf} die Getränke kümmern?|Can you take care of the drinks?',
+ 'Wir haben lange {über/von/an} das Thema diskutiert.|We discussed the topic for a long time.',
+ 'Es hängt {vom/am/auf} Wetter ab.|It depends on the weather.' ]},
+{ id:'s26', lvl:'B1', name:'Nachdem & bevor', sub:'Sequencing the past', g:[
+ 'Plusquamperfekt = *hatte / war* + Partizip II: what happened before another past event.',
+ '*Nachdem* ich gegessen *hatte*, ging ich spazieren.',
+ '*bevor* = before · *sobald* = as soon as · *bis* = until · *während* = while',
+ 'All of these send the verb to the end of their clause.' ], items:[
+ 'Nachdem ich gegessen {hatte/habe/war}, bin ich spazieren gegangen.|After I had eaten, I went for a walk.',
+ 'Als wir ankamen, {war/hatte/ist} der Zug schon abgefahren.|When we arrived, the train had already left.',
+ '{Bevor/Nachdem/Während} du gehst, mach bitte das Licht aus.|Before you leave, please turn off the light.',
+ 'Ich hatte ihn noch nie gesehen, {bevor/nachdem/seit} er bei uns anfing.|I\'d never seen him before he started with us.',
+ 'Sie war müde, weil sie die ganze Nacht gearbeitet {hatte/war/hat}.|She was tired because she\'d worked all night.',
+ '{Nachdem/Bevor/Obwohl} er das Abitur gemacht hatte, zog er nach Berlin.|After he\'d finished his Abitur, he moved to Berlin.',
+ '{Sobald/Bevor/Obwohl} ich etwas weiß, melde ich mich.|As soon as I know something, I\'ll get in touch.',
+ 'Warte hier, {bis/seit/als} ich zurück bin.|Wait here until I\'m back.' ]},
+
+{ id:'s27', lvl:'B2', name:'Hätte ich doch …', sub:'Unreal past', g:[
+ 'Unreal past = *hätte / wäre* + Partizip II: Wenn ich das *gewusst hätte*, *wäre* ich *gekommen*.',
+ 'With a modal: hätte + infinitive + modal infinitive → Das *hättest* du *sagen sollen*.',
+ 'Regret: *Hätte* ich doch nur mehr gelernt!',
+ '*als ob* + Konjunktiv II = as if: Er tut so, als ob er alles *wüsste*.' ], items:[
+ 'Wenn ich das gewusst {hätte/wäre/hatte}, wäre ich früher gekommen.|If I\'d known that, I would have come earlier.',
+ 'Ich {wäre/hätte/würde} fast zu spät gekommen.|I almost came too late.',
+ 'Das hättest du mir früher sagen {sollen/gesollt/sollten}.|You should have told me that earlier.',
+ 'Ohne deine Hilfe {hätte/wäre/habe} ich es nie geschafft.|Without your help I\'d never have made it.',
+ 'Wenn er schneller gefahren {wäre/hätte/würde}, hätte es einen Unfall gegeben.|If he\'d driven faster, there would have been an accident.',
+ 'Er tut so, als {ob/dass/wie} er alles wüsste.|He acts as if he knew everything.',
+ 'Wir hätten den Zug nehmen {können/gekonnt/könnten}.|We could have taken the train.',
+ '{Hätte/Wäre/Würde} ich doch nur mehr gelernt!|If only I had studied more!' ]},
+{ id:'s28', lvl:'B2', name:'Passiv für Profis', sub:'Advanced passive', g:[
+ 'With modals: modal + Partizip II + *werden* → Das muss *gelöst werden*.',
+ 'State passive with *sein* describes a result: Der Laden *ist geschlossen*.',
+ 'Alternatives: *sich lassen* + infinitive (can be done) · *sein + zu* + infinitive (must/can be done)',
+ '*-bar* adjectives: lösbar, machbar, essbar · impersonal: Es *wurde* getanzt.' ], items:[
+ 'Das Problem muss sofort gelöst {werden/sein/worden}.|The problem must be solved immediately.',
+ 'Der Laden {ist/wird/hat} sonntags geschlossen.|The shop is closed on Sundays.',
+ 'Das {lässt/kann/wird} sich leicht erklären.|That can be explained easily.',
+ 'Die Formulare sind bis Freitag {abzugeben/abgeben/abgegeben}.|The forms are to be handed in by Friday.',
+ 'Der Fehler konnte nicht gefunden {werden/worden/sein}.|The error couldn\'t be found.',
+ 'Diese Aufgabe ist kaum {lösbar/gelöst/lösend}.|This task is hardly solvable.',
+ 'Es {wurde/war/hat} die ganze Nacht getanzt.|There was dancing all night.',
+ 'Die Gäste müssen rechtzeitig informiert worden {sein/werden/haben}.|The guests must have been informed in time.' ]},
+{ id:'s29', lvl:'B2', name:'Er sagte, er habe …', sub:'Reported speech', g:[
+ 'News and formal writing report speech in *Konjunktiv I*: stem + -e → er *habe*, er *könne*, er *wisse*.',
+ '*sein* is irregular: ich sei, er *sei*, sie *seien*',
+ 'If Konjunktiv I looks like the normal present, switch to Konjunktiv II: ich *hätte*, sie *hätten*',
+ 'Everyday speech mostly uses the indicative or würde. You need to recognise it, and use it in writing.' ], items:[
+ 'Der Minister sagte, er {habe/hast/haben} davon nichts gewusst.|The minister said he had known nothing about it.',
+ 'Sie meint, das {sei/seid/bin} kein Problem.|She says that\'s not a problem.',
+ 'Die Polizei teilte mit, es {sei/seid/bin} niemand verletzt worden.|The police announced that nobody had been injured.',
+ 'Er behauptet, er {könne/könnt/kannst} fünf Sprachen sprechen.|He claims he can speak five languages.',
+ 'Die Firma erklärte, man {werde/wirst/werdet} die Preise nicht erhöhen.|The company stated that it would not raise prices.',
+ 'Sie fragte, ob ich Zeit {hätte/hast/habt}.|She asked whether I had time.',
+ 'Der Zeuge sagte, er {wisse/weißt/wisst} nichts davon.|The witness said he knew nothing about it.',
+ 'In dem Artikel heißt es, die Mieten {seien/sei/seid} stark gestiegen.|The article says rents have risen sharply.' ]},
+{ id:'s30', lvl:'B2', name:'Eine Entscheidung treffen', sub:'Noun-verb phrases', g:[
+ 'Formal German pairs a noun with a fixed verb. The verb cannot be swapped.',
+ 'eine Entscheidung *treffen* · eine Frage *stellen* · Platz *nehmen* · sich Mühe *geben*',
+ 'in Frage *kommen* · in Kraft *treten* · Wert *legen* auf · Bescheid *sagen/geben*',
+ 'They sound natural in emails, meetings and exams.' ], items:[
+ 'Wir müssen endlich eine Entscheidung {treffen/machen/nehmen}.|We finally have to make a decision.',
+ 'Das kommt für mich nicht in {Frage/Antwort/Problem}.|That\'s out of the question for me.',
+ 'Darf ich Ihnen eine Frage {stellen/fragen/legen}?|May I ask you a question?',
+ 'Bitte nehmen Sie {Platz/Sitz/Stuhl}.|Please take a seat.',
+ 'Sie hat großen Wert auf Pünktlichkeit {gelegt/gestellt/gemacht}.|She placed great value on punctuality.',
+ 'Das neue Gesetz tritt im Januar in {Kraft/Macht/Stärke}.|The new law comes into force in January.',
+ 'Kannst du mir kurz Bescheid {sagen/machen/sprechen}, wenn du da bist?|Can you let me know when you\'re there?',
+ 'Er hat sich große Mühe {gegeben/getroffen/gestellt}.|He made a great effort.' ]},
+{ id:'s31', lvl:'B2', name:'Sowohl … als auch', sub:'Two-part connectors', g:[
+ '*sowohl … als auch* = both … and · *weder … noch* = neither … nor',
+ '*entweder … oder* = either … or · *nicht nur … sondern auch* = not only … but also',
+ '*zwar … aber* = admittedly … but · *einerseits … andererseits* = on one hand … on the other',
+ '*je* + comparative (verb last), *desto* + comparative (verb next)' ], items:[
+ 'Sie spricht {sowohl/weder/entweder} Deutsch als auch Französisch.|She speaks both German and French.',
+ 'Ich habe weder Zeit {noch/oder/als} Lust.|I have neither time nor desire.',
+ 'Entweder wir fahren jetzt, {oder/noch/sondern} wir bleiben ganz zu Hause.|Either we leave now, or we stay home altogether.',
+ 'Je länger ich hier wohne, {desto/als/so} besser gefällt es mir.|The longer I live here, the more I like it.',
+ 'Er ist {zwar/sowohl/weder} nett, aber nicht sehr zuverlässig.|He\'s nice, admittedly, but not very reliable.',
+ 'Sie ist nicht nur klug, {sondern/aber/als} auch witzig.|She\'s not only smart but also funny.',
+ 'Einerseits will ich reisen, {andererseits/außerdem/trotzdem} muss ich sparen.|On the one hand I want to travel, on the other I need to save.',
+ '{Weder/Entweder/Sowohl} der Chef noch die Kollegen wussten davon.|Neither the boss nor the colleagues knew about it.' ]},
+{ id:'s32', lvl:'B2', name:'Die steigenden Preise', sub:'Participles as adjectives', g:[
+ 'Partizip I (infinitive + *d*) = happening now, active: die steigen*d*en Preise',
+ 'Partizip II = finished or passive: das *bestellte* Essen, die *verletzte* Spielerin',
+ 'Both take normal adjective endings and can become nouns: die Reisenden',
+ 'Partizip I without an ending works as an adverb: Er hörte *schweigend* zu.' ], items:[
+ 'Die {steigenden/steigende/steigen} Preise machen vielen Menschen Sorgen.|The rising prices worry many people.',
+ 'Das {bestellte/bestellende/bestellt} Essen ist nie angekommen.|The food that was ordered never arrived.',
+ 'Ein {bellender/gebellter/bellen} Hund hat mich geweckt.|A barking dog woke me up.',
+ 'Bitte füllen Sie das {beigefügte/beifügende/beigefügt} Formular aus.|Please fill in the attached form.',
+ 'Die {verletzte/verletzende/verletzt} Spielerin wurde ins Krankenhaus gebracht.|The injured player was taken to hospital.',
+ 'Er hörte {schweigend/geschwiegen/schweigt} zu.|He listened in silence.',
+ 'Die neu {eröffnete/eröffnende/eröffnen} Bäckerei ist immer voll.|The newly opened bakery is always full.',
+ 'Alle {Reisenden/Gereisten/Reisen} werden gebeten auszusteigen.|All passengers are requested to get off.' ]},
+{ id:'s33', lvl:'B2', name:'Aufgrund des Wetters', sub:'Formal noun style', g:[
+ 'Formal German packs clauses into nouns: weil das Wetter schlecht war → *aufgrund* des schlechten Wetters',
+ 'Genitive prepositions: *aufgrund, infolge, angesichts, mithilfe, anstelle, laut*',
+ 'Verb → noun: entwickeln → die *Entwicklung* · verbessern → die *Verbesserung* · abschließen → der *Abschluss*',
+ 'Set phrases: *bei Bedarf* · *nach Abschluss* · *zur Verbesserung*' ], items:[
+ '{Aufgrund/Trotz/Anhand} des schlechten Wetters wurde das Konzert abgesagt.|Due to the bad weather the concert was cancelled.',
+ '{Mithilfe/Infolge/Angesichts} einer App lerne ich jeden Tag neue Wörter.|With the help of an app I learn new words every day.',
+ 'Nach {Abschluss/Schluss/Abschließen} des Studiums zog sie ins Ausland.|After completing her degree she moved abroad.',
+ '{Angesichts/Mithilfe/Anstelle} der hohen Kosten wurde das Projekt gestoppt.|In view of the high costs the project was stopped.',
+ 'Die {Entwicklung/Entwickeln/Entwickelte} neuer Medikamente dauert viele Jahre.|The development of new drugs takes many years.',
+ 'Bei {Bedarf/Brauchen/Not} können Sie mich jederzeit anrufen.|If needed, you can call me anytime.',
+ 'Zur {Verbesserung/Verbessern/Besserung} der Luftqualität sollen weniger Autos fahren.|To improve air quality, fewer cars should be on the road.',
+ '{Laut/Wegen/Dank} einer Studie schlafen die Deutschen zu wenig.|According to a study, Germans sleep too little.' ]},
+{ id:'s34', lvl:'B2', name:'Doch, ja, halt', sub:'Sounding natural', g:[
+ 'Modal particles add tone, not meaning. *doch mal* softens an invitation: Komm *doch mal* vorbei!',
+ '*ja* = surprise or shared knowledge · *denn* makes questions friendlier · *halt/eben* = that is just how it is',
+ 'Opinions: *Meiner Meinung nach* … · Ich bin *davon überzeugt, dass* … · Da bin ich *anderer Meinung*.',
+ '*Das kommt darauf an* = it depends' ], items:[
+ 'Komm {doch/ja/eben} mal vorbei, wenn du Zeit hast!|Do come by sometime when you have time!',
+ 'Das ist {ja/mal/denn} eine Überraschung!|Well, that\'s a surprise!',
+ 'Wie heißt du {denn/doch/halt}?|So what\'s your name?',
+ 'Das ist {halt/denn/mal} so, da kann man nichts machen.|That\'s just how it is, nothing can be done.',
+ 'Meiner Meinung {nach/zu/von} ist das keine gute Idee.|In my opinion that\'s not a good idea.',
+ 'Da bin ich ganz anderer {Meinung/Ahnung/Idee}.|I see that completely differently.',
+ 'Ich bin davon {überzeugt/überzeugen/übergezeugt}, dass wir es schaffen.|I\'m convinced that we\'ll make it.',
+ 'Das kommt darauf {an/auf/ab}, wie viel es kostet.|That depends on how much it costs.' ]}
+],
+
+/* Artikel-Blitz: r = der, e = die, s = das */
+nouns: {
+r:'Tisch table,Stuhl chair,Schlüssel key,Zug train,Bahnhof station,Apfel apple,Kaffee coffee,Tee tea,Wein wine,Käse cheese,Kühlschrank fridge,Computer computer,Arzt doctor,Beruf profession,Urlaub holiday,Termin appointment,Vertrag contract,Flughafen airport,Kopf head,Arm arm,Fuß foot,Rücken back,Montag Monday,Sommer summer,Regen rain,Schnee snow,Wind wind,Fehler mistake,Unterschied difference,Grund reason,Erfolg success,Eindruck impression,Vorschlag suggestion,Antrag application,Ausweis ID card,Führerschein driving licence,Müll rubbish,Löffel spoon,Teller plate,Brief letter',
+e:'Wohnung flat,Küche kitchen,Tür door,Straße street,Stadt city,Zeit time,Arbeit work,Frage question,Antwort answer,Rechnung bill,Zeitung newspaper,Meinung opinion,Erfahrung experience,Entscheidung decision,Gesundheit health,Möglichkeit possibility,Schwierigkeit difficulty,Gesellschaft society,Umwelt environment,Wirtschaft economy,Milch milk,Butter butter,Gabel fork,Tasse cup,Flasche bottle,Hand hand,Nase nose,Sonne sun,Woche week,Uhr clock,Bank bank,Miete rent,Versicherung insurance,Bewerbung job application,Ausbildung training,Sprache language,Reise trip,Brücke bridge,Kartoffel potato,Nummer number',
+s:'Haus house,Zimmer room,Fenster window,Bett bed,Auto car,Fahrrad bicycle,Buch book,Handy mobile phone,Brot bread,Wasser water,Bier beer,Ei egg,Fleisch meat,Gemüse vegetables,Obst fruit,Messer knife,Glas glass,Kind child,Mädchen girl,Jahr year,Wetter weather,Geld money,Problem problem,Ergebnis result,Gespräch conversation,Gefühl feeling,Ziel goal,Beispiel example,Angebot offer,Unternehmen company,Gesetz law,Verhalten behaviour,Gehalt salary,Studium studies,Büro office,Krankenhaus hospital,Wochenende weekend,Frühstück breakfast,Geschenk present,Thema topic'
+},
+
+/* Verb-Sprint: infinitive|Präteritum (er)|Perfekt (er)|English */
+verbs: 'gehen|ging|ist gegangen|go;kommen|kam|ist gekommen|come;sehen|sah|hat gesehen|see;essen|aß|hat gegessen|eat;trinken|trank|hat getrunken|drink;schreiben|schrieb|hat geschrieben|write;lesen|las|hat gelesen|read;fahren|fuhr|ist gefahren|drive, go;nehmen|nahm|hat genommen|take;geben|gab|hat gegeben|give;finden|fand|hat gefunden|find;sprechen|sprach|hat gesprochen|speak;helfen|half|hat geholfen|help;bleiben|blieb|ist geblieben|stay;schlafen|schlief|hat geschlafen|sleep;treffen|traf|hat getroffen|meet;denken|dachte|hat gedacht|think;bringen|brachte|hat gebracht|bring;wissen|wusste|hat gewusst|know;verstehen|verstand|hat verstanden|understand;beginnen|begann|hat begonnen|begin;vergessen|vergaß|hat vergessen|forget;verlieren|verlor|hat verloren|lose;laufen|lief|ist gelaufen|run, walk;fliegen|flog|ist geflogen|fly;sitzen|saß|hat gesessen|sit;stehen|stand|hat gestanden|stand;liegen|lag|hat gelegen|lie;tragen|trug|hat getragen|carry, wear;ziehen|zog|hat gezogen|pull;werden|wurde|ist geworden|become;sterben|starb|ist gestorben|die;schwimmen|schwamm|ist geschwommen|swim;rufen|rief|hat gerufen|call;lassen|ließ|hat gelassen|let, leave;halten|hielt|hat gehalten|hold, stop;fallen|fiel|ist gefallen|fall;singen|sang|hat gesungen|sing;entscheiden|entschied|hat entschieden|decide;empfehlen|empfahl|hat empfohlen|recommend',
+
+scenes: [
+ { id:'baeck', t:'Beim Bäcker', en:'Order at a bakery', lvl:'A1', p:'You are a friendly baker in a busy Berlin bakery. The learner is a customer ordering.' },
+ { id:'kennen', t:'Neue Leute', en:'Meet someone at a party', lvl:'A1', p:'You are a friendly guest at a house party in Cologne meeting the learner for the first time. Small talk: origin, work, hobbies.' },
+ { id:'rest', t:'Im Restaurant', en:'Order dinner, handle a mix-up', lvl:'A2', p:'You are a waiter in a traditional German restaurant. Take the order; later bring a wrong dish so the learner has to complain politely.' },
+ { id:'wg', t:'WG-Besichtigung', en:'Interview for a flat share', lvl:'A2', p:'You live in a shared flat in Leipzig and are showing the free room to the learner. Ask about habits, job, cleaning, and answer questions about rent and rules.' },
+ { id:'arzt', t:'Beim Arzt', en:'Describe symptoms', lvl:'A2', p:'You are a GP in a German practice. Ask the learner about symptoms, duration, medication, and give advice.' },
+ { id:'bahn', t:'Zug verpasst', en:'Rebook at the ticket desk', lvl:'B1', p:'You are a Deutsche Bahn service desk employee. The learner missed a connection because of a delay and needs a new route and maybe compensation.' },
+ { id:'job', t:'Vorstellungsgespräch', en:'Job interview', lvl:'B1', p:'You are an HR manager interviewing the learner for a job in their own field. Ask about experience, strengths, weaknesses, motivation. Formal Sie.' },
+ { id:'nachbar', t:'Ärger mit dem Nachbarn', en:'Sort out a noise complaint', lvl:'B1', p:'You are a neighbour who plays loud music at night. The learner comes to complain. Be a little defensive at first, then cooperative if they argue well.' },
+ { id:'debatte', t:'Streitgespräch', en:'Debate a real topic', lvl:'B2', p:'You are a debate partner. Pick a controversial everyday topic (home office, speed limit on the Autobahn, social media for teens) and take the opposite side of whatever the learner argues. Push them to justify opinions.' },
+ { id:'meeting', t:'Im Meeting', en:'Present and defend an idea at work', lvl:'B2', p:'You are a sceptical team lead in a German company meeting. The learner proposes an idea; ask critical questions about cost, timing and risk. Formal but collegial.' },
+ { id:'frei', t:'Freies Gespräch', en:'Talk about anything', lvl:'', p:'You are a curious, warm German friend chatting about whatever the learner brings up.' },
+ { id:'schreib', t:'Schreibwerkstatt', en:'Write a short text, get it corrected', lvl:'', write:true, p:'You are a German writing coach. First give ONE concrete short writing task that fits the level (e.g. an email, an opinion, a description; 4 to 6 sentences). When the learner submits a text, reply in German with one encouraging sentence and the next task.' }
+]
+};
+
+(() => {
+'use strict';
+const D = window.WW_DATA;
+const app = document.getElementById('app'), nav = document.getElementById('nav');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DAY = 864e5, IV = [0, 1, 2, 4, 8, 16, 35, 75, 150], PLAN_DAYS = 336, KEY = 'wortwerk.v1';
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = a => a[Math.random() * a.length | 0];
+const dstr = d => { d = new Date(d); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const today = () => dstr(Date.now());
+const midnight = () => new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+const norm = s => String(s).toLowerCase().replace(/ß/g, 'ss').replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const ICON = {
+  spk: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>'
+};
+
+/* ---------- state ---------- */
+const fresh = () => ({ v: 1, t: 0, start: null, cur: 0, xp: 0, streak: 0, lastDay: '', dayXp: 0, goal: 100, it: {}, extra: {}, hi: { blitz: 0, verb: 0 }, hist: {}, audio: true, sfx: true });
+let S = fresh();
+try { const r = JSON.parse(localStorage.getItem(KEY)); if (r && r.v === 1) S = Object.assign(fresh(), r); } catch (e) {}
+let cloudRef = null, cloudReady = false, cloudBusy = false, cloudDirty = false, cloudTimer = 0;
+function save() {
+  S.t = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  if (cloudReady) { clearTimeout(cloudTimer); cloudTimer = setTimeout(push, 2500); }
+}
+async function push() {
+  if (!cloudRef) return;
+  if (cloudBusy) { cloudDirty = true; return; }
+  cloudBusy = true;
+  try { await cloudRef.set({ json: JSON.stringify(S), t: S.t }); } catch (e) {}
+  cloudBusy = false;
+  if (cloudDirty) { cloudDirty = false; push(); }
+}
+const use = n => (window.claude && window.claude.use) ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+let AI = null, TTS = null, DICT = null, dictFor = '', aiCtl = null;
+async function initCloud() {
+  const [db, user] = await Promise.all([use('db'), use('user')]);
+  if (!db || !user) return;
+  try {
+    const id = await user.id(); if (!id) return;
+    cloudRef = db.collection('data/users/' + id).doc('state');
+    const snap = await cloudRef.get();
+    if (snap.exists) {
+      const r = JSON.parse(snap.data().json);
+      if (r && r.v === 1 && (r.t || 0) > (S.t || 0)) {
+        S = Object.assign(fresh(), r);
+        try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+        if (!['ride', 'blitz', 'verb', 'chat'].includes(V.name)) render();
+      }
+    }
+    cloudReady = true;
+    if (S.t) push();
+    if (V.name === 'me') render();
+  } catch (e) {}
+}
+use('sample').then(s => { AI = s; if (s && ['home', 'tutor', 'station'].includes(V.name)) render(); });
+use('tts').then(t => { TTS = t; });
+use('dictation').then(d => {
+  DICT = d; if (!d) return;
+  d.onFinal(({ text }) => { const el = document.getElementById(dictFor); if (el) { el.value = (el.value + ' ' + text).trim(); el.dispatchEvent(new Event('input')); } });
+  d.onState(({ state }) => document.querySelectorAll('.mic').forEach(b => b.classList.toggle('on', state === 'listening' || state === 'starting')));
+  if (['chat', 'ride'].includes(V.name)) render();
+});
+
+/* ---------- audio ---------- */
+let voice = null;
+const pickVoice = () => { try { voice = speechSynthesis.getVoices().find(v => /^de/i.test(v.lang)) || null; } catch (e) {} };
+if ('speechSynthesis' in window) { pickVoice(); try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {} }
+const canSpeak = () => !!TTS || 'speechSynthesis' in window;
+function browserSay(text, slow) {
+  try { const u = new SpeechSynthesisUtterance(text); u.lang = 'de-DE'; u.rate = slow ? 0.65 : 0.95; if (voice) u.voice = voice; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+}
+function say(text, slow) {
+  if (TTS) { TTS.speak(text, { language: 'de', rate: slow ? 0.75 : 1 }).catch(e => { if (e && ['rate_limited', 'unavailable', 'upstream_error', 'not_granted'].includes(e.code)) { if (e.code !== 'rate_limited') TTS = null; browserSay(text, slow); } }); return; }
+  if ('speechSynthesis' in window) browserSay(text, slow);
+}
+let actx = null;
+function beep(ok) {
+  if (!S.sfx) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    (ok ? [660, 990] : [200]).forEach((f, i) => {
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + i * 0.09;
+      o.type = ok ? 'sine' : 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.2);
+    });
+  } catch (e) {}
+}
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2600); }
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cols = ['--u1', '--u2', '--u3', '--u4', '--accent'];
+  for (let i = 0; i < 36; i++) {
+    const s = document.createElement('span'); s.className = 'cf';
+    s.style.cssText = `background:var(${cols[i % 5]});--x:${(Math.random() - 0.5) * 520}px;--y:${(Math.random() - 0.3) * 520}px;--rt:${Math.random() * 720}deg`;
+    document.body.appendChild(s); setTimeout(() => s.remove(), 1050);
+  }
+}
+
+/* ---------- course model ---------- */
+const byId = id => D.stations.find(s => s.id === id);
+function parse(raw, id, sid) {
+  const cut = raw.lastIndexOf('|'); if (cut < 0) return null;
+  const g = raw.slice(0, cut), en = raw.slice(cut + 1), m = g.match(/\{([^{}]+)\}/); if (!m) return null;
+  const o = m[1].split('/').map(s => s.trim()).filter(Boolean); if (o.length < 2) return null;
+  return { id, sid, en, ans: o[0], alts: o.slice(1), pre: g.slice(0, m.index), post: g.slice(m.index + m[0].length), de: g.replace(m[0], o[0]) };
+}
+function itemsOf(st) {
+  const a = st.items.map((r, i) => parse(r, st.id + '.' + i, st.id));
+  (S.extra[st.id] || []).forEach((r, i) => { const p = parse(r, st.id + '.x' + i, st.id); if (p) a.push(p); });
+  return a.filter(Boolean);
+}
+const seen = x => !!S.it[x.id];
+const stDone = st => itemsOf(st).every(seen);
+const stSeen = st => itemsOf(st).filter(seen).length;
+function curStation() {
+  const n = D.stations.length;
+  for (let k = 0; k < n; k++) { const st = D.stations[(S.cur + k) % n]; if (!stDone(st)) return st; }
+  return null;
+}
+const lvlNow = () => (curStation() || D.stations[D.stations.length - 1]).lvl;
+const allItems = () => D.stations.flatMap(itemsOf);
+const dueItems = () => { const now = Date.now(); return allItems().filter(x => S.it[x.id] && S.it[x.id][1] <= now).sort((a, b) => S.it[a.id][1] - S.it[b.id][1]); };
+const playerLvl = () => Math.floor(Math.sqrt(S.xp / 60)) + 1;
+function streakNow() { return (S.lastDay === today() || S.lastDay === dstr(Date.now() - DAY)) ? S.streak : 0; }
+function addXp(n) {
+  const t = today();
+  if (S.lastDay !== t) { S.streak = S.lastDay === dstr(Date.now() - DAY) ? S.streak + 1 : 1; S.lastDay = t; S.dayXp = 0; }
+  if (!S.start) S.start = Date.now();
+  S.xp += n; S.dayXp += n; S.hist[t] = S.dayXp;
+  const ks = Object.keys(S.hist).sort(); while (ks.length > 60) delete S.hist[ks.shift()];
+  save();
+}
+const dayXp = () => S.lastDay === today() ? S.dayXp : 0;
+
+/* ---------- views ---------- */
+let V = { name: 'home' }, R = null, G = null, C = null, ST = null;
+function cleanup() {
+  if (G && G.timer) clearInterval(G.timer);
+  if (aiCtl) { aiCtl.abort(); aiCtl = null; }
+  if (DICT && DICT.active()) DICT.stop().catch(() => {});
+}
+function go(name, id) { cleanup(); V = { name, id }; render(); window.scrollTo(0, 0); }
+const NAV = [['home', 'Heute'], ['map', 'Strecke'], ['games', 'Spiele'], ['tutor', 'Tutor'], ['me', 'Ich']];
+function render() {
+  const fn = { home, map, station, ride, done, games, blitz, verb, tutor, chat, story, me }[V.name] || home;
+  const focus = ['ride', 'done', 'blitz', 'verb', 'chat', 'story'].includes(V.name);
+  app.className = 'wrap' + (focus ? ' focus' : '');
+  app.innerHTML = fn();
+  nav.hidden = focus;
+  nav.innerHTML = '<div>' + NAV.map(([k, l]) => `<button class="${(V.name === k || (k === 'map' && V.name === 'station')) ? 'on' : ''}" data-act="go" data-v="${k}">${l}</button>`).join('') + '</div>';
+  const f = app.querySelector('[data-focus]'); if (f) f.focus({ preventScroll: true });
+}
+const header = () => `<div class="top"><div class="mark"><i>W</i>ortwerk</div><span class="sp"></span>
+  <span class="chip"><b>STREAK</b>${streakNow()}</span><span class="chip"><b>LVL</b>${playerLvl()}</span></div>`;
+const spk = (text, cls) => canSpeak() ? `<button class="spk ${cls || ''}" data-act="say" data-t="${esc(text)}" aria-label="Listen">${ICON.spk}</button>` : '';
+
+function home() {
+  const st = curStation(), due = dueItems().length, news = st ? Math.min(5, itemsOf(st).filter(x => !seen(x)).length) : 0;
+  const mins = Math.max(1, Math.ceil((Math.min(due, 12) * 22 + news * 55) / 60));
+  const goalPct = Math.min(100, dayXp() / S.goal * 100);
+  const doneN = D.stations.filter(stDone).length, total = D.stations.length;
+  let board;
+  if (!S.start && !S.xp) {
+    board = `<div class="board"><span class="lab">Einsteigen bitte</span><h1>Where do you board?</h1>
+      <p style="color:var(--board-mute)">${total} stations take you from A1 to B2. Every ride mixes new sentences with the ones you are about to forget, so nothing needs writing down.</p>
+      <button class="btn pri wide" data-act="board" data-v="0">Start at A1 for a quick refresh</button>
+      <button class="btn wide" style="background:transparent;color:var(--board-ink);border-color:var(--board-mute)" data-act="board" data-v="6">I know A1. Start at A2</button></div>`;
+  } else if (!st && !due) {
+    board = `<div class="board"><span class="lab">Endstation</span><h1>Every station is done.</h1><p style="color:var(--board-mute)">Nothing is due right now. Keep sharp with the tutor or add fresh sentences to any station.</p>
+      <button class="btn pri wide" data-act="go" data-v="tutor">Open the tutor</button></div>`;
+  } else {
+    board = `<div class="board"><span class="lab">Nächste Abfahrt</span>
+      <div class="dest">${st ? `<span class="roundel ${st.lvl}">${D.levels[st.lvl]}</span><h1>${esc(st.name)}</h1>` : '<h1>Wiederholung</h1>'}</div>
+      <div class="brow"><span><b>${Math.min(due, 12)}</b> to review</span><span><b>${news}</b> new</span><span>about <b>${mins} min</b></span></div>
+      <button class="btn pri wide" data-act="ride" data-focus>Losfahren</button></div>`;
+  }
+  const days = []; for (let i = 6; i >= 0; i--) { const d = Date.now() - i * DAY, x = S.hist[dstr(d)] || 0; days.push(`<span class="${i ? '' : 'now'}"><i class="${x >= S.goal ? 'hit' : x ? 'some' : ''}"></i>${'SMTWTFS'[new Date(d).getDay()]}</span>`); }
+  let plan = '';
+  if (S.start) {
+    const el = (Date.now() - S.start) / DAY, base = S.planBase || 0, expect = Math.min(total, base + el / PLAN_DAYS * (total - base)), diff = doneN - expect;
+    const status = diff >= 0.5 ? `${Math.floor(diff + 0.5)} ahead of schedule` : diff > -1 ? 'on schedule' : `${Math.ceil(-diff)} behind schedule`;
+    const arr = new Date(S.start + PLAN_DAYS * DAY).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    plan = `<div class="row"><span class="lab">Fahrplan</span><span class="sp"></span><span class="small mute">Week ${Math.min(48, Math.floor(el / 7) + 1)} of 48</span></div>
+      <div class="bar seg">${['A1', 'A2', 'B1', 'B2'].map(l => { const ss = D.stations.filter(s => s.lvl === l); return `<span class="${l}" style="flex:${ss.length}"><i style="width:${ss.filter(stDone).length / ss.length * 100}%"></i></span>`; }).join('')}</div>
+      <div class="row small"><b>${doneN} of ${total} stations</b><span class="mute">${status}</span><span class="sp"></span><span class="mute">B2 arrival ${arr}</span></div>`;
+  }
+  return header() + board + `
+  <div class="card"><div class="row"><span class="lab">Today</span><span class="sp"></span><span class="num small">${dayXp()} / ${S.goal} XP</span></div>
+    <div class="bar"><i style="width:${goalPct}%"></i></div><div class="week">${days.join('')}</div></div>
+  ${plan ? `<div class="card">${plan}</div>` : ''}
+  <div class="tiles">
+    <button class="tile" data-act="go" data-v="blitz"><b>Artikel-Blitz</b><span>der, die or das? 45 seconds.</span></button>
+    <button class="tile" data-act="go" data-v="verb"><b>Verb-Sprint</b><span>Strong verbs, past forms.</span></button>
+    <button class="tile" data-act="go" data-v="tutor"><b>Gespräch</b><span>${AI ? 'Talk it out with the tutor.' : 'Role-play with the AI tutor.'}</span></button>
+    ${st ? `<button class="tile" data-act="go" data-v="station" data-id="${st.id}"><b>Grammatik</b><span>${esc(st.sub)}</span></button>` : ''}
+  </div>`;
+}
+
+function map() {
+  const cur = curStation();
+  return header() + `<div><h1>Die Strecke</h1><p class="mute">Four lines, ${D.stations.length} stations. Board anywhere.</p></div>` +
+    ['A1', 'A2', 'B1', 'B2'].map(l => `<div class="linehd"><span class="roundel ${l}">${D.levels[l]}</span><h2>${l}</h2></div>
+      <div class="stops ${l}">${D.stations.filter(s => s.lvl === l).map(st => { const n = itemsOf(st).length, k = stSeen(st); return `<button class="stop ${k === n ? 'done' : ''} ${cur === st ? 'cur' : ''}" data-act="go" data-v="station" data-id="${st.id}">
+        <span class="t"><b>${esc(st.name)}</b><span>${esc(st.sub)}</span></span><span class="num">${k}/${n}</span></button>`; }).join('')}</div>`).join('');
+}
+
+function station() {
+  const st = byId(V.id) || D.stations[0], its = itemsOf(st), learned = its.filter(seen), left = its.length - learned.length;
+  const gram = st.g.map(g => '<li>' + esc(g).replace(/\*([^*]+)\*/g, '<b>$1</b>') + '</li>').join('');
+  return `<button class="back" data-act="go" data-v="map">← Strecke</button>
+  <div class="row"><span class="roundel ${st.lvl}">${D.levels[st.lvl]}</span><span class="lab">Station ${String(D.stations.indexOf(st) + 1).padStart(2, '0')} of ${D.stations.length}</span></div>
+  <div><h1>${esc(st.name)}</h1><p class="mute">${esc(st.sub)}</p></div>
+  <div class="card gram"><span class="lab">The pattern</span><ul>${gram}</ul></div>
+  <button class="btn pri wide" data-act="ride" data-id="${st.id}">${left ? `Learn ${Math.min(5, left)} new sentences` : 'Practise this station'}</button>
+  <div class="row">${curStation() !== st && left ? `<button class="btn sm" data-act="setcur" data-id="${st.id}">Make this my next stop</button>` : ''}
+    ${AI ? `<button class="btn sm" data-act="more" data-id="${st.id}" ${V.busy ? 'disabled' : ''}>${V.busy ? 'Writing sentences…' : 'Add 8 fresh sentences'}</button>
+    <button class="btn sm" data-act="story" data-id="${st.id}">Read a story with this grammar</button>` : ''}</div>
+  ${learned.length ? `<div class="card"><span class="lab">Your sentences · ${learned.length} of ${its.length}</span><div>${learned.map(x => `<div class="sent"><div>${esc(x.de)}<small>${esc(x.en)}</small>
+    <span class="pips">${[1, 2, 3, 4, 5, 6].map(i => `<i class="${S.it[x.id][0] >= i ? 'f' : ''}"></i>`).join('')}</span></div>${spk(x.de)}</div>`).join('')}</div></div>` : ''}`;
+}
+
+/* ---------- ride (lesson session) ---------- */
+function typeFor(stage) {
+  let t = stage <= 1 ? 'cloze' : stage === 2 ? 'build' : stage === 3 ? 'listen' : stage === 4 ? 'write' : stage === 5 ? (DICT ? 'speak' : 'cloze') : (stage % 2 ? 'listen' : 'write');
+  if (t === 'listen' && !canSpeak()) t = 'cloze';
+  return t;
+}
+function prep(e) {
+  const x = e.x;
+  if (e.type === 'mc') e.opts = shuffle([x.ans, ...x.alts.slice(0, 2)]);
+  if (e.type === 'build') { const tk = x.de.split(' '); e.pool = shuffle(tk.concat(x.alts.filter(a => !/\s/.test(a) && !tk.includes(a)).slice(0, 2))); e.pick = []; e.need = tk.length; }
+  return e;
+}
+function startRide(sid) {
+  let q = [];
+  if (sid) {
+    const st = byId(sid), its = itemsOf(st), news = its.filter(x => !seen(x)).slice(0, 5);
+    if (news.length) q = news.map(x => ({ x, type: 'mc', isNew: true })).concat(news.map(x => ({ x, type: 'build', isNew: true, last: true })));
+    else q = shuffle(its).slice(0, 8).map(x => ({ x, type: typeFor(Math.max(1, S.it[x.id][0])), free: true }));
+  } else {
+    const due = dueItems().slice(0, 12).map(x => ({ x, type: typeFor(S.it[x.id][0]) }));
+    const st = curStation(), news = st ? itemsOf(st).filter(x => !seen(x)).slice(0, 5) : [];
+    q = due.slice(0, 4).concat(news.map(x => ({ x, type: 'mc', isNew: true })), due.slice(4), news.map(x => ({ x, type: 'build', isNew: true, last: true })));
+  }
+  if (!q.length) { toast('Nothing to ride right now. Try a game or the tutor.'); return; }
+  q.forEach(e => { e.first = true; prep(e); });
+  R = { q, i: 0, combo: 0, xp: 0, ok: 0, miss: 0, learned: 0, fb: null, total: q.length };
+  if (!S.start) { S.start = Date.now(); save(); }
+  go('ride'); enterEx();
+}
+function enterEx() { const e = R.q[R.i]; if (e && e.type === 'listen') say(e.x.de); }
+const UML = id => `<div class="uml">${['ä', 'ö', 'ü', 'ß'].map(c => `<button type="button" data-act="uml" data-c="${c}" data-for="${id}">${c}</button>`).join('')}
+  ${DICT ? `<button type="button" class="mic" data-act="mic" data-for="${id}" aria-label="Dictate" style="width:44px">${ICON.mic}</button>` : ''}</div>`;
+function ride() {
+  const e = R.q[R.i], x = e.x, fb = R.fb, dis = fb ? 'disabled' : '';
+  const label = { mc: 'Pick the missing word', build: 'Build the sentence', cloze: 'Type the missing word', listen: 'Type what you hear', write: 'Say it in German', speak: 'Read it aloud' }[e.type];
+  let body = '';
+  const gapS = `<p class="de">${esc(x.pre)}<span class="gap ${fb && !fb.ok ? 'bad' : ''}">${fb ? esc(x.ans) : '&nbsp;'}</span>${esc(x.post)}</p><p class="en">${esc(x.en)}</p>`;
+  if (e.type === 'mc') body = gapS + `<div class="opts h">${e.opts.map((o, i) => `<button class="opt ${fb ? (o === x.ans ? 'ok' : o === fb.given ? 'no' : '') : ''}" data-act="mc" data-v="${esc(o)}" ${dis}><kbd>${i + 1}</kbd>${esc(o)}</button>`).join('')}</div>`;
+  else if (e.type === 'cloze') body = gapS + `<input class="inp" id="ans" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Missing word" ${dis} ${fb ? `value="${esc(fb.given)}"` : 'data-focus'}>` + (fb ? '' : UML('ans'));
+  else if (e.type === 'build') body = `<p class="prompt">${esc(x.en)}</p><div class="slot">${e.pick.map((pi, k) => `<button class="tk" data-act="unpick" data-k="${k}" ${dis}>${esc(e.pool[pi])}</button>`).join('')}</div>
+    <div class="pool">${e.pool.map((t, i) => `<button class="tk ${e.pick.includes(i) ? 'used' : ''}" data-act="pick" data-k="${i}" ${dis}>${esc(t)}</button>`).join('')}</div>`;
+  else if (e.type === 'listen') body = `<div class="row"><button class="bigplay" data-act="say" data-t="${esc(x.de)}" aria-label="Play">${ICON.spk}</button><button class="btn sm" data-act="say" data-slow="1" data-t="${esc(x.de)}">Slower</button></div>
+    <input class="inp" id="ans" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Was hörst du?" ${dis} ${fb ? `value="${esc(fb.given)}"` : 'data-focus'}>` + (fb ? '' : UML('ans'));
+  else if (e.type === 'write') body = `<p class="prompt">${esc(x.en)}</p><textarea class="inp" id="ans" rows="2" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Auf Deutsch…" ${dis} ${fb ? '' : 'data-focus'}>${fb ? esc(fb.given) : ''}</textarea>` + (fb ? '' : UML('ans'));
+  else body = `<p class="de">${esc(x.de)}</p><p class="en">${esc(x.en)}</p><div class="row">${spk(x.de)}<span class="small mute">Listen first, then tap the mic and say it.</span></div>
+    <input class="inp" id="ans" autocomplete="off" placeholder="Your words appear here" ${dis} ${fb ? `value="${esc(fb.given)}"` : ''}>` + (fb ? '' : UML('ans'));
+  let foot;
+  if (!fb) foot = e.type === 'mc' ? '' : `<button class="btn pri wide" data-act="check" ${e.type === 'build' && e.pick.length < e.need ? 'disabled' : ''}>Check</button>${e.type === 'speak' ? '<button class="btn ghost wide" data-act="skip">I can\'t speak right now</button>' : ''}`;
+  else foot = `<div class="fb ${fb.ok ? '' : 'no'}"><div class="row"><h3>${fb.ok ? esc(fb.word) : 'Not quite'}</h3><span class="sp"></span>${fb.xp ? `<span class="num small">+${fb.xp} XP</span>` : ''}${spk(x.de)}</div>
+      <p class="ans">${esc(x.de)}</p><p class="small mute">${esc(x.en)}</p>
+      ${fb.why ? `<div class="why">${esc(fb.why)}</div>` : ''}
+      ${!fb.ok ? `<div class="row">${AI && !fb.why ? '<button class="btn sm" data-act="why">Why?</button>' : ''}${['write', 'speak', 'listen'].includes(e.type) && e.first ? '<button class="btn sm" data-act="override">Mine was right too</button>' : ''}</div>` : ''}
+      <button class="btn pri wide" data-act="next" data-focus>Weiter</button></div>`;
+  return `<div class="ridebar"><button class="x" data-act="quit" aria-label="End ride">✕</button><div class="bar"><i style="width:${R.i / R.q.length * 100}%"></i></div>${R.combo >= 3 ? `<span class="combo">${R.combo}× COMBO</span>` : ''}</div>
+    <div class="ex"><span class="lab">${label}${e.isNew ? ' · new' : ''}</span>${body}${foot}</div>`;
+}
+function check() {
+  if (R.fb) return;
+  const e = R.q[R.i], x = e.x, el = document.getElementById('ans'), given = el ? el.value.trim() : '';
+  let ok;
+  if (e.type === 'cloze') { if (!given) return; ok = norm(given) === norm(x.ans) || norm(given) === norm(x.de); }
+  else if (e.type === 'build') { const s = e.pick.map(i => e.pool[i]).join(' '); ok = s === x.de; grade(ok, s); return; }
+  else if (e.type === 'speak') { if (!given) { toast('Tap the mic and read the sentence.'); return; } const g = norm(given).split(' '), w = norm(x.de).split(' '); ok = w.filter(t => g.includes(t)).length / w.length >= 0.7; }
+  else { if (!given) return; ok = norm(given) === norm(x.de); }
+  grade(ok, given);
+}
+function grade(ok, given) {
+  const e = R.q[R.i], x = e.x; let xp = 0;
+  if (DICT && DICT.active()) DICT.stop().catch(() => {});
+  e.prev = S.it[x.id] ? S.it[x.id].slice() : null;
+  if (ok) { R.combo++; if (e.first) R.ok++; xp = e.free ? 5 : e.first ? Math.round(10 * (R.combo >= 10 ? 2 : R.combo >= 5 ? 1.5 : 1)) : 4; }
+  else { R.combo = 0; if (e.first) R.miss++; }
+  if (!e.free) {
+    if (e.isNew) { if (ok && e.last) { S.it[x.id] = [1, midnight() + DAY]; R.learned++; } }
+    else if (e.first) {
+      const st = S.it[x.id][0];
+      S.it[x.id] = ok ? [Math.min(8, st + 1), midnight() + IV[Math.min(8, st + 1)] * DAY] : [Math.max(1, st - 1), Date.now()];
+    }
+  }
+  if (!ok) { e.re = prep(Object.assign({}, e, { first: false })); R.q.splice(Math.min(R.q.length, R.i + 3), 0, e.re); }
+  if (xp) { R.xp += xp; addXp(xp); } else save();
+  beep(ok);
+  R.fb = { ok, given, xp, word: pick(['Richtig!', 'Genau!', 'Stark!', 'Sauber!', 'Läuft!', 'Top!']) };
+  render();
+  if (S.audio && e.type !== 'speak') say(x.de);
+}
+function nextEx() {
+  if (!R || !R.fb) return;
+  R.fb = null; R.i++;
+  if (R.i >= R.q.length) { addXp(20); R.xp += 20; beep(true); go('done'); confetti(); return; }
+  render(); enterEx(); window.scrollTo(0, 0);
+}
+function done() {
+  const acc = R.ok + R.miss ? Math.round(R.ok / (R.ok + R.miss) * 100) : 100, more = dueItems().length || (curStation() ? 1 : 0);
+  return `<div class="ex center" style="padding-top:40px"><span class="lab">Fahrt beendet</span><div class="hero-n">+${R.xp} XP</div>
+    <div class="stats" style="width:100%"><div class="stat"><b>${acc}%</b><span>first-try accuracy</span></div><div class="stat"><b>${R.learned}</b><span>new sentences</span></div><div class="stat"><b>${streakNow()}</b><span>day streak</span></div></div>
+    <p class="mute">${dayXp() >= S.goal ? 'Daily goal reached. Anything more is a bonus.' : `${S.goal - dayXp()} XP to go for today's goal.`}</p>
+    ${more ? '<button class="btn pri wide" data-act="ride" data-focus>Noch eine Fahrt</button>' : ''}
+    <div class="row" style="width:100%"><button class="btn" style="flex:1" data-act="go" data-v="blitz">Artikel-Blitz</button><button class="btn" style="flex:1" data-act="go" data-v="home">Home</button></div></div>`;
+}
+
+/* ---------- games ---------- */
+const NOUNS = ['r', 'e', 's'].flatMap(g => D.nouns[g].split(',').map(s => { const i = s.indexOf(' '); return { g, de: s.slice(0, i), en: s.slice(i + 1) }; }));
+const VERBS = D.verbs.split(';').map(s => { const [inf, pr, pf, en] = s.split('|'); return { inf, pr, pf, en }; });
+const ART = { r: 'der', e: 'die', s: 'das' };
+function tip(n) {
+  if (/(ung|heit|keit|schaft|ion|tät)$/.test(n.de)) return 'Nouns ending in -' + n.de.match(/(ung|heit|keit|schaft|ion|tät)$/)[0] + ' are always die.';
+  if (/(chen|lein)$/.test(n.de)) return 'Diminutives on -chen are always das.';
+  if (/(tag|Sommer|Winter|Regen|Schnee|Wind)$/.test(n.de)) return 'Days, seasons and weather are mostly der.';
+  return '';
+}
+function games() {
+  return header() + `<div><h1>Spiele</h1><p class="mute">Two minutes each. They drill the things German never lets you guess.</p></div>
+  <div class="tiles"><button class="tile" data-act="go" data-v="blitz"><b>Artikel-Blitz</b><span>der, die or das against the clock</span><span class="num">Best ${S.hi.blitz}</span></button>
+  <button class="tile" data-act="go" data-v="verb"><b>Verb-Sprint</b><span>Type the past forms of 40 strong verbs</span><span class="num">Best ${S.hi.verb}/10</span></button></div>`;
+}
+function blitz() {
+  if (!G || G.kind !== 'blitz') G = { kind: 'blitz', state: 'idle' };
+  if (G.state === 'idle') return `<button class="back" data-act="go" data-v="games">← Spiele</button><div class="ex center" style="padding-top:30px"><h1>Artikel-Blitz</h1>
+    <p class="mute">45 seconds. Tap the right article, or press 1, 2, 3.</p><p class="num">Best ${S.hi.blitz}</p><button class="btn pri wide" data-act="bstart" data-focus>Start</button></div>`;
+  if (G.state === 'over') return `<div class="ex center" style="padding-top:40px"><span class="lab">Zeit um</span><div class="hero-n">${G.score}</div><p class="mute">${G.score >= S.hi.blitz && G.score ? 'New personal best.' : 'Best ' + S.hi.blitz}  ·  +${G.xp} XP</p>
+    ${G.missed.length ? `<div class="card" style="width:100%;text-align:left"><span class="lab">Look at these again</span><div>${G.missed.map(n => `<div class="sent"><div><b class="${n.g}-c">${ART[n.g]}</b> ${esc(n.de)}<small>${esc(n.en)}</small></div></div>`).join('')}</div></div>` : ''}
+    <button class="btn pri wide" data-act="bstart" data-focus>Nochmal</button><button class="btn wide" data-act="go" data-v="home">Home</button></div>`;
+  const n = G.cur;
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="games" aria-label="Quit">✕</button><div class="bar"><i id="tbar" style="width:${G.left / 45 * 100}%"></i></div><span class="combo num">${G.score}</span></div>
+    <div class="ex center" style="padding-top:36px"><div class="noun">${esc(n.de)}</div><p class="en">${esc(n.en)}</p>
+    <p class="flash ${G.flash ? G.flash.c : ''}">${G.flash ? esc(G.flash.t) : '&nbsp;'}</p>
+    <div class="g3">${['r', 'e', 's'].map(g => `<button class="${g}" data-act="bans" data-v="${g}">${ART[g]}</button>`).join('')}</div></div>`;
+}
+function bstart() {
+  if (G && G.timer) clearInterval(G.timer);
+  G = { kind: 'blitz', state: 'play', score: 0, left: 45, deck: shuffle(NOUNS), missed: [], flash: null };
+  G.cur = G.deck.pop();
+  G.timer = setInterval(() => {
+    G.left -= 0.1; const b = document.getElementById('tbar'); if (b) b.style.width = Math.max(0, G.left / 45 * 100) + '%';
+    if (G.left <= 0) { clearInterval(G.timer); G.timer = 0; G.state = 'over'; G.xp = Math.min(60, G.score * 2); if (G.score > S.hi.blitz) { S.hi.blitz = G.score; confetti(); } if (G.xp) addXp(G.xp); else save(); render(); }
+  }, 100);
+  render();
+}
+function bans(g) {
+  if (!G || G.state !== 'play') return;
+  const n = G.cur, ok = g === n.g;
+  if (ok) G.score++; else if (!G.missed.includes(n)) G.missed.push(n);
+  G.flash = ok ? { c: 'ok', t: ART[n.g] + ' ' + n.de } : { c: 'no', t: (ART[n.g] + ' ' + n.de + '. ' + tip(n)).trim().replace(/\.$/, m => tip(n) ? m : '') };
+  beep(ok); if (!G.deck.length) G.deck = shuffle(NOUNS); G.cur = G.deck.pop(); render();
+}
+function verb() {
+  if (!G || G.kind !== 'verb') G = { kind: 'verb', state: 'idle' };
+  if (G.state === 'idle') return `<button class="back" data-act="go" data-v="games">← Spiele</button><div class="ex center" style="padding-top:30px"><h1>Verb-Sprint</h1>
+    <p class="mute">Ten strong verbs. Type the form for er/sie, for example <b>ging</b> or <b>ist gegangen</b>.</p><p class="num">Best ${S.hi.verb}/10</p><button class="btn pri wide" data-act="vstart" data-focus>Start</button></div>`;
+  if (G.state === 'over') return `<div class="ex center" style="padding-top:40px"><span class="lab">Geschafft</span><div class="hero-n">${G.score}/10</div><p class="mute">+${G.score * 5} XP</p>
+    <button class="btn pri wide" data-act="vstart" data-focus>Nochmal</button><button class="btn wide" data-act="go" data-v="home">Home</button></div>`;
+  const q = G.qs[G.i], fb = G.fb;
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="games" aria-label="Quit">✕</button><div class="bar"><i style="width:${G.i * 10}%"></i></div><span class="combo num">${G.score}</span></div>
+    <div class="ex"><span class="lab">${q.form === 'pr' ? 'Präteritum · er/sie' : 'Perfekt · er/sie'}</span><div class="noun">${esc(q.v.inf)}</div><p class="en">to ${esc(q.v.en)}</p>
+    <input class="inp" id="ans" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${q.form === 'pr' ? 'er …' : 'er hat / ist …'}" ${fb ? `disabled value="${esc(fb.given)}"` : 'data-focus'}>
+    ${fb ? `<div class="fb ${fb.ok ? '' : 'no'}"><h3>${fb.ok ? 'Richtig!' : 'Not quite'}</h3><p class="ans">${esc(q.v.inf)} · ${esc(q.v.pr)} · ${esc(q.v.pf)}</p><button class="btn pri wide" data-act="vnext" data-focus>Weiter</button></div>` : UML('ans') + '<button class="btn pri wide" data-act="vcheck">Check</button>'}</div>`;
+}
+function vcheck() {
+  const q = G.qs[G.i], given = document.getElementById('ans').value.trim(); if (!given || G.fb) return;
+  const ok = norm(given) === norm(q.v[q.form]);
+  if (ok) G.score++; beep(ok); G.fb = { ok, given }; render();
+}
+function vnext() {
+  G.fb = null; G.i++;
+  if (G.i >= 10) { G.state = 'over'; if (G.score > S.hi.verb) S.hi.verb = G.score; if (G.score) addXp(G.score * 5); else save(); if (G.score >= 8) confetti(); }
+  render();
+}
+
+/* ---------- AI tutor ---------- */
+const aiErr = e => ({ not_granted: 'The tutor is switched off for this page. Allow it in the page\'s Permissions menu.', rate_limited: 'Too many requests. Give it a moment and try again.', cancelled: '' }[e && e.code] ?? 'The tutor didn\'t answer. Try again.');
+function tutor() {
+  const L = lvlNow();
+  return header() + `<div><h1>Tutor</h1><p class="mute">Real conversation at your level (${L}), with every message corrected.</p></div>` +
+    (AI ? '' : '<div class="card"><b>The tutor needs Claude.</b><span class="mute small">Open Wortwerk from your Claude artifacts to chat, get stories and extra sentences. Lessons and games work everywhere.</span></div>') +
+    `<div class="tiles">${D.scenes.map(s => `<button class="tile" data-act="chat" data-id="${s.id}" ${AI ? '' : 'disabled'}><b>${esc(s.t)}</b><span>${esc(s.en)}</span>${s.lvl ? `<span class="roundel ${s.lvl}" style="align-self:flex-start;margin-top:4px">${s.lvl}</span>` : ''}</button>`).join('')}</div>
+    <button class="btn wide" data-act="story" ${AI ? '' : 'disabled'}>Write me a story to read</button>`;
+}
+function startChat(id) {
+  const sc = D.scenes.find(s => s.id === id), L = sc.lvl && 'A1A2B1B2'.indexOf(sc.lvl) > 'A1A2B1B2'.indexOf(lvlNow()) ? sc.lvl : lvlNow();
+  const rules = `You are part of a German learning app. ${sc.p}
+Learner level: ${L} (CEFR). Stay strictly at that level in vocabulary and grammar.
+Rules for EVERY reply:
+1. Write your in-role reply ONLY in German, ${sc.write ? 'as described' : '1 to 3 short sentences, and end with a question or prompt that keeps the conversation going'}.
+2. Then a line containing exactly ### and after it feedback in English on the learner's LAST message: ${sc.write ? 'list every mistake as "wrong → right (short reason)", then give the fully corrected text.' : 'if it had mistakes, give the corrected German sentence and a one-line reason; if it was correct write "Perfekt ✓" and, when useful, one more natural way to say it.'}
+3. No markdown, no translations of your own reply.
+Begin now with your first in-role line. For this first message leave out the ### part.`;
+  C = { sc, turns: [{ role: 'user', content: rules }], busy: false, err: '' };
+  go('chat'); ask();
+}
+async function ask() {
+  C.busy = true; C.err = ''; render();
+  aiCtl = new AbortController();
+  try {
+    const { text } = await AI(C.turns, { cache: false, signal: aiCtl.signal, onText: ({ text }) => { const el = document.getElementById('live'); if (el) el.textContent = text.split('###')[0].trim() || '…'; } });
+    C.turns.push({ role: 'assistant', content: text });
+    if (C.turns.length > 3) addXp(6);
+  } catch (e) { C.err = aiErr(e); if (C.turns[C.turns.length - 1].role === 'user' && C.turns.length > 1) C.draft = C.turns.pop().content; }
+  C.busy = false;
+  if (V.name === 'chat') { render(); window.scrollTo(0, document.body.scrollHeight); }
+}
+function chat() {
+  let h = '';
+  C.turns.forEach((t, i) => {
+    if (i === 0) return;
+    if (t.role === 'user') h += `<div class="msg me">${esc(t.content)}</div>`;
+    else { const [de, note] = t.content.split('###'); if (note && note.trim()) h += `<div class="note">${esc(note.trim())}</div>`; h += `<div class="msg them">${esc(de.trim())}</div><div class="msgact">${spk(de.trim())}${t.tr ? '' : `<button class="btn sm" data-act="tr" data-i="${i}">Translate</button>`}</div>${t.tr ? `<div class="small mute">${esc(t.tr)}</div>` : ''}`; }
+  });
+  if (C.busy) h += '<div class="msg them" id="live">…</div>';
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="tutor" aria-label="Leave">✕</button><div><b>${esc(C.sc.t)}</b><div class="small mute">${esc(C.sc.en)}</div></div></div>
+    <div class="msgs">${h}</div>${C.err ? `<p class="small" style="color:var(--bad)">${esc(C.err)}</p>` : ''}
+    <div class="send"><textarea class="inp" id="msg" rows="2" placeholder="Schreib auf Deutsch…" ${C.busy ? 'disabled' : 'data-focus'}>${esc(C.draft || '')}</textarea>
+    <div class="row">${UML('msg')}<span class="sp"></span><button class="btn pri" data-act="send" ${C.busy ? 'disabled' : ''}>Senden</button></div></div>`;
+}
+function send() {
+  const el = document.getElementById('msg'), v = el.value.trim(); if (!v || C.busy) return;
+  if (DICT && DICT.active()) DICT.stop().catch(() => {});
+  C.draft = ''; C.turns.push({ role: 'user', content: v }); ask();
+}
+async function translate(i) {
+  const t = C.turns[i]; if (!t || t.tr) return; t.tr = '…'; render();
+  try { t.tr = (await AI('Translate this German into natural English. Output only the translation.\n\n' + t.content.split('###')[0], { modelTier: 'quick' })).text.trim(); } catch (e) { t.tr = ''; toast(aiErr(e)); }
+  if (V.name === 'chat') render();
+}
+async function why() {
+  const e = R.q[R.i], fb = R.fb; if (!fb || fb.why) return; fb.why = 'Thinking…'; render();
+  try {
+    fb.why = (await AI(`A German learner (level ${byId(e.x.sid).lvl}) got an exercise wrong.\nCorrect sentence: ${e.x.de}\nMeaning: ${e.x.en}\nTested word: ${e.x.ans}\nLearner's answer: ${fb.given || '(blank)'}\nExplain in at most 2 short English sentences why the correct version is right and what rule the learner should remember. Plain text, no markdown.`, { modelTier: 'quick' })).text.trim();
+  } catch (err) { fb.why = ''; toast(aiErr(err)); }
+  if (V.name === 'ride' && R.fb === fb) render();
+}
+async function more(sid) {
+  const st = byId(sid); if (V.busy) return; V.busy = true; render();
+  try {
+    const have = itemsOf(st).map(x => x.de);
+    const out = await AI.json(`Create 8 new practice sentences for a German course.
+Level: ${st.lvl}. Grammar focus: ${st.name} (${st.sub}).
+Rules of this unit:\n- ${st.g.join('\n- ').replace(/\*/g, '')}
+Return ONLY a JSON array of 8 objects {"de": string, "en": string}.
+In "de", wrap exactly ONE word (the one that tests the grammar focus) in braces together with two wrong alternatives, correct one first: {right/wrong1/wrong2}. The wrong alternatives must be clearly, unambiguously incorrect in that sentence. Natural everyday sentences, 5 to 12 words, vocabulary suitable for ${st.lvl}, each on a different topic. No pipe characters.
+Examples of the format:\n${st.items.slice(0, 2).map(r => { const c = r.lastIndexOf('|'); return JSON.stringify({ de: r.slice(0, c), en: r.slice(c + 1) }); }).join('\n')}
+Do not repeat these sentences:\n${have.join('\n')}`);
+    const good = (Array.isArray(out) ? out : []).filter(o => o && typeof o.de === 'string' && typeof o.en === 'string' && !/\|/.test(o.de + o.en)).map(o => o.de.trim() + '|' + o.en.trim()).filter(r => { const p = parse(r, 'x', sid); return p && !have.includes(p.de); });
+    if (!good.length) throw { code: 'empty' };
+    S.extra[sid] = (S.extra[sid] || []).concat(good).slice(0, 48); save(); toast(good.length + ' new sentences added to this station.');
+  } catch (e) { toast(aiErr(e)); }
+  if (V.name === 'station') { V.busy = false; render(); }
+}
+async function startStory(sid) {
+  const st = sid ? byId(sid) : (curStation() || D.stations[D.stations.length - 1]), L = st.lvl, words = { A1: 90, A2: 130, B1: 180, B2: 240 }[L];
+  ST = { st, busy: true, data: null, err: '', ans: {} }; go('story');
+  aiCtl = new AbortController();
+  try {
+    const d = await AI.json(`Write an engaging short story in German for a learner at CEFR level ${L}, about ${words} words, with a small twist or joke at the end. Use the grammar "${st.name} (${st.sub})" several times, naturally. Seed for variety: ${Math.random().toString(36).slice(2, 7)}.
+Return ONLY JSON: {"title": string, "text": string (paragraphs separated by \\n\\n), "glossary": [6 objects {"de","en"} for the hardest words], "questions": [3 objects {"q": question in German, "options": [3 short German answers], "answer": index of the correct option}]}`, { signal: aiCtl.signal, cache: false });
+    if (!d || !d.text || !Array.isArray(d.questions)) throw { code: 'empty' };
+    ST.data = d;
+  } catch (e) { ST.err = aiErr(e) || 'Stopped.'; }
+  ST.busy = false; if (V.name === 'story') render();
+}
+function story() {
+  const back = '<button class="back" data-act="go" data-v="tutor">← Tutor</button>';
+  if (ST.busy) return back + `<div class="ex center" style="padding-top:60px"><div class="spin"></div><p class="mute">Writing a ${ST.st.lvl} story around “${esc(ST.st.name)}”. This takes up to a minute.</p></div>`;
+  if (ST.err) return back + `<div class="card"><b>${esc(ST.err)}</b><button class="btn" data-act="story" data-id="${ST.st.id}">Try again</button></div>`;
+  const d = ST.data, paras = String(d.text).split(/\n\n+/);
+  return back + `<span class="lab">${ST.st.lvl} · Lesestück</span><h1>${esc(d.title)}</h1>
+    ${paras.map(p => `<div class="row" style="align-items:flex-start;flex-wrap:nowrap"><p class="story" style="flex:1;min-width:0">${esc(p)}</p>${spk(p)}</div>`).join('')}
+    ${Array.isArray(d.glossary) ? `<div class="gloss">${d.glossary.map(g => `<span><b>${esc(g.de)}</b> ${esc(g.en)}</span>`).join('')}</div>` : ''}
+    ${d.questions.slice(0, 3).map((q, qi) => `<div class="card"><b>${esc(q.q)}</b><div class="opts">${(q.options || []).map((o, oi) => { const a = ST.ans[qi]; return `<button class="opt ${a != null ? (oi === q.answer ? 'ok' : oi === a ? 'no' : '') : ''}" data-act="sq" data-q="${qi}" data-o="${oi}" ${a != null ? 'disabled' : ''}>${esc(o)}</button>`; }).join('')}</div></div>`).join('')}
+    <button class="btn pri wide" data-act="story" data-id="${ST.st.id}">Another story</button>`;
+}
+
+/* ---------- profile ---------- */
+function me() {
+  const its = allItems().filter(seen), strong = its.filter(x => S.it[x.id][0] >= 5).length;
+  const bars = []; let mx = S.goal; for (let i = 13; i >= 0; i--) mx = Math.max(mx, S.hist[dstr(Date.now() - i * DAY)] || 0);
+  for (let i = 13; i >= 0; i--) { const x = S.hist[dstr(Date.now() - i * DAY)] || 0; bars.push(`<i class="${x >= S.goal ? 'hit' : x ? 'some' : ''}" style="height:${Math.max(3, x / mx * 100)}%" title="${x} XP"></i>`); }
+  const seg = (key, opts) => `<div class="seg-ctl">${opts.map(([v, l]) => `<button class="${S[key] === v ? 'on' : ''}" data-act="set" data-k="${key}" data-v="${v}">${l}</button>`).join('')}</div>`;
+  return header() + `<h1>Ich</h1>
+  <div class="stats four"><div class="stat"><b>${S.xp}</b><span>total XP</span></div><div class="stat"><b>${its.length}</b><span>sentences learned</span></div><div class="stat"><b>${strong}</b><span>in long-term memory</span></div><div class="stat"><b>${D.stations.filter(stDone).length}/${D.stations.length}</b><span>stations</span></div></div>
+  <div class="card"><span class="lab">Last 14 days</span><div class="chart">${bars.join('')}</div></div>
+  <div class="card"><span class="lab">Settings</span>
+    <div class="row"><span>Daily goal</span><span class="sp"></span>${seg('goal', [[60, '10 min'], [100, '20 min'], [160, '30 min']])}</div>
+    <div class="row"><span>Read answers aloud</span><span class="sp"></span>${seg('audio', [[true, 'On'], [false, 'Off']])}</div>
+    <div class="row"><span>Sound effects</span><span class="sp"></span>${seg('sfx', [[true, 'On'], [false, 'Off']])}</div>
+    <p class="small mute">${cloudReady ? 'Progress is saved to your Claude account and follows you across devices.' : 'Progress is saved in this browser.'}</p></div>
+  <div class="card"><span class="lab">Start over</span>${V.confirm ? `<p>This erases all XP, streaks and learned sentences.</p><div class="row"><button class="btn sm" style="color:var(--bad)" data-act="reset">Yes, erase everything</button><button class="btn sm" data-act="unconfirm">Keep my progress</button></div>` : '<button class="btn sm" data-act="confirm" style="align-self:flex-start">Reset progress</button>'}</div>`;
+}
+
+/* ---------- events ---------- */
+const acts = {
+  go: el => go(el.dataset.v, el.dataset.id),
+  board: el => { S.cur = +el.dataset.v; S.planBase = S.cur; S.start = Date.now(); save(); startRide(); },
+  ride: el => startRide(el.dataset.id),
+  setcur: el => { S.cur = D.stations.indexOf(byId(el.dataset.id)); save(); toast('Route updated.'); render(); },
+  say: el => say(el.dataset.t, !!el.dataset.slow),
+  mc: el => grade(el.dataset.v === R.q[R.i].x.ans, el.dataset.v),
+  pick: el => { const e = R.q[R.i]; e.pick.push(+el.dataset.k); render(); },
+  unpick: el => { const e = R.q[R.i]; e.pick.splice(+el.dataset.k, 1); render(); },
+  check, next: nextEx, why,
+  skip: () => { R.fb = { ok: true, given: '', xp: 0, word: 'Skipped' }; render(); },
+  override: () => {
+    const e = R.q[R.i], x = e.x, i = R.q.indexOf(e.re); if (i > -1) R.q.splice(i, 1);
+    if (!e.free && !e.isNew && e.prev) { const st = Math.min(8, e.prev[0] + 1); S.it[x.id] = [st, midnight() + IV[st] * DAY]; }
+    if (e.isNew && e.last && !e.free) { S.it[x.id] = [1, midnight() + DAY]; R.learned++; }
+    R.miss--; R.ok++; R.xp += 10; addXp(10); R.fb.ok = true; R.fb.xp = 10; R.fb.word = 'Counted'; render();
+  },
+  quit: () => go('home'),
+  uml: el => { const t = document.getElementById(el.dataset.for); if (!t) return; const s = t.selectionStart ?? t.value.length, e2 = t.selectionEnd ?? s; t.value = t.value.slice(0, s) + el.dataset.c + t.value.slice(e2); t.focus(); t.setSelectionRange(s + 1, s + 1); },
+  mic: el => {
+    if (!DICT) return;
+    if (DICT.active()) { DICT.stop().catch(() => {}); return; }
+    dictFor = el.dataset.for;
+    DICT.start({ language: 'de' }).catch(e => { if (e && e.code === 'unavailable') { DICT = null; render(); toast('Dictation isn\'t available here.'); } else if (e && e.code === 'not_granted') toast('Microphone access is off for this page.'); });
+  },
+  bstart, bans: el => bans(el.dataset.v), vstart: () => { G = { kind: 'verb', state: 'play', i: 0, score: 0, fb: null, qs: shuffle(VERBS).slice(0, 10).map(v => ({ v, form: Math.random() < 0.5 ? 'pr' : 'pf' })) }; render(); },
+  vcheck, vnext,
+  chat: el => startChat(el.dataset.id), send, tr: el => translate(+el.dataset.i),
+  more: el => more(el.dataset.id), story: el => startStory(el.dataset.id),
+  sq: el => { const q = +el.dataset.q, o = +el.dataset.o; if (ST.ans[q] != null) return; ST.ans[q] = o; const ok = o === ST.data.questions[q].answer; beep(ok); if (ok) addXp(8); render(); },
+  set: el => { const k = el.dataset.k, v = el.dataset.v; S[k] = k === 'goal' ? +v : v === 'true'; save(); render(); },
+  confirm: () => { V.confirm = true; render(); }, unconfirm: () => { V.confirm = false; render(); },
+  reset: () => { S = fresh(); save(); if (cloudReady) push(); go('home'); toast('Progress erased.'); }
+};
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-act]'); if (!el || el.disabled) return;
+  const f = acts[el.dataset.act]; if (f) f(el);
+});
+document.addEventListener('keydown', ev => {
+  const inField = /^(INPUT|TEXTAREA)$/.test(ev.target.tagName);
+  if (ev.key === 'Enter' && !ev.shiftKey) {
+    if (V.name === 'ride') { ev.preventDefault(); if (R.fb) nextEx(); else if (R.q[R.i].type !== 'mc') { const b = app.querySelector('[data-act="check"]'); if (b && !b.disabled) check(); } }
+    else if (V.name === 'verb' && G && G.state === 'play') { ev.preventDefault(); if (G.fb) vnext(); else vcheck(); }
+    else if (V.name === 'chat' && inField) { ev.preventDefault(); send(); }
+    return;
+  }
+  if (inField) return;
+  const n = '123'.indexOf(ev.key);
+  if (n > -1) {
+    if (V.name === 'ride' && !R.fb && R.q[R.i].type === 'mc') { const o = R.q[R.i].opts[n]; if (o) grade(o === R.q[R.i].x.ans, o); }
+    else if (V.name === 'blitz') bans('res'[n]);
+  }
+});
+render();
+initCloud();
+})();
+</script>
+</body></html>
