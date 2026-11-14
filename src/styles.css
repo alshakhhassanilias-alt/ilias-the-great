@@ -261,3 +261,4 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .btn.mic.on,.uml .mic.on{background:var(--bad);color:#fff;border-color:var(--bad)}
 .tile[disabled]{cursor:default}
 @media (max-width:420px){.facts b{font-size:1.35rem}.skill{grid-template-columns:minmax(0,1fr) 70px 40px}}
+.btn svg{width:18px;height:18px;flex:none}

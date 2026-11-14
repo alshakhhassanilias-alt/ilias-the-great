@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 /* ================= setup ================= */
-const D = window.WW_DATA, PLUS = window.WW_PLUS || {}, VOC = window.WW_VOCAB || [];
+const D = window.WW_DATA, PLUS = window.WW_PLUS || {}, VOC = window.WW_VOCAB || [], READ = window.WW_READ || [];
 const app = document.getElementById('app'), nav = document.getElementById('nav');
 const IN_CLAUDE = !!(window.claude && window.claude.use);
 const CLAUDE_URL = 'https://claude.ai/artifact/Gq2uRDQ5m5fL9SgLEG7iPZ';
@@ -100,7 +100,7 @@ LV.forEach(l => {
 });
 
 /* ================= state ================= */
-const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true } });
+const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, read: {}, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true } });
 let S = fresh();
 function migrate(r) {
   if (!r) return null;
@@ -382,7 +382,7 @@ function checkSent(target, input) {
 
 /* ================= sessions ================= */
 let V = { name: 'home' }, R = null, G = null, C = null, ST = null;
-const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb'];
+const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb', 'reader'];
 function newWordBlock(ws) {
   const q = [];
   ws.forEach(w => q.push({ t: 'wIntro', x: w, isNew: true }));
@@ -570,7 +570,7 @@ function lessonHtml(card, e, readOnly) {
 function go(name, id, extra) { cleanup(); V = Object.assign({ name, id }, extra || {}); render(); window.scrollTo(0, 0); }
 function cleanup() { if (G && G.timer) { clearInterval(G.timer); G.timer = 0; } if (aiCtl) { aiCtl.abort(); aiCtl = null; } micStop(); }
 const NAV = [['home', 'Heute'], ['course', 'Kurs'], ['words', 'Wörter'], ['practice', 'Üben'], ['me', 'Ich']];
-const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice' };
+const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice', read: 'practice' };
 function render() {
   if (!S.prof.onboarded && !['onb', 'ride', 'done', 'method'].includes(V.name)) V = { name: 'onb', step: 0 };
   const fn = VIEWS[V.name] || VIEWS.home;
@@ -646,6 +646,7 @@ VIEWS.home = () => {
     <div class="row small"><span class="mute">Logged outside Wortwerk today: <b class="num">${S.out[today()] || 0} min</b></span><span class="sp"></span>${[15, 30].map(m => `<button class="btn sm" data-act="logout" data-v="${m}">+${m} min</button>`).join('')}</div></div>
   <div class="tiles">
     <button class="tile" data-act="weak"><b>Schwachstellen</b><span>Train the items you get wrong most.</span></button>
+    ${nextRead() ? `<button class="tile" data-act="go" data-v="reader" data-id="${nextRead().id}"><b>Lesen</b><span>${esc(nextRead().t)} · ${nextRead().lvl}</span></button>` : ''}
     <button class="tile" data-act="go" data-v="practice"><b>Üben</b><span>Listening, speaking, games${AI ? ', tutor' : ''}.</span></button>
   </div>`;
 };
@@ -718,6 +719,7 @@ VIEWS.practice = () => {
     <button class="tile" data-act="weak" ${weak ? '' : 'disabled'}><b>Schwachstellen</b><span>${weak} items you've struggled with</span></button>
     <button class="tile" data-act="listen" ${n && canSpeak() ? '' : 'disabled'}><b>Hörtraining</b><span>Understand spoken German</span></button>
     <button class="tile" data-act="speak" ${n && canMic() ? '' : 'disabled'}><b>Sprechtraining</b><span>${canMic() ? 'Read aloud, get checked' : 'Needs a browser with speech recognition'}</span></button>
+    <button class="tile" data-act="go" data-v="read"><b>Lesen</b><span>${READ.length} graded texts with questions. ${Object.keys(S.read).length} read</span></button>
     <button class="tile" data-act="go" data-v="blitz"><b>Artikel-Blitz</b><span>der, die or das? 45 seconds. Best ${S.hi.blitz}</span></button>
     <button class="tile" data-act="go" data-v="verb"><b>Verb-Sprint</b><span>Past forms of strong verbs. Best ${S.hi.verb}/10</span></button>
   </div>
@@ -852,6 +854,24 @@ VIEWS.done = () => {
     <p class="mute">${mt >= goal ? 'Daily goal reached. Anything more is a bonus.' : `${goal - mt} more minutes to reach today's goal.`} ${tomorrow} reviews are lined up for tomorrow.</p>
     ${mt < goal || p.due ? '<button class="btn pri wide" data-act="daily" data-focus>Noch eine Fahrt</button>' : ''}
     <div class="row" style="width:100%"><button class="btn" style="flex:1" data-act="go" data-v="practice">Üben</button><button class="btn" style="flex:1" data-act="go" data-v="home">Home</button></div></div>`;
+};
+
+/* ---------- reading ---------- */
+function nextRead() { const l = LV.indexOf(lvlNow()); return READ.find(r => S.read[r.id] == null && LV.indexOf(r.lvl) <= l) || null; }
+VIEWS.read = () => header() + `<div><h1>Lesen</h1><p class="mute">Short texts written for each level. Read, listen, answer three questions, and save new words to learn.</p></div>` +
+  LV.map(l => `<div class="linehd"><span class="roundel ${l}">${LINE[l]}</span><h2>${l}</h2></div>` + READ.filter(r => r.lvl === l).map(r => `<button class="prow" data-act="go" data-v="reader" data-id="${r.id}"><span class="t"><b>${esc(r.t)}</b><span>${r.text.split(/\s+/).length} words · ${r.gl.length} key words</span></span>${S.read[r.id] != null ? `<span class="pill ${S.read[r.id] === 3 ? 'good' : ''}">${S.read[r.id]}/3</span>` : '<span class="pill ghost">new</span>'}</button>`).join('')).join('');
+VIEWS.reader = () => {
+  const r = READ.find(x => x.id === V.id) || READ[0]; V.ans = V.ans || {}; V.t0 = V.t0 || Date.now();
+  const paras = r.text.split(/\n\n+/), done = Object.keys(V.ans).length === r.q.length;
+  const score = r.q.filter((q, i) => V.ans[i] === q[2]).length;
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="read" aria-label="Close">✕</button><span class="lab">${r.lvl} · Lesestück</span></div>
+    <h1>${esc(r.t)}</h1>
+    ${canSpeak() ? `<button class="btn sm" data-act="say" data-t="${esc(r.text.replace(/\n+/g, ' '))}" style="align-self:flex-start">${ICON.spk} Read it to me</button>` : ''}
+    ${paras.map(p => `<div class="row" style="align-items:flex-start;flex-wrap:nowrap"><p class="story" style="flex:1;min-width:0">${esc(p)}</p>${spk(p)}</div>`).join('')}
+    <div class="card"><span class="lab">Key words</span><div class="gloss">${r.gl.map(g => `<span><b>${esc(g[0])}</b> ${esc(g[1])}</span>`).join('')}</div>
+      <button class="btn sm" data-act="readsave" data-id="${r.id}" style="align-self:flex-start" ${r.gl.every(g => S.my.some(l => l.split('|')[0] === g[0])) ? 'disabled' : ''}>${r.gl.every(g => S.my.some(l => l.split('|')[0] === g[0])) ? 'Saved to Meine Wörter' : 'Save these words to learn'}</button></div>
+    ${r.q.map((q, qi) => { const a = V.ans[qi]; return `<div class="card"><b>${qi + 1}. ${esc(q[0])}</b><div class="opts">${q[1].map((o, oi) => `<button class="opt ${a != null ? (oi === q[2] ? 'ok' : oi === a ? 'no' : '') : ''}" data-act="rq" data-q="${qi}" data-o="${oi}" ${a != null ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div></div>`; }).join('')}
+    ${done ? `<div class="fb ${score === r.q.length ? '' : 'no'}"><h3>${score} of ${r.q.length} right</h3><p class="small">${score === r.q.length ? 'You understood the whole text.' : 'Read the text again and look for the answers.'}</p>${nextRead() ? `<button class="btn pri wide" data-act="go" data-v="reader" data-id="${nextRead().id}">Next text</button>` : ''}<button class="btn wide" data-act="go" data-v="read">All texts</button></div>` : ''}`;
 };
 
 /* ---------- games ---------- */
@@ -1062,6 +1082,18 @@ const acts = {
     gl.forEach(g => { const line = [g.de, g.en, g.ex || '', g.exEn || ''].map(s => String(s).replace(/\|/g, '/').replace(/\n/g, ' ')).join('|'); if (!S.my.some(l => l.split('|')[0] === line.split('|')[0])) S.my.push(line); });
     buildMyPack(); MYPACK.words.forEach(w => { if (!learned(w.id) && !S.soon.includes(w.id)) S.soon.push(w.id); });
     ST.added = true; save(); toast('Saved. They\'ll appear in your next sessions.'); render();
+  },
+  rq: el => {
+    const r = READ.find(x => x.id === V.id), qi = +el.dataset.q, o = +el.dataset.o; if (V.ans[qi] != null) return;
+    V.ans[qi] = o; const ok = o === r.q[qi][2]; beep(ok); stat('rec', ok); dayTouch(); const h = H(); h.a++; if (ok) { h.c++; addXp(8); }
+    if (Object.keys(V.ans).length === r.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.read[r.id] = Math.max(S.read[r.id] || 0, r.q.filter((q, i) => V.ans[i] === q[2]).length); }
+    save(); render();
+  },
+  readsave: el => {
+    const r = READ.find(x => x.id === el.dataset.id);
+    r.gl.forEach(g => { if (!S.my.some(l => l.split('|')[0] === g[0])) { const sent = r.text.split(/(?<=[.!?“])\s+/).find(s => s.includes(g[0].replace(/^(der|die|das) /, ''))) || ''; S.my.push([g[0], g[1], sent.replace(/\n/g, ' ').replace(/\|/g, '/'), ''].join('|')); } });
+    buildMyPack(); MYPACK.words.forEach(w => { if (!learned(w.id) && !S.soon.includes(w.id)) S.soon.push(w.id); });
+    save(); toast('Saved. They\'ll appear in your next sessions.'); render();
   },
   wopen: el => { V.open = V.open === el.dataset.id ? null : el.dataset.id; render(); },
   wlvl: el => { V.lvl = el.dataset.v; render(); },

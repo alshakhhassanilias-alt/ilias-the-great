@@ -265,6 +265,7 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .btn.mic.on,.uml .mic.on{background:var(--bad);color:#fff;border-color:var(--bad)}
 .tile[disabled]{cursor:default}
 @media (max-width:420px){.facts b{font-size:1.35rem}.skill{grid-template-columns:minmax(0,1fr) 70px 40px}}
+.btn svg{width:18px;height:18px;flex:none}
 </style>
 <main id="app" class="wrap"></main>
 <nav id="nav" aria-label="Sections"></nav>
@@ -3911,10 +3912,855 @@ verbreiten|to spread|Die Nachricht hat sich schnell verbreitet.|The news spread 
 die Unterhaltung|entertainment; conversation|Das Programm bietet gute Unterhaltung.|The programme offers good entertainment.` }
 );
 
+(window.WW_VOCAB = window.WW_VOCAB || []).push(
+{ id:'a1v15', lvl:'A1', t:'Länder & Sprachen', en:'Countries and nationalities', tag:'travel', w:`
+Österreich|Austria|Wien liegt in Österreich.|Vienna is in Austria.
+die Schweiz|Switzerland|In der Schweiz spricht man vier Sprachen.|Four languages are spoken in Switzerland.
+die Türkei|Turkey|Mein Vater kommt aus der Türkei.|My father is from Turkey.
+Syrien|Syria|Ich komme aus Syrien.|I come from Syria.
+Spanien|Spain|Im Sommer fahren wir nach Spanien.|In summer we go to Spain.
+Frankreich|France|Paris ist die Hauptstadt von Frankreich.|Paris is the capital of France.
+Italien|Italy|Italien ist bekannt für Pizza.|Italy is famous for pizza.
+Polen|Poland|Polen liegt neben Deutschland.|Poland is next to Germany.
+England|England|Er hat in England studiert.|He studied in England.
+Amerika|America|Mein Onkel lebt in Amerika.|My uncle lives in America.
+Europa|Europe|Deutschland liegt in Europa.|Germany is in Europe.
+die Hauptstadt, Hauptstädte|capital city|Berlin ist die Hauptstadt.|Berlin is the capital.
+deutsch|German (adjective)|Ich mag deutsches Brot.|I like German bread.
+der Deutsche, Deutschen|German (person, male)|Er ist Deutscher.|He's German.
+Arabisch|Arabic (language)|Ich spreche Arabisch und Deutsch.|I speak Arabic and German.
+Französisch|French (language)|Sie lernt Französisch.|She's learning French.
+Spanisch|Spanish (language)|Sprichst du Spanisch?|Do you speak Spanish?
+Türkisch|Turkish (language)|Meine Nachbarn sprechen Türkisch.|My neighbours speak Turkish.
+die Muttersprache, Muttersprachen|native language|Meine Muttersprache ist Arabisch.|My native language is Arabic.
+der Norden|north|Hamburg liegt im Norden.|Hamburg is in the north.
+der Süden|south|München liegt im Süden.|Munich is in the south.
+der Osten|east|Dresden liegt im Osten.|Dresden is in the east.
+der Westen|west|Köln liegt im Westen.|Cologne is in the west.
+die Welt, Welten|world|Ich möchte die Welt sehen.|I'd like to see the world.
+international|international|Die Schule ist international.|The school is international.
+ausländisch|foreign|Viele ausländische Studenten studieren hier.|Many foreign students study here.
+der Ausländer, Ausländer|foreigner|Als Ausländer braucht man einen Pass.|As a foreigner you need a passport.
+geboren|born|Ich bin in Damaskus geboren.|I was born in Damascus.
+zu Hause|at home|Ich bin zu Hause.|I'm at home.
+nach Hause|home (direction)|Ich gehe nach Hause.|I'm going home.` },
+
+{ id:'a1v16', lvl:'A1', t:'Tiere & Dinge', en:'Animals and everyday things', tag:'basics', w:`
+das Tier, Tiere|animal|Hast du ein Tier?|Do you have a pet?
+der Fisch, Fische|fish (animal)|Im See gibt es viele Fische.|There are lots of fish in the lake.
+die Maus, Mäuse|mouse|Die Katze jagt eine Maus.|The cat is chasing a mouse.
+das Ding, Dinge|thing|Was ist das für ein Ding?|What kind of thing is that?
+die Sache, Sachen|thing, matter|Pack deine Sachen!|Pack your things!
+die Tasche, Taschen|bag|Meine Tasche ist schwer.|My bag is heavy.
+der Rucksack, Rucksäcke|backpack|Ich nehme meinen Rucksack mit.|I'm taking my backpack.
+die Brille, Brillen|glasses|Ich brauche eine neue Brille.|I need new glasses.
+das Portemonnaie, Portemonnaies|wallet|Mein Portemonnaie ist leer.|My wallet is empty.
+der Regenschirm, Regenschirme|umbrella|Nimm einen Regenschirm mit!|Take an umbrella!
+die Uhr, Uhren|watch, clock|Meine Uhr ist kaputt.|My watch is broken.
+der Fernseher, Fernseher|TV set|Der Fernseher ist im Wohnzimmer.|The TV is in the living room.
+das Telefon, Telefone|telephone|Das Telefon klingelt.|The phone is ringing.
+der Kalender, Kalender|calendar|Ich schreibe den Termin in den Kalender.|I'm writing the appointment in the calendar.
+das Bild, Bilder|picture|Das Bild ist schön.|The picture is beautiful.
+der Ball, Bälle|ball|Die Kinder spielen mit dem Ball.|The children are playing with the ball.
+das Spielzeug|toy|Das Kind hat viel Spielzeug.|The child has lots of toys.
+die Zeitung, Zeitungen|newspaper|Mein Vater liest Zeitung.|My father reads the paper.
+die Seife, Seifen|soap|Wasch dir die Hände mit Seife.|Wash your hands with soap.
+das Handtuch, Handtücher|towel|Das Handtuch ist nass.|The towel is wet.
+die Zahnbürste, Zahnbürsten|toothbrush|Ich brauche eine neue Zahnbürste.|I need a new toothbrush.
+das Kissen, Kissen|pillow, cushion|Das Kissen ist weich.|The pillow is soft.
+der Spiegel, Spiegel|mirror|Der Spiegel hängt im Bad.|The mirror hangs in the bathroom.
+die Kamera, Kameras|camera|Ich habe eine neue Kamera.|I have a new camera.
+die Batterie, Batterien|battery|Die Batterie ist leer.|The battery is dead.
+das Geschirr|dishes|Ich spüle das Geschirr.|I'm washing the dishes.
+die Flasche, Flaschen|bottle|Die Flasche ist leer.|The bottle is empty.
+der Müll|rubbish|Wo ist der Müll?|Where's the rubbish?
+die Kerze, Kerzen|candle|Die Kerze brennt.|The candle is burning.
+das Geschenkpapier|wrapping paper|Hast du Geschenkpapier?|Do you have wrapping paper?` },
+
+{ id:'a2v14', lvl:'A2', t:'Berufe', en:'Jobs and professions', tag:'work', w:`
+der Verkäufer, Verkäufer|salesperson|Der Verkäufer ist freundlich.|The salesman is friendly.
+die Verkäuferin, Verkäuferinnen|saleswoman|Sie arbeitet als Verkäuferin.|She works as a saleswoman.
+der Polizist, Polizisten|police officer|Der Polizist hilft uns.|The police officer is helping us.
+der Fahrer, Fahrer|driver|Er ist Busfahrer.|He's a bus driver.
+der Bäcker, Bäcker|baker|Der Bäcker steht um vier auf.|The baker gets up at four.
+der Friseur, Friseure|hairdresser|Ich gehe heute zum Friseur.|I'm going to the hairdresser today.
+der Elektriker, Elektriker|electrician|Wir brauchen einen Elektriker.|We need an electrician.
+der Mechaniker, Mechaniker|mechanic|Der Mechaniker repariert das Auto.|The mechanic is repairing the car.
+der Programmierer, Programmierer|programmer|Sie ist Programmiererin.|She's a programmer.
+der Informatiker, Informatiker|computer scientist|Er arbeitet als Informatiker.|He works as a computer scientist.
+der Apotheker, Apotheker|pharmacist|Der Apotheker gibt mir das Medikament.|The pharmacist gives me the medication.
+der Rechtsanwalt, Rechtsanwälte|lawyer|Sie braucht einen Rechtsanwalt.|She needs a lawyer.
+der Architekt, Architekten|architect|Der Architekt plant das Haus.|The architect is designing the house.
+der Bauer, Bauern|farmer|Der Bauer hat viele Kühe.|The farmer has many cows.
+der Kellner, Kellner|waiter|Der Kellner bringt die Karte.|The waiter brings the menu.
+der Erzieher, Erzieher|nursery teacher|Die Erzieherin spielt mit den Kindern.|The nursery teacher plays with the children.
+der Busfahrer, Busfahrer|bus driver|Der Busfahrer wartet.|The bus driver is waiting.
+der Pilot, Piloten|pilot|Mein Bruder ist Pilot.|My brother is a pilot.
+der Journalist, Journalisten|journalist|Sie ist Journalistin bei einer Zeitung.|She's a journalist at a newspaper.
+der Sekretär, Sekretäre|secretary|Die Sekretärin vereinbart die Termine.|The secretary arranges appointments.
+der Hausmann, Hausmänner|househusband|Er ist zurzeit Hausmann.|He's a househusband at the moment.
+der Rentner, Rentner|pensioner|Mein Opa ist Rentner.|My grandpa is retired.
+der Azubi, Azubis|apprentice, trainee|Wir haben zwei neue Azubis.|We have two new apprentices.
+der Arbeiter, Arbeiter|worker|Die Arbeiter machen Pause.|The workers are taking a break.
+der Angestellte, Angestellten|employee|Er ist Angestellter bei der Post.|He's an employee at the post office.
+der Beamte, Beamten|civil servant|Mein Vater ist Beamter.|My father is a civil servant.
+die Krankenschwester, Krankenschwestern|nurse (female)|Die Krankenschwester ist sehr nett.|The nurse is very kind.
+der Zahnarzt, Zahnärzte|dentist|Ich gehe zum Zahnarzt.|I'm going to the dentist.
+der Tierarzt, Tierärzte|vet|Der Hund muss zum Tierarzt.|The dog has to go to the vet.
+der Künstler, Künstler|artist|Sie ist Künstlerin.|She's an artist.
+der Musiker, Musiker|musician|Er ist Musiker in einer Band.|He's a musician in a band.
+der Schauspieler, Schauspieler|actor|Der Schauspieler ist berühmt.|The actor is famous.
+der Soldat, Soldaten|soldier|Er war zwei Jahre Soldat.|He was a soldier for two years.
+der Übersetzer, Übersetzer|translator|Sie arbeitet als Übersetzerin.|She works as a translator.
+die Reinigungskraft, Reinigungskräfte|cleaner|Die Reinigungskraft kommt am Freitag.|The cleaner comes on Friday.
+der Berufswunsch, Berufswünsche|dream job|Was ist dein Berufswunsch?|What's your dream job?
+arbeiten als|to work as|Ich arbeite als Koch.|I work as a cook.
+von Beruf|by profession|Was sind Sie von Beruf?|What's your profession?` },
+
+{ id:'a2v15', lvl:'A2', t:'Unterwegs in der Stadt', en:'Getting around town', tag:'city', w:`
+die Ampel, Ampeln|traffic light|Die Ampel ist rot.|The light is red.
+die Kreuzung, Kreuzungen|crossroads|An der Kreuzung links.|Left at the crossroads.
+die Ecke, Ecken|corner|Das Café ist an der Ecke.|The café is on the corner.
+die Brücke, Brücken|bridge|Wir gehen über die Brücke.|We cross the bridge.
+der Weg, Wege|way, path|Kennst du den Weg?|Do you know the way?
+die Richtung, Richtungen|direction|In welche Richtung?|Which direction?
+die Fußgängerzone, Fußgängerzonen|pedestrian zone|In der Fußgängerzone gibt es viele Geschäfte.|There are lots of shops in the pedestrian zone.
+der Parkplatz, Parkplätze|car park, parking space|Ich finde keinen Parkplatz.|I can't find a parking space.
+parken|to park|Hier darf man nicht parken.|You can't park here.
+die Tankstelle, Tankstellen|petrol station|Wir müssen zur Tankstelle.|We need to go to the petrol station.
+tanken|to fill up (fuel)|Ich muss noch tanken.|I still need to fill up.
+der Führerschein, Führerscheine|driving licence|Ich mache den Führerschein.|I'm learning to drive.
+das Rathaus, Rathäuser|town hall|Das Rathaus ist am Marktplatz.|The town hall is on the market square.
+die Bibliothek, Bibliotheken|library|Ich lerne in der Bibliothek.|I study in the library.
+das Schwimmbad, Schwimmbäder|swimming pool|Wir gehen ins Schwimmbad.|We're going to the swimming pool.
+das Theater, Theater|theatre|Heute Abend gehen wir ins Theater.|We're going to the theatre tonight.
+der Dom, Dome|cathedral|Der Kölner Dom ist berühmt.|Cologne Cathedral is famous.
+das Schloss, Schlösser|castle; lock|Wir besichtigen das Schloss.|We're visiting the castle.
+der Turm, Türme|tower|Der Turm ist 100 Meter hoch.|The tower is 100 metres high.
+das Gebäude, Gebäude|building|Das Gebäude ist sehr modern.|The building is very modern.
+die Innenstadt, Innenstädte|city centre|In der Innenstadt ist viel los.|There's a lot going on in the city centre.
+der Stadtteil, Stadtteile|district|In welchem Stadtteil wohnst du?|Which district do you live in?
+der Vorort, Vororte|suburb|Wir wohnen in einem Vorort.|We live in a suburb.
+die Endstation, Endstationen|last stop, terminus|Endstation, bitte alle aussteigen.|Last stop, everyone please get off.
+einsteigen (steigt ein, stieg ein, ist eingestiegen)|to get on|Bitte schnell einsteigen!|Please get on quickly!
+aussteigen (steigt aus, stieg aus, ist ausgestiegen)|to get off|Wo muss ich aussteigen?|Where do I have to get off?
+der Fahrplan, Fahrpläne|timetable|Schau auf den Fahrplan.|Look at the timetable.
+der Automat, Automaten|machine (ticket, vending)|Das Ticket gibt es am Automaten.|You can get the ticket at the machine.
+entwerten|to validate (ticket)|Vergiss nicht, das Ticket zu entwerten.|Don't forget to validate the ticket.
+die Monatskarte, Monatskarten|monthly pass|Ich habe eine Monatskarte.|I have a monthly pass.
+zu Fuß|on foot|Ich gehe zu Fuß.|I'm walking.
+in der Nähe|nearby|Gibt es hier in der Nähe eine Bank?|Is there a bank nearby?
+gegenüber|opposite|Die Post ist gegenüber vom Bahnhof.|The post office is opposite the station.
+hinter|behind|Der Parkplatz ist hinter dem Haus.|The car park is behind the house.
+über|over, across; about|Wir fahren über die Brücke.|We drive across the bridge.
+bis|until; as far as|Fahren Sie bis zur Ampel.|Drive as far as the traffic lights.
+entlang|along|Gehen Sie die Straße entlang.|Go along the street.
+um die Ecke|around the corner|Der Supermarkt ist gleich um die Ecke.|The supermarket is just around the corner.` },
+
+{ id:'a2v16', lvl:'A2', t:'Lebensphasen', en:'Stages of life', tag:'social', w:`
+das Leben, Leben|life|Das Leben ist schön.|Life is beautiful.
+die Geburt, Geburten|birth|Die Geburt war im Mai.|The birth was in May.
+die Kindheit|childhood|Ich hatte eine schöne Kindheit.|I had a happy childhood.
+die Jugend|youth|In meiner Jugend habe ich viel Sport gemacht.|In my youth I did a lot of sport.
+der Jugendliche, Jugendlichen|teenager|Viele Jugendliche haben ein Handy.|Many teenagers have a phone.
+der Erwachsene, Erwachsenen|adult|Erwachsene zahlen zehn Euro.|Adults pay ten euros.
+das Alter|old age; age|Im Alter will ich reisen.|In old age I want to travel.
+der Tod|death|Der Tod seines Vaters war schwer für ihn.|His father's death was hard for him.
+sterben (stirbt, starb, ist gestorben)|to die|Seine Oma ist letztes Jahr gestorben.|His grandma died last year.
+aufwachsen (wächst auf, wuchs auf, ist aufgewachsen)|to grow up|Ich bin in Aleppo aufgewachsen.|I grew up in Aleppo.
+die Schulzeit|school days|In der Schulzeit hatte ich viele Freunde.|At school I had many friends.
+der Schulabschluss, Schulabschlüsse|school-leaving qualification|Er hat keinen Schulabschluss.|He has no school-leaving qualification.
+die Rente|retirement|Mit 67 geht man in Rente.|You retire at 67.
+der Lebenslauf, Lebensläufe|CV, life story|Schreib deinen Lebenslauf.|Write your CV.
+das Ereignis, Ereignisse|event|Die Hochzeit war ein großes Ereignis.|The wedding was a big event.
+die Erinnerung, Erinnerungen|memory|Ich habe schöne Erinnerungen an Italien.|I have lovely memories of Italy.
+die Hochzeit, Hochzeiten|wedding|Unsere Hochzeit war im Sommer.|Our wedding was in summer.
+schwanger|pregnant|Meine Frau ist schwanger.|My wife is pregnant.
+ein Kind bekommen|to have a baby|Sie bekommen im Juni ein Kind.|They're having a baby in June.
+der Enkel, Enkel|grandchild|Meine Oma hat zehn Enkel.|My grandma has ten grandchildren.
+der Schwiegervater, Schwiegerväter|father-in-law|Mein Schwiegervater ist Arzt.|My father-in-law is a doctor.
+die Schwiegermutter, Schwiegermütter|mother-in-law|Meine Schwiegermutter kocht sehr gut.|My mother-in-law cooks very well.
+die Verwandten (Pl.)|relatives|Wir besuchen unsere Verwandten.|We're visiting our relatives.
+der Zwilling, Zwillinge|twin|Sie sind Zwillinge.|They're twins.
+das Einzelkind, Einzelkinder|only child|Ich bin ein Einzelkind.|I'm an only child.
+der Witwer, Witwer|widower|Er ist seit drei Jahren Witwer.|He's been a widower for three years.
+alleinerziehend|single parent|Sie ist alleinerziehend.|She's a single mother.
+sich verloben|to get engaged|Sie haben sich verlobt.|They got engaged.
+die Beerdigung, Beerdigungen|funeral|Die Beerdigung ist am Freitag.|The funeral is on Friday.
+das Jubiläum, Jubiläen|anniversary|Die Firma feiert ihr Jubiläum.|The company is celebrating its anniversary.` },
+
+{ id:'a2v17', lvl:'A2', t:'Im Haushalt', en:'Household and chores', tag:'home', w:`
+der Haushalt, Haushalte|household|Wir teilen die Arbeit im Haushalt.|We share the housework.
+spülen|to wash up|Wer spült heute?|Who's washing up today?
+die Spülmaschine, Spülmaschinen|dishwasher|Stell die Teller in die Spülmaschine.|Put the plates in the dishwasher.
+staubsaugen|to vacuum|Ich muss noch staubsaugen.|I still have to vacuum.
+der Staubsauger, Staubsauger|vacuum cleaner|Der Staubsauger ist laut.|The vacuum cleaner is loud.
+die Wäsche|laundry|Ich hänge die Wäsche auf.|I'm hanging up the laundry.
+bügeln|to iron|Ich bügle meine Hemden.|I iron my shirts.
+der Besen, Besen|broom|Wo ist der Besen?|Where's the broom?
+wischen|to wipe, to mop|Ich wische den Boden.|I'm mopping the floor.
+abtrocknen|to dry (dishes)|Kannst du abtrocknen?|Can you dry up?
+den Tisch decken|to set the table|Kannst du den Tisch decken?|Can you set the table?
+abräumen|to clear (the table)|Ich räume den Tisch ab.|I'm clearing the table.
+gießen (gießt, goss, hat gegossen)|to water (plants)|Gieß bitte die Blumen.|Please water the flowers.
+der Eimer, Eimer|bucket|Der Eimer ist voll Wasser.|The bucket is full of water.
+der Lappen, Lappen|cloth|Nimm einen feuchten Lappen.|Take a damp cloth.
+das Waschmittel, Waschmittel|detergent|Das Waschmittel ist alle.|We're out of detergent.
+die Ordnung|order, tidiness|Ordnung ist ihm wichtig.|Tidiness is important to him.
+ordentlich|tidy|Sein Zimmer ist immer ordentlich.|His room is always tidy.
+die Unordnung|mess|Was für eine Unordnung!|What a mess!
+der Fleck, Flecken|stain|Auf dem Hemd ist ein Fleck.|There's a stain on the shirt.
+der Staub|dust|Überall liegt Staub.|There's dust everywhere.
+das Werkzeug, Werkzeuge|tool|Hast du Werkzeug?|Do you have tools?
+der Hammer, Hämmer|hammer|Gib mir mal den Hammer.|Pass me the hammer.
+die Schraube, Schrauben|screw|Die Schraube ist locker.|The screw is loose.
+die Glühbirne, Glühbirnen|light bulb|Die Glühbirne ist kaputt.|The light bulb has gone.
+wechseln|to change|Ich wechsle die Glühbirne.|I'm changing the light bulb.
+die Steckdose, Steckdosen|socket|Die Steckdose ist hinter dem Sofa.|The socket is behind the sofa.
+das Kabel, Kabel|cable|Das Kabel ist zu kurz.|The cable is too short.
+die Mülltrennung|waste sorting|Mülltrennung ist in Deutschland wichtig.|Waste sorting is important in Germany.
+der Biomüll|organic waste|Die Schalen kommen in den Biomüll.|The peelings go in the organic waste.
+die gelbe Tonne|yellow bin (packaging)|Plastik kommt in die gelbe Tonne.|Plastic goes in the yellow bin.
+das Altpapier|waste paper|Zeitungen kommen ins Altpapier.|Newspapers go in the waste paper.` },
+
+{ id:'a2v18', lvl:'A2', t:'Freizeit & Hobbys', en:'Leisure and hobbies', tag:'social', w:`
+malen|to paint|Sie malt gern Bilder.|She likes painting pictures.
+zeichnen|to draw|Mein Sohn zeichnet sehr gut.|My son draws very well.
+fotografieren|to take photos|Ich fotografiere gern Landschaften.|I like photographing landscapes.
+basteln|to do crafts|Die Kinder basteln für Weihnachten.|The children are making Christmas crafts.
+stricken|to knit|Meine Oma strickt Socken.|My grandma knits socks.
+angeln|to fish|Mein Vater geht gern angeln.|My father likes fishing.
+klettern|to climb|Wir klettern in der Halle.|We climb at the climbing centre.
+Rad fahren (fährt, fuhr, ist gefahren)|to cycle|Am Sonntag fahren wir Rad.|On Sunday we go cycling.
+Ski fahren (fährt, fuhr, ist gefahren)|to ski|Im Winter fahren wir Ski.|In winter we go skiing.
+reiten (reitet, ritt, ist geritten)|to ride (a horse)|Sie reitet seit zehn Jahren.|She's been riding for ten years.
+das Instrument, Instrumente|instrument|Spielst du ein Instrument?|Do you play an instrument?
+die Gitarre, Gitarren|guitar|Er spielt Gitarre.|He plays the guitar.
+das Klavier, Klaviere|piano|Sie spielt Klavier.|She plays the piano.
+das Konzert, Konzerte|concert|Das Konzert war super.|The concert was great.
+die Ausstellung, Ausstellungen|exhibition|Die Ausstellung ist interessant.|The exhibition is interesting.
+das Spiel, Spiele|game|Wir spielen ein Spiel.|We're playing a game.
+das Brettspiel, Brettspiele|board game|Am Abend spielen wir ein Brettspiel.|In the evening we play a board game.
+die Karten (Pl.)|cards|Spielen wir Karten?|Shall we play cards?
+das Videospiel, Videospiele|video game|Er spielt zu viele Videospiele.|He plays too many video games.
+der Spaziergang, Spaziergänge|walk|Wir machen einen Spaziergang.|We're going for a walk.
+die Wanderung, Wanderungen|hike|Die Wanderung dauert vier Stunden.|The hike takes four hours.
+das Picknick, Picknicks|picnic|Wir machen ein Picknick im Park.|We're having a picnic in the park.
+grillen|to barbecue|Am Wochenende grillen wir.|At the weekend we're having a barbecue.
+sich treffen mit|to meet up with|Ich treffe mich mit Freunden.|I'm meeting friends.
+ausgehen (geht aus, ging aus, ist ausgegangen)|to go out|Wir gehen heute Abend aus.|We're going out tonight.
+die Kneipe, Kneipen|pub|Wir gehen in die Kneipe.|We're going to the pub.
+die Disco, Discos|club, disco|Am Samstag gehen wir in die Disco.|On Saturday we're going clubbing.
+sich langweilen|to be bored|Ich langweile mich.|I'm bored.
+die Langeweile|boredom|Aus Langeweile spielt er am Handy.|Out of boredom he plays on his phone.
+sich interessieren für|to be interested in|Ich interessiere mich für Musik.|I'm interested in music.
+das Lieblingshobby|favourite hobby|Lesen ist mein Lieblingshobby.|Reading is my favourite hobby.
+der Fan, Fans|fan|Ich bin ein Fan von Bayern München.|I'm a Bayern Munich fan.
+das Stadion, Stadien|stadium|Das Stadion ist voll.|The stadium is full.
+das Tor, Tore|goal; gate|Er hat ein Tor geschossen.|He scored a goal.
+spannend|exciting|Das Spiel war sehr spannend.|The match was very exciting.` },
+
+{ id:'a2v19', lvl:'A2', t:'Einkaufen 2', en:'More shopping and services', tag:'city', w:`
+das Kaufhaus, Kaufhäuser|department store|Im Kaufhaus gibt es alles.|The department store has everything.
+das Einkaufszentrum, Einkaufszentren|shopping centre|Wir gehen ins Einkaufszentrum.|We're going to the shopping centre.
+die Abteilung, Abteilungen|department|Die Schuhabteilung ist im ersten Stock.|The shoe department is on the first floor.
+die Umkleidekabine, Umkleidekabinen|changing room|Wo sind die Umkleidekabinen?|Where are the changing rooms?
+das Sonderangebot, Sonderangebote|special offer|Die Jacke ist im Sonderangebot.|The jacket is on special offer.
+der Schlussverkauf, Schlussverkäufe|sale|Im Schlussverkauf ist alles billiger.|Everything is cheaper in the sale.
+günstig|cheap, good value|Das ist sehr günstig.|That's very good value.
+preiswert|inexpensive|Die Schuhe sind preiswert.|The shoes are inexpensive.
+kostenlos|free|Die Tüte ist kostenlos.|The bag is free.
+das Stück, Stücke|piece|Zwei Stück Kuchen, bitte.|Two pieces of cake, please.
+das Gramm|gram|200 Gramm Käse, bitte.|200 grams of cheese, please.
+der Liter, Liter|litre|Ein Liter Milch.|A litre of milk.
+die Dose, Dosen|can, tin|Eine Dose Tomaten.|A tin of tomatoes.
+das Glas, Gläser|jar; glass|Ein Glas Marmelade.|A jar of jam.
+die Marmelade, Marmeladen|jam|Brot mit Marmelade.|Bread with jam.
+der Honig|honey|Ich nehme Honig in den Tee.|I put honey in my tea.
+der Joghurt, Joghurts|yoghurt|Zum Frühstück esse ich Joghurt.|I eat yoghurt for breakfast.
+die Sahne|cream|Kuchen mit Sahne?|Cake with cream?
+die Nuss, Nüsse|nut|Ich bin allergisch gegen Nüsse.|I'm allergic to nuts.
+die Erdbeere, Erdbeeren|strawberry|Im Juni gibt es Erdbeeren.|There are strawberries in June.
+die Orange, Orangen|orange|Die Orangen kommen aus Spanien.|The oranges come from Spain.
+die Zitrone, Zitronen|lemon|Tee mit Zitrone, bitte.|Tea with lemon, please.
+die Gurke, Gurken|cucumber|Ein Salat mit Gurke.|A salad with cucumber.
+die Karotte, Karotten|carrot|Kaninchen essen Karotten.|Rabbits eat carrots.
+der Paprika, Paprika|pepper (vegetable)|Ich kaufe eine rote Paprika.|I'm buying a red pepper.
+die Bio-Produkte (Pl.)|organic products|Wir kaufen nur Bio-Produkte.|We only buy organic products.
+die Lebensmittel (Pl.)|groceries, food|Lebensmittel sind teurer geworden.|Food has got more expensive.
+die Einkaufsliste, Einkaufslisten|shopping list|Hast du die Einkaufsliste?|Do you have the shopping list?
+der Einkaufswagen, Einkaufswagen|shopping trolley|Ich brauche einen Euro für den Einkaufswagen.|I need a euro for the trolley.
+das Wechselgeld|change (money)|Hier ist Ihr Wechselgeld.|Here's your change.
+die Reinigung, Reinigungen|dry cleaner's|Ich bringe den Anzug in die Reinigung.|I'm taking the suit to the dry cleaner's.
+der Friseursalon, Friseursalons|hair salon|Der Friseursalon ist montags zu.|The hair salon is closed on Mondays.
+der Kiosk, Kioske|kiosk|Am Kiosk gibt es Zeitungen.|You can get newspapers at the kiosk.
+umtauschen|to exchange|Kann ich die Hose umtauschen?|Can I exchange the trousers?
+der Kassenzettel, Kassenzettel|receipt|Den Kassenzettel brauchen Sie zum Umtauschen.|You need the receipt to exchange it.` }
+);
+
+(window.WW_VOCAB = window.WW_VOCAB || []).push(
+{ id:'b1v13', lvl:'B1', t:'Wohnungssuche', en:'Finding and renting a flat', tag:'home', w:`
+die Wohnungssuche|flat hunting|Die Wohnungssuche in München ist schwer.|Flat hunting in Munich is hard.
+die Besichtigung, Besichtigungen|viewing|Die Besichtigung ist am Samstag.|The viewing is on Saturday.
+der Makler, Makler|estate agent|Der Makler will zwei Monatsmieten.|The agent wants two months' rent.
+die Provision, Provisionen|commission|Wir zahlen keine Provision.|We don't pay any commission.
+die Kaltmiete, Kaltmieten|rent without utilities|Die Kaltmiete beträgt 800 Euro.|The basic rent is 800 euros.
+die Warmmiete, Warmmieten|rent including heating|Die Warmmiete ist 950 Euro.|The rent including heating is 950 euros.
+die Quadratmeter (Pl.)|square metres|Die Wohnung hat 70 Quadratmeter.|The flat is 70 square metres.
+der Altbau, Altbauten|old building|Ich wohne gern im Altbau.|I like living in an old building.
+der Neubau, Neubauten|new building|Der Neubau hat einen Aufzug.|The new building has a lift.
+das Erdgeschoss, Erdgeschosse|ground floor|Wir wohnen im Erdgeschoss.|We live on the ground floor.
+der Grundriss, Grundrisse|floor plan|Der Grundriss ist praktisch.|The floor plan is practical.
+die Einbauküche, Einbauküchen|fitted kitchen|Die Wohnung hat eine Einbauküche.|The flat has a fitted kitchen.
+renovieren|to renovate|Die Wohnung wurde renoviert.|The flat has been renovated.
+der Schufa-Auszug|credit report|Der Vermieter will einen Schufa-Auszug.|The landlord wants a credit report.
+die Gehaltsabrechnung, Gehaltsabrechnungen|payslip|Bitte bringen Sie drei Gehaltsabrechnungen mit.|Please bring three payslips.
+der Nachmieter, Nachmieter|next tenant|Wir suchen einen Nachmieter.|We're looking for someone to take over the flat.
+die Kündigungsfrist, Kündigungsfristen|notice period|Die Kündigungsfrist beträgt drei Monate.|The notice period is three months.
+die Untermiete|subletting|Ich wohne zur Untermiete.|I'm subletting.
+die Hausverwaltung, Hausverwaltungen|property management|Ruf die Hausverwaltung an.|Call the property management.
+der Schimmel|mould|Im Bad ist Schimmel.|There's mould in the bathroom.
+lüften|to air, to ventilate|Man muss regelmäßig lüften.|You have to air the flat regularly.
+die Mieterhöhung, Mieterhöhungen|rent increase|Wir haben eine Mieterhöhung bekommen.|We've received a rent increase.
+die Wohngemeinschaft, Wohngemeinschaften|flat share|Ich lebe in einer Wohngemeinschaft.|I live in a flat share.
+das Eigentum|property, ownership|Die Wohnung ist unser Eigentum.|The flat is ours.
+der Eigentümer, Eigentümer|owner|Der Eigentümer wohnt im Ausland.|The owner lives abroad.
+die Lage, Lagen|location|Die Lage ist zentral.|The location is central.
+zentral|central|Wir wohnen sehr zentral.|We live very centrally.
+die Anbindung, Anbindungen|transport links|Die Anbindung an die S-Bahn ist gut.|The S-Bahn links are good.
+der Stellplatz, Stellplätze|parking space|Ein Stellplatz kostet extra.|A parking space costs extra.
+die Wohnfläche|living space|Die Wohnfläche beträgt 90 Quadratmeter.|The living space is 90 square metres.
+bezugsfertig|ready to move into|Die Wohnung ist ab sofort bezugsfertig.|The flat is ready to move into immediately.
+der Mieterschutz|tenant protection|In Deutschland gibt es starken Mieterschutz.|Germany has strong tenant protection.
+die Schlüsselübergabe, Schlüsselübergaben|key handover|Die Schlüsselübergabe ist am Montag.|The key handover is on Monday.
+das Übergabeprotokoll, Übergabeprotokolle|handover report|Alle Schäden stehen im Übergabeprotokoll.|All damage is listed in the handover report.
+die Ummeldung, Ummeldungen|change of address registration|Nach dem Umzug brauchen Sie eine Ummeldung.|After moving you need to register your new address.` },
+
+{ id:'b1v14', lvl:'B1', t:'Mobilität & Verkehr', en:'Transport and mobility', tag:'city', w:`
+die Mobilität|mobility|Mobilität ist auf dem Land ein Problem.|Mobility is a problem in the countryside.
+das Verkehrsmittel, Verkehrsmittel|means of transport|Welches Verkehrsmittel nimmst du?|Which means of transport do you take?
+der Nahverkehr|local transport|Der Nahverkehr ist gut ausgebaut.|Local transport is well developed.
+der Fernverkehr|long-distance transport|Im Fernverkehr fahren ICE-Züge.|ICE trains run on long-distance routes.
+die Autobahn, Autobahnen|motorway|Auf der Autobahn gibt es oft Stau.|There's often traffic on the motorway.
+die Geschwindigkeit, Geschwindigkeiten|speed|Die Geschwindigkeit ist hier begrenzt.|Speed is limited here.
+das Tempolimit, Tempolimits|speed limit|Es gibt eine Debatte über ein Tempolimit.|There's a debate about a speed limit.
+der Fahrradweg, Fahrradwege|cycle path|Die Stadt baut neue Fahrradwege.|The city is building new cycle paths.
+der Fußgänger, Fußgänger|pedestrian|Fußgänger haben Vorrang.|Pedestrians have priority.
+die Vorfahrt|right of way|Wer hat hier Vorfahrt?|Who has right of way here?
+überholen|to overtake|Hier darf man nicht überholen.|You can't overtake here.
+abbiegen (biegt ab, bog ab, ist abgebogen)|to turn|An der Ampel links abbiegen.|Turn left at the lights.
+die Umleitung, Umleitungen|diversion|Wegen der Baustelle gibt es eine Umleitung.|There's a diversion because of the roadworks.
+die Baustelle, Baustellen|construction site, roadworks|Auf der A3 ist eine Baustelle.|There are roadworks on the A3.
+das Carsharing|car sharing|Ich nutze Carsharing statt eines eigenen Autos.|I use car sharing instead of my own car.
+der E-Scooter, E-Scooter|e-scooter|In der Stadt stehen überall E-Scooter.|There are e-scooters everywhere in the city.
+das Deutschlandticket|nationwide transport ticket|Mit dem Deutschlandticket fahre ich günstig.|I travel cheaply with the Deutschlandticket.
+die Zugverbindung, Zugverbindungen|train connection|Die Zugverbindung ist schlecht.|The train connection is poor.
+der Fahrgast, Fahrgäste|passenger|Die Fahrgäste warten auf dem Bahnsteig.|The passengers are waiting on the platform.
+der Bahnsteig, Bahnsteige|platform|Der Zug fährt heute von einem anderen Bahnsteig.|The train leaves from a different platform today.
+die Durchsage, Durchsagen|announcement|Ich habe die Durchsage nicht verstanden.|I didn't understand the announcement.
+der Zugausfall, Zugausfälle|train cancellation|Wegen eines Zugausfalls kam ich zu spät.|I was late because of a cancelled train.
+die Pünktlichkeit|punctuality|Die Pünktlichkeit der Bahn ist schlecht.|The railway's punctuality is poor.
+der Pendler, Pendler|commuter|Viele Pendler fahren mit der S-Bahn.|Many commuters take the S-Bahn.
+der Unfall, Unfälle|accident|Auf der Autobahn gab es einen Unfall.|There was an accident on the motorway.
+der Strafzettel, Strafzettel|parking ticket|Ich habe einen Strafzettel bekommen.|I got a parking ticket.
+blitzen|to be caught by a speed camera|Ich wurde geblitzt.|I got caught by a speed camera.
+der Fahrschein, Fahrscheine|ticket|Fahrschein, bitte!|Ticket, please!
+schwarzfahren (fährt schwarz, fuhr schwarz, ist schwarzgefahren)|to travel without a ticket|Schwarzfahren kostet 60 Euro.|Travelling without a ticket costs 60 euros.
+die Kontrolle, Kontrollen|inspection|Fahrkartenkontrolle!|Ticket inspection!
+der Anschlusszug, Anschlusszüge|connecting train|Der Anschlusszug wartet.|The connecting train is waiting.
+barrierefrei|accessible|Der Bahnhof ist barrierefrei.|The station is accessible.
+die Reservierung, Reservierungen|reservation|Ich habe eine Sitzplatzreservierung.|I have a seat reservation.
+die Strecke, Strecken|route|Die Strecke ist gesperrt.|The route is closed.
+gesperrt|closed, blocked|Die Straße ist gesperrt.|The road is closed.` },
+
+{ id:'b1v15', lvl:'B1', t:'Ernährung', en:'Food and nutrition', tag:'food', w:`
+die Ernährung|diet, nutrition|Eine gesunde Ernährung ist wichtig.|A healthy diet is important.
+sich ernähren|to eat, to feed oneself|Ich ernähre mich vegetarisch.|I eat vegetarian food.
+das Nahrungsmittel, Nahrungsmittel|foodstuff|Viele Nahrungsmittel enthalten Zucker.|Many foods contain sugar.
+enthalten (enthält, enthielt, hat enthalten)|to contain|Das Produkt enthält Nüsse.|The product contains nuts.
+die Kalorie, Kalorien|calorie|Wie viele Kalorien hat das?|How many calories does that have?
+das Vitamin, Vitamine|vitamin|Obst enthält viele Vitamine.|Fruit contains lots of vitamins.
+das Eiweiß|protein|Fleisch hat viel Eiweiß.|Meat has a lot of protein.
+das Fett, Fette|fat|Das Essen hat zu viel Fett.|The food has too much fat.
+die Kohlenhydrate (Pl.)|carbohydrates|Nudeln haben viele Kohlenhydrate.|Pasta has a lot of carbohydrates.
+vegan|vegan|Sie lebt vegan.|She's vegan.
+die Unverträglichkeit, Unverträglichkeiten|intolerance|Ich habe eine Laktoseunverträglichkeit.|I'm lactose intolerant.
+glutenfrei|gluten-free|Haben Sie glutenfreies Brot?|Do you have gluten-free bread?
+das Fertiggericht, Fertiggerichte|ready meal|Fertiggerichte sind oft ungesund.|Ready meals are often unhealthy.
+das Fast Food|fast food|Er isst zu viel Fast Food.|He eats too much fast food.
+frisch zubereitet|freshly prepared|Alle Gerichte werden frisch zubereitet.|All dishes are freshly prepared.
+zubereiten|to prepare (food)|Wie bereitet man das zu?|How do you prepare that?
+der Geschmack, Geschmäcker|taste|Das ist Geschmackssache.|That's a matter of taste.
+würzen|to season|Würz die Suppe mit Pfeffer.|Season the soup with pepper.
+das Gewürz, Gewürze|spice|Ich koche gern mit vielen Gewürzen.|I like cooking with lots of spices.
+das Haltbarkeitsdatum|best-before date|Das Haltbarkeitsdatum ist abgelaufen.|The best-before date has passed.
+abgelaufen|expired|Die Milch ist abgelaufen.|The milk is out of date.
+die Lebensmittelverschwendung|food waste|Lebensmittelverschwendung ist ein großes Problem.|Food waste is a big problem.
+regional|regional, local|Ich kaufe regionale Produkte.|I buy local products.
+saisonal|seasonal|Saisonales Gemüse ist günstiger.|Seasonal vegetables are cheaper.
+der Bioladen, Bioläden|organic shop|Im Bioladen ist alles teurer.|Everything is more expensive at the organic shop.
+die Mahlzeit, Mahlzeiten|meal|Ich esse drei Mahlzeiten am Tag.|I eat three meals a day.
+der Snack, Snacks|snack|Zwischendurch esse ich einen Snack.|I have a snack in between.
+der Heißhunger|craving|Ich habe Heißhunger auf Schokolade.|I have a craving for chocolate.
+das Übergewicht|excess weight|Übergewicht ist ungesund.|Being overweight is unhealthy.
+fasten|to fast|Im Ramadan fasten viele Muslime.|Many Muslims fast during Ramadan.
+die Küche, Küchen|cuisine; kitchen|Ich mag die italienische Küche.|I like Italian cuisine.
+das Rezept, Rezepte|recipe|Das Rezept ist von meiner Oma.|The recipe is from my grandma.
+die Zubereitung|preparation|Die Zubereitung dauert 30 Minuten.|Preparation takes 30 minutes.
+der Appetit|appetite|Ich habe keinen Appetit.|I have no appetite.
+ausgewogen|balanced|Achte auf eine ausgewogene Ernährung.|Make sure you eat a balanced diet.` },
+
+{ id:'b1v16', lvl:'B1', t:'Reisen auf B1', en:'Travel in more detail', tag:'travel', w:`
+die Pauschalreise, Pauschalreisen|package holiday|Wir haben eine Pauschalreise gebucht.|We've booked a package holiday.
+das Reisebüro, Reisebüros|travel agency|Im Reisebüro gibt es gute Angebote.|The travel agency has good deals.
+die Unterkunft, Unterkünfte|accommodation|Die Unterkunft war sehr sauber.|The accommodation was very clean.
+die Ferienwohnung, Ferienwohnungen|holiday flat|Wir mieten eine Ferienwohnung am Meer.|We're renting a holiday flat by the sea.
+die Jugendherberge, Jugendherbergen|youth hostel|Wir übernachten in einer Jugendherberge.|We're staying in a youth hostel.
+die Halbpension|half board|Das Hotel bietet Halbpension.|The hotel offers half board.
+die Vollpension|full board|Mit Vollpension sind alle Mahlzeiten inklusive.|With full board all meals are included.
+inklusive|including|Das Frühstück ist inklusive.|Breakfast is included.
+die Rezeption, Rezeptionen|reception|Fragen Sie an der Rezeption.|Ask at reception.
+einchecken|to check in|Wir können ab 15 Uhr einchecken.|We can check in from 3 pm.
+auschecken|to check out|Bis 11 Uhr müssen wir auschecken.|We have to check out by 11.
+die Aussicht, Aussichten|view; prospect|Das Zimmer hat eine tolle Aussicht.|The room has a great view.
+die Reiseversicherung, Reiseversicherungen|travel insurance|Hast du eine Reiseversicherung?|Do you have travel insurance?
+der Reiseführer, Reiseführer|guidebook; tour guide|Laut Reiseführer ist das Museum sehenswert.|According to the guidebook the museum is worth seeing.
+sehenswert|worth seeing|Die Altstadt ist sehenswert.|The old town is worth seeing.
+die Altstadt, Altstädte|old town|Wir spazieren durch die Altstadt.|We stroll through the old town.
+die Führung, Führungen|guided tour|Die Führung dauert eine Stunde.|The guided tour lasts an hour.
+die Rundfahrt, Rundfahrten|tour (by bus/boat)|Wir machen eine Stadtrundfahrt.|We're doing a city tour.
+der Aufenthalt, Aufenthalte|stay|Wir wünschen Ihnen einen schönen Aufenthalt.|We wish you a pleasant stay.
+die Abreise|departure|Die Abreise ist am Sonntag.|Departure is on Sunday.
+die Anreise|arrival, journey there|Die Anreise mit dem Zug dauert fünf Stunden.|The journey by train takes five hours.
+der Zoll|customs|Am Zoll müssen wir den Koffer öffnen.|We have to open the suitcase at customs.
+das Handgepäck|hand luggage|Flüssigkeiten im Handgepäck sind begrenzt.|Liquids in hand luggage are limited.
+die Bordkarte, Bordkarten|boarding pass|Ihre Bordkarte, bitte.|Your boarding pass, please.
+der Abflug, Abflüge|departure (flight)|Der Abflug verspätet sich.|The departure is delayed.
+die Landung, Landungen|landing|Die Landung war ruhig.|The landing was smooth.
+der Jetlag|jet lag|Ich habe noch Jetlag.|I've still got jet lag.
+die Sprachbarriere, Sprachbarrieren|language barrier|Es gab eine Sprachbarriere.|There was a language barrier.
+die Gastfreundschaft|hospitality|Die Gastfreundschaft war unglaublich.|The hospitality was incredible.
+das Abenteuer, Abenteuer|adventure|Die Reise war ein Abenteuer.|The trip was an adventure.
+erleben|to experience|Wir haben viel erlebt.|We experienced a lot.
+das Erlebnis, Erlebnisse|experience|Das war ein tolles Erlebnis.|That was a great experience.
+die Reiselust|wanderlust|Ich habe große Reiselust.|I have real wanderlust.
+der Rucksacktourist, Rucksacktouristen|backpacker|Viele Rucksacktouristen reisen durch Asien.|Lots of backpackers travel through Asia.
+der Massentourismus|mass tourism|Der Massentourismus schadet der Stadt.|Mass tourism harms the city.` },
+
+{ id:'b1v17', lvl:'B1', t:'Gefühle & Verhalten', en:'Emotions and behaviour', tag:'social', w:`
+die Enttäuschung, Enttäuschungen|disappointment|Das war eine große Enttäuschung.|That was a big disappointment.
+die Begeisterung|enthusiasm|Mit Begeisterung erzählt er von seiner Reise.|He talks about his trip enthusiastically.
+die Dankbarkeit|gratitude|Ich empfinde große Dankbarkeit.|I feel great gratitude.
+die Wut|anger|Er konnte seine Wut nicht kontrollieren.|He couldn't control his anger.
+die Scham|shame|Sie wurde rot vor Scham.|She went red with shame.
+die Eifersucht|jealousy|Eifersucht zerstört Beziehungen.|Jealousy destroys relationships.
+die Neugier|curiosity|Aus Neugier habe ich es probiert.|I tried it out of curiosity.
+die Sehnsucht|longing|Ich habe Sehnsucht nach meiner Heimat.|I long for my home country.
+das Heimweh|homesickness|Am Anfang hatte ich starkes Heimweh.|At first I was very homesick.
+die Erleichterung|relief|Was für eine Erleichterung!|What a relief!
+erleichtert|relieved|Ich bin erleichtert, dass alles gut ging.|I'm relieved everything went well.
+verzweifelt|desperate|Er war völlig verzweifelt.|He was completely desperate.
+beleidigt|offended|Sie ist beleidigt.|She's offended.
+verletzt|hurt|Ich fühle mich verletzt.|I feel hurt.
+genervt|annoyed|Ich bin total genervt.|I'm really annoyed.
+gelassen|relaxed, calm|Er bleibt immer gelassen.|He always stays calm.
+optimistisch|optimistic|Ich bin optimistisch.|I'm optimistic.
+pessimistisch|pessimistic|Sei nicht so pessimistisch!|Don't be so pessimistic!
+empfindlich|sensitive|Sie ist sehr empfindlich.|She's very sensitive.
+mutig|brave|Das war sehr mutig von dir.|That was very brave of you.
+ängstlich|anxious, timid|Das Kind ist sehr ängstlich.|The child is very timid.
+neidisch|envious|Ich bin ein bisschen neidisch.|I'm a bit envious.
+dankbar|grateful|Ich bin dir sehr dankbar.|I'm very grateful to you.
+sich schämen|to be ashamed|Du musst dich nicht schämen.|You don't need to be ashamed.
+sich aufregen über|to get worked up about|Reg dich nicht so auf!|Don't get so worked up!
+sich beruhigen|to calm down|Beruhig dich!|Calm down!
+sich wundern über|to be surprised at|Ich wundere mich über sein Verhalten.|I'm surprised at his behaviour.
+sich fürchten|to be afraid|Ich fürchte mich vor Gewittern.|I'm afraid of thunderstorms.
+trösten|to comfort|Sie tröstet ihre Freundin.|She's comforting her friend.
+loben|to praise|Der Chef hat mich gelobt.|The boss praised me.
+beleidigen|to insult|Er hat mich beleidigt.|He insulted me.
+der Charakter, Charaktere|character|Sie hat einen starken Charakter.|She has a strong character.
+die Persönlichkeit, Persönlichkeiten|personality|Er hat eine interessante Persönlichkeit.|He has an interesting personality.
+die Stimmung, Stimmungen|mood|Die Stimmung war gut.|The mood was good.
+die Laune, Launen|mood|Heute habe ich schlechte Laune.|I'm in a bad mood today.` }
+);
+
+(window.WW_VOCAB = window.WW_VOCAB || []).push(
+{ id:'b2v11', lvl:'B2', t:'Arbeitswelt B2', en:'Careers and the workplace', tag:'work', w:`
+die Führungskraft, Führungskräfte|manager, executive|Sie ist eine erfahrene Führungskraft.|She's an experienced manager.
+die Belegschaft, Belegschaften|workforce|Die Belegschaft wurde informiert.|The workforce was informed.
+der Vorgesetzte, Vorgesetzten|superior, boss|Mein Vorgesetzter ist im Urlaub.|My boss is on holiday.
+die Zuständigkeit, Zuständigkeiten|responsibility, remit|Das fällt nicht in meine Zuständigkeit.|That's not within my remit.
+delegieren|to delegate|Eine gute Chefin delegiert Aufgaben.|A good boss delegates tasks.
+die Arbeitsbelastung|workload|Die Arbeitsbelastung ist zu hoch.|The workload is too high.
+der Arbeitsplatz, Arbeitsplätze|job; workplace|Tausende Arbeitsplätze sind in Gefahr.|Thousands of jobs are at risk.
+die Arbeitszeit, Arbeitszeiten|working hours|Wir haben flexible Arbeitszeiten.|We have flexible working hours.
+die Gleitzeit|flexitime|Bei uns gibt es Gleitzeit.|We have flexitime.
+die Work-Life-Balance|work-life balance|Die Work-Life-Balance ist mir wichtig.|Work-life balance matters to me.
+das Burn-out|burnout|Er hatte ein Burn-out.|He had burnout.
+die Beförderung, Beförderungen|promotion|Sie hat eine Beförderung bekommen.|She got a promotion.
+befördern|to promote|Er wurde zum Abteilungsleiter befördert.|He was promoted to head of department.
+die Gehaltserhöhung, Gehaltserhöhungen|pay rise|Ich möchte eine Gehaltserhöhung.|I'd like a pay rise.
+das Bruttogehalt, Bruttogehälter|gross salary|Das Bruttogehalt beträgt 4.000 Euro.|The gross salary is 4,000 euros.
+netto|net|Netto bleiben etwa 2.600 Euro.|About 2,600 euros remain net.
+die Sozialabgaben (Pl.)|social security contributions|Die Sozialabgaben sind hoch.|Social security contributions are high.
+der Betriebsrat, Betriebsräte|works council|Der Betriebsrat vertritt die Mitarbeiter.|The works council represents the employees.
+die Abmahnung, Abmahnungen|formal warning|Er hat eine Abmahnung bekommen.|He received a formal warning.
+fristlos|without notice|Er wurde fristlos gekündigt.|He was dismissed without notice.
+die Abfindung, Abfindungen|severance pay|Sie hat eine hohe Abfindung erhalten.|She received a large severance payment.
+die Stellenbeschreibung, Stellenbeschreibungen|job description|Lesen Sie die Stellenbeschreibung genau.|Read the job description carefully.
+das Anschreiben, Anschreiben|cover letter|Das Anschreiben sollte eine Seite lang sein.|The cover letter should be one page long.
+das Arbeitszeugnis, Arbeitszeugnisse|employer's reference|Das Arbeitszeugnis ist sehr gut.|The reference is very good.
+die Gehaltsvorstellung, Gehaltsvorstellungen|salary expectation|Nennen Sie Ihre Gehaltsvorstellung.|State your salary expectation.
+die Einarbeitung|induction, training-in|Die Einarbeitung dauert vier Wochen.|The induction takes four weeks.
+die Teamfähigkeit|ability to work in a team|Teamfähigkeit ist eine Voraussetzung.|Being a team player is a requirement.
+belastbar|resilient|Sie sind belastbar und flexibel.|You are resilient and flexible.
+die Eigeninitiative|initiative|Wir erwarten Eigeninitiative.|We expect initiative.
+die Kompetenz, Kompetenzen|competence, skill|Er hat hohe soziale Kompetenz.|He has strong social skills.
+das Netzwerk, Netzwerke|network|Ein gutes Netzwerk hilft bei der Jobsuche.|A good network helps with the job search.
+die Präsentation, Präsentationen|presentation|Ich halte morgen eine Präsentation.|I'm giving a presentation tomorrow.
+das Protokoll, Protokolle|minutes (meeting)|Wer schreibt das Protokoll?|Who's taking the minutes?
+die Tagesordnung, Tagesordnungen|agenda|Was steht auf der Tagesordnung?|What's on the agenda?
+der Feierabend|end of work|Nach Feierabend gehe ich zum Sport.|After work I go to sport.` },
+
+{ id:'b2v12', lvl:'B2', t:'Medizin & Psychologie', en:'Medicine and psychology', tag:'health', w:`
+die Diagnose, Diagnosen|diagnosis|Die Diagnose war ein Schock.|The diagnosis was a shock.
+die Vorsorge|prevention, check-up|Gehen Sie regelmäßig zur Vorsorge.|Go for regular check-ups.
+die Vorbeugung|prevention|Vorbeugung ist besser als Heilung.|Prevention is better than cure.
+heilen|to heal, to cure|Die Wunde heilt gut.|The wound is healing well.
+die Heilung|recovery, cure|Die Heilung dauert Monate.|Recovery takes months.
+chronisch|chronic|Er hat chronische Schmerzen.|He has chronic pain.
+die Beschwerden (Pl.)|complaints, symptoms|Welche Beschwerden haben Sie?|What symptoms do you have?
+der Facharzt, Fachärzte|specialist|Ich brauche eine Überweisung zum Facharzt.|I need a referral to a specialist.
+die Überweisung, Überweisungen|referral; transfer|Der Hausarzt schreibt eine Überweisung.|The GP writes a referral.
+der Hausarzt, Hausärzte|GP, family doctor|Mein Hausarzt ist sehr gründlich.|My GP is very thorough.
+die Notaufnahme, Notaufnahmen|emergency department|Wir mussten in die Notaufnahme.|We had to go to A&E.
+der Eingriff, Eingriffe|procedure, operation|Der Eingriff ist harmlos.|The procedure is harmless.
+die Narkose, Narkosen|anaesthesia|Die Operation erfolgt unter Narkose.|The operation is done under anaesthesia.
+die Reha|rehabilitation|Nach der Operation macht er eine Reha.|After the operation he's doing rehab.
+das Immunsystem|immune system|Schlaf stärkt das Immunsystem.|Sleep strengthens the immune system.
+die Infektion, Infektionen|infection|Die Infektion ist ansteckend.|The infection is contagious.
+ansteckend|contagious|Ist die Krankheit ansteckend?|Is the illness contagious?
+der Erreger, Erreger|pathogen|Der Erreger ist noch unbekannt.|The pathogen is still unknown.
+die Psychotherapie|psychotherapy|Sie macht eine Psychotherapie.|She's in psychotherapy.
+die Angststörung, Angststörungen|anxiety disorder|Er leidet unter einer Angststörung.|He suffers from an anxiety disorder.
+die Sucht, Süchte|addiction|Die Sucht hat sein Leben zerstört.|The addiction ruined his life.
+das Selbstwertgefühl|self-esteem|Lob stärkt das Selbstwertgefühl.|Praise boosts self-esteem.
+die Motivation|motivation|Mir fehlt die Motivation.|I lack motivation.
+die Konzentration|concentration|Die Konzentration lässt nach.|Concentration is dropping.
+das Gedächtnis|memory (ability)|Ich habe ein schlechtes Gedächtnis.|I have a bad memory.
+sich auswirken auf|to affect|Stress wirkt sich auf den Schlaf aus.|Stress affects sleep.
+die Belastbarkeit|resilience|Sport erhöht die Belastbarkeit.|Exercise increases resilience.
+die Achtsamkeit|mindfulness|Achtsamkeit hilft gegen Stress.|Mindfulness helps against stress.
+verdrängen|to suppress (feelings)|Er verdrängt seine Probleme.|He suppresses his problems.
+bewältigen|to cope with|Sie hat die Krise gut bewältigt.|She coped well with the crisis.
+das Wohlbefinden|well-being|Bewegung steigert das Wohlbefinden.|Exercise improves well-being.
+die Lebensweise, Lebensweisen|lifestyle|Eine gesunde Lebensweise lohnt sich.|A healthy lifestyle pays off.
+vorbeugen|to prevent|Man kann vielen Krankheiten vorbeugen.|Many illnesses can be prevented.
+die Pflegeversicherung|long-term care insurance|Die Pflegeversicherung übernimmt einen Teil.|Long-term care insurance covers part of it.
+das Gesundheitswesen|healthcare system|Das Gesundheitswesen ist überlastet.|The healthcare system is overloaded.` },
+
+{ id:'b2v13', lvl:'B2', t:'Umwelt & Energie', en:'Environment and energy policy', tag:'nature', w:`
+die Energiewende|energy transition|Die Energiewende kostet viel Geld.|The energy transition costs a lot of money.
+der Ausstoß|emissions, output|Der CO2-Ausstoß muss sinken.|CO2 emissions have to fall.
+die Emission, Emissionen|emission|Der Verkehr verursacht viele Emissionen.|Traffic causes a lot of emissions.
+der Treibhauseffekt|greenhouse effect|Der Treibhauseffekt erwärmt die Erde.|The greenhouse effect warms the earth.
+die Erderwärmung|global warming|Die Erderwärmung muss begrenzt werden.|Global warming must be limited.
+fossil|fossil|Wir müssen auf fossile Brennstoffe verzichten.|We have to give up fossil fuels.
+der Brennstoff, Brennstoffe|fuel|Kohle ist ein fossiler Brennstoff.|Coal is a fossil fuel.
+die Windkraft|wind power|Windkraft liefert viel Strom.|Wind power supplies a lot of electricity.
+die Wasserkraft|hydropower|Norwegen nutzt viel Wasserkraft.|Norway uses a lot of hydropower.
+das Kraftwerk, Kraftwerke|power station|Das Kraftwerk wird abgeschaltet.|The power station is being shut down.
+der Atomausstieg|nuclear phase-out|Deutschland hat den Atomausstieg beschlossen.|Germany decided to phase out nuclear power.
+die Wärmepumpe, Wärmepumpen|heat pump|Wir haben eine Wärmepumpe eingebaut.|We've installed a heat pump.
+dämmen|to insulate|Das Haus wurde neu gedämmt.|The house has been newly insulated.
+der Klimaschutz|climate protection|Klimaschutz ist eine Aufgabe für alle.|Climate protection is everyone's task.
+klimaneutral|climate-neutral|Die Stadt will bis 2035 klimaneutral sein.|The city wants to be climate-neutral by 2035.
+der Fußabdruck, Fußabdrücke|footprint|Wie groß ist dein ökologischer Fußabdruck?|How big is your ecological footprint?
+die Artenvielfalt|biodiversity|Die Artenvielfalt nimmt ab.|Biodiversity is declining.
+der Lebensraum, Lebensräume|habitat|Viele Tiere verlieren ihren Lebensraum.|Many animals are losing their habitat.
+die Abholzung|deforestation|Die Abholzung des Regenwalds geht weiter.|Rainforest deforestation continues.
+der Meeresspiegel|sea level|Der Meeresspiegel steigt.|The sea level is rising.
+die Dürre, Dürren|drought|Die Dürre hat die Ernte zerstört.|The drought destroyed the harvest.
+das Unwetter, Unwetter|severe weather|Das Unwetter richtete große Schäden an.|The storm caused great damage.
+die Ressourcen (Pl.)|resources|Wir verbrauchen zu viele Ressourcen.|We use too many resources.
+der Verzicht|giving up, renunciation|Verzicht fällt vielen schwer.|Giving things up is hard for many.
+verzichten auf|to do without|Ich verzichte auf Fleisch.|I do without meat.
+die Mülltrennung|waste separation|Mülltrennung ist hier Pflicht.|Waste separation is compulsory here.
+die Wiederverwertung|recycling|Die Wiederverwertung von Glas funktioniert gut.|Glass recycling works well.
+der Kreislauf, Kreisläufe|cycle|Wir brauchen eine Kreislaufwirtschaft.|We need a circular economy.
+umweltschädlich|harmful to the environment|Plastiktüten sind umweltschädlich.|Plastic bags are harmful to the environment.
+die Subvention, Subventionen|subsidy|Der Staat zahlt Subventionen für Solaranlagen.|The state pays subsidies for solar systems.
+die Abgabe, Abgaben|levy, tax|Es gibt eine Abgabe auf CO2.|There's a levy on CO2.
+das Bewusstsein|awareness|Das Umweltbewusstsein ist gestiegen.|Environmental awareness has grown.
+nachhaltig handeln|to act sustainably|Firmen müssen nachhaltig handeln.|Companies must act sustainably.
+die Bilanz, Bilanzen|balance, record|Die Klimabilanz des Landes ist schlecht.|The country's climate record is poor.
+die Auflage, Auflagen|requirement, condition|Die Fabrik muss strenge Auflagen erfüllen.|The factory has to meet strict requirements.` },
+
+{ id:'b2v14', lvl:'B2', t:'Politik & Medien B2', en:'Politics and public debate', tag:'society', w:`
+der Bundestag|German parliament|Der Bundestag hat das Gesetz beschlossen.|The Bundestag passed the law.
+der Bundeskanzler, Bundeskanzler|Federal Chancellor|Der Bundeskanzler hält eine Rede.|The Chancellor is giving a speech.
+das Bundesland, Bundesländer|federal state|Deutschland hat 16 Bundesländer.|Germany has 16 federal states.
+die Koalition, Koalitionen|coalition|Die Koalition ist zerbrochen.|The coalition has collapsed.
+die Opposition|opposition|Die Opposition kritisiert den Plan.|The opposition criticises the plan.
+der Abgeordnete, Abgeordneten|member of parliament|Die Abgeordneten stimmen ab.|The MPs are voting.
+abstimmen|to vote|Wir stimmen über den Vorschlag ab.|We're voting on the proposal.
+die Wahlbeteiligung|turnout|Die Wahlbeteiligung war hoch.|Turnout was high.
+der Wahlkampf, Wahlkämpfe|election campaign|Der Wahlkampf hat begonnen.|The election campaign has started.
+das Wahlprogramm, Wahlprogramme|manifesto|Was steht im Wahlprogramm?|What's in the manifesto?
+die Reform, Reformen|reform|Die Rentenreform ist umstritten.|The pension reform is controversial.
+der Beschluss, Beschlüsse|decision, resolution|Der Beschluss wurde einstimmig gefasst.|The decision was unanimous.
+einstimmig|unanimous|Der Vorschlag wurde einstimmig angenommen.|The proposal was accepted unanimously.
+die Verfassung, Verfassungen|constitution|Das widerspricht der Verfassung.|That contradicts the constitution.
+die Bürgerinitiative, Bürgerinitiativen|citizens' action group|Eine Bürgerinitiative kämpft gegen den Bau.|A citizens' group is fighting the construction.
+die Lobby, Lobbys|lobby|Die Autolobby ist sehr mächtig.|The car lobby is very powerful.
+die Korruption|corruption|Korruption ist ein großes Problem.|Corruption is a big problem.
+der Skandal, Skandale|scandal|Der Skandal kostete ihn sein Amt.|The scandal cost him his office.
+zurücktreten (tritt zurück, trat zurück, ist zurückgetreten)|to resign|Die Ministerin ist zurückgetreten.|The minister has resigned.
+die Pressefreiheit|freedom of the press|Pressefreiheit ist ein Grundrecht.|Press freedom is a fundamental right.
+die Berichterstattung|reporting, coverage|Die Berichterstattung war einseitig.|The coverage was one-sided.
+einseitig|one-sided|Der Artikel ist sehr einseitig.|The article is very one-sided.
+die Desinformation|disinformation|Desinformation verbreitet sich schnell im Netz.|Disinformation spreads fast online.
+die Meinungsbildung|opinion-forming|Medien spielen eine Rolle bei der Meinungsbildung.|The media play a role in forming opinions.
+die Öffentlichkeit|the public|Die Öffentlichkeit wurde nicht informiert.|The public wasn't informed.
+der Kommentar, Kommentare|commentary, comment|Hast du den Kommentar in der Zeitung gelesen?|Did you read the commentary in the paper?
+der Leitartikel, Leitartikel|editorial|Der Leitartikel kritisiert die Regierung.|The editorial criticises the government.
+die Polarisierung|polarisation|Die Polarisierung der Gesellschaft nimmt zu.|Society is becoming more polarised.
+der Populismus|populism|Populismus ist in vielen Ländern stark.|Populism is strong in many countries.
+die Glaubwürdigkeit|credibility|Die Partei hat ihre Glaubwürdigkeit verloren.|The party has lost its credibility.
+das Vertrauen in|trust in|Das Vertrauen in die Politik sinkt.|Trust in politics is declining.
+der Haushalt, Haushalte|budget|Der Haushalt muss gekürzt werden.|The budget has to be cut.
+kürzen|to cut|Die Regierung kürzt die Ausgaben.|The government is cutting spending.
+die Sozialleistungen (Pl.)|social benefits|Die Sozialleistungen wurden erhöht.|Social benefits were increased.
+die Verwaltung, Verwaltungen|administration|Die Verwaltung soll digitaler werden.|The administration is to become more digital.` },
+
+{ id:'b2v15', lvl:'B2', t:'Nomen für Texte', en:'Nouns for essays and reports', tag:'study', w:`
+die Ansicht, Ansichten|view|Ich bin der Ansicht, dass …|I'm of the view that …
+die Auffassung, Auffassungen|view, opinion|Nach meiner Auffassung ist das falsch.|In my view that's wrong.
+die Behauptung, Behauptungen|claim|Diese Behauptung ist nicht belegt.|This claim isn't substantiated.
+der Beleg, Belege|evidence; receipt|Gibt es Belege dafür?|Is there evidence for that?
+belegen|to prove, to substantiate|Studien belegen den Zusammenhang.|Studies prove the connection.
+die Begründung, Begründungen|justification, reason|Geben Sie eine Begründung an.|Give a justification.
+der Einwand, Einwände|objection|Hat jemand Einwände?|Does anyone have objections?
+das Gegenargument, Gegenargumente|counter-argument|Was ist das stärkste Gegenargument?|What's the strongest counter-argument?
+die Schlussfolgerung, Schlussfolgerungen|conclusion|Welche Schlussfolgerung ziehen Sie?|What conclusion do you draw?
+das Fazit, Fazits|conclusion, summary|Mein Fazit: Es lohnt sich.|My conclusion: it's worth it.
+die Einleitung, Einleitungen|introduction|In der Einleitung nennen Sie das Thema.|In the introduction you name the topic.
+der Hauptteil, Hauptteile|main part|Im Hauptteil kommen die Argumente.|The arguments come in the main part.
+der Schluss|ending, conclusion|Zum Schluss fassen Sie zusammen.|At the end you summarise.
+der Absatz, Absätze|paragraph|Beginnen Sie einen neuen Absatz.|Start a new paragraph.
+die Gliederung, Gliederungen|outline, structure|Mach zuerst eine Gliederung.|Make an outline first.
+die Grafik, Grafiken|chart, graph|Die Grafik zeigt die Entwicklung.|The chart shows the development.
+der Anstieg, Anstiege|increase|Es gab einen deutlichen Anstieg.|There was a clear increase.
+der Rückgang, Rückgänge|decline|Der Rückgang der Geburten ist auffällig.|The decline in births is striking.
+der Höhepunkt, Höhepunkte|peak, highlight|2019 erreichte die Zahl ihren Höhepunkt.|The number peaked in 2019.
+die Entwicklung, Entwicklungen|development|Die Entwicklung ist besorgniserregend.|The development is worrying.
+die Prognose, Prognosen|forecast|Die Prognose für 2030 ist positiv.|The forecast for 2030 is positive.
+die Problematik|set of problems|Die Problematik ist vielschichtig.|The issue is complex.
+der Gesichtspunkt, Gesichtspunkte|point of view, aspect|Unter diesem Gesichtspunkt …|From this point of view …
+die Perspektive, Perspektiven|perspective|Aus einer anderen Perspektive sieht es anders aus.|From a different perspective it looks different.
+das Phänomen, Phänomene|phenomenon|Das ist ein neues Phänomen.|That's a new phenomenon.
+die Tendenz, Tendenzen|tendency|Die Tendenz ist steigend.|The trend is rising.
+die Kontroverse, Kontroversen|controversy|Das Buch löste eine Kontroverse aus.|The book sparked a controversy.
+der Streitpunkt, Streitpunkte|point of contention|Der größte Streitpunkt ist das Geld.|The biggest point of contention is money.
+die Gegenüberstellung, Gegenüberstellungen|comparison|Eine Gegenüberstellung der Vor- und Nachteile.|A comparison of the pros and cons.
+die Relevanz|relevance|Das Thema hat große Relevanz.|The topic is highly relevant.
+die Ausnahme, Ausnahmen|exception|Ausnahmen bestätigen die Regel.|The exception proves the rule.
+die Voraussetzung, Voraussetzungen|precondition|Eine Voraussetzung dafür ist Bildung.|One precondition is education.
+die Grundlage, Grundlagen|basis|Auf dieser Grundlage entscheiden wir.|We'll decide on this basis.
+der Ansatz, Ansätze|approach|Das ist ein interessanter Ansatz.|That's an interesting approach.
+die Herangehensweise, Herangehensweisen|approach (method)|Jeder hat eine andere Herangehensweise.|Everyone has a different approach.` },
+
+{ id:'b2v16', lvl:'B2', t:'Verben auf B2 · 2', en:'More advanced verbs', tag:'basics', w:`
+abwägen (wägt ab, wog ab, hat abgewogen)|to weigh up|Man muss die Vor- und Nachteile abwägen.|You have to weigh up the pros and cons.
+anstreben|to aim for|Wir streben eine Lösung an.|We're aiming for a solution.
+aufgreifen (greift auf, griff auf, hat aufgegriffen)|to take up (an idea)|Ich greife Ihren Vorschlag gern auf.|I'll gladly take up your suggestion.
+ausschließen (schließt aus, schloss aus, hat ausgeschlossen)|to rule out|Das kann ich nicht ausschließen.|I can't rule that out.
+beanspruchen|to claim; to take up|Das beansprucht viel Zeit.|That takes up a lot of time.
+begünstigen|to favour, to promote|Das Klima begünstigt den Weinbau.|The climate favours wine growing.
+beitragen (trägt bei, trug bei, hat beigetragen)|to contribute|Jeder trägt etwas bei.|Everyone contributes something.
+belasten|to burden, to strain|Der Lärm belastet die Anwohner.|The noise is a burden on residents.
+benachteiligen|to disadvantage|Frauen werden oft benachteiligt.|Women are often disadvantaged.
+beschleunigen|to speed up|Die Digitalisierung beschleunigt den Wandel.|Digitalisation accelerates change.
+bevorzugen|to prefer|Ich bevorzuge Tee.|I prefer tea.
+durchführen|to carry out|Die Studie wurde in drei Ländern durchgeführt.|The study was carried out in three countries.
+einbeziehen (bezieht ein, bezog ein, hat einbezogen)|to include, to involve|Wir müssen alle Beteiligten einbeziehen.|We have to involve everyone concerned.
+eingehen auf (geht ein, ging ein, ist eingegangen)|to address, to respond to|Darauf gehe ich später ein.|I'll address that later.
+entgegenwirken|to counteract|Wir müssen dem Trend entgegenwirken.|We must counteract the trend.
+entsprechen (entspricht, entsprach, hat entsprochen)|to correspond to|Das entspricht nicht der Wahrheit.|That doesn't correspond to the truth.
+erläutern|to explain|Bitte erläutern Sie Ihren Standpunkt.|Please explain your point of view.
+gewährleisten|to guarantee, to ensure|Die Sicherheit muss gewährleistet sein.|Safety must be guaranteed.
+hinterfragen|to question|Man sollte alles hinterfragen.|You should question everything.
+nachgehen (geht nach, ging nach, ist nachgegangen)|to pursue; to look into|Die Polizei geht dem Hinweis nach.|The police are following up the lead.
+plädieren für|to argue for|Ich plädiere für mehr Bildung.|I'm arguing for more education.
+prägen|to shape, to characterise|Die Kindheit prägt uns.|Childhood shapes us.
+schildern|to describe, to depict|Er schildert seine Erlebnisse.|He describes his experiences.
+sich abzeichnen|to emerge, to become apparent|Ein Trend zeichnet sich ab.|A trend is emerging.
+sich bewähren|to prove oneself|Das System hat sich bewährt.|The system has proven itself.
+sich etablieren|to become established|Die Methode hat sich etabliert.|The method has become established.
+stagnieren|to stagnate|Die Löhne stagnieren.|Wages are stagnating.
+unterliegen (unterliegt, unterlag, hat unterlegen)|to be subject to|Die Preise unterliegen Schwankungen.|Prices are subject to fluctuation.
+veranschaulichen|to illustrate|Ein Beispiel veranschaulicht das Problem.|An example illustrates the problem.
+vertreten (vertritt, vertrat, hat vertreten)|to represent; to hold (a view)|Er vertritt eine andere Meinung.|He holds a different opinion.
+vorantreiben (treibt voran, trieb voran, hat vorangetrieben)|to push forward|Wir treiben das Projekt voran.|We're pushing the project forward.
+widerspiegeln|to reflect|Die Ergebnisse spiegeln die Realität wider.|The results reflect reality.
+zunehmen (nimmt zu, nahm zu, hat zugenommen)|to increase|Die Zahl nimmt zu.|The number is increasing.
+zustande kommen (kommt, kam, ist gekommen)|to come about|Wie ist das zustande gekommen?|How did that come about?
+zuspitzen|to come to a head|Die Lage spitzt sich zu.|The situation is coming to a head.` },
+
+{ id:'b2v17', lvl:'B2', t:'Konnektoren & Adverbien', en:'Linking words for B2', tag:'study', w:`
+zudem|in addition|Zudem ist es billiger.|In addition, it's cheaper.
+darüber hinaus|furthermore|Darüber hinaus gibt es weitere Gründe.|Furthermore, there are other reasons.
+ferner|furthermore (formal)|Ferner ist zu beachten, dass …|It should further be noted that …
+hingegen|on the other hand|Er ist ruhig, sie hingegen sehr lebhaft.|He's calm; she, on the other hand, is very lively.
+wohingegen|whereas|Ich mag Sommer, wohingegen er den Winter liebt.|I like summer, whereas he loves winter.
+während|whereas; while|Während er arbeitet, schläft sie.|While he works, she sleeps.
+indessen|meanwhile; however|Indessen hat sich die Lage verändert.|Meanwhile the situation has changed.
+dennoch|nevertheless|Es ist teuer, dennoch kaufe ich es.|It's expensive; nevertheless I'll buy it.
+gleichwohl|nonetheless|Gleichwohl bleibt das Problem bestehen.|Nonetheless, the problem remains.
+sofern|provided that|Sofern nichts dazwischenkommt, komme ich.|Provided nothing comes up, I'll come.
+vorausgesetzt, dass|provided that|Vorausgesetzt, dass es nicht regnet.|Provided that it doesn't rain.
+es sei denn|unless|Ich komme, es sei denn, ich bin krank.|I'll come, unless I'm ill.
+insofern|in this respect|Insofern hast du recht.|In this respect you're right.
+inwiefern|to what extent|Inwiefern stimmt das?|To what extent is that true?
+zumal|especially since|Ich bleibe zu Hause, zumal es regnet.|I'm staying home, especially as it's raining.
+demzufolge|consequently|Demzufolge müssen wir sparen.|Consequently we have to save.
+somit|thus|Somit ist das Problem gelöst.|Thus the problem is solved.
+letztendlich|ultimately|Letztendlich ist es deine Entscheidung.|Ultimately it's your decision.
+schließlich|after all; finally|Er ist schließlich der Chef.|He is the boss, after all.
+immerhin|at least, after all|Immerhin hat er es versucht.|At least he tried.
+allenfalls|at most|Das dauert allenfalls eine Stunde.|That takes an hour at most.
+keinesfalls|by no means|Das darfst du keinesfalls vergessen.|You mustn't forget that under any circumstances.
+mittlerweile|by now, meanwhile|Mittlerweile spreche ich gut Deutsch.|By now I speak German well.
+vorerst|for the time being|Vorerst bleibt alles, wie es ist.|For the time being, everything stays as it is.
+zwangsläufig|inevitably|Das führt zwangsläufig zu Konflikten.|That inevitably leads to conflict.
+gewissermaßen|in a way|Das ist gewissermaßen ein Kompliment.|That's a compliment, in a way.
+sozusagen|so to speak|Er ist sozusagen der Chef.|He's the boss, so to speak.
+beziehungsweise|or rather; respectively|Ich komme morgen beziehungsweise übermorgen.|I'll come tomorrow or rather the day after.
+nichtsdestotrotz|nevertheless|Nichtsdestotrotz bin ich optimistisch.|Nevertheless I'm optimistic.
+angesichts|in view of|Angesichts der Lage müssen wir handeln.|In view of the situation we must act.
+anhand|by means of, based on|Anhand dieser Grafik sieht man …|Using this chart one can see …
+hinsichtlich|with regard to|Hinsichtlich der Kosten gibt es Fragen.|There are questions with regard to the costs.
+seitens|on the part of|Seitens der Firma gab es keine Antwort.|There was no response from the company.
+zugunsten|in favour of|Er verzichtete zugunsten seiner Schwester.|He stepped back in favour of his sister.
+ungeachtet|regardless of|Ungeachtet der Kritik machte er weiter.|Regardless of the criticism, he carried on.` }
+);
+
+/* Graded reading texts. q: [question, [options], index of the right option] */
+window.WW_READ = [
+{ id:'r01', lvl:'A1', t:'Ein neuer Nachbar', text:`Hallo, ich heiße Karim. Ich bin 28 Jahre alt und komme aus Marokko. Seit zwei Wochen wohne ich in Leipzig. Meine Wohnung ist klein, aber hell. Sie hat zwei Zimmer, eine Küche und ein Bad.
+
+Am Montag klingelt es. Vor der Tür steht eine alte Frau. „Guten Tag, ich bin Frau Becker. Ich wohne nebenan. Herzlich willkommen!“ Sie hat einen Kuchen in der Hand.
+
+Ich sage: „Danke, das ist sehr nett! Möchten Sie einen Kaffee?“ Frau Becker lacht: „Gern, aber ich trinke lieber Tee.“ Wir sitzen eine Stunde in der Küche und sprechen. Mein Deutsch ist noch nicht so gut, aber Frau Becker spricht langsam. Jetzt habe ich eine Freundin in Leipzig.`,
+  gl:[['nebenan','next door'],['klingeln','to ring (doorbell)'],['in der Hand','in her hand'],['lieber','rather, preferably']],
+  q:[['Woher kommt Karim?',['Aus Marokko','Aus Leipzig','Aus der Türkei'],0],['Was bringt Frau Becker mit?',['Einen Kaffee','Einen Kuchen','Blumen'],1],['Was trinkt Frau Becker?',['Kaffee','Wasser','Tee'],2]] },
+{ id:'r02', lvl:'A1', t:'Mein Wochenende', text:`Am Samstag stehe ich spät auf. Ich frühstücke um zehn Uhr: Brötchen mit Käse und einen Kaffee. Dann gehe ich auf den Markt. Ich kaufe Obst, Gemüse und Blumen.
+
+Am Nachmittag treffe ich meine Freundin Sara. Wir gehen im Park spazieren. Das Wetter ist schön, die Sonne scheint. Am Abend kochen wir zusammen. Sara macht eine Suppe, ich mache einen Salat.
+
+Am Sonntag regnet es. Ich bleibe zu Hause, lese ein Buch und rufe meine Eltern an. Sie wohnen in Bremen. Um neun Uhr gehe ich schlafen, denn am Montag muss ich früh arbeiten.`,
+  gl:[['spät','late'],['scheinen','to shine'],['zusammen','together'],['denn','because']],
+  q:[['Was kauft die Person auf dem Markt?',['Brötchen und Käse','Obst, Gemüse und Blumen','Ein Buch'],1],['Was macht sie am Sonntag?',['Sie geht im Park spazieren','Sie bleibt zu Hause','Sie fährt nach Bremen'],1],['Warum geht sie früh schlafen?',['Sie ist krank','Sie muss am Montag früh arbeiten','Es regnet'],1]] },
+{ id:'r03', lvl:'A1', t:'Im Supermarkt', text:`Lina ist im Supermarkt. Sie hat eine Einkaufsliste: Milch, Eier, Brot, Tomaten und Reis. Die Milch und die Eier findet sie schnell. Aber wo ist der Reis?
+
+Sie fragt einen Verkäufer: „Entschuldigung, wo finde ich Reis?“ Der Verkäufer antwortet: „Der Reis ist da hinten, neben den Nudeln.“ – „Danke!“
+
+An der Kasse sagt die Kassiererin: „Das macht 12 Euro 40.“ Lina sucht ihr Portemonnaie. Oh nein, es ist zu Hause! Aber sie hat ihr Handy. „Kann ich mit dem Handy bezahlen?“ – „Ja, natürlich.“ Lina ist froh.`,
+  gl:[['die Einkaufsliste','shopping list'],['da hinten','back there'],['die Kassiererin','cashier'],['froh','glad']],
+  q:[['Was findet Lina nicht sofort?',['Die Milch','Den Reis','Die Eier'],1],['Wo ist der Reis?',['Neben den Nudeln','An der Kasse','Neben der Milch'],0],['Wie bezahlt Lina?',['Bar','Mit Karte','Mit dem Handy'],2]] },
+{ id:'r04', lvl:'A2', t:'Der erste Arbeitstag', text:`Gestern hatte Ahmed seinen ersten Arbeitstag in einer Bäckerei in Köln. Er ist schon um vier Uhr aufgestanden, weil die Arbeit um fünf beginnt. Er war sehr nervös.
+
+Sein Chef, Herr Wagner, hat ihm alles gezeigt: die Öfen, das Lager und die Kasse. Dann hat Ahmed zusammen mit einer Kollegin Brötchen gebacken. Am Anfang hat er viele Fragen gestellt, aber die Kollegin war sehr geduldig.
+
+Um sieben Uhr kamen die ersten Kunden. Ahmed hat an der Kasse geholfen. Einmal hat er einem Kunden zu viel Wechselgeld gegeben, aber der Kunde war ehrlich und hat es zurückgegeben.
+
+Nach der Arbeit war Ahmed sehr müde, aber auch glücklich. „Der Job ist anstrengend, aber er macht mir Spaß“, hat er am Abend seiner Frau erzählt.`,
+  gl:[['das Lager','storeroom'],['geduldig','patient'],['das Wechselgeld','change (money)'],['anstrengend','tiring']],
+  q:[['Warum ist Ahmed um vier Uhr aufgestanden?',['Er konnte nicht schlafen','Die Arbeit beginnt um fünf','Er wollte joggen'],1],['Was ist an der Kasse passiert?',['Ahmed hat zu viel Wechselgeld gegeben','Ein Kunde hat nicht bezahlt','Die Kasse war kaputt'],0],['Wie findet Ahmed den Job?',['Langweilig','Anstrengend, aber schön','Zu leicht'],1]] },
+{ id:'r05', lvl:'A2', t:'Eine Reise mit Hindernissen', text:`Letzten Sommer wollten Maria und Tom nach Wien fahren. Sie hatten die Zugtickets schon im Februar gebucht, weil sie früh günstiger waren.
+
+Am Reisetag kamen sie pünktlich zum Bahnhof. Aber dann die Durchsage: „Der ICE nach Wien hat heute etwa 90 Minuten Verspätung.“ Tom war sauer, aber Maria blieb ruhig. „Dann trinken wir eben einen Kaffee“, sagte sie.
+
+Wegen der Verspätung haben sie in München ihren Anschlusszug verpasst. Ein freundlicher Mitarbeiter am Schalter hat ihnen eine neue Verbindung gesucht. Sie kamen erst um Mitternacht in Wien an, drei Stunden später als geplant.
+
+Trotzdem war der Urlaub wunderbar. Sie haben das Schloss Schönbrunn besichtigt, viel Kuchen gegessen und sind mit dem Fahrrad an der Donau entlanggefahren. Und die Bahn hat ihnen später einen Teil des Geldes zurückgezahlt.`,
+  gl:[['das Hindernis','obstacle'],['die Durchsage','announcement'],['sauer','annoyed'],['der Anschlusszug','connecting train']],
+  q:[['Warum haben sie die Tickets im Februar gekauft?',['Sie waren früh günstiger','Es gab keine anderen Tickets','Maria hatte im Februar Geburtstag'],0],['Was ist in München passiert?',['Sie haben den Anschlusszug verpasst','Sie haben ein Hotel gesucht','Sie haben Kuchen gegessen'],0],['Was hat die Bahn später gemacht?',['Sie hat sich nicht gemeldet','Sie hat einen Teil des Geldes zurückgezahlt','Sie hat neue Tickets geschickt'],1]] },
+{ id:'r06', lvl:'A2', t:'Beim Arzt', text:`Seit drei Tagen fühlt sich Jana nicht gut. Sie hat Halsschmerzen, Husten und ein bisschen Fieber. Heute Morgen ruft sie in der Praxis an und bekommt einen Termin um elf Uhr.
+
+Im Wartezimmer sitzen viele Leute. Nach 40 Minuten ruft die Ärztin: „Frau Schulz, bitte!“ Die Ärztin untersucht Janas Hals und hört die Lunge ab. „Sie haben eine starke Erkältung“, sagt sie. „Das ist nicht gefährlich, aber Sie brauchen Ruhe.“
+
+Die Ärztin schreibt ein Rezept für Hustensaft und eine Krankmeldung für vier Tage. „Trinken Sie viel Tee und bleiben Sie im Bett. Wenn das Fieber steigt, kommen Sie bitte wieder.“
+
+Auf dem Weg nach Hause geht Jana in die Apotheke und holt den Hustensaft. Dann schreibt sie ihrem Chef eine E-Mail. Er antwortet schnell: „Gute Besserung!“`,
+  gl:[['das Wartezimmer','waiting room'],['die Lunge abhören','to listen to the lungs'],['der Hustensaft','cough syrup'],['die Krankmeldung','sick note']],
+  q:[['Welche Symptome hat Jana?',['Bauchschmerzen und Fieber','Halsschmerzen, Husten und Fieber','Rückenschmerzen'],1],['Was sagt die Ärztin?',['Jana muss ins Krankenhaus','Es ist eine starke Erkältung','Jana kann morgen arbeiten'],1],['Wann soll Jana wiederkommen?',['Morgen um elf','Wenn das Fieber steigt','In vier Wochen'],1]] },
+{ id:'r07', lvl:'B1', t:'Homeoffice: Fluch oder Segen?', text:`Seit einigen Jahren arbeiten in Deutschland viel mehr Menschen von zu Hause aus als früher. Für viele ist das ein großer Vorteil: Sie sparen sich den langen Weg zur Arbeit, können ihre Zeit flexibler einteilen und haben mehr Ruhe zum Konzentrieren.
+
+Doch nicht alle sind begeistert. Besonders junge Mitarbeiter, die neu in einer Firma sind, vermissen den Kontakt zu den Kollegen. „Im Büro lernt man viel nebenbei, beim Mittagessen oder an der Kaffeemaschine“, sagt die 26-jährige Lea, die als Grafikdesignerin arbeitet. „Zu Hause bin ich oft allein und manchmal fällt es mir schwer, nach der Arbeit abzuschalten.“
+
+Auch Familien erleben das Homeoffice unterschiedlich. Für manche Eltern ist es leichter, Arbeit und Kinder zu organisieren. Andere haben keinen ruhigen Platz in der Wohnung und arbeiten am Küchentisch, während die Kinder spielen.
+
+Viele Firmen haben deshalb eine Lösung gefunden, die beides verbindet: Die Mitarbeiter arbeiten zwei oder drei Tage im Büro und den Rest der Woche zu Hause. Experten meinen, dass dieses Modell die Zukunft der Arbeit ist.`,
+  gl:[['der Fluch / der Segen','curse / blessing'],['einteilen','to organise, divide up'],['nebenbei','on the side, incidentally'],['abschalten','to switch off, unwind']],
+  q:[['Was vermisst Lea im Homeoffice?',['Ihren Computer','Den Kontakt zu den Kollegen','Das Mittagessen zu Hause'],1],['Welches Problem haben manche Familien?',['Sie haben keinen ruhigen Arbeitsplatz','Sie haben kein Internet','Die Kinder sind in der Schule'],0],['Welches Modell halten Experten für die Zukunft?',['Nur Homeoffice','Nur Büro','Eine Mischung aus Büro und Homeoffice'],2]] },
+{ id:'r08', lvl:'B1', t:'Ein Ehrenamt, das verbindet', text:`Jeden Dienstagnachmittag trifft sich im Gemeindezentrum von Hannover-Linden eine ungewöhnliche Gruppe. Rentner, Studenten und Menschen, die erst vor kurzem nach Deutschland gekommen sind, sitzen gemeinsam an langen Tischen. Hier findet das „Sprachcafé“ statt.
+
+Die Idee stammt von Gisela Hartmann, einer pensionierten Lehrerin. „Als ich in Rente gegangen bin, wollte ich etwas Sinnvolles tun“, erzählt sie. „Viele Neuankömmlinge lernen im Kurs Grammatik, aber sie haben kaum Gelegenheit, mit Deutschen zu sprechen.“
+
+Im Sprachcafé gibt es keinen Unterricht. Man trinkt Kaffee, isst Kuchen und unterhält sich über alles Mögliche: über Rezepte, über Fußball, über Probleme mit Behörden. Wer einen Brief vom Amt nicht versteht, bekommt hier Hilfe.
+
+Für Omar aus dem Jemen war das Sprachcafé ein Wendepunkt. „Am Anfang habe ich mich nicht getraut zu sprechen. Jetzt habe ich hier echte Freunde gefunden.“ Inzwischen hilft er selbst mit und übersetzt für neue Besucher, die nur Arabisch sprechen.`,
+  gl:[['das Ehrenamt','voluntary work'],['der Neuankömmling','newcomer'],['der Wendepunkt','turning point'],['sich trauen','to dare']],
+  q:[['Wer hatte die Idee für das Sprachcafé?',['Omar aus dem Jemen','Eine pensionierte Lehrerin','Die Stadt Hannover'],1],['Was gibt es im Sprachcafé NICHT?',['Kaffee und Kuchen','Hilfe mit Briefen','Grammatikunterricht'],2],['Was macht Omar heute?',['Er übersetzt für neue Besucher','Er unterrichtet Grammatik','Er wohnt wieder im Jemen'],0]] },
+{ id:'r09', lvl:'B1', t:'Leserbrief: Mehr Grün in der Stadt', text:`Sehr geehrte Damen und Herren,
+
+mit großem Interesse habe ich Ihren Artikel über die geplante Bebauung des Stadtparks gelesen. Ich möchte dazu meine Meinung äußern.
+
+Natürlich verstehe ich, dass unsere Stadt dringend neue Wohnungen braucht. Die Mieten sind in den letzten Jahren stark gestiegen, und viele Familien finden keine bezahlbare Wohnung. Trotzdem halte ich es für einen Fehler, dafür einen der wenigen Parks zu opfern.
+
+Der Stadtpark ist für viele Menschen der einzige Ort, an dem sie sich in der Natur erholen können. Kinder spielen dort, ältere Menschen gehen spazieren, und im Sommer sorgen die Bäume für kühlere Luft. Gerade in Zeiten des Klimawandels brauchen wir mehr Grünflächen, nicht weniger.
+
+Meiner Meinung nach sollte die Stadt stattdessen leer stehende Bürogebäude in Wohnungen umbauen. So könnte man neuen Wohnraum schaffen, ohne die Natur zu zerstören.
+
+Mit freundlichen Grüßen
+Petra Lindner`,
+  gl:[['die Bebauung','development, building on'],['bezahlbar','affordable'],['opfern','to sacrifice'],['leer stehend','vacant']],
+  q:[['Worüber schreibt Petra Lindner?',['Über ein neues Schwimmbad','Über Wohnungen im Stadtpark','Über die Mieten in Berlin'],1],['Welches Argument nennt sie FÜR den Park?',['Bäume sorgen im Sommer für kühlere Luft','Der Park ist sehr groß','Im Park gibt es ein Café'],0],['Was schlägt sie vor?',['Mehr Parks zu bauen','Bürogebäude in Wohnungen umzubauen','Die Mieten zu senken'],1]] },
+{ id:'r10', lvl:'B2', t:'Die Vier-Tage-Woche', text:`Kaum ein arbeitspolitisches Thema wird derzeit so leidenschaftlich diskutiert wie die Vier-Tage-Woche. Befürworter versprechen sich davon zufriedenere, gesündere und letztlich produktivere Beschäftigte. Kritiker hingegen warnen vor steigenden Kosten und einer Verschärfung des ohnehin bestehenden Fachkräftemangels.
+
+Ein mehrmonatiges Pilotprojekt, an dem sich zahlreiche Unternehmen beteiligten, lieferte bemerkenswerte Ergebnisse: Die Mehrheit der teilnehmenden Firmen gab an, dass die Produktivität stabil geblieben oder sogar gestiegen sei. Gleichzeitig berichteten die Mitarbeitenden von weniger Stress und einer besseren Vereinbarkeit von Beruf und Familie.
+
+Allerdings lassen sich diese Erfahrungen nicht ohne Weiteres auf alle Branchen übertragen. In der Pflege oder im Einzelhandel etwa, wo Anwesenheit unverzichtbar ist, würde eine Verkürzung der Arbeitszeit zwangsläufig zusätzliches Personal erfordern, das schlicht nicht vorhanden ist.
+
+Letztlich dürfte es weniger um ein starres Modell für alle gehen als um mehr Flexibilität. Entscheidend sei, so ein Arbeitsmarktforscher, dass Arbeitgeber und Beschäftigte gemeinsam Lösungen fänden, die zu den jeweiligen Anforderungen passten.`,
+  gl:[['der Befürworter','supporter'],['die Verschärfung','worsening'],['die Vereinbarkeit','compatibility, balance'],['unverzichtbar','indispensable']],
+  q:[['Was befürchten Kritiker der Vier-Tage-Woche?',['Weniger Freizeit','Höhere Kosten und mehr Fachkräftemangel','Mehr Arbeitslosigkeit bei Jüngeren'],1],['Was zeigte das Pilotprojekt?',['Die Produktivität sank deutlich','Die Produktivität blieb stabil oder stieg','Die meisten Firmen brachen das Projekt ab'],1],['Warum ist das Modell in der Pflege schwierig?',['Es fehlt Personal, das die Lücken füllen könnte','Pflegekräfte wollen mehr arbeiten','Die Gewerkschaften sind dagegen'],0]] },
+{ id:'r11', lvl:'B2', t:'Wie viel Bildschirm ist zu viel?', text:`Smartphones, Tablets und Spielkonsolen gehören für die meisten Kinder längst zum Alltag. Doch während viele Eltern sich Sorgen um die Folgen machen, ist die wissenschaftliche Lage komplizierter, als es Schlagzeilen vermuten lassen.
+
+Zahlreiche Studien belegen zwar einen Zusammenhang zwischen hoher Bildschirmzeit und Schlafproblemen, Bewegungsmangel oder Konzentrationsschwierigkeiten. Ob die Geräte jedoch die Ursache sind oder ob andere Faktoren eine Rolle spielen, etwa familiärer Stress, lässt sich daraus nicht eindeutig ableiten.
+
+Fachleute plädieren deshalb dafür, weniger auf die reine Dauer zu schauen als auf die Art der Nutzung. Ein Videotelefonat mit den Großeltern oder eine Lern-App sei anders zu bewerten als stundenlanges, passives Scrollen durch kurze Videos. Entscheidend sei außerdem, was die Bildschirmzeit verdränge: Fehlen Schlaf, Bewegung und persönliche Begegnungen, werde es problematisch.
+
+Für Eltern bedeutet das: Starre Verbote helfen oft wenig. Sinnvoller seien gemeinsame Regeln, etwa handyfreie Mahlzeiten oder kein Bildschirm im Schlafzimmer, sowie ein gutes Vorbild. Denn wer selbst ständig aufs Handy schaut, wird seine Kinder kaum vom Gegenteil überzeugen.`,
+  gl:[['ableiten','to deduce'],['verdrängen','to displace'],['die Begegnung','encounter'],['das Vorbild','role model']],
+  q:[['Was lässt sich aus den Studien NICHT eindeutig ableiten?',['Dass Kinder viele Geräte nutzen','Ob die Geräte die Ursache der Probleme sind','Dass Kinder schlecht schlafen'],1],['Worauf sollte man laut Fachleuten vor allem achten?',['Auf die Art der Nutzung','Auf den Preis der Geräte','Nur auf die Dauer'],0],['Was empfiehlt der Text Eltern?',['Smartphones ganz zu verbieten','Gemeinsame Regeln und ein gutes Vorbild','Kindern ein eigenes Tablet zu kaufen'],1]] },
+{ id:'r12', lvl:'B2', t:'Mehrsprachig aufwachsen', text:`Lange Zeit hielt sich hartnäckig die Annahme, Kinder würden durch das gleichzeitige Erlernen mehrerer Sprachen überfordert. Eltern mit Migrationshintergrund wurde nicht selten geraten, mit ihren Kindern ausschließlich Deutsch zu sprechen, selbst wenn sie es nur unvollkommen beherrschten.
+
+Inzwischen ist diese Empfehlung weitgehend widerlegt. Die Forschung zeigt, dass Kinder durchaus in der Lage sind, zwei oder mehr Sprachen parallel zu erwerben. Zwar kann es anfangs vorkommen, dass sie Wörter vermischen oder in einer Sprache etwas langsamer Fortschritte machen. Dies gilt jedoch als völlig normaler Teil der Entwicklung und gleicht sich in der Regel aus.
+
+Mehr noch: Eine gut beherrschte Familiensprache bildet häufig eine solide Grundlage für das Erlernen weiterer Sprachen. Wer in seiner Erstsprache komplexe Gedanken ausdrücken und Geschichten erzählen kann, überträgt diese Fähigkeiten leichter auf das Deutsche.
+
+Experten raten Eltern daher, mit ihren Kindern in der Sprache zu sprechen, die sie selbst am besten beherrschen und in der sie ihre Gefühle ausdrücken können. Gleichzeitig sei ein früher und intensiver Kontakt zum Deutschen, etwa in der Kita, von großer Bedeutung. Mehrsprachigkeit sei kein Hindernis, sondern eine Ressource, die gefördert werden sollte.`,
+  gl:[['hartnäckig','persistent(ly)'],['überfordern','to overwhelm'],['erwerben','to acquire'],['sich ausgleichen','to even out']],
+  q:[['Was riet man Eltern mit Migrationshintergrund früher?',['Nur ihre Familiensprache zu sprechen','Nur Deutsch zu sprechen','Englisch zu lernen'],1],['Wie bewertet die Forschung das Vermischen von Wörtern?',['Als ernstes Problem','Als normalen Teil der Entwicklung','Als Zeichen von Überforderung'],1],['Was empfehlen Experten heute?',['In der Sprache zu sprechen, die man am besten beherrscht','Die Familiensprache zu vermeiden','Kinder erst mit sechs Jahren in die Kita zu schicken'],0]] }
+];
+
 (() => {
 'use strict';
 /* ================= setup ================= */
-const D = window.WW_DATA, PLUS = window.WW_PLUS || {}, VOC = window.WW_VOCAB || [];
+const D = window.WW_DATA, PLUS = window.WW_PLUS || {}, VOC = window.WW_VOCAB || [], READ = window.WW_READ || [];
 const app = document.getElementById('app'), nav = document.getElementById('nav');
 const IN_CLAUDE = !!(window.claude && window.claude.use);
 const CLAUDE_URL = 'https://claude.ai/artifact/Gq2uRDQ5m5fL9SgLEG7iPZ';
@@ -4013,7 +4859,7 @@ LV.forEach(l => {
 });
 
 /* ================= state ================= */
-const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true } });
+const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, read: {}, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true } });
 let S = fresh();
 function migrate(r) {
   if (!r) return null;
@@ -4295,7 +5141,7 @@ function checkSent(target, input) {
 
 /* ================= sessions ================= */
 let V = { name: 'home' }, R = null, G = null, C = null, ST = null;
-const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb'];
+const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb', 'reader'];
 function newWordBlock(ws) {
   const q = [];
   ws.forEach(w => q.push({ t: 'wIntro', x: w, isNew: true }));
@@ -4483,7 +5329,7 @@ function lessonHtml(card, e, readOnly) {
 function go(name, id, extra) { cleanup(); V = Object.assign({ name, id }, extra || {}); render(); window.scrollTo(0, 0); }
 function cleanup() { if (G && G.timer) { clearInterval(G.timer); G.timer = 0; } if (aiCtl) { aiCtl.abort(); aiCtl = null; } micStop(); }
 const NAV = [['home', 'Heute'], ['course', 'Kurs'], ['words', 'Wörter'], ['practice', 'Üben'], ['me', 'Ich']];
-const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice' };
+const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice', read: 'practice' };
 function render() {
   if (!S.prof.onboarded && !['onb', 'ride', 'done', 'method'].includes(V.name)) V = { name: 'onb', step: 0 };
   const fn = VIEWS[V.name] || VIEWS.home;
@@ -4559,6 +5405,7 @@ VIEWS.home = () => {
     <div class="row small"><span class="mute">Logged outside Wortwerk today: <b class="num">${S.out[today()] || 0} min</b></span><span class="sp"></span>${[15, 30].map(m => `<button class="btn sm" data-act="logout" data-v="${m}">+${m} min</button>`).join('')}</div></div>
   <div class="tiles">
     <button class="tile" data-act="weak"><b>Schwachstellen</b><span>Train the items you get wrong most.</span></button>
+    ${nextRead() ? `<button class="tile" data-act="go" data-v="reader" data-id="${nextRead().id}"><b>Lesen</b><span>${esc(nextRead().t)} · ${nextRead().lvl}</span></button>` : ''}
     <button class="tile" data-act="go" data-v="practice"><b>Üben</b><span>Listening, speaking, games${AI ? ', tutor' : ''}.</span></button>
   </div>`;
 };
@@ -4631,6 +5478,7 @@ VIEWS.practice = () => {
     <button class="tile" data-act="weak" ${weak ? '' : 'disabled'}><b>Schwachstellen</b><span>${weak} items you've struggled with</span></button>
     <button class="tile" data-act="listen" ${n && canSpeak() ? '' : 'disabled'}><b>Hörtraining</b><span>Understand spoken German</span></button>
     <button class="tile" data-act="speak" ${n && canMic() ? '' : 'disabled'}><b>Sprechtraining</b><span>${canMic() ? 'Read aloud, get checked' : 'Needs a browser with speech recognition'}</span></button>
+    <button class="tile" data-act="go" data-v="read"><b>Lesen</b><span>${READ.length} graded texts with questions. ${Object.keys(S.read).length} read</span></button>
     <button class="tile" data-act="go" data-v="blitz"><b>Artikel-Blitz</b><span>der, die or das? 45 seconds. Best ${S.hi.blitz}</span></button>
     <button class="tile" data-act="go" data-v="verb"><b>Verb-Sprint</b><span>Past forms of strong verbs. Best ${S.hi.verb}/10</span></button>
   </div>
@@ -4765,6 +5613,24 @@ VIEWS.done = () => {
     <p class="mute">${mt >= goal ? 'Daily goal reached. Anything more is a bonus.' : `${goal - mt} more minutes to reach today's goal.`} ${tomorrow} reviews are lined up for tomorrow.</p>
     ${mt < goal || p.due ? '<button class="btn pri wide" data-act="daily" data-focus>Noch eine Fahrt</button>' : ''}
     <div class="row" style="width:100%"><button class="btn" style="flex:1" data-act="go" data-v="practice">Üben</button><button class="btn" style="flex:1" data-act="go" data-v="home">Home</button></div></div>`;
+};
+
+/* ---------- reading ---------- */
+function nextRead() { const l = LV.indexOf(lvlNow()); return READ.find(r => S.read[r.id] == null && LV.indexOf(r.lvl) <= l) || null; }
+VIEWS.read = () => header() + `<div><h1>Lesen</h1><p class="mute">Short texts written for each level. Read, listen, answer three questions, and save new words to learn.</p></div>` +
+  LV.map(l => `<div class="linehd"><span class="roundel ${l}">${LINE[l]}</span><h2>${l}</h2></div>` + READ.filter(r => r.lvl === l).map(r => `<button class="prow" data-act="go" data-v="reader" data-id="${r.id}"><span class="t"><b>${esc(r.t)}</b><span>${r.text.split(/\s+/).length} words · ${r.gl.length} key words</span></span>${S.read[r.id] != null ? `<span class="pill ${S.read[r.id] === 3 ? 'good' : ''}">${S.read[r.id]}/3</span>` : '<span class="pill ghost">new</span>'}</button>`).join('')).join('');
+VIEWS.reader = () => {
+  const r = READ.find(x => x.id === V.id) || READ[0]; V.ans = V.ans || {}; V.t0 = V.t0 || Date.now();
+  const paras = r.text.split(/\n\n+/), done = Object.keys(V.ans).length === r.q.length;
+  const score = r.q.filter((q, i) => V.ans[i] === q[2]).length;
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="read" aria-label="Close">✕</button><span class="lab">${r.lvl} · Lesestück</span></div>
+    <h1>${esc(r.t)}</h1>
+    ${canSpeak() ? `<button class="btn sm" data-act="say" data-t="${esc(r.text.replace(/\n+/g, ' '))}" style="align-self:flex-start">${ICON.spk} Read it to me</button>` : ''}
+    ${paras.map(p => `<div class="row" style="align-items:flex-start;flex-wrap:nowrap"><p class="story" style="flex:1;min-width:0">${esc(p)}</p>${spk(p)}</div>`).join('')}
+    <div class="card"><span class="lab">Key words</span><div class="gloss">${r.gl.map(g => `<span><b>${esc(g[0])}</b> ${esc(g[1])}</span>`).join('')}</div>
+      <button class="btn sm" data-act="readsave" data-id="${r.id}" style="align-self:flex-start" ${r.gl.every(g => S.my.some(l => l.split('|')[0] === g[0])) ? 'disabled' : ''}>${r.gl.every(g => S.my.some(l => l.split('|')[0] === g[0])) ? 'Saved to Meine Wörter' : 'Save these words to learn'}</button></div>
+    ${r.q.map((q, qi) => { const a = V.ans[qi]; return `<div class="card"><b>${qi + 1}. ${esc(q[0])}</b><div class="opts">${q[1].map((o, oi) => `<button class="opt ${a != null ? (oi === q[2] ? 'ok' : oi === a ? 'no' : '') : ''}" data-act="rq" data-q="${qi}" data-o="${oi}" ${a != null ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div></div>`; }).join('')}
+    ${done ? `<div class="fb ${score === r.q.length ? '' : 'no'}"><h3>${score} of ${r.q.length} right</h3><p class="small">${score === r.q.length ? 'You understood the whole text.' : 'Read the text again and look for the answers.'}</p>${nextRead() ? `<button class="btn pri wide" data-act="go" data-v="reader" data-id="${nextRead().id}">Next text</button>` : ''}<button class="btn wide" data-act="go" data-v="read">All texts</button></div>` : ''}`;
 };
 
 /* ---------- games ---------- */
@@ -4975,6 +5841,18 @@ const acts = {
     gl.forEach(g => { const line = [g.de, g.en, g.ex || '', g.exEn || ''].map(s => String(s).replace(/\|/g, '/').replace(/\n/g, ' ')).join('|'); if (!S.my.some(l => l.split('|')[0] === line.split('|')[0])) S.my.push(line); });
     buildMyPack(); MYPACK.words.forEach(w => { if (!learned(w.id) && !S.soon.includes(w.id)) S.soon.push(w.id); });
     ST.added = true; save(); toast('Saved. They\'ll appear in your next sessions.'); render();
+  },
+  rq: el => {
+    const r = READ.find(x => x.id === V.id), qi = +el.dataset.q, o = +el.dataset.o; if (V.ans[qi] != null) return;
+    V.ans[qi] = o; const ok = o === r.q[qi][2]; beep(ok); stat('rec', ok); dayTouch(); const h = H(); h.a++; if (ok) { h.c++; addXp(8); }
+    if (Object.keys(V.ans).length === r.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.read[r.id] = Math.max(S.read[r.id] || 0, r.q.filter((q, i) => V.ans[i] === q[2]).length); }
+    save(); render();
+  },
+  readsave: el => {
+    const r = READ.find(x => x.id === el.dataset.id);
+    r.gl.forEach(g => { if (!S.my.some(l => l.split('|')[0] === g[0])) { const sent = r.text.split(/(?<=[.!?“])\s+/).find(s => s.includes(g[0].replace(/^(der|die|das) /, ''))) || ''; S.my.push([g[0], g[1], sent.replace(/\n/g, ' ').replace(/\|/g, '/'), ''].join('|')); } });
+    buildMyPack(); MYPACK.words.forEach(w => { if (!learned(w.id) && !S.soon.includes(w.id)) S.soon.push(w.id); });
+    save(); toast('Saved. They\'ll appear in your next sessions.'); render();
   },
   wopen: el => { V.open = V.open === el.dataset.id ? null : el.dataset.id; render(); },
   wlvl: el => { V.lvl = el.dataset.v; render(); },
