@@ -23,7 +23,7 @@ export class Fx {
   private dark: HTMLCanvasElement | null = null;
   private fire: HTMLCanvasElement | null = null;
   /** how many particles may live at once (the renderer lowers it on weaker machines) */
-  cap = 420;
+  cap = 300;
   private tinted = new Map<string, HTMLCanvasElement>();
   get count() { return this.parts.length; }
 

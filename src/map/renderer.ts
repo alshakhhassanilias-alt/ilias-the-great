@@ -153,6 +153,9 @@ export class MapRenderer {
   private baseSoftDirty = false;
   private lastBase = 0;
   private lastViewChange = 0;
+  /** while the map is being dragged or zoomed the base is drawn without its soft shading (cheap); the full picture follows once it rests */
+  private draftNow = false;
+  private baseDraft = false;
   private anim: { from: View; to: View; t0: number; ms: number } | null = null;
   private targetK = 1;
   private anchor: [number, number] | null = null;
@@ -491,6 +494,8 @@ export class MapRenderer {
     else if (refill || (farScale && t0 - this.lastBase > 90)) render = true;
     else if (idle && moved) render = true;
     else if (this.baseSoftDirty && t0 - this.lastBase > 450 && idle) render = true;
+    else if (this.baseDraft && t0 - this.lastViewChange > 280) render = true; // the view has come to rest: now the full picture
+    if (this.baseDraft && !render) this.dirty = true;
     // while the view moves, names are just carried along by the CSS transform and redrawn once it settles
     // a change of map mode (or selection) cross-fades instead of snapping
     if (render && this.baseValid && this.quality >= 1 && this.baseMode !== this.mode) this.ghostBase(380);
@@ -565,6 +570,8 @@ export class MapRenderer {
 
   private renderBase(state: GameState, withLabels = true) {
     const t0 = performance.now();
+    this.draftNow = this.baseValid && t0 - this.lastViewChange < 280;
+    this.baseDraft = this.draftNow;
     const ctx = this.bctx;
     const { k, x, y } = this.view;
     const m = this.margin, dpr = this.dpr;
@@ -671,9 +678,9 @@ export class MapRenderer {
     const colors = this.colorSnap;
     const political = this.mode === 'political';
     // 1b. shallow water: a soft pale band hugging every coast (drawn before the land, which covers its inner half)
-    if (this.quality > 0) {
+    if (this.quality > 0 && !this.draftNow) {
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      for (const [w, a] of [[30, 0.045], [18, 0.06], [9, 0.085]] as const) { ctx.strokeStyle = `rgba(130,205,235,${a})`; ctx.lineWidth = (w * Math.min(1.25, 0.6 + zoomIn * 0.08)) / k; ctx.stroke(paths.coast); }
+      for (const [w, a] of (this.quality === 2 ? [[26, 0.07], [10, 0.1]] : [[16, 0.1]]) as [number, number][]) { ctx.strokeStyle = `rgba(130,205,235,${a})`; ctx.lineWidth = (w * Math.min(1.25, 0.6 + zoomIn * 0.08)) / k; ctx.stroke(paths.coast); }
     }
     // 2. translucent country colours over the terrain (data map modes are more opaque so they read clearly); closer in,
     //    where the painted terrain runs out of detail, the colour carries more of the picture
@@ -686,11 +693,11 @@ export class MapRenderer {
 
     // 2b. depth: every country is shaded towards its own border and coast, in a deeper tone of its own colour, so
     //     nations read as raised plates, not flat stains (each band is clipped to the country it belongs to)
-    if (paths.rims && this.quality > 0) {
+    if (paths.rims && this.quality > 0 && !this.draftNow) {
       const groups = new Map<number, Path2D>();
       for (const p of provs) { const o = state.owner[p]; let g = groups.get(o); if (!g) { g = new Path2D(); groups.set(o, g); } g.addPath(this.geom.provPaths[p]); }
       const band = clamp(5 + zoomIn * 1.7, 6, 20) / k;
-      const passes: [number, number][] = this.quality === 2 ? [[1, 0.2], [0.58, 0.2], [0.26, 0.24]] : [[0.7, 0.3]];
+      const passes: [number, number][] = this.quality === 2 ? [[1, 0.3], [0.36, 0.34]] : [[0.7, 0.3]];
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       for (const [o, rim] of paths.rims) {
         const clip = groups.get(o);
@@ -701,7 +708,7 @@ export class MapRenderer {
         ctx.strokeStyle = deepTone(colors[o]);
         for (const [w, a] of passes) { ctx.globalAlpha = a; ctx.lineWidth = band * 2 * w; ctx.stroke(rim); }
         // a hairline of light just inside the edge: the lip of the plate
-        if (this.quality === 2 && zoomIn > 1.6) { ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(255,246,224,0.9)'; ctx.lineWidth = 2.6 / k; ctx.stroke(rim); }
+        if (this.quality === 2 && zoomIn > 3) { ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(255,246,224,0.9)'; ctx.lineWidth = 2.6 / k; ctx.stroke(rim); }
         ctx.restore();
       }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';

@@ -62,6 +62,21 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 39: the game is playable again
+
+Three bugs made most countries unplayable; all three are fixed and guarded by tests.
+
+* **Situations charged a hundred times their price.** Every paid choice in `src/sim/events13.ts` took "0.6% of GDP" as
+  0.6 of GDP times the decision factor: a single choice could add 30% of GDP to the debt. Prices in that file are now
+  written in percent, as the player reads them, and a test compares what each choice charges with what its label says.
+* **One flood choice wiped out infrastructure** (it set a 0-100 value to 1.5), which cut GDP by 20-35% in one step.
+  Fixed; a test checks that no choice moves infrastructure by more than six points.
+* **A redesigned leader kept the old face.** The portrait image was cached without the chosen look, so the editor seemed
+  to do nothing. Fixed; the end-to-end suite now checks that a choice changes the face and that the saved face is used.
+* **Smoother map.** While the map is dragged or zoomed it is drawn without its soft shading and coast glow, which are
+  added once it rests; the shading itself takes half the passes it did.
+* A new test plays four years as four countries and fails if a peaceful one loses more than 12% of its economy.
+
 ## Round 38: a pulse
 
 The game now reacts the way a player does: it flinches, holds its breath and celebrates.

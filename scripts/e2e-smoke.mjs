@@ -233,6 +233,17 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.click('.legacy-chip');
   const dossier = (await pg.locator('.legacy-modal').innerText()).toLowerCase();
   check('Legacy: the chip opens the legacy dossier', dossier.includes('legacy') && dossier.includes('prosperity'));
+  // designing your leader: every choice shows on the face at once, and the saved face is the one the game uses
+  await pg.click('.ld-face'); await pg.waitForSelector('.look-ed');
+  const face0 = await pg.locator('.look-face img').getAttribute('src');
+  await pg.click('.look-ed .swatches button >> nth=7');
+  const face1 = await pg.locator('.look-face img').getAttribute('src');
+  await pg.click('.look-ed .swatches button >> nth=2');
+  const face2 = await pg.locator('.look-face img').getAttribute('src');
+  check('Leader editor: a choice changes the face at once', face0 !== face1 && face1 !== face2);
+  await pg.click('.leader-ed .btn.primary');
+  await pg.waitForSelector('.legacy-modal');
+  check('Leader editor: the saved face is shown in the dossier', (await pg.locator('.ld-face img').getAttribute('src')) === face2);
   await pg.keyboard.press('Escape'); await pg.locator('.legacy-modal .iconbtn').click().catch(() => {});
   // the pulse of the game: a big moment takes the screen without taking a click; an election is a night of counting
   await pg.evaluate(() => { const st = window.__store; st.showCine({ kicker: 'A test', title: 'TEST MOMENT', sub: 'It lands.', tone: 'gold' }); st.shake('hit', 1); st.notify(); });

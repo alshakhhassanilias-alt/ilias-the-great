@@ -222,7 +222,9 @@ function faceUrl(f: FaceSpec): string {
   return url;
 }
 function PortraitImpl({ f, size = 64, title }: { f: FaceSpec; size?: number; title?: string }) {
-  const src = useMemo(() => faceUrl(f), [f.seed, f.region, f.female, f.age, f.dress, f.accent, f.cap]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the look a player designed is part of the face: without it in the key, a redesigned leader kept the old picture
+  const look = f.look ? JSON.stringify(f.look) : '';
+  const src = useMemo(() => faceUrl(f), [f.seed, f.region, f.female, f.age, f.dress, f.accent, f.cap, look]); // eslint-disable-line react-hooks/exhaustive-deps
   return <img className="portrait" src={src} width={size} height={size} alt={title ?? 'portrait'} title={title} decoding="async" draggable={false} />;
 }
 export const Portrait = memo(PortraitImpl);

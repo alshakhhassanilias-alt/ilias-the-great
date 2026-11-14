@@ -3519,7 +3519,16 @@ describe('no two tellings alike, and a pulse (round 38)', () => {
       expect(typeof st.text(s, c, { ...d }), x.id).toBe('string');
       for (const o of st.options) {
         c.eco.cash = c.eco.gdp; // rich enough to afford each one
+        const net0 = c.eco.debt - c.eco.cash, gdp0 = c.eco.gdp, infra0 = c.eco.infra;
         const out = o.apply(s, c, { ...d });
+        // a choice charges what its label says (once it charged a hundred times that), and never more than a few percent of GDP
+        const paid = (c.eco.debt - c.eco.cash - net0) / gdp0 * 100;
+        expect(paid, `${x.id}: ${o.label} costs ${paid.toFixed(2)}% of GDP`).toBeLessThan(2.5);
+        const said = /Costs ([\d.]+)% of GDP/.exec(o.hint);
+        if (said) { expect(paid, `${x.id}: ${o.label}`).toBeGreaterThan(Number(said[1]) * 0.4); expect(paid, `${x.id}: ${o.label}`).toBeLessThan(Number(said[1]) * 1.6 + 0.7); }
+        // and nothing wipes out what the country has built (infrastructure runs 5..100)
+        expect(Math.abs(c.eco.infra - infra0), `${x.id}: ${o.label} infrastructure`).toBeLessThanOrEqual(6);
+        expect(c.eco.infra).toBeGreaterThanOrEqual(5);
         expect(typeof out, `${x.id}: ${o.label}`).toBe('string');
         expect(out.length, `${x.id}: ${o.label}`).toBeGreaterThan(3);
       }
@@ -3579,6 +3588,25 @@ describe('no two tellings alike, and a pulse (round 38)', () => {
       expect(countAt(51.3, 1, seed)).toBeCloseTo(51.3, 6);
       expect(Math.max(...[0.05, 0.1, 0.2, 0.3].map((p) => Math.abs(countAt(51.3, p, seed) - 51.3)))).toBeGreaterThan(1.5); // early boxes mislead
       expect(countAt(51.3, 0.4, seed)).toBe(countAt(51.3, 0.4, seed));
+    }
+  });
+});
+describe('a country left alone does not fall off a cliff (round 39)', () => {
+  it('four years of ordinary decisions never cost a peaceful country a fifth of its economy', () => {
+    for (const [name, seed] of [['United States of America', 1], ['Germany', 2], ['Jordan', 1], ['Poland', 3]] as const) {
+      const s = fresh(name, { seed, mode: 'legacy' });
+      const c = s.countries[s.player];
+      const g0 = c.eco.realGdp;
+      let low = 1;
+      for (let w = 0; w < 52 * 4; w++) {
+        for (const it of [...s.inbox]) { const d = eventById(it.id); let k = 0; while (k < d.options.length - 1 && d.options[k].enabled && !d.options[k].enabled!(s, c)) k++; resolveEvent(s, geo, k, it.uid); }
+        if (s.legacy?.hand.length) s.legacy.hand = [];
+        if (s.plan) s.plan.pending = false;
+        tick(s, geo);
+        if (!s.wars.some((x) => x.attackers.includes(c.id) || x.defenders.includes(c.id))) low = Math.min(low, c.eco.realGdp / g0);
+      }
+      expect(low, `${name} seed ${seed}`).toBeGreaterThan(0.88);
+      expect(c.eco.infra, name).toBeGreaterThan(20);
     }
   });
 });

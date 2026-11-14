@@ -5,7 +5,11 @@
  * director (director.ts) opens one every few weeks, in a different order every game, so no two games tell the same story.
  */
 import { clamp } from './util';
-import { type EventDef, type D, canPay, pay, rep, stab, money } from './eventkit';
+import { type EventDef, type D, canPay as canPayShare, pay as payShare, rep, stab, money } from './eventkit';
+/** In this file prices are written the way the player reads them, in percent of GDP ("Costs 0.6% of GDP" is `pay(s, c, 0.6)`). */
+const pay = (s: GameState, c: Country, pct: number) => payShare(s, c, pct / 100 / DECISION_COST);
+const canPay = (pct: number) => canPayShare(pct / 100 / DECISION_COST);
+import { DECISION_COST } from './eventkit';
 import { sway } from './domestic';
 import { addRelation, getRelation, isAtWar, warsOf } from './relations';
 import { logEvent } from './log';
@@ -539,7 +543,7 @@ export const SITUATIONS: Situation[] = [
         ] },
       { title: 'After the water', text: (_s, _c, d) => (d.blew ? 'The villages you drowned are mud and dead livestock. Their people are in school halls, and their mayor is on every channel.' : d.dry ? 'The city is dry and proud of itself. The engineers say the walls will not survive another night like that one.' : 'The water has gone down. What it left behind is black, wet and ruined.'),
         options: [
-          { label: 'Rebuild it better: a real flood defence', hint: 'Costs 0.8% of GDP · infrastructure up', enabled: canPay(0.8), apply: (s, c) => { pay(s, c, 0.8); c.eco.infra = Math.min(1.5, c.eco.infra + 0.01); c.eco.damage = Math.max(0, c.eco.damage - 0.008); sway(c, 'regions', 6); return 'Concrete, pumps and a plan for the next hundred years.'; } },
+          { label: 'Rebuild it better: a real flood defence', hint: 'Costs 0.8% of GDP · infrastructure up', enabled: canPay(0.8), apply: (s, c) => { pay(s, c, 0.8); c.eco.infra = Math.min(100, c.eco.infra + 3); c.eco.damage = Math.max(0, c.eco.damage - 0.008); sway(c, 'regions', 6); return 'Concrete, pumps and a plan for the next hundred years.'; } },
           { label: 'Compensation, paid fast', hint: 'Costs 0.3% of GDP · approval +3', enabled: canPay(0.3), apply: (s, c) => { pay(s, c, 0.3); appr(s, 3); sway(c, 'regions', 4); return 'Cheques within the month. Nobody had to beg for them.'; } },
           { label: 'Patch it and move on', hint: 'Free · it will happen again', apply: (_s, c) => { sway(c, 'regions', -4); return 'Sandbags are stacked back in the depot. Until next time.'; } },
         ] },
