@@ -1,0 +1,30 @@
+{
+  "name": "Wortwerk: German A1 to B2",
+  "short_name": "Wortwerk",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10131A",
+  "theme_color": "#10131A",
+  "lang": "de",
+  "orientation": "portrait",
+  "description": "Learn German from A1 to B2 with taught lessons, 1,800+ words and spaced repetition.",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
