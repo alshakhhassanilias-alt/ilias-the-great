@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 
 const root = new URL('.', import.meta.url);
 const read = f => fs.readFileSync(new URL('src/' + f, root), 'utf8');
-const scripts = ['data.js', 'content/grammar-plus.js', 'content/vocab-a1.js', 'content/vocab-a2.js', 'content/vocab-b1.js', 'content/vocab-b2.js', 'content/vocab-extra-a.js', 'content/vocab-extra-b.js', 'content/vocab-extra-c.js', 'content/reading.js', 'app.js'].map(read).join('\n');
+const scripts = ['data.js', 'content/grammar-plus.js', 'content/vocab-a1.js', 'content/vocab-a2.js', 'content/vocab-b1.js', 'content/vocab-b2.js', 'content/vocab-extra-a.js', 'content/vocab-extra-b.js', 'content/vocab-extra-c.js', 'content/vocab-more-a.js', 'content/vocab-more-b1.js', 'content/vocab-more-b2a.js', 'content/vocab-more-b2b.js', 'content/vocab-more-c.js', 'content/reading.js', 'content/reading2.js', 'content/listening.js', 'content/drills.js', 'app.js'].map(read).join('\n');
 const fonts = 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,600..900&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap';
 
 const body = `<title>Wortwerk</title>
@@ -38,7 +38,7 @@ fs.writeFileSync(new URL('index.html', root), head + body + '</body></html>\n');
 fs.writeFileSync(new URL('manifest.webmanifest', root), JSON.stringify({
   name: 'Wortwerk: German A1 to B2', short_name: 'Wortwerk', start_url: './', scope: './', display: 'standalone',
   background_color: '#10131A', theme_color: '#10131A', lang: 'de', orientation: 'portrait',
-  description: 'Learn German from A1 to B2 with taught lessons, 2,500+ words and spaced repetition.',
+  description: 'Learn German from A1 to B2 with taught lessons, 4,000 words and spaced repetition.',
   icons: [
     { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
     { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

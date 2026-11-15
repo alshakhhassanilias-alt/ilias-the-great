@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 /* ================= setup ================= */
-const D = window.WW_DATA, PLUS = window.WW_PLUS || {}, VOC = window.WW_VOCAB || [], READ = window.WW_READ || [];
+const D = window.WW_DATA, PLUS = window.WW_PLUS || {}, VOC = window.WW_VOCAB || [], READ = window.WW_READ || [], LISTEN = window.WW_LISTEN || [], DRILL = window.WW_DRILL || { T: '', F: '', FAM: '' };
 const app = document.getElementById('app'), nav = document.getElementById('nav');
 const IN_CLAUDE = !!(window.claude && window.claude.use);
 const CLAUDE_URL = 'https://claude.ai/artifact/Gq2uRDQ5m5fL9SgLEG7iPZ';
@@ -50,7 +50,7 @@ function parseWord(line, p, i) {
   const f = line.split('|').map(s => s.trim()); if (f.length < 2) return null;
   const w = { id: p.id + '.' + i, pid: p.id, lvl: p.lvl, de: f[0], en: f[1], ex: f[2] || '', exEn: f[3] || '', kind: 'x' };
   const m = f[0].match(/^(der|die|das) (.+?)(?:, (.+))?$/);
-  if (m && /^[A-ZÄÖÜ]/.test(m[2])) {
+  if (m && /^[A-ZÄÖÜ][\wäöüßÄÖÜé-]*( \(Pl\.\))?$/.test(m[2])) {
     let name = m[2];
     if (/\(Pl\.\)$/.test(name)) { name = name.replace(/\s*\(Pl\.\)$/, ''); w.g = 'p'; } else w.g = { der: 'r', die: 'e', das: 's' }[m[1]];
     w.kind = 'n'; w.noun = name; w.art = m[1]; w.pl = m[3] || ''; w.ans = m[1] + ' ' + name;
@@ -100,7 +100,7 @@ LV.forEach(l => {
 });
 
 /* ================= state ================= */
-const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, read: {}, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true } });
+const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, read: {}, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true, voice: 'buttery', rate: 1 }, freeze: 0, recs: {}, exams: [], badges: {}, certs: {}, heard: {}, wk: '' });
 let S = fresh();
 function migrate(r) {
   if (!r) return null;
@@ -162,12 +162,27 @@ let voice = null;
 const pickVoice = () => { try { const vs = speechSynthesis.getVoices(); voice = vs.find(v => /^de[-_]DE/i.test(v.lang) && /google|enhanced|premium|natural/i.test(v.name)) || vs.find(v => /^de/i.test(v.lang)) || null; } catch (e) {} };
 if ('speechSynthesis' in window) { pickVoice(); try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {} }
 const canSpeak = () => !!TTS || ('speechSynthesis' in window);
-function browserSay(text, slow) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'de-DE'; u.rate = slow ? 0.65 : 0.92; if (voice) u.voice = voice; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
+const VOICES = ['buttery', 'airy', 'glassy', 'rounded'];
+function browserSay(text, slow) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'de-DE'; u.rate = 0.92 * (S.set.rate || 1) * (slow ? 0.75 : 1); if (voice) u.voice = voice; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
 function say(text, slow) {
   if (!text) return;
-  if (TTS) { TTS.speak(text, { language: 'de', rate: slow ? 0.75 : 1 }).catch(e => { if (e && ['unavailable', 'upstream_error', 'not_granted'].includes(e.code)) { TTS = null; browserSay(text, slow); } }); return; }
+  const rate = (S.set.rate || 1) * (slow ? 0.75 : 1);
+  if (TTS) { TTS.speak(text, { language: 'de', rate, voice: S.set.voice || 'buttery' }).catch(e => { if (e && ['unavailable', 'upstream_error', 'not_granted'].includes(e.code)) { TTS = null; browserSay(text, slow); } }); return; }
   browserSay(text, slow);
 }
+function sayLines(lines, slow) {
+  const rate = (S.set.rate || 1) * (slow ? 0.8 : 1), main = S.set.voice || 'buttery', order = [main].concat(VOICES.filter(v => v !== main)), vmap = {};
+  let k = 0; lines.forEach(l => { if (!(l.who in vmap)) vmap[l.who] = order[k++ % order.length]; });
+  if (TTS) { TTS.speak(lines.map(l => ({ text: l.text, voice: vmap[l.who] })), { language: 'de', rate }).catch(e => { if (e && ['unavailable', 'upstream_error', 'not_granted'].includes(e.code)) { TTS = null; browserLines(lines, rate); } }); return; }
+  browserLines(lines, rate);
+}
+function browserLines(lines, rate) {
+  try {
+    speechSynthesis.cancel(); const vs = speechSynthesis.getVoices().filter(v => /^de/i.test(v.lang)), who = [...new Set(lines.map(l => l.who))];
+    lines.forEach(l => { const u = new SpeechSynthesisUtterance(l.text), i = who.indexOf(l.who); u.lang = 'de-DE'; u.rate = 0.92 * rate; if (vs.length) u.voice = vs[i % vs.length]; u.pitch = i % 2 ? 0.8 : 1.1; speechSynthesis.speak(u); });
+  } catch (e) {}
+}
+function stopSpeech() { try { if (TTS) TTS.stop().catch(() => {}); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
 const SR = !IN_CLAUDE && (window.SpeechRecognition || window.webkitSpeechRecognition);
 let rec = null, micFor = '';
 const canMic = () => !!DICT || !!SR;
@@ -218,39 +233,53 @@ function confetti() {
 /* S.it[id] = [interval days, due ms, ease, lapses, streak of correct reviews, last seen ms] */
 const rec_ = id => S.it[id];
 const learned = id => !!S.it[id];
+/* FSRS-4 style scheduler: r[6] = stability (days), r[7] = difficulty (1-10). Interval targets 90% recall. */
+const FW = [0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61];
+const D0 = g => clamp(FW[4] - (g - 3) * FW[5], 1, 10);
+function fsrsInit(r) { if (r[6] == null) { r[6] = Math.max(0.5, r[0] || 1); r[7] = clamp(11 - (r[2] || 2.5) * 3, 1, 10); } return r; }
+function retr(r) { fsrsInit(r); const t = Math.max(0, (Date.now() - (r[5] || Date.now())) / DAY); return Math.pow(1 + t / (9 * r[6]), -1); }
+const isWeak = r => r[3] > 0 || (r[7] || 0) > 6.5;
 function learn(id, known) {
-  const now = Date.now();
   if (S.soon && S.soon.length) S.soon = S.soon.filter(x => x !== id);
-  S.it[id] = known ? [14, midnight() + (2 + Math.floor(Math.random() * 40)) * DAY, 2.5, 0, 2, now] : [1, midnight() + DAY, 2.5, 0, 1, now];
+  const now = Date.now();
+  S.it[id] = known ? [14, midnight() + (2 + Math.floor(Math.random() * 40)) * DAY, 2.5, 0, 2, now, 14, 4] : [1, midnight() + DAY, 2.5, 0, 1, now, FW[2], D0(3)];
 }
 function review(id, ok, q) {
   const r = S.it[id]; if (!r) return;
-  r[5] = Date.now();
-  if (ok) {
-    r[4]++;
-    let ivl = r[4] <= 1 ? 1 : r[4] === 2 ? 3 : Math.round(Math.max(r[0], 1) * r[2] * (q === 'hard' ? 0.6 : q === 'easy' ? 1.3 : 1));
-    r[0] = clamp(ivl, 1, 365); r[2] = clamp(r[2] + (q === 'easy' ? 0.1 : q === 'hard' ? -0.15 : 0), 1.3, 3);
-    r[1] = midnight() + r[0] * DAY;
-  } else { r[3]++; r[2] = Math.max(1.3, r[2] - 0.2); r[0] = 0; r[4] = 0; r[1] = Date.now(); }
+  fsrsInit(r);
+  const g = !ok ? 1 : q === 'hard' ? 2 : q === 'easy' ? 4 : 3, R = retr(r), D = r[7], St = r[6];
+  const nD = clamp(FW[7] * D0(3) + (1 - FW[7]) * (D - FW[6] * (g - 3)), 1, 10);
+  let nS = ok ? St * (Math.exp(FW[8]) * (11 - D) * Math.pow(St, -FW[9]) * (Math.exp(FW[10] * (1 - R)) - 1) * (g === 2 ? FW[15] : 1) * (g === 4 ? FW[16] : 1) + 1)
+              : FW[11] * Math.pow(D, -FW[12]) * (Math.pow(St + 1, FW[13]) - 1) * Math.exp(FW[14] * (1 - R));
+  nS = clamp(nS, 0.1, 3650);
+  r[6] = nS; r[7] = nD; r[5] = Date.now(); r[2] = (11 - nD) / 3;
+  if (ok) { r[4]++; r[0] = clamp(Math.round(nS), 1, 365); r[1] = midnight() + r[0] * DAY; }
+  else { r[3]++; r[4] = 0; r[0] = 0; r[1] = Date.now(); }
 }
 const strong = id => S.it[id] && S.it[id][0] >= 21;
 /* skill stats: [correct, total] rolling */
 function stat(sk, ok) { const a = S.sk[sk] || [0, 0]; a[0] += ok ? 1 : 0; a[1]++; if (a[1] > 400) { a[0] *= 0.75; a[1] *= 0.75; } S.sk[sk] = a; }
-const SKILLS = { rec: 'Recognising words', recall: 'Producing words', art: 'Articles (der/die/das)', gram: 'Grammar', lis: 'Listening', spk: 'Speaking' };
+const SKILLS = { rec: 'Recognising words', recall: 'Producing words', art: 'Articles (der/die/das)', gram: 'Grammar choices', conj: 'Verb forms', case: 'Case & adjective endings', trans: 'Building sentences', lis: 'Listening', spk: 'Speaking' };
 
 /* ================= progress, time, plan ================= */
 function H(d) { d = d || today(); let h = S.hist[d]; if (typeof h === 'number') h = S.hist[d] = { xp: h, s: 0, a: 0, c: 0, w: 0, g: 0 }; if (!h) h = S.hist[d] = { xp: 0, s: 0, a: 0, c: 0, w: 0, g: 0 }; return h; }
 const hget = d => { const h = S.hist[d]; return typeof h === 'number' ? { xp: h, s: 0, a: 0, c: 0, w: 0, g: 0 } : (h || null); };
 function dayTouch() {
   const t = today();
-  if (S.lastDay !== t) { S.streak = S.lastDay === dstr(Date.now() - DAY) ? S.streak + 1 : 1; S.lastDay = t; }
+  if (S.lastDay !== t) {
+    if (S.lastDay === dstr(Date.now() - DAY)) S.streak++;
+    else if (S.lastDay === dstr(Date.now() - 2 * DAY) && S.freeze > 0) { S.freeze--; S.streak++; setTimeout(() => toast('A streak freeze saved your streak.'), 400); }
+    else S.streak = 1;
+    if (S.streak % 7 === 0) S.freeze = Math.min(2, (S.freeze || 0) + 1);
+    S.lastDay = t;
+  }
   if (!S.prof.start) S.prof.start = Date.now();
   const ks = Object.keys(S.hist).sort(); while (ks.length > 120) delete S.hist[ks.shift()];
 }
 function addXp(n) { dayTouch(); S.xp += n; H().xp += n; }
 let lastAct = 0;
 function tick() { const now = Date.now(); if (lastAct && now - lastAct < 5 * 60e3) { const d = Math.min(now - lastAct, 90e3) / 1000; S.secs += d; H().s += d; } lastAct = now; }
-const streakNow = () => (S.lastDay === today() || S.lastDay === dstr(Date.now() - DAY)) ? S.streak : 0;
+const streakNow = () => (S.lastDay === today() || S.lastDay === dstr(Date.now() - DAY) || (S.lastDay === dstr(Date.now() - 2 * DAY) && S.freeze > 0)) ? S.streak : 0;
 const minsToday = () => Math.round(((hget(today()) || {}).s || 0) / 60);
 const playerLvl = () => Math.floor(Math.sqrt(S.xp / 80)) + 1;
 const hoursTotal = () => S.secs / 3600 + (S.outMin || 0) / 60 + (S.prof.credit || 0);
@@ -266,7 +295,7 @@ function lvlNow() { const placed = LV.indexOf(S.prof.placed); for (const [i, l] 
 function dueList() {
   const now = Date.now(), out = [];
   for (const id in S.it) if (S.it[id][1] <= now) { const x = getItem(id); if (x) out.push(x); }
-  return out.sort((a, b) => S.it[a.id][1] - S.it[b.id][1]);
+  return out.sort((a, b) => retr(S.it[a.id]) - retr(S.it[b.id]));
 }
 function recentAcc(days) { let a = 0, c = 0; for (let i = 0; i < days; i++) { const h = hget(dstr(Date.now() - i * DAY)); if (h) { a += h.a; c += h.c; } } return a >= 20 ? c / a : null; }
 function plan() {
@@ -288,6 +317,16 @@ function plan() {
   const hrs = hoursTotal(), hrsPerDay = Math.max(0, (B2_HOURS - hrs) / daysLeft);
   const h = hget(today()) || {};
   return { daysLeft, target, wl, sl, W, Sn, due, acc, fac, newW, newS, frac, aheadDays, projected, hrs, hrsPerDay, doneW: h.w || 0, doneS: h.g || 0 };
+}
+/* Daily load limits: how much new material and review a brain can usefully take in one day. */
+const revCap = () => Math.round((S.prof.mins || 45) * 1.3);
+const newCap = () => clamp(Math.round((S.prof.mins || 45) * 0.5), 12, 36);
+function dayState() {
+  const h = hget(today()) || {}, mins = (h.s || 0) / 60, goal = S.prof.mins || 45, news = (h.w || 0) + (h.g || 0);
+  if (h.tired) return { enough: true, reason: 'tired', mins, news };
+  if (news >= newCap() && mins >= goal * 0.6) return { enough: true, reason: 'new', mins, news };
+  if (mins >= goal * 1.15) return { enough: true, reason: 'time', mins, news };
+  return { enough: false, mins, news };
 }
 
 /* ================= picking content ================= */
@@ -331,6 +370,7 @@ function wordEx(w, easier) {
   if (lapses >= 3 || easier) lvl = Math.max(0, lvl - 1);
   if (lvl === 0) return { t: 'wMc', x: w };
   if (lvl === 1) return { t: w.kind === 'n' && w.g !== 'p' && Math.random() < 0.4 ? 'wArt' : 'wMcR', x: w };
+  if (lvl >= 2 && w.kind === 'n' && w.pl && w.pl !== '-' && Math.random() < 0.25) return { t: 'wPlural', x: w };
   if (lvl === 2) return { t: 'wType', x: w };
   const opts = ['wType'];
   if (clozeOf(w)) opts.push('wCloze', 'wCloze');
@@ -355,6 +395,12 @@ function prep(e) {
   if (e.t === 'sBuild') { const tk = x.de.split(' '); e.pool = shuffle(tk.concat(x.alts.filter(a => !/\s/.test(a) && !tk.includes(a)).slice(0, 2))); e.pick = []; e.need = tk.length; }
   if (e.t === 'wCloze') { e.cz = clozeOf(x); if (!e.cz) e.t = 'wType'; }
   if (e.t === 'lesson') e.ans = e.ans || {};
+  if (e.t === 'wPlural') { e.solution = 'die ' + x.pl; e.solNote = x.ans + ' → die ' + x.pl; }
+  if (e.t === 'gConj') { e.solution = e.person + ' ' + e.ans[0]; e.solNote = x.ans + (x.forms ? ' (' + x.forms + ')' : ' · regular verb'); }
+  if (e.t === 'gCase') { e.solution = e.prompt.replace('___', e.ans[0]); e.solNote = e.caseName + ' · ' + e.hint; }
+  if (e.t === 'gAdj') { e.solution = (e.pre + e.ans[0] + e.post).trim(); e.solNote = e.caseName; }
+  if (e.t === 'gTrans') { e.solution = e.ans[0]; e.solNote = e.tr.task; }
+  if (e.t === 'gFix') { e.solution = e.fx.good; e.solNote = e.fx.why; }
   return e;
 }
 function checkWord(w, input) {
@@ -380,9 +426,83 @@ function checkSent(target, input) {
   return { ok: false };
 }
 
+/* ================= production drills ================= */
+const TRANS = DRILL.T.trim() ? DRILL.T.trim().split('\n').map(l => { const p = l.split('|'); return { sid: p[0], from: p[1], task: p[2], ans: p.slice(3).join('|').split('||').map(z => z.trim()).filter(Boolean) }; }) : [];
+const FIX = DRILL.F.trim() ? DRILL.F.trim().split('\n').map(l => { const p = l.split('|'); return { sid: p[0], bad: p[1], good: p[2], why: p[3] }; }) : [];
+const FAMS = {};
+DRILL.FAM.trim() && DRILL.FAM.trim().split('\n').forEach(l => { const i = l.indexOf('|'), root = l.slice(0, i), mem = l.slice(i + 1).split(';').map(z => z.split(' = ').map(y => y.trim())); const fam = { root, mem }; [root].concat(mem.map(m => m[0])).forEach(k => { FAMS[k.toLowerCase()] = fam; }); });
+const familyOf = w => FAMS[(w.ans || '').toLowerCase()] || (w.noun && FAMS[w.noun.toLowerCase()]) || null;
+const NOCONJ = new Set(['möchten', 'mögen', 'wissen', 'haben', 'sein', 'werden', 'tun', 'können', 'müssen', 'wollen', 'sollen', 'dürfen']);
+const SEPS = /^(ab|an|auf|aus|bei|ein|fern|fest|her|hin|los|mit|nach|statt|teil|um|vor|weg|zu|zurück|zusammen|weiter|kennen|spazieren|sauber|frei|dazu|kaputt)/;
+function conjRegular(inf, p) {
+  if (!/^[a-zäöüß]+en$/.test(inf) || /(eln|ern)$/.test(inf) || NOCONJ.has(inf) || SEPS.test(inf)) return null;
+  const st = inf.slice(0, -2), e = /[td]$/.test(st) || /[^aeiouäöülrhmn][mn]$/.test(st), sz = /[sßzx]$/.test(st);
+  return { ich: st + 'e', du: st + (e ? 'est' : sz ? 't' : 'st'), 'er/sie': st + (e ? 'et' : 't'), wir: inf, ihr: st + (e ? 'et' : 't') }[p];
+}
+const learnedVerbs = () => WORDS.filter(w => w.kind === 'v' && learned(w.id));
+const learnedNouns = () => WORDS.filter(w => w.kind === 'n' && /^[rse]$/.test(w.g) && learned(w.id));
+const TENSES = ['Präsens', 'Präteritum', 'Perfekt'];
+function conjStep() {
+  const vs = learnedVerbs(); if (vs.length < 4) return null;
+  for (let k = 0; k < 25; k++) {
+    const w = pick(vs);
+    if (w.forms) {
+      const f = w.forms.split(',').map(z => z.trim()); if (f.length < 3) continue;
+      const i = Math.random() * 3 | 0; if (i === 1 && !S.les.s15 && !S.les.s24) continue; if (i === 2 && !S.les.s07) continue;
+      return { t: 'gConj', x: w, person: 'er/sie', tense: TENSES[i], ans: [f[i]], skill: 'conj' };
+    }
+    const per = pick(['ich', 'du', 'er/sie', 'wir', 'ihr']), a = conjRegular(w.ans, per);
+    if (a) return { t: 'gConj', x: w, person: per, tense: 'Präsens', ans: [a], skill: 'conj' };
+  }
+  return null;
+}
+const DET = { def: { n: { r: 'der', e: 'die', s: 'das' }, a: { r: 'den', e: 'die', s: 'das' }, d: { r: 'dem', e: 'der', s: 'dem' } },
+  ind: { n: { r: 'ein', e: 'eine', s: 'ein' }, a: { r: 'einen', e: 'eine', s: 'ein' }, d: { r: 'einem', e: 'einer', s: 'einem' } },
+  pos: { n: { r: 'mein', e: 'meine', s: 'mein' }, a: { r: 'meinen', e: 'meine', s: 'mein' }, d: { r: 'meinem', e: 'meiner', s: 'meinem' } } };
+const PREPS = [['mit', 'd'], ['von', 'd'], ['für', 'a'], ['ohne', 'a'], ['gegen', 'a']];
+function caseStep() {
+  const ns = learnedNouns(); if (ns.length < 8 || !S.les.s02) return null;
+  const ps = PREPS.filter(z => z[1] === 'a' || S.les.s09), [prep, c] = pick(ps), n = pick(ns), set = DET[pick(['def', 'ind', 'pos'])];
+  return { t: 'gCase', x: n, prompt: `${prep} ___ ${n.noun}`, hint: `${set.n[n.g]} ${n.noun}`, caseName: c === 'd' ? 'Dativ' : 'Akkusativ', ans: [set[c][n.g]], skill: 'case' };
+}
+const ADJS = ['neu', 'alt', 'groß', 'klein', 'gut', 'schön', 'rot', 'interessant', 'kalt', 'schnell'];
+const ENDS = { def: { n: { r: 'e', e: 'e', s: 'e' }, a: { r: 'en', e: 'e', s: 'e' }, d: { r: 'en', e: 'en', s: 'en' } }, ind: { n: { r: 'er', e: 'e', s: 'es' }, a: { r: 'en', e: 'e', s: 'es' }, d: { r: 'en', e: 'en', s: 'en' } } };
+function adjStep() {
+  const ns = learnedNouns(); if (ns.length < 8 || !S.les.s16) return null;
+  const n = pick(ns), adj = pick(ADJS), c = pick(['n', 'a', 'd']), k = pick(['def', 'ind']), det = DET[k][c][n.g];
+  const fr = { n: ['Das ist', '.'], a: ['Ich sehe', '.'], d: ['mit', ''] }[c];
+  return { t: 'gAdj', x: n, pre: `${fr[0]} ${det} `, post: ` ${n.noun}${fr[1]}`, hint: adj, caseName: { n: 'Nominativ', a: 'Akkusativ', d: 'Dativ' }[c], ans: [adj + ENDS[k][c][n.g]], skill: 'case' };
+}
+function transStep() { const ok = TRANS.filter(t => S.les[t.sid]); if (!ok.length) return null; const t = pick(ok); return { t: 'gTrans', x: { id: 'T:' + t.from + t.task, kind: 'g', de: t.ans[0], en: t.task }, tr: t, ans: t.ans, skill: 'trans' }; }
+function fixStep() {
+  const ok = FIX.filter(f => S.les[f.sid]); if (!ok.length) return null;
+  const f = pick(ok), b = f.bad.split(' '), g = f.good.split(' ');
+  let i = 0; while (i < b.length && b[i] === g[i]) i++;
+  let j = 0; while (j < b.length - i && j < g.length - i && b[b.length - 1 - j] === g[g.length - 1 - j]) j++;
+  const errs = []; for (let k = i; k < b.length - j; k++) errs.push(k);
+  if (!errs.length) { errs.push(Math.min(i, b.length - 1)); if (i > 0) errs.push(i - 1); }
+  return { t: 'gFix', x: { id: 'F:' + f.bad, kind: 'g', de: f.good, en: f.why }, fx: f, toks: b, errs, skill: 'trans' };
+}
+const DRILLGEN = { conj: conjStep, case: caseStep, adj: adjStep, trans: transStep, fix: fixStep };
+const DRILLSK = { conj: 'conj', case: 'case', adj: 'case', trans: 'trans', fix: 'trans' };
+function drillSteps(n, type) {
+  let keys = type ? [type] : Object.keys(DRILLGEN);
+  const acc = k => { const a = S.sk[DRILLSK[k]]; return a && a[1] >= 6 ? a[0] / a[1] : 0.6; };
+  const out = [], seen = new Set();
+  for (let tries = 0; out.length < n && tries < n * 8 && keys.length; tries++) {
+    const k = type || keys.slice().sort((a, b) => acc(a) - acc(b) + (Math.random() - 0.5) * 0.5)[0];
+    const st = DRILLGEN[k]();
+    if (!st) { keys = keys.filter(z => z !== k); continue; }
+    const key = st.t + st.x.id + (st.ans || []).join('/') + (st.person || '');
+    if (seen.has(key)) continue; seen.add(key);
+    out.push(Object.assign(st, { free: true, drill: true }));
+  }
+  return out;
+}
+
 /* ================= sessions ================= */
 let V = { name: 'home' }, R = null, G = null, C = null, ST = null;
-const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb', 'reader'];
+const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb', 'reader', 'dialog', 'exam'];
 function newWordBlock(ws) {
   const q = [];
   ws.forEach(w => q.push({ t: 'wIntro', x: w, isNew: true }));
@@ -396,19 +516,21 @@ function start(kind, opts) {
   opts = opts || {};
   let q = [], title = '';
   if (kind === 'daily') {
-    const p = plan(), due = dueList();
-    const revN = clamp(Math.round((S.prof.mins || 45) * 0.6), 12, 40);
+    const p = plan(), due = dueList(), h = H(), ds = dayState();
+    const capLeft = Math.max(0, revCap() - (h.rv || 0));
+    const revN = Math.min(capLeft, clamp(Math.round((S.prof.mins || 45) * 0.6), 12, 40));
     const reviews = due.slice(0, revN).map(x => exFor(x));
-    const leftW = Math.max(0, p.newW - p.doneW), leftS = Math.max(0, p.newS - p.doneS);
-    const ws = nextNewWords(Math.min(8, leftW || (due.length < 10 ? 5 : 0)));
+    const newLeft = ds.enough || opts.reviewOnly ? 0 : Math.max(0, newCap() - (h.w || 0) - (h.g || 0));
+    const leftW = Math.min(newLeft, Math.max(0, p.newW - p.doneW)), leftS = Math.min(newLeft, Math.max(0, p.newS - p.doneS));
+    const ws = nextNewWords(Math.min(8, leftW || (due.length < 10 && newLeft ? Math.min(5, newLeft) : 0)));
     let lesson = null, nx = [];
     const st = nextStation();
-    if (st && (leftS > 0 || !due.length)) {
+    if (st && newLeft && (leftS > 0 || !due.length)) {
       if (!S.les[st.id]) lesson = st;
       nx = sentsOf(st).filter(x => !learned(x.id)).slice(0, S.les[st.id] ? clamp(leftS, 2, 5) : 4);
     }
-    const sb = newSentBlock(nx);
-    q = reviews.slice(0, 6).concat(newWordBlock(ws), reviews.slice(6, 14), lesson ? lessonSteps(lesson) : [], sb.a, reviews.slice(14), ws.map(finalWord), sb.b);
+    const sb = newSentBlock(nx), drills = drillSteps(reviews.length + ws.length * 4 > 30 ? 3 : 5);
+    q = reviews.slice(0, 6).concat(newWordBlock(ws), reviews.slice(6, 14), lesson ? lessonSteps(lesson) : [], sb.a, drills, reviews.slice(14), ws.map(finalWord), sb.b);
     title = 'Heute';
   } else if (kind === 'pack') {
     const pk = packById(opts.id); title = pk.t;
@@ -423,7 +545,7 @@ function start(kind, opts) {
     else if (S.les[st.id] && !opts.relearn) q = shuffle(sentsOf(st)).slice(0, 10).map(x => Object.assign(exFor(x), { free: true }));
   } else if (kind === 'weak') {
     title = 'Schwachstellen';
-    const ids = Object.keys(S.it).filter(id => S.it[id][3] > 0 || S.it[id][2] < 2.1).sort((a, b) => (S.it[b][3] - S.it[a][3]) || (S.it[a][2] - S.it[b][2])).slice(0, 14);
+    const ids = Object.keys(S.it).filter(id => isWeak(S.it[id])).sort((a, b) => (S.it[b][3] - S.it[a][3]) || ((S.it[b][7] || 5) - (S.it[a][7] || 5))).slice(0, 14);
     const xs = ids.map(getItem).filter(Boolean);
     q = xs.map(x => exFor(x, true)).concat(shuffle(xs).map(x => exFor(x)));
   } else if (kind === 'listen') {
@@ -434,10 +556,11 @@ function start(kind, opts) {
     title = 'Sprechtraining';
     const xs = shuffle(Object.keys(S.it).map(getItem).filter(Boolean)).slice(0, 10);
     q = xs.map(x => ({ t: 'sSpeak', x: x.kind === 's' ? x : { id: x.id, kind: 'w', de: x.ex || x.ans, en: x.exEn || x.en }, free: true }));
-  } else if (kind === 'check') { q = checkSteps(opts.lvl); title = 'Level-Check ' + opts.lvl; }
+  } else if (kind === 'drill') { title = 'Grammatik-Training'; q = drillSteps(12, opts.type); }
+  else if (kind === 'check') { q = checkSteps(opts.lvl); title = 'Level-Check ' + opts.lvl; }
   else if (kind === 'place') { q = placeSteps(0); title = 'Einstufungstest'; }
   q = q.filter(Boolean);
-  if (!q.length) { toast(kind === 'weak' ? 'No weak spots yet. Keep going!' : kind === 'listen' || kind === 'speak' ? 'Learn a few words first.' : 'Nothing new here right now.'); return; }
+  if (!q.length) { toast(kind === 'drill' ? 'Finish a grammar lesson first to unlock training.' : kind === 'weak' ? 'No weak spots yet. Keep going!' : kind === 'listen' || kind === 'speak' ? 'Learn a few words first.' : 'Nothing new here right now.'); return; }
   q.forEach(e => { e.first = true; prep(e); });
   R = { kind, opts, title, q, i: 0, combo: 0, xp: 0, ok: 0, miss: 0, nw: 0, ns: 0, fb: null, place: kind === 'place' ? { l: 0, n: 0, r: 0, passed: -1 } : null };
   lastAct = Date.now();
@@ -476,8 +599,17 @@ function grade(ok, given, extra) {
   if (R.fb) return;
   micStop(); tick(); dayTouch();
   const h = H(); let xp = 0;
-  if (e.first) { h.a++; if (ok) h.c++; }
-  const sk = e.skill || ({ wMc: 'rec', wMcR: 'rec', wArt: 'art', wType: 'recall', wCloze: 'recall', wListen: 'lis', sListen: 'lis', sSpeak: 'spk' }[e.t]) || 'gram';
+  if (e.first) { h.a++; if (ok) h.c++; if (!e.isNew && !e.free && !e.check) h.rv = (h.rv || 0) + 1; }
+  if (e.first && !e.check && R.kind !== 'place') {
+    R.hist = R.hist || []; R.hist.push(ok ? 1 : 0);
+    const av = a => a.reduce((x, y) => x + y, 0) / a.length;
+    if (!R.tiredAsked && R.hist.length >= 24) {
+      const a0 = av(R.hist.slice(0, 12)), a1 = av(R.hist.slice(-12));
+      if (a1 <= a0 - 0.25 || a1 < 0.5) { R.tiredAsked = true; R.q.splice(R.i + 1, 0, { t: 'pause', why: 'tired', a0, a1, x: { id: 'pause' } }); }
+    }
+    if (!R.timeAsked && R.kind === 'daily' && minsToday() >= (S.prof.mins || 45) * 1.3) { R.timeAsked = true; R.q.splice(R.i + 1, 0, { t: 'pause', why: 'time', x: { id: 'pause' } }); }
+  }
+  const sk = e.skill || ({ wMc: 'rec', wMcR: 'rec', wArt: 'art', wType: 'recall', wCloze: 'recall', wListen: 'lis', sListen: 'lis', sSpeak: 'spk', wPlural: 'recall' }[e.t]) || 'gram';
   if (e.first) stat(sk, ok);
   if (extra.artMiss && e.first) stat('art', false);
   if (ok) { R.combo++; if (e.first) R.ok++; xp = e.free ? 4 : e.first ? Math.round(10 * (R.combo >= 10 ? 2 : R.combo >= 5 ? 1.5 : 1)) : 3; }
@@ -487,13 +619,13 @@ function grade(ok, given, extra) {
     if (e.isNew) { if (ok && e.final && !learned(x.id)) { learn(x.id); if (x.kind === 's') { R.ns++; h.g++; } else { R.nw++; h.w++; } } }
     else if (e.first) review(x.id, ok, extra.q);
   }
-  if (!ok && !e.check && !e.idk) { e.re = prep(Object.assign({}, e, { first: false, fbHad: true })); if (e.re.t === 'wCloze' && !e.re.cz) e.re.t = 'wType'; R.q.splice(Math.min(R.q.length, R.i + 3), 0, e.re); }
+  if (!ok && !e.check && !e.idk && e.t !== 'pause' && (e.tries || 0) < 2) { e.re = prep(Object.assign({}, e, { first: false, fbHad: true, tries: (e.tries || 0) + 1 })); if (e.re.t === 'wCloze' && !e.re.cz) e.re.t = 'wType'; R.q.splice(Math.min(R.q.length, R.i + 3), 0, e.re); }
   if (e.place != null) placeStep(ok);
   if (xp) { R.xp += xp; addXp(xp); }
   save(); beep(ok);
   R.fb = { ok, given, xp, note: extra.note, word: ok ? pick(['Richtig!', 'Genau!', 'Stark!', 'Sauber!', 'Super!', 'Top!']) : 'Not quite' };
   render();
-  if (S.set.audio && !['sSpeak', 'cMc'].includes(e.t)) say(x.kind === 's' ? x.de : x.ans);
+  if (S.set.audio && !['sSpeak', 'cMc', 'gFix'].includes(e.t)) say(e.solution || (x.kind === 's' ? x.de : x.ans));
 }
 function placeStep(ok) {
   const p = R.place; p.n++; if (ok) p.r++;
@@ -515,11 +647,11 @@ function finish() {
   if (R.kind === 'check') {
     const total = R.ok + R.miss, sc = total ? Math.round(R.ok / total * 100) : 0, l = R.opts.lvl;
     R.score = sc; if (!(S.checks[l] >= sc)) S.checks[l] = sc;
-    if (sc >= 75) { addXp(100); R.xp += 100; confetti(); }
+    if (sc >= 75) { addXp(100); R.xp += 100; confetti(); if (!S.certs[l]) S.certs[l] = { date: Date.now(), score: sc, kind: 'check' }; }
   } else if (R.kind === 'place') {
     applyPlacement(R.place.passed);
   } else { addXp(20); R.xp += 20; if (R.nw + R.ns >= 5) confetti(); }
-  save(); beep(true); go('done');
+  checkBadges(); save(); beep(true); go('done');
 }
 function applyPlacement(passed) {
   S.prof.placed = passed >= 0 ? LV[passed] : '';
@@ -536,6 +668,12 @@ function applyPlacement(passed) {
 const spk = (text, cls) => canSpeak() ? `<button class="spk ${cls || ''}" data-act="say" data-t="${esc(text)}" aria-label="Listen">${ICON.spk}</button>` : '';
 const artCls = w => w && w.kind === 'n' ? 'g-' + w.g : '';
 function wordHead(w) { if (w.kind !== 'n') return `<span>${esc(w.ans)}</span>`; return `<span class="${artCls(w)}"><span class="art">${esc(w.art)}</span> ${esc(w.noun)}</span>`; }
+function famHtml(w) {
+  const f = familyOf(w); if (!f) return '';
+  const self = (w.ans || '').toLowerCase(), noun = (w.noun || '').toLowerCase();
+  const items = [[f.root, '']].concat(f.mem).filter(m => m[0].toLowerCase() !== self && m[0].toLowerCase() !== noun).slice(0, 6);
+  return items.length ? `<div class="fam"><span class="lab">Word family</span><div class="gloss">${items.map(m => `<span><b>${esc(m[0])}</b>${m[1] ? ' ' + esc(m[1]) : ''}</span>`).join('')}</div></div>` : '';
+}
 function inline(s) { return esc(s).replace(/\*([^*]+)\*/g, '<b>$1</b>'); }
 const UML = id => `<div class="uml">${['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(c => `<button type="button" data-act="uml" data-c="${c}" data-for="${id}" tabindex="-1">${c}</button>`).join('')}
   ${canMic() ? `<button type="button" class="mic" data-act="mic" data-for="${id}" aria-label="Speak instead of typing">${ICON.mic}</button>` : ''}</div>`;
@@ -568,9 +706,9 @@ function lessonHtml(card, e, readOnly) {
 
 /* ================= views ================= */
 function go(name, id, extra) { cleanup(); V = Object.assign({ name, id }, extra || {}); render(); window.scrollTo(0, 0); }
-function cleanup() { if (G && G.timer) { clearInterval(G.timer); G.timer = 0; } if (aiCtl) { aiCtl.abort(); aiCtl = null; } micStop(); }
+function cleanup() { if (G && G.timer) { clearInterval(G.timer); G.timer = 0; } if (aiCtl) { aiCtl.abort(); aiCtl = null; } micStop(); stopSpeech(); }
 const NAV = [['home', 'Heute'], ['course', 'Kurs'], ['words', 'Wörter'], ['practice', 'Üben'], ['me', 'Ich']];
-const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice', read: 'practice' };
+const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice', read: 'practice', hoeren: 'practice', cert: 'me' };
 function render() {
   if (!S.prof.onboarded && !['onb', 'ride', 'done', 'method'].includes(V.name)) V = { name: 'onb', step: 0 };
   const fn = VIEWS[V.name] || VIEWS.home;
@@ -630,7 +768,12 @@ VIEWS.home = () => {
   const status = p.aheadDays >= 3 ? `<span class="pill good">${p.aheadDays} days ahead</span>` : p.aheadDays <= -3 ? `<span class="pill warn">${-p.aheadDays} days behind</span>` : '<span class="pill">On schedule</span>';
   const ck = (done, label, sub) => `<li class="${done ? 'done' : ''}"><span class="box">${ICON.chk}</span><div><b>${label}</b><span>${sub}</span></div></li>`;
   const days = []; for (let i = 6; i >= 0; i--) { const d = Date.now() - i * DAY, h = hget(dstr(d)), m = h ? h.s / 60 : 0; days.push(`<span class="${i ? '' : 'now'}"><i class="${m >= goal ? 'hit' : m >= 3 ? 'some' : ''}"></i>${'SMTWTFS'[new Date(d).getDay()]}</span>`); }
-  return header() + `<div class="board"><span class="lab">${hello}</span>
+  const ds = dayState(), wk = weekCard();
+  const restBoard = ds.enough ? `<div class="board rest"><span class="lab">Feierabend · genug für heute</span><h1>${ds.reason === 'tired' ? 'Time to let it settle.' : ds.reason === 'new' ? 'Your brain is full, in a good way.' : 'Daily goal smashed.'}</h1>
+    <p class="bmute">${ds.reason === 'tired' ? 'Your accuracy dropped during the last session, a sign of fatigue. Stopping now protects what you learned.' : ds.reason === 'new' ? `You took in ${ds.news} new words and sentences today. More new material now would mostly push out what you just learned. Sleep turns today's work into long-term memory.` : `You practised ${Math.round(ds.mins)} minutes today, more than your goal. Memory consolidates between sessions, so tomorrow's session is worth more than another round now.`}</p>
+    <p class="bmute">Finish your German day with something relaxed and real:</p>
+    ${p.due ? `<button class="btn wide ghostb" data-act="daily" data-v="rev">Only quick reviews (${Math.min(p.due, Math.max(0, revCap() - ((hget(today()) || {}).rv || 0)))})</button>` : ''}</div>` : '';
+  return header() + wk + (restBoard ? restBoard + recCard() : '') + `<div class="board" ${restBoard ? 'hidden' : ''}><span class="lab">${hello}</span>
     <div class="dest">${unit ? `<span class="roundel ${unit.ref.lvl}">${LINE[unit.ref.lvl]}</span><h1>${esc(unit.type === 'pack' ? unit.ref.t : unit.ref.name)}</h1>` : '<h1>Endstation B2</h1>'}</div>
     <div class="brow"><span><b>${revDue}</b> reviews</span><span><b>${Math.min(8, wLeft)}</b> new words</span><span><b>${lessonPending ? 'lesson' : Math.min(5, sLeft)}</b>${lessonPending ? '' : ' sentences'}</span></div>
     <div class="tbar"><i style="width:${Math.min(100, mt / goal * 100)}%"></i></div>
@@ -647,8 +790,10 @@ VIEWS.home = () => {
   <div class="tiles">
     <button class="tile" data-act="weak"><b>Schwachstellen</b><span>Train the items you get wrong most.</span></button>
     ${nextRead() ? `<button class="tile" data-act="go" data-v="reader" data-id="${nextRead().id}"><b>Lesen</b><span>${esc(nextRead().t)} · ${nextRead().lvl}</span></button>` : ''}
-    <button class="tile" data-act="go" data-v="practice"><b>Üben</b><span>Listening, speaking, games${AI ? ', tutor' : ''}.</span></button>
-  </div>`;
+    ${nextDialog() ? `<button class="tile" data-act="go" data-v="dialog" data-id="${nextDialog().id}"><b>Hören</b><span>${esc(nextDialog().t)} · ${nextDialog().lvl}</span></button>` : ''}
+    <button class="tile" data-act="drill"><b>Grammatik-Training</b><span>Verb forms, endings, rewriting, error hunting.</span></button>
+    <button class="tile" data-act="go" data-v="practice"><b>Üben</b><span>Tutor, speaking, exams, games.</span></button>
+  </div>${!restBoard && mt >= goal * 0.8 ? recCard() : ''}`;
 };
 /* ---------- course ---------- */
 VIEWS.course = () => {
@@ -680,7 +825,7 @@ const pips = id => { const r = S.it[id], n = r ? clamp(Math.round(Math.log2(r[0]
 function wordRow(w, open) {
   const r = S.it[w.id], state = !r ? 'new' : r[0] >= 21 ? 'strong' : 'learning';
   return `<div class="wrow ${open ? 'open' : ''}"><button class="wbtn" data-act="wopen" data-id="${w.id}"><span class="wde">${wordHead(w)}</span><span class="wen">${esc(w.en)}</span><span class="pill ${state === 'strong' ? 'good' : state === 'learning' ? '' : 'ghost'}">${state === 'new' ? 'new' : state === 'strong' ? 'strong' : 'learning'}</span></button>
-    ${open ? `<div class="wdet">${w.pl ? `<p class="small"><span class="lab">Plural</span> die ${esc(w.pl)}</p>` : ''}${w.forms ? `<p class="small"><span class="lab">Forms</span> ${esc(w.forms)}</p>` : ''}
+    ${open ? `<div class="wdet">${famHtml(w)}${w.pl ? `<p class="small"><span class="lab">Plural</span> die ${esc(w.pl)}</p>` : ''}${w.forms ? `<p class="small"><span class="lab">Forms</span> ${esc(w.forms)}</p>` : ''}
       ${w.ex ? `<div class="exl">${spk(w.ex)}<div><div class="de2">${esc(w.ex)}</div><div class="mute small">${esc(w.exEn)}</div></div></div>` : ''}
       <div class="row">${spk(w.ans)}${!r ? `<button class="btn sm" data-act="soon" data-id="${w.id}">${S.soon.includes(w.id) ? 'In your next session' : 'Learn this next'}</button>` : pips(w.id)}</div></div>` : ''}</div>`;
 }
@@ -713,20 +858,38 @@ VIEWS.words = () => {
 };
 /* ---------- practice ---------- */
 VIEWS.practice = () => {
-  const weak = Object.values(S.it).filter(r => r[3] > 0 || r[2] < 2.1).length, n = Object.keys(S.it).length;
-  return header() + `<div><h1>Üben</h1><p class="mute">Extra practice on top of your daily ride. Everything here uses only what you've already learned.</p></div>
+  const weak = Object.values(S.it).filter(isWeak).length, n = Object.keys(S.it).length, anyLesson = Object.keys(S.les).length;
+  return header() + `<div><h1>Üben</h1><p class="mute">Extra practice on top of your daily ride. Everything uses only what you've already learned.</p></div>
+  <div class="linehd"><h2>Grammatik im Einsatz</h2></div>
   <div class="tiles">
+    <button class="tile" data-act="drill" ${anyLesson ? '' : 'disabled'}><b>Mixed training</b><span>Focuses on your weakest grammar skill</span></button>
+    <button class="tile" data-act="drill" data-v="conj" ${anyLesson ? '' : 'disabled'}><b>Verbformen</b><span>Conjugate: du fährst, er ging, ist gekommen</span></button>
+    <button class="tile" data-act="drill" data-v="case" ${S.les.s02 ? '' : 'disabled'}><b>Artikel & Fälle</b><span>mit dem, für einen, von meiner</span></button>
+    <button class="tile" data-act="drill" data-v="adj" ${S.les.s16 ? '' : 'disabled'}><b>Adjektivendungen</b><span>ein neues Auto, mit dem alten Mann</span></button>
+    <button class="tile" data-act="drill" data-v="trans" ${anyLesson ? '' : 'disabled'}><b>Sätze umbauen</b><span>Change tense, join, make passive</span></button>
+    <button class="tile" data-act="drill" data-v="fix" ${anyLesson ? '' : 'disabled'}><b>Fehler finden</b><span>Spot the mistake in a sentence</span></button>
+  </div>
+  <div class="linehd"><h2>Hören, Lesen, Sprechen</h2></div>
+  <div class="tiles">
+    <button class="tile" data-act="go" data-v="hoeren"><b>Hören</b><span>${LISTEN.length} dialogues with different voices. ${Object.keys(S.heard).length} done</span></button>
+    <button class="tile" data-act="go" data-v="read"><b>Lesen</b><span>${READ.length} graded texts. ${Object.keys(S.read).length} read</span></button>
+    ${AI ? `<button class="tile" data-act="chat" data-id="frei" data-v="voice"><b>Sprechen mit dem Tutor</b><span>Speak, hear the answer, get corrected</span></button>` : ''}
+    <button class="tile" data-act="listen" ${n && canSpeak() ? '' : 'disabled'}><b>Hör-Drill</b><span>Your own words and sentences, spoken</span></button>
+    <button class="tile" data-act="speak" ${n && canMic() ? '' : 'disabled'}><b>Vorlesen</b><span>${canMic() ? 'Read aloud, get checked' : 'Needs speech recognition'}</span></button>
     <button class="tile" data-act="weak" ${weak ? '' : 'disabled'}><b>Schwachstellen</b><span>${weak} items you've struggled with</span></button>
-    <button class="tile" data-act="listen" ${n && canSpeak() ? '' : 'disabled'}><b>Hörtraining</b><span>Understand spoken German</span></button>
-    <button class="tile" data-act="speak" ${n && canMic() ? '' : 'disabled'}><b>Sprechtraining</b><span>${canMic() ? 'Read aloud, get checked' : 'Needs a browser with speech recognition'}</span></button>
-    <button class="tile" data-act="go" data-v="read"><b>Lesen</b><span>${READ.length} graded texts with questions. ${Object.keys(S.read).length} read</span></button>
+  </div>
+  <div class="linehd"><h2>Prüfungstraining</h2></div>
+  <p class="mute small">A mini mock exam in the Goethe format: reading, listening, writing and speaking, about 50 minutes. Claude writes a new exam each time and grades your writing and speaking.</p>
+  <div class="tiles">${['A2', 'B1', 'B2'].map(l => { const last = S.exams.filter(x => x.lvl === l).slice(-1)[0]; return `<button class="tile" data-act="exam" data-v="${l}" ${AI ? '' : 'disabled'}><b>Mock exam ${l}</b><span>${last ? `Last: ${last.total}/100 ${last.pass ? '· passed' : ''}` : 'Not taken yet'}</span></button>`; }).join('')}</div>
+  <div class="linehd"><h2>KI-Tutor: Rollenspiele</h2></div>
+  ${AI ? `<p class="mute small">Real conversations at your level (${lvlNow()}), with every message corrected. Switch on voice inside the chat to speak instead of type.</p><div class="tiles">${D.scenes.map(sc => `<button class="tile" data-act="chat" data-id="${sc.id}"><b>${esc(sc.t)}</b><span>${esc(sc.en)}</span>${sc.lvl ? `<span class="roundel ${sc.lvl}" style="align-self:flex-start;margin-top:4px">${sc.lvl}</span>` : ''}</button>`).join('')}</div>
+    <button class="btn wide" data-act="story">Write me a story to read</button>`
+    : `<div class="card"><b>The tutor runs inside Claude.</b><p class="mute small">Open the Claude version of Wortwerk to use conversations, exams and stories.</p><a class="btn sm" href="${CLAUDE_URL}" target="_blank" rel="noopener">Open Wortwerk in Claude</a></div>`}
+  <div class="linehd"><h2>Spiele</h2></div>
+  <div class="tiles">
     <button class="tile" data-act="go" data-v="blitz"><b>Artikel-Blitz</b><span>der, die or das? 45 seconds. Best ${S.hi.blitz}</span></button>
     <button class="tile" data-act="go" data-v="verb"><b>Verb-Sprint</b><span>Past forms of strong verbs. Best ${S.hi.verb}/10</span></button>
-  </div>
-  <div class="linehd"><h2>KI-Tutor</h2></div>
-  ${AI ? `<p class="mute small">Real conversations at your level (${lvlNow()}), with every message corrected.</p><div class="tiles">${D.scenes.map(s => `<button class="tile" data-act="chat" data-id="${s.id}"><b>${esc(s.t)}</b><span>${esc(s.en)}</span>${s.lvl ? `<span class="roundel ${s.lvl}" style="align-self:flex-start;margin-top:4px">${s.lvl}</span>` : ''}</button>`).join('')}</div>
-    <button class="btn wide" data-act="story">Write me a story to read</button>`
-    : `<div class="card"><b>The tutor runs inside Claude.</b><p class="mute small">Role-play conversations, graded writing, stories at your level and extra sentences need an AI. Open the Claude version of Wortwerk to use them. Your lessons, reviews and games work here, offline too.</p><a class="btn sm" href="${CLAUDE_URL}" target="_blank" rel="noopener">Open Wortwerk in Claude</a></div>`}`;
+  </div>`;
 };
 /* ---------- me ---------- */
 VIEWS.me = () => {
@@ -752,10 +915,16 @@ VIEWS.me = () => {
     ${hard.length ? `<span class="lab">Hardest for you</span><div class="gloss">${hard.map(x => `<span>${esc(x.kind === 's' ? x.de : x.ans)}</span>`).join('')}</div><button class="btn sm" data-act="weak" style="align-self:flex-start">Train weak spots</button>` : ''}</div>
   <div class="card"><span class="lab">Minutes per day · last 14 days</span><div class="chart">${bars.join('')}</div></div>
   <div class="card"><span class="lab">Level checks</span><div class="tiles">${LV.map(l => `<button class="tile" data-act="lcheck" data-v="${l}"><b>${l}</b><span>${S.checks[l] != null ? 'Best ' + S.checks[l] + '%' + (S.checks[l] >= 75 ? ' · passed' : '') : 'Not taken yet'}</span></button>`).join('')}</div></div>
+  <div class="card"><span class="lab">Abzeichen · ${Object.keys(S.badges).length}/${BADGES.length}</span><div class="badges">${BADGES.map(([id, t]) => `<span class="badge ${S.badges[id] ? 'on' : ''}" title="${S.badges[id] ? 'Earned ' + fmtDate(S.badges[id]) : 'Not yet'}">${esc(t)}</span>`).join('')}</div>
+    <p class="small mute">Streak freezes: <b>${S.freeze || 0}</b> (you earn one for every 7-day streak; it saves your streak if you miss a single day).</p></div>
+  ${Object.keys(S.certs).length ? `<div class="card"><span class="lab">Zertifikate</span><div class="tiles">${Object.keys(S.certs).sort().map(l => `<button class="tile" data-act="go" data-v="cert" data-id="${l}"><b>${l}</b><span>${S.certs[l].kind === 'exam' ? 'Mock exam ' + S.certs[l].score + '/100' : 'Level check ' + S.certs[l].score + '%'}</span></button>`).join('')}</div></div>` : ''}
+  ${S.exams.length ? `<div class="card"><span class="lab">Mock exams</span>${S.exams.slice(-5).reverse().map(z => `<div class="row small"><span class="roundel ${z.lvl}">${z.lvl}</span><span>${fmtDate(z.date)}</span><span class="sp"></span><span class="num">${z.parts.join(' · ')}</span><span class="pill ${z.pass ? 'good' : 'warn'}">${z.total}/100</span></div>`).join('')}</div>` : ''}
   <button class="btn wide" data-act="go" data-v="method">Why this method works</button>
   <div class="card"><span class="lab">Settings</span>
     <div class="row"><span>Minutes per day</span><span class="sp"></span>${seg('mins', [[20, '20'], [30, '30'], [45, '45'], [60, '60'], [90, '90']], S.prof)}</div>
     <div class="row"><span>B2 target date</span><span class="sp"></span><input class="inp sm" id="tdate" type="date" value="${dstr(p.target)}"></div>
+    <div class="row"><span>Voice</span><span class="sp"></span>${seg('voice', [['buttery', 'Buttery'], ['airy', 'Airy'], ['glassy', 'Glassy'], ['rounded', 'Rounded']])}</div>
+    <div class="row"><span>Speaking speed</span><span class="sp"></span>${seg('rate', [[0.85, 'Slower'], [1, 'Normal'], [1.15, 'Faster']])}<button class="btn sm" data-act="say" data-t="Hallo! So klinge ich. Gefällt dir meine Stimme?">Test</button></div>
     <div class="row"><span>Read answers aloud</span><span class="sp"></span>${seg('audio', [[true, 'On'], [false, 'Off']])}</div>
     <div class="row"><span>Play new words automatically</span><span class="sp"></span>${seg('autoplay', [[true, 'On'], [false, 'Off']])}</div>
     <div class="row"><span>Sound effects</span><span class="sp"></span>${seg('sfx', [[true, 'On'], [false, 'Off']])}</div>
@@ -788,9 +957,19 @@ VIEWS.ride = () => {
         ${x.forms ? `<p class="small"><span class="lab">Forms</span> ${esc(x.forms)}</p>` : ''}
         <p class="mean">${esc(x.en)}</p>
         ${x.ex ? `<div class="exl">${spk(x.ex)}<div><div class="de2">${esc(x.ex)}</div><div class="mute small">${esc(x.exEn)}</div></div></div>` : ''}
+        ${famHtml(x)}
         ${x.kind === 'n' && x.g !== 'p' ? `<p class="small mute">Colour = gender: <span class="g-r">blue der</span>, <span class="g-e">red die</span>, <span class="g-s">green das</span>.</p>` : ''}</div>
       <button class="btn pri wide" data-act="introok" data-focus>Got it</button>
       <button class="btn ghost wide" data-act="known">I already know this word</button></div>`;
+  }
+  if (e.t === 'pause') {
+    const tired = e.why === 'tired';
+    return top + `<div class="ex"><span class="lab">${tired ? 'Kurze Pause' : 'Genug für heute?'}</span>
+      <div class="card warnc"><h2>${tired ? 'Your accuracy is dropping' : 'You\'re past your daily goal'}</h2>
+      <p>${tired ? `First-try accuracy fell from <b>${Math.round(e.a0 * 100)}%</b> at the start of this session to <b>${Math.round(e.a1 * 100)}%</b> now. That's a classic sign of mental fatigue. New material learned now tends to be forgotten, and mistakes get practised in.` : `You've practised <b>${minsToday()} minutes</b> today. Memory consolidates between sessions and during sleep, so another round now adds less than tomorrow's session will.`}</p>
+      <p><b>Best move:</b> stop here and switch to relaxed German input instead.</p></div>
+      <button class="btn pri wide" data-act="tiredstop" data-focus>Finish for today</button>
+      <button class="btn ghost wide" data-act="tiredgo">Keep going anyway</button></div>`;
   }
   if (e.t === 'lesson') {
     const L = lessonHtml(e.card, e), all = Object.keys(e.ans).length >= L.n;
@@ -816,19 +995,25 @@ VIEWS.ride = () => {
     case 'sWrite': label = 'Say it in German'; body = `<p class="prompt">${esc(x.en)}</p>` + inp('Auf Deutsch…', true) + (fb ? '' : UML('ans')); break;
     case 'sSpeak': label = 'Read it aloud'; body = `<p class="de">${esc(x.de)}</p><p class="en">${esc(x.en)}</p><div class="row">${spk(x.de)}<span class="small mute">Listen first, then tap the mic and say it.</span></div>
       <input class="inp" id="ans" autocomplete="off" placeholder="Your words appear here" ${dis} ${fb ? `value="${esc(fb.given)}"` : ''}>` + (fb ? '' : `<button class="btn mic wide" data-act="mic" data-for="ans">${ICON.mic} Tap and speak</button>`); break;
+    case 'wPlural': label = 'What is the plural?'; body = `<p class="big2">${wordHead(x)}</p><p class="en">${esc(x.en)}</p>` + inp('die …') + (fb ? '' : UML('ans')); break;
+    case 'gConj': label = 'Verbform · ' + e.tense; body = `<p class="noun">${esc(x.ans)}</p><p class="en">${esc(e.person)} · ${esc(e.tense)} · ${esc(/^to /.test(x.en) ? x.en : "to " + x.en)}</p>` + inp(e.person + ' …') + (fb ? '' : UML('ans')); break;
+    case 'gCase': { label = 'Article · ' + e.caseName; const [a, b] = e.prompt.split('___'); body = `<p class="de">${esc(a)}<span class="gap ${fb && !fb.ok ? 'bad' : ''}">${fb ? esc(e.ans[0]) : '&nbsp;'}</span>${esc(b)}</p><p class="small mute">from: ${esc(e.hint)}</p>` + inp('Article') + (fb ? '' : UML('ans')); break; }
+    case 'gAdj': label = 'Adjective ending · ' + e.caseName; body = `<p class="de">${esc(e.pre)}<span class="gap ${fb && !fb.ok ? 'bad' : ''}">${fb ? esc(e.ans[0]) : '&nbsp;'}</span>${esc(e.post)}</p><p class="small mute">adjective: ${esc(e.hint)}</p>` + inp(e.hint + '…') + (fb ? '' : UML('ans')); break;
+    case 'gTrans': label = 'Rewrite the sentence'; body = `<p class="de">${esc(e.tr.from)}</p><p class="task">${esc(e.tr.task)}</p>` + inp('Neuer Satz…', true) + (fb ? '' : UML('ans')); break;
+    case 'gFix': label = 'Find the mistake'; body = `<p class="small mute">One word (or word order) is wrong. Tap it.</p><div class="pool fix">${e.toks.map((t, i) => `<button class="tk ${fb ? (e.errs.includes(i) ? 'okk' : i === fb.tap ? 'nok' : '') : ''}" data-act="fixtap" data-k="${i}" ${dis}>${esc(t)}</button>`).join('')}</div>`; break;
     case 'cMc': label = e.sub || e.prompt; body = (e.audio && e.skill === 'lis' ? `<div class="row"><button class="bigplay" data-act="say" data-t="${esc(e.audio)}" aria-label="Play">${ICON.spk}</button><button class="btn sm" data-act="say" data-slow="1" data-t="${esc(e.audio)}">Slower</button></div>` : `<div class="row"><p class="de big2">${esc(e.prompt)}</p>${e.audio ? spk(e.audio) : ''}</div>`) + opts(e.opts, e.ans); break;
   }
-  const isMc = ['wMc', 'wMcR', 'wArt', 'sMc', 'cMc'].includes(e.t);
+  const isMc = ['wMc', 'wMcR', 'wArt', 'sMc', 'cMc', 'gFix'].includes(e.t);
   let foot = '';
   if (!fb) foot = isMc ? (e.idk ? '<button class="btn ghost wide" data-act="idk">I don\'t know</button>' : '') : `<button class="btn pri wide" data-act="check" ${e.t === 'sBuild' && e.pick.length < e.need ? 'disabled' : ''}>Check</button>${['sSpeak'].includes(e.t) ? '<button class="btn ghost wide" data-act="skip">I can\'t speak right now</button>' : ''}`;
   else {
     const showDe = x.kind === 's' ? x.de : x.kind === 'w' ? x.de : x.ans;
     const quiet = e.check || R.kind === 'place';
     foot = `<div class="fb ${fb.ok ? '' : 'no'}"><div class="row"><h3>${esc(fb.word)}</h3><span class="sp"></span>${fb.xp ? `<span class="num small">+${fb.xp} XP</span>` : ''}${quiet ? '' : spk(showDe)}</div>
-      ${quiet ? '' : `<p class="ans">${x.kind === 'n' || x.kind === 'v' || x.kind === 'x' ? wordHead(x) : esc(showDe)}</p><p class="small mute">${esc(x.en)}</p>`}
-      ${!quiet && x.ex && x.kind !== 's' ? `<p class="small"><span class="de2">${esc(x.ex)}</span><br><span class="mute">${esc(x.exEn)}</span></p>` : ''}
+      ${quiet ? '' : e.solution ? `<p class="ans">${esc(e.solution)}</p>${e.solNote ? `<p class="small mute">${esc(e.solNote)}</p>` : ''}` : `<p class="ans">${x.kind === 'n' || x.kind === 'v' || x.kind === 'x' ? wordHead(x) : esc(showDe)}</p><p class="small mute">${esc(x.en)}</p>`}
+      ${!quiet && !e.solution && x.ex && x.kind !== 's' ? `<p class="small"><span class="de2">${esc(x.ex)}</span><br><span class="mute">${esc(x.exEn)}</span></p>` : ''}
       ${fb.note ? `<div class="why">${esc(fb.note)}</div>` : ''}${fb.why ? `<div class="why">${esc(fb.why)}</div>` : ''}
-      ${!fb.ok && !quiet ? `<div class="row">${AI && x.kind === 's' && !fb.why ? '<button class="btn sm" data-act="why">Why?</button>' : ''}${['wType', 'wCloze', 'wListen', 'sCloze', 'sWrite', 'sSpeak', 'sListen'].includes(e.t) && e.first ? '<button class="btn sm" data-act="override">Mine was right too</button>' : ''}</div>` : ''}
+      ${!fb.ok && !quiet ? `<div class="row">${AI && x.kind === 's' && !fb.why ? '<button class="btn sm" data-act="why">Why?</button>' : ''}${['wType', 'wCloze', 'wListen', 'sCloze', 'sWrite', 'sSpeak', 'sListen', 'wPlural', 'gConj', 'gTrans'].includes(e.t) && e.first ? '<button class="btn sm" data-act="override">Mine was right too</button>' : ''}</div>` : ''}
       <button class="btn pri wide" data-act="next" data-focus>Weiter</button></div>`;
   }
   return top + `<div class="ex"><span class="lab">${esc(label)}${e.isNew && !e.final ? ' · new' : ''}</span>${body}${foot}</div>`;
@@ -852,7 +1037,7 @@ VIEWS.done = () => {
   return `<div class="ex center" style="padding-top:30px"><span class="lab">Fahrt beendet</span><div class="hero-n">+${R.xp} XP</div>
     <div class="stats" style="width:100%"><div class="stat"><b>${acc}%</b><span>first-try accuracy</span></div><div class="stat"><b>${R.nw}</b><span>new words</span></div><div class="stat"><b>${R.ns}</b><span>new sentences</span></div><div class="stat"><b>${mt}</b><span>min today</span></div></div>
     <p class="mute">${mt >= goal ? 'Daily goal reached. Anything more is a bonus.' : `${goal - mt} more minutes to reach today's goal.`} ${tomorrow} reviews are lined up for tomorrow.</p>
-    ${mt < goal || p.due ? '<button class="btn pri wide" data-act="daily" data-focus>Noch eine Fahrt</button>' : ''}
+    ${dayState().enough ? `<div class="card warnc" style="width:100%;text-align:left"><span class="lab">Genug für heute</span><p>${dayState().reason === 'tired' ? 'You stopped when your accuracy dropped. Good call: rest now protects what you learned.' : 'That\'s a full day of learning. More new material now would mostly be forgotten; tomorrow\'s session will be worth more.'}</p></div><div style="width:100%;text-align:left">${recCard()}</div>` : (mt < goal || p.due ? '<button class="btn pri wide" data-act="daily" data-focus>Noch eine Fahrt</button>' : '')}
     <div class="row" style="width:100%"><button class="btn" style="flex:1" data-act="go" data-v="practice">Üben</button><button class="btn" style="flex:1" data-act="go" data-v="home">Home</button></div></div>`;
 };
 
@@ -872,6 +1057,190 @@ VIEWS.reader = () => {
       <button class="btn sm" data-act="readsave" data-id="${r.id}" style="align-self:flex-start" ${r.gl.every(g => S.my.some(l => l.split('|')[0] === g[0])) ? 'disabled' : ''}>${r.gl.every(g => S.my.some(l => l.split('|')[0] === g[0])) ? 'Saved to Meine Wörter' : 'Save these words to learn'}</button></div>
     ${r.q.map((q, qi) => { const a = V.ans[qi]; return `<div class="card"><b>${qi + 1}. ${esc(q[0])}</b><div class="opts">${q[1].map((o, oi) => `<button class="opt ${a != null ? (oi === q[2] ? 'ok' : oi === a ? 'no' : '') : ''}" data-act="rq" data-q="${qi}" data-o="${oi}" ${a != null ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div></div>`; }).join('')}
     ${done ? `<div class="fb ${score === r.q.length ? '' : 'no'}"><h3>${score} of ${r.q.length} right</h3><p class="small">${score === r.q.length ? 'You understood the whole text.' : 'Read the text again and look for the answers.'}</p>${nextRead() ? `<button class="btn pri wide" data-act="go" data-v="reader" data-id="${nextRead().id}">Next text</button>` : ''}<button class="btn wide" data-act="go" data-v="read">All texts</button></div>` : ''}`;
+};
+
+/* ---------- end-of-day recommendations ---------- */
+const RECS = [
+  { t: 'Easy German', type: 'Video', lv: 'A2 B1 B2', url: 'https://www.youtube.com/@EasyGerman', d: 'Street interviews with German and English subtitles. Pick any episode whose topic sounds fun.', m: 15 },
+  { t: 'Nicos Weg (DW)', type: 'Video course', lv: 'A1 A2 B1', url: 'https://learngerman.dw.com', d: 'A drama series made for learners, one short episode at a time.', m: 15 },
+  { t: 'Extr@ auf Deutsch', type: 'Sitcom', lv: 'A1 A2', q: 'Extr@ auf Deutsch', d: 'A silly sitcom made for learners. Slow, clear and funny.', m: 20 },
+  { t: 'nachrichtenleicht', type: 'News', lv: 'A2 B1', url: 'https://www.nachrichtenleicht.de', d: 'This week\'s news in simple German, with audio.', m: 10 },
+  { t: 'Langsam gesprochene Nachrichten (DW)', type: 'Podcast', lv: 'B1 B2', url: 'https://learngerman.dw.com', d: 'Real news read slowly, with the transcript.', m: 10 },
+  { t: 'Slow German', type: 'Podcast', lv: 'A2 B1', url: 'https://slowgerman.com', d: 'Calm episodes about life and culture in Germany, spoken slowly.', m: 15 },
+  { t: 'logo! Kindernachrichten (ZDF)', type: 'News video', lv: 'B1', q: 'logo! Nachrichten ZDF', d: 'Children\'s news: real events in clear, simple German.', m: 10 },
+  { t: 'Tagesschau in 100 Sekunden', type: 'News video', lv: 'B2', url: 'https://www.tagesschau.de', d: 'Germany\'s main news in 100 seconds. Watch it twice.', m: 5 },
+  { t: 'Türkisch für Anfänger', type: 'Series', lv: 'B1 B2', q: 'Türkisch für Anfänger Serie', d: 'Comedy about a German-Turkish patchwork family. Everyday German.', m: 25 },
+  { t: 'How to Sell Drugs Online (Fast)', type: 'Series', lv: 'B1 B2', q: 'How to Sell Drugs Online (Fast)', d: 'Teen comedy-drama full of real colloquial German. Use German subtitles.', m: 30 },
+  { t: 'Dark', type: 'Series', lv: 'B2', q: 'Dark Netflix', d: 'A gripping mystery. Watch in German with German subtitles.', m: 50 },
+  { t: 'Babylon Berlin', type: 'Series', lv: 'B2', q: 'Babylon Berlin', d: 'Crime drama in 1920s Berlin. Harder, but rewarding.', m: 45 },
+  { t: 'Leichte Lektüren (Klett)', type: 'Book', lv: 'A1 A2 B1', q: 'Leichte Lektüren Deutsch als Fremdsprache', d: 'Short graded crime stories. Read one chapter tonight.', m: 20 },
+  { t: 'Der kleine Prinz', type: 'Book', lv: 'A2 B1', q: 'Der kleine Prinz Deutsch', d: 'You probably know the story already, which makes the German much easier.', m: 20 },
+  { t: 'Emil und die Detektive', type: 'Book', lv: 'B1', q: 'Emil und die Detektive Kästner', d: 'Erich Kästner\'s classic: simple language and a real page-turner.', m: 20 },
+  { t: 'Tschick', type: 'Book', lv: 'B2', q: 'Tschick Herrndorf', d: 'A modern road novel told by a teenager. Fresh, funny language.', m: 25 },
+  { t: 'Momo', type: 'Book', lv: 'B2', q: 'Momo Michael Ende', d: 'Michael Ende\'s novel about time thieves. A beautiful read.', m: 25 },
+  { t: 'Talk to a real person', type: 'Speaking', lv: 'A1 A2 B1 B2', q: 'Tandem Sprachpartner', d: 'Fifteen minutes with a tandem partner, neighbour or colleague. Try to use three words you learned today.', m: 15 }
+];
+function recPicks() {
+  const lv = lvlNow(), pool = RECS.filter(r => r.lv.split(' ').includes(lv)), seed = Math.floor(Date.now() / DAY);
+  const types = ['Video', 'Video course', 'Sitcom', 'Series', 'News video'];
+  const watch = pool.filter(r => types.includes(r.type)), other = pool.filter(r => !types.includes(r.type));
+  return [watch[seed % Math.max(1, watch.length)], other[seed % Math.max(1, other.length)]].filter(Boolean);
+}
+function recCard() {
+  const t = today(), ai = S.recs[t];
+  const item = r => `<div class="rec"><div class="row"><span class="pill">${esc(r.type)}</span><span class="small mute">~${r.m} min</span></div><b>${esc(r.t)}</b><p class="small">${esc(r.d)}</p>${r.url ? `<a class="btn sm" href="${r.url}" target="_blank" rel="noopener">Open</a>` : `<p class="small mute">Search for: <b>${esc(r.q)}</b></p>`}</div>`;
+  return `<div class="card recc"><span class="lab">Deutsch für heute Abend</span>
+    <div class="recs">${recPicks().map(item).join('')}</div>
+    ${AI ? (ai ? `<div class="rec ai"><span class="pill good">Your topic tonight</span><b>${esc(ai.topic)}</b><p class="small">${esc(ai.why)}</p>
+        <p class="small"><span class="lab">Watch</span> ${esc(ai.watch)}<br><span class="mute">YouTube search: </span><b>${esc(ai.search)}</b></p>
+        <p class="small"><span class="lab">Listen for</span> ${(ai.words || []).map(esc).join(', ')}</p>
+        <p class="small"><span class="lab">Mini task</span> ${esc(ai.task)}</p></div>`
+      : `<button class="btn sm" data-act="recai" ${V.recBusy ? 'disabled' : ''} style="align-self:flex-start">${V.recBusy ? 'Planning…' : 'Plan my German evening (Claude)'}</button>`) : ''}
+    <div class="row"><span class="small mute">Did something in German? Log it:</span><span class="sp"></span>${[15, 30].map(m => `<button class="btn sm" data-act="logout" data-v="${m}">+${m} min</button>`).join('')}</div></div>`;
+}
+async function recAI() {
+  if (!AI || V.recBusy) return; V.recBusy = true; render();
+  const h = hget(today()) || {}, todays = Object.keys(S.it).filter(id => S.it[id][5] > midnight()).map(getItem).filter(z => z && z.kind !== 's').slice(0, 30).map(w => w.ans);
+  const st = nextStation();
+  try {
+    const r = await AI.json(`A German learner at level ${lvlNow()} has finished their study session for today${S.prof.why.length ? ' (learning for: ' + S.prof.why.join(', ') + ')' : ''}. Words practised today: ${todays.join(', ') || 'various'}. Current grammar focus: ${st ? st.name + ' (' + st.sub + ')' : 'review'}.
+Suggest ONE relaxed, enjoyable activity in real German for the evening (15-30 minutes) on a concrete topic that reuses today's words. Return ONLY JSON:
+{"topic": short German topic title, "why": one English sentence on why it fits today, "watch": English description of what kind of video/podcast to look for, "search": a German YouTube search query (3-6 words), "words": [4 German words from today's list to listen for], "task": one short speaking or writing mini task in English (e.g. tell someone 3 sentences about it)}`, { modelTier: 'quick' });
+    if (r && r.topic) { S.recs = { [today()]: r }; save(); }
+  } catch (e) { toast(aiErr(e) || 'Try again later.'); }
+  V.recBusy = false; render();
+}
+
+/* ---------- listening dialogues ---------- */
+const parseDialog = d => d.d.split('\n').map(l => { const m = l.match(/^([A-Z]): (.*)$/); return m ? { who: m[1], text: m[2] } : null; }).filter(Boolean);
+function nextDialog() { const l = LV.indexOf(lvlNow()); return LISTEN.find(d => S.heard[d.id] == null && LV.indexOf(d.lvl) <= l) || null; }
+VIEWS.hoeren = () => header() + `<div><h1>Hören</h1><p class="mute">Real-life conversations read by different voices. Listen without the text first, answer, then check the transcript.</p></div>` +
+  LV.map(l => `<div class="linehd"><span class="roundel ${l}">${LINE[l]}</span><h2>${l}</h2></div>` + LISTEN.filter(d => d.lvl === l).map(d => `<button class="prow" data-act="go" data-v="dialog" data-id="${d.id}"><span class="t"><b>${esc(d.t)}</b><span>${parseDialog(d).length} lines · ${d.q.length} questions</span></span>${S.heard[d.id] != null ? `<span class="pill ${S.heard[d.id] === d.q.length ? 'good' : ''}">${S.heard[d.id]}/${d.q.length}</span>` : '<span class="pill ghost">new</span>'}</button>`).join('')).join('');
+VIEWS.dialog = () => {
+  const d = LISTEN.find(x => x.id === V.id) || LISTEN[0], lines = parseDialog(d); V.ans = V.ans || {}; V.t0 = V.t0 || Date.now();
+  const done = Object.keys(V.ans).length === d.q.length, score = d.q.filter((q, i) => V.ans[i] === q[2]).length;
+  const who = [...new Set(lines.map(l => l.who))];
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="hoeren" aria-label="Close">✕</button><span class="lab">${d.lvl} · Hören</span></div>
+    <h1>${esc(d.t)}</h1><p class="mute small">Listen at least once before you read the questions. You can replay as often as you like.</p>
+    <div class="row"><button class="bigplay" data-act="dplay" aria-label="Play">${ICON.spk}</button><button class="btn sm" data-act="dplay" data-slow="1">Slower</button><button class="btn sm" data-act="dstop">Stop</button></div>
+    ${d.q.map((q, qi) => { const a = V.ans[qi]; return `<div class="card"><b>${qi + 1}. ${esc(q[0])}</b><div class="opts">${q[1].map((o, oi) => `<button class="opt ${a != null ? (oi === q[2] ? 'ok' : oi === a ? 'no' : '') : ''}" data-act="dq" data-q="${qi}" data-o="${oi}" ${a != null ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div></div>`; }).join('')}
+    ${done || V.tx ? `<div class="card"><span class="lab">Transkript</span>${lines.map(l => `<div class="dline"><span class="who w${who.indexOf(l.who)}">${l.who}</span><p>${esc(l.text)}</p>${spk(l.text)}</div>`).join('')}</div>` : '<button class="btn sm" data-act="dtx" style="align-self:flex-start">Show transcript (counts as a hint)</button>'}
+    ${done ? `<div class="fb ${score === d.q.length ? '' : 'no'}"><h3>${score} of ${d.q.length} right</h3><p class="small">${score === d.q.length ? 'You understood the whole conversation.' : 'Listen again while reading the transcript, then try a new one.'}</p>${nextDialog() ? `<button class="btn pri wide" data-act="go" data-v="dialog" data-id="${nextDialog().id}">Next dialogue</button>` : ''}<button class="btn wide" data-act="go" data-v="hoeren">All dialogues</button></div>` : ''}`;
+};
+
+/* ---------- mock exam ---------- */
+let EX = null;
+const EXSPEC = { A2: [160, 40], B1: [240, 80], B2: [340, 150] };
+const EXSTAGES = ['lesen', 'hoeren', 'schreiben', 'sprechen'];
+async function startExam(lvl) {
+  EX = { lvl, stage: 'intro', data: null, err: '', ans: { r: {}, h: {} }, write: '', speak: ['', ''], plays: 0, t0: 0 };
+  go('exam');
+}
+async function genExam() {
+  EX.stage = 'gen'; EX.err = ''; render();
+  aiCtl = new AbortController();
+  const sp = EXSPEC[EX.lvl];
+  try {
+    const d = await AI.json(`Write a short mock exam modelled on the Goethe-Zertifikat ${EX.lvl} for a German learner. All content in German. Return ONLY JSON:
+{"lesen":{"title":string,"text":string (an authentic-style article, blog post or ad text, about ${sp[0]} words, paragraphs separated by \\n\\n),"questions":[5 objects {"q":string,"options":[3 strings],"answer":index 0-2}]},
+"hoeren":{"title":string,"lines":[10 to 14 objects {"who":"A" or "B","text":string}] (a realistic conversation, phone call or radio interview),"questions":[5 objects {"q":string,"options":[3 strings],"answer":index 0-2}]},
+"schreiben":{"task":string (a realistic writing task such as an email or forum post, listing 3 points the learner must cover)},
+"sprechen":{"tasks":[2 strings: first a short presentation prompt, second a question asking for an opinion with reasons]}}
+Level ${EX.lvl} vocabulary and grammar. Everyday topics${S.prof.why.length ? ' that suit someone learning German for: ' + S.prof.why.join(', ') : ''}. Questions must test real understanding, not word matching; wrong options must be plausible but clearly wrong. Seed ${Math.random().toString(36).slice(2, 7)}.`, { signal: aiCtl.signal, cache: false, modelTier: 'default' });
+    const okQ = qs => Array.isArray(qs) && qs.length >= 3 && qs.every(q => q && q.q && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.options[q.answer] != null);
+    if (!d || !d.lesen || !d.lesen.text || !okQ(d.lesen.questions) || !d.hoeren || !Array.isArray(d.hoeren.lines) || !okQ(d.hoeren.questions) || !d.schreiben || !d.sprechen || !Array.isArray(d.sprechen.tasks)) throw { code: 'bad' };
+    EX.data = d; EX.stage = 'lesen'; EX.t0 = Date.now(); EX.st0 = Date.now();
+  } catch (e) { EX.err = e && e.code === 'cancelled' ? 'Stopped.' : e && e.code === 'bad' ? 'The exam came back incomplete. Try again.' : aiErr(e); EX.stage = 'intro'; }
+  if (V.name === 'exam') render();
+}
+async function gradeExam() {
+  EX.stage = 'grading'; render();
+  const wc = (EX.write.trim().match(/\S+/g) || []).length;
+  try {
+    const g = await AI.json(`You are a strict but fair Goethe examiner. Grade a German ${EX.lvl} mock exam.
+WRITING task: ${EX.data.schreiben.task}
+Learner's text (${wc} words, target about ${EXSPEC[EX.lvl][1]}): <<<${EX.write}>>>
+SPEAKING task 1: ${EX.data.sprechen.tasks[0]}
+Learner's answer (transcribed): <<<${EX.speak[0]}>>>
+SPEAKING task 2: ${EX.data.sprechen.tasks[1]}
+Learner's answer (transcribed): <<<${EX.speak[1]}>>>
+Use the ${EX.lvl} standard: task fulfilment, coherence, range of vocabulary and structures, accuracy. 15/25 means just passing ${EX.lvl}. Score 0 for an empty or non-German answer. For speaking, ignore transcription punctuation.
+Return ONLY JSON: {"schreiben":{"score": integer 0-25,"strengths": English 1-2 sentences,"improve": English 2-3 concrete points,"corrected": the learner's text fully corrected in German},"sprechen":{"score": integer 0-25,"feedback": English 2-3 sentences,"model": a model answer to task 2 in German at ${EX.lvl} level, 3-5 sentences}}`, { cache: false, modelTier: 'default' });
+    if (!g || !g.schreiben || !g.sprechen) throw { code: 'bad' };
+    EX.grade = g;
+    const rq = EX.data.lesen.questions, hq = EX.data.hoeren.questions;
+    const pr = Math.round(rq.filter((q, i) => EX.ans.r[i] === q.answer).length / rq.length * 25), ph = Math.round(hq.filter((q, i) => EX.ans.h[i] === q.answer).length / hq.length * 25);
+    const pw = clamp(Math.round(+g.schreiben.score || 0), 0, 25), ps = clamp(Math.round(+g.sprechen.score || 0), 0, 25), total = pr + ph + pw + ps;
+    const pass = [pr, ph, pw, ps].every(x => x >= 15);
+    EX.res = { lesen: pr, hoeren: ph, schreiben: pw, sprechen: ps, total, pass };
+    S.exams.push({ lvl: EX.lvl, date: Date.now(), total, pass, parts: [pr, ph, pw, ps] }); S.exams = S.exams.slice(-30);
+    if (pass) { S.certs[EX.lvl] = { date: Date.now(), score: total, kind: 'exam' }; confetti(); }
+    const sec = Math.min(Date.now() - EX.t0, 75 * 60e3) / 1000; dayTouch(); S.secs += sec; H().s += sec; addXp(pass ? 150 : 60);
+    checkBadges(); save(); EX.stage = 'result';
+  } catch (e) { EX.err = aiErr(e) || 'Grading failed. Try again.'; EX.stage = 'sprechen'; }
+  if (V.name === 'exam') render();
+}
+VIEWS.exam = () => {
+  const x = EX; if (!x) return '';
+  const close = `<div class="ridebar"><button class="x" data-act="go" data-v="practice" aria-label="Leave exam">✕</button><span class="lab">Mock exam ${x.lvl}${x.stage !== 'intro' && x.stage !== 'gen' && x.stage !== 'result' ? ' · ' + (EXSTAGES.indexOf(x.stage) + 1) + '/4' : ''}</span></div>`;
+  const mins = t => Math.floor((Date.now() - t) / 60000);
+  if (x.stage === 'intro') return close + `<h1>Mini-Prüfung ${x.lvl}</h1><p class="mute">Modelled on the Goethe-Zertifikat ${x.lvl}, shorter. Each part counts 25 points; you pass with 60% in every part, like the real exam. This is practice, not an official result.</p>
+    <div class="card"><ul class="ck">${[['Lesen', 'one text, 5 questions · ~12 min'], ['Hören', 'one conversation, played twice · ~8 min'], ['Schreiben', `email or post, ~${EXSPEC[x.lvl][1]} words · ~20 min`], ['Sprechen', 'two short spoken answers · ~8 min']].map(([a, b]) => `<li><span class="box">${ICON.chk}</span><div><b>${a}</b><span>${b}</span></div></li>`).join('')}</ul></div>
+    ${x.err ? `<p class="small" style="color:var(--bad)">${esc(x.err)}</p>` : ''}<button class="btn pri wide" data-act="exgen" data-focus>Start · Claude writes your exam</button>`;
+  if (x.stage === 'gen') return close + `<div class="ex center" style="padding-top:60px"><div class="spin"></div><p class="mute">Claude is writing a fresh ${x.lvl} exam. This takes up to a minute.</p></div>`;
+  if (x.stage === 'grading') return close + `<div class="ex center" style="padding-top:60px"><div class="spin"></div><p class="mute">Grading your writing and speaking like a Goethe examiner…</p></div>`;
+  const d = x.data, qs = (part, list) => list.map((q, qi) => { const a = x.ans[part][qi], show = x.stage === 'result'; return `<div class="card"><b>${qi + 1}. ${esc(q.q)}</b><div class="opts">${q.options.map((o, oi) => `<button class="opt ${a === oi && !show ? 'sel' : ''} ${show ? (oi === q.answer ? 'ok' : oi === a ? 'no' : '') : ''}" data-act="exq" data-p="${part}" data-q="${qi}" data-o="${oi}" ${show ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div></div>`; }).join('');
+  if (x.stage === 'lesen') return close + `<span class="lab">Teil 1 · Lesen · ${mins(x.st0)} min</span><h2>${esc(d.lesen.title)}</h2>${String(d.lesen.text).split(/\n\n+/).map(p => `<p class="story">${esc(p)}</p>`).join('')}
+    ${qs('r', d.lesen.questions)}<button class="btn pri wide" data-act="exnext" ${Object.keys(x.ans.r).length < d.lesen.questions.length ? 'disabled' : ''}>Weiter zu Teil 2: Hören</button>`;
+  if (x.stage === 'hoeren') return close + `<span class="lab">Teil 2 · Hören · ${mins(x.st0)} min</span><h2>${esc(d.hoeren.title)}</h2><p class="mute small">You may play the recording twice. Read the questions first.</p>
+    <div class="row"><button class="bigplay" data-act="explay" ${x.plays >= 2 ? 'disabled' : ''} aria-label="Play">${ICON.spk}</button><span class="small mute">${2 - x.plays} plays left</span><button class="btn sm" data-act="dstop">Stop</button></div>
+    ${qs('h', d.hoeren.questions)}<button class="btn pri wide" data-act="exnext" ${Object.keys(x.ans.h).length < d.hoeren.questions.length ? 'disabled' : ''}>Weiter zu Teil 3: Schreiben</button>`;
+  if (x.stage === 'schreiben') return close + `<span class="lab">Teil 3 · Schreiben · ${mins(x.st0)} min</span><div class="card"><p>${esc(d.schreiben.task)}</p><p class="small mute">About ${EXSPEC[x.lvl][1]} words.</p></div>
+    <textarea class="inp" id="exw" rows="10" placeholder="Schreiben Sie hier…">${esc(x.write)}</textarea><div class="row">${UML('exw')}<span class="sp"></span><span class="small mute" id="wc">${(x.write.trim().match(/\S+/g) || []).length} words</span></div>
+    <button class="btn pri wide" data-act="exnext">Weiter zu Teil 4: Sprechen</button>`;
+  if (x.stage === 'sprechen') return close + `<span class="lab">Teil 4 · Sprechen · ${mins(x.st0)} min</span><p class="mute small">${canMic() ? 'Tap the mic and speak your answer (about a minute each). You can fix transcription mistakes before submitting.' : 'Type what you would say.'}</p>
+    ${d.sprechen.tasks.slice(0, 2).map((t, i) => `<div class="card"><b>Aufgabe ${i + 1}</b><p>${esc(t)}</p><textarea class="inp" id="exs${i}" rows="5" placeholder="Ihre Antwort…">${esc(x.speak[i])}</textarea>${canMic() ? `<button class="btn mic wide" data-act="mic" data-for="exs${i}">${ICON.mic} Tap to speak / stop</button>` : ''}</div>`).join('')}
+    ${x.err ? `<p class="small" style="color:var(--bad)">${esc(x.err)}</p>` : ''}<button class="btn pri wide" data-act="exsubmit">Submit exam for grading</button>`;
+  const r = x.res, g = x.grade, bar = (lab, v) => `<div class="skill"><span>${lab}</span><span class="pbar"><i class="${v >= 15 ? 'hi' : v >= 10 ? 'mid' : 'lo'}" style="width:${v / 25 * 100}%"></i></span><span class="num small">${v}/25</span></div>`;
+  return close + `<div class="ex center" style="padding-top:10px"><span class="lab">Ergebnis</span><div class="hero-n">${r.total}/100</div><p><b>${r.pass ? `Bestanden. That's ${x.lvl} level in all four skills.` : 'Not passed yet. Every part needs 15/25.'}</b></p></div>
+    <div class="card">${bar('Lesen', r.lesen)}${bar('Hören', r.hoeren)}${bar('Schreiben', r.schreiben)}${bar('Sprechen', r.sprechen)}</div>
+    ${r.pass ? `<button class="btn pri wide" data-act="go" data-v="cert" data-id="${x.lvl}">View your certificate</button>` : ''}
+    <div class="card"><span class="lab">Schreiben · feedback</span><p class="small">${esc(g.schreiben.strengths)}</p><p class="small"><b>Improve:</b> ${esc(g.schreiben.improve)}</p><span class="lab">Corrected version</span><p class="story">${esc(g.schreiben.corrected)}</p></div>
+    <div class="card"><span class="lab">Sprechen · feedback</span><p class="small">${esc(g.sprechen.feedback)}</p><span class="lab">Model answer</span><p class="story">${esc(g.sprechen.model)}</p>${spk(g.sprechen.model)}</div>
+    <div class="linehd"><h2>Lesen: answers</h2></div>${qs('r', d.lesen.questions)}
+    <div class="linehd"><h2>Hören: transcript</h2></div><div class="card">${d.hoeren.lines.map(l => `<div class="dline"><span class="who w${l.who === 'A' ? 0 : 1}">${esc(l.who)}</span><p>${esc(l.text)}</p></div>`).join('')}</div>${qs('h', d.hoeren.questions)}
+    <button class="btn wide" data-act="go" data-v="practice">Back to Üben</button>`;
+};
+
+/* ---------- badges, weekly summary, certificates ---------- */
+const BADGES = [
+  ['w100', '100 Wörter', () => WORDS.filter(w => learned(w.id)).length >= 100], ['w500', '500 Wörter', () => WORDS.filter(w => learned(w.id)).length >= 500],
+  ['w1000', '1.000 Wörter', () => WORDS.filter(w => learned(w.id)).length >= 1000], ['w2000', '2.000 Wörter', () => WORDS.filter(w => learned(w.id)).length >= 2000],
+  ['w3000', '3.000 Wörter', () => WORDS.filter(w => learned(w.id)).length >= 3000], ['w4000', '4.000 Wörter', () => WORDS.filter(w => learned(w.id)).length >= 4000],
+  ['s7', '7 Tage am Stück', () => S.streak >= 7], ['s30', '30 Tage am Stück', () => S.streak >= 30], ['s100', '100 Tage am Stück', () => S.streak >= 100],
+  ['h25', '25 Stunden', () => hoursTotal() >= 25], ['h100', '100 Stunden', () => hoursTotal() >= 100], ['h250', '250 Stunden', () => hoursTotal() >= 250], ['h500', '500 Stunden', () => hoursTotal() >= 500],
+  ['gA1', 'A1 geschafft', () => S.checks.A1 >= 75], ['gA2', 'A2 geschafft', () => S.checks.A2 >= 75], ['gB1', 'B1 geschafft', () => S.checks.B1 >= 75], ['gB2', 'B2 geschafft', () => S.checks.B2 >= 75],
+  ['exam', 'Prüfung bestanden', () => S.exams.some(z => z.pass)], ['read10', '10 Texte gelesen', () => Object.keys(S.read).length >= 10], ['hear10', '10 Dialoge verstanden', () => Object.keys(S.heard).length >= 10],
+  ['gram10', 'Alle A1-Lektionen', () => STATIONS.filter(z => z.lvl === 'A1').every(z => S.les[z.id])]
+];
+function checkBadges() { const got = []; BADGES.forEach(([id, t, f]) => { try { if (!S.badges[id] && f()) { S.badges[id] = Date.now(); got.push(t); } } catch (e) {} }); if (got.length) { setTimeout(() => { toast('Neues Abzeichen: ' + got.join(', ')); confetti(); }, 600); } }
+const weekStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.getTime(); };
+function weekCard() {
+  const key = dstr(weekStart(Date.now())); if (S.wk === key) return '';
+  const st = weekStart(Date.now()) - 7 * DAY; let m = 0, w = 0, g = 0, a = 0, c = 0, days = 0;
+  for (let i = 0; i < 7; i++) { const h = hget(dstr(st + i * DAY + 12 * 3600e3)); if (h) { m += h.s / 60; w += h.w || 0; g += h.g || 0; a += h.a; c += h.c; if (h.s > 120) days++; } }
+  if (m < 1) return '';
+  return `<div class="card goodc"><div class="row"><span class="lab">Deine letzte Woche</span><span class="sp"></span><button class="btn sm ghost" data-act="weekok">Got it</button></div>
+    <div class="stats"><div class="stat"><b>${Math.round(m)}</b><span>minutes</span></div><div class="stat"><b>${w}</b><span>new words</span></div><div class="stat"><b>${g}</b><span>new sentences</span></div><div class="stat"><b>${a ? Math.round(c / a * 100) + '%' : '–'}</b><span>accuracy</span></div></div>
+    <p class="small">${days >= 6 ? 'Almost every day. That consistency is exactly what makes words stick.' : days >= 4 ? `${days} active days. Aim for one more this week; short daily sessions beat long rare ones.` : `${days} active days. Try 15 minutes on the days you'd normally skip: frequency matters more than length.`}</p></div>`;
+}
+VIEWS.cert = () => {
+  const l = V.id, c = S.certs[l]; if (!c) return '<button class="back" data-act="go" data-v="me">← Ich</button><p>No certificate yet.</p>';
+  return `<button class="back" data-act="go" data-v="me">← Ich</button>
+  <div class="cert"><span class="lab">Wortwerk · Zertifikat</span><div class="cl">${l}</div><h1>${esc(S.prof.name || 'Wortwerk-Lernende*r')}</h1>
+    <p>hat das Niveau <b>${l}</b> des Gemeinsamen Europäischen Referenzrahmens in Wortwerk nachgewiesen.</p>
+    <p class="small">${c.kind === 'exam' ? `Mini-Prüfung (Lesen, Hören, Schreiben, Sprechen): ${c.score}/100` : `Level-Check: ${c.score}%`} · ${fmtDate(c.date)}</p>
+    <p class="small mute">A personal milestone, not an official certificate. For an official one, take the Goethe or telc exam.</p></div>`;
 };
 
 /* ---------- games ---------- */
@@ -934,7 +1303,7 @@ function vnext() { G.fb = null; G.i++; if (G.i >= 10) { G.state = 'over'; if (G.
 /* ---------- AI tutor (Claude version) ---------- */
 const aiErr = e => ({ not_granted: 'The tutor is switched off for this page. Allow it in the page\'s Permissions menu.', rate_limited: 'Too many requests. Give it a moment and try again.', cancelled: '' }[e && e.code] ?? 'The tutor didn\'t answer. Try again.');
 function knownWordsSample() { return shuffle(WORDS.filter(w => learned(w.id))).slice(0, 60).map(w => w.ans).join(', '); }
-function startChat(id) {
+function startChat(id, voiceMode) {
   const sc = D.scenes.find(s => s.id === id), L = sc.lvl && LV.indexOf(sc.lvl) > LV.indexOf(lvlNow()) ? sc.lvl : lvlNow();
   const why = S.prof.why.length ? ' The learner is learning German for: ' + S.prof.why.join(', ') + '.' : '';
   const rules = `You are part of a German learning app. ${sc.p}
@@ -944,7 +1313,7 @@ Rules for EVERY reply:
 2. Then a line containing exactly ### and after it feedback in English on the learner's LAST message: ${sc.write ? 'list every mistake as "wrong → right (short reason)", then give the fully corrected text.' : 'if it had mistakes, give the corrected German sentence and a one-line reason; if it was correct write "Perfekt ✓" and, when useful, one more natural way to say it.'}
 3. No markdown, no translations of your own reply.
 Begin now with your first in-role line. For this first message leave out the ### part.`;
-  C = { sc, turns: [{ role: 'user', content: rules }], busy: false, err: '' };
+  C = { sc, turns: [{ role: 'user', content: rules }], busy: false, err: '', voice: !!voiceMode && canMic() };
   go('chat'); ask();
 }
 async function ask() {
@@ -953,6 +1322,7 @@ async function ask() {
   try {
     const { text } = await AI(C.turns, { cache: false, signal: aiCtl.signal, onText: ({ text }) => { const el = document.getElementById('live'); if (el) el.textContent = text.split('###')[0].trim() || '…'; } });
     C.turns.push({ role: 'assistant', content: text });
+    if (C.voice && V.name === 'chat') say(text.split('###')[0].trim());
     if (C.turns.length > 3) { addXp(6); save(); }
   } catch (e) { C.err = aiErr(e); if (C.turns[C.turns.length - 1].role === 'user' && C.turns.length > 1) C.draft = C.turns.pop().content; }
   C.busy = false;
@@ -966,10 +1336,11 @@ VIEWS.chat = () => {
     else { const [de, note] = t.content.split('###'); if (note && note.trim()) h += `<div class="note">${esc(note.trim())}</div>`; h += `<div class="msg them">${esc(de.trim())}</div><div class="msgact">${spk(de.trim())}${t.tr ? '' : `<button class="btn sm" data-act="tr" data-i="${i}">Translate</button>`}</div>${t.tr ? `<div class="small mute">${esc(t.tr)}</div>` : ''}`; }
   });
   if (C.busy) h += '<div class="msg them" id="live">…</div>';
-  return `<div class="ridebar"><button class="x" data-act="go" data-v="practice" aria-label="Leave">✕</button><div><b>${esc(C.sc.t)}</b><div class="small mute">${esc(C.sc.en)}</div></div></div>
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="practice" aria-label="Leave">✕</button><div style="flex:1;min-width:0"><b>${esc(C.sc.t)}</b><div class="small mute">${esc(C.sc.en)}</div></div>${canMic() ? `<button class="btn sm ${C.voice ? 'pri' : ''}" data-act="voice">${ICON.mic} ${C.voice ? 'Voice on' : 'Voice off'}</button>` : ''}</div>
     <div class="msgs">${h}</div>${C.err ? `<p class="small" style="color:var(--bad)">${esc(C.err)}</p>` : ''}
     <div class="send"><textarea class="inp" id="msg" rows="2" placeholder="Schreib auf Deutsch…" ${C.busy ? 'disabled' : 'data-focus'}>${esc(C.draft || '')}</textarea>
-    <div class="row">${UML('msg')}<span class="sp"></span><button class="btn pri" data-act="send" ${C.busy ? 'disabled' : ''}>Senden</button></div></div>`;
+    ${C.voice ? `<button class="btn pri wide mic vtalk" data-act="vtalk" ${C.busy ? 'disabled' : ''}>${ICON.mic} <span>Tap, speak, tap again to send</span></button>` : ''}
+    <div class="row">${UML('msg')}<span class="sp"></span><button class="btn ${C.voice ? '' : 'pri'}" data-act="send" ${C.busy ? 'disabled' : ''}>Senden</button></div></div>`;
 };
 function send() { const el = document.getElementById('msg'), v = el.value.trim(); if (!v || C.busy) return; micStop(); tick(); C.draft = ''; C.turns.push({ role: 'user', content: v }); ask(); }
 async function translate(i) {
@@ -1036,7 +1407,7 @@ const acts = {
   mins: el => { S.prof.mins = +el.dataset.v; save(); render(); },
   months: el => { V.months = +el.dataset.v; render(); },
   onbdone: el => onbDone(el.dataset.v),
-  daily: () => start('daily'),
+  daily: el => start('daily', { reviewOnly: !!(el && el.dataset && el.dataset.v === 'rev') }),
   station: el => start('station', { id: el.dataset.id }),
   relearn: el => start('station', { id: el.dataset.id, relearn: true }),
   pack: el => start('pack', { id: el.dataset.id }),
@@ -1074,7 +1445,32 @@ const acts = {
   bstart, bans: el => bans(el.dataset.v),
   vstart: () => { G = { kind: 'verb', state: 'play', i: 0, score: 0, fb: null, qs: shuffle(VERBS).slice(0, 10).map(v => ({ v, form: Math.random() < 0.5 ? 'pr' : 'pf' })) }; render(); },
   vcheck, vnext,
-  chat: el => startChat(el.dataset.id), send, tr: el => translate(+el.dataset.i),
+  chat: el => startChat(el.dataset.id, el.dataset.v === 'voice'), send,
+  voice: () => { C.voice = !C.voice; if (!C.voice) { micStop(); stopSpeech(); } render(); },
+  vtalk: () => {
+    if (C.busy) return;
+    const on = (DICT && DICT.active()) || rec;
+    if (!on) { stopSpeech(); micToggle('msg'); return; }
+    if (DICT && DICT.active()) { DICT.stop().then(() => setTimeout(send, 60)).catch(() => send()); }
+    else if (rec) { rec.onend = () => { rec = null; micState(false); send(); }; try { rec.stop(); } catch (e) { send(); } }
+  },
+  recai: () => recAI(),
+  weekok: () => { S.wk = dstr(weekStart(Date.now())); save(); render(); },
+  dplay: el => { const d = LISTEN.find(z => z.id === V.id); if (d) sayLines(parseDialog(d), !!el.dataset.slow); },
+  dstop: () => stopSpeech(),
+  dtx: () => { V.tx = true; render(); },
+  dq: el => {
+    const d = LISTEN.find(z => z.id === V.id), qi = +el.dataset.q, o = +el.dataset.o; if (V.ans[qi] != null) return;
+    V.ans[qi] = o; const ok = o === d.q[qi][2]; beep(ok); if (!V.tx) stat('lis', ok); dayTouch(); const h = H(); h.a++; if (ok) { h.c++; addXp(8); }
+    if (Object.keys(V.ans).length === d.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.heard[d.id] = Math.max(S.heard[d.id] || 0, d.q.filter((q, i) => V.ans[i] === q[2]).length); checkBadges(); }
+    save(); render();
+  },
+  exam: el => startExam(el.dataset.v),
+  exgen: () => genExam(),
+  exq: el => { if (!EX || EX.stage === 'result') return; EX.ans[el.dataset.p][+el.dataset.q] = +el.dataset.o; render(); },
+  exnext: () => { const i = EXSTAGES.indexOf(EX.stage); if (EX.stage === 'schreiben') { const t = document.getElementById('exw'); if (t) EX.write = t.value; } stopSpeech(); micStop(); EX.stage = EXSTAGES[i + 1]; EX.st0 = Date.now(); render(); window.scrollTo(0, 0); },
+  explay: () => { if (EX.plays >= 2) return; EX.plays++; sayLines(EX.data.hoeren.lines.map(l => ({ who: l.who === 'B' ? 'B' : 'A', text: String(l.text) }))); render(); },
+  exsubmit: () => { micStop(); [0, 1].forEach(i => { const t = document.getElementById('exs' + i); if (t) EX.speak[i] = t.value; }); gradeExam(); }, tr: el => translate(+el.dataset.i),
   more: el => more(el.dataset.id), story: el => startStory(el.dataset.id),
   sq: el => { const q = +el.dataset.q, o = +el.dataset.o; if (ST.ans[q] != null) return; ST.ans[q] = o; const ok = o === ST.data.questions[q].answer; beep(ok); stat('rec', ok); if (ok) addXp(8); save(); render(); },
   addgl: () => {
@@ -1095,11 +1491,15 @@ const acts = {
     buildMyPack(); MYPACK.words.forEach(w => { if (!learned(w.id) && !S.soon.includes(w.id)) S.soon.push(w.id); });
     save(); toast('Saved. They\'ll appear in your next sessions.'); render();
   },
+  fixtap: el => { const e = R.q[R.i]; if (R.fb) return; const k = +el.dataset.k; grade(e.errs.includes(k), e.toks[k], { note: '' }); if (R.fb) { R.fb.tap = k; render(); } },
+  tiredstop: () => { const h = H(); if (R.q[R.i].why === 'tired') h.tired = 1; save(); finish(); },
+  tiredgo: () => { R.fb = { ok: true }; next(); },
+  drill: el => start('drill', { type: el.dataset.v || '' }),
   wopen: el => { V.open = V.open === el.dataset.id ? null : el.dataset.id; render(); },
   wlvl: el => { V.lvl = el.dataset.v; render(); },
   soon: el => { const id = el.dataset.id; if (!S.soon.includes(id)) S.soon.unshift(id); S.soon = S.soon.slice(0, 40); save(); toast('It\'ll be taught in your next session.'); render(); },
   logout: el => { const m = +el.dataset.v; dayTouch(); S.outMin = (S.outMin || 0) + m; S.out[today()] = (S.out[today()] || 0) + m; save(); toast(`Logged ${m} minutes of German outside the app.`); render(); },
-  set: el => { const k = el.dataset.k, v = el.dataset.v; S.set[k] = v === 'true'; save(); render(); },
+  set: el => { const k = el.dataset.k, v = el.dataset.v; S.set[k] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; save(); render(); if (k === 'voice' || k === 'rate') say('Hallo! So klinge ich.'); },
   pset: el => { S.prof[el.dataset.k] = +el.dataset.v; save(); render(); },
   export: async () => { const code = backupCode(); try { await navigator.clipboard.writeText(code); toast('Backup code copied.'); } catch (e) { const t = document.getElementById('imp'); t.value = code; t.select(); toast('Select and copy the code in the box.'); } },
   dl: () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'wortwerk-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download isn\'t available here. Use the backup code.'); } },
@@ -1117,7 +1517,13 @@ function doCheck() {
   const e = R.q[R.i], x = e.x, el = document.getElementById('ans'), given = el ? el.value.trim() : '';
   let r;
   if (e.t === 'sBuild') { const s = e.pick.map(i => e.pool[i]).join(' '); return grade(s === x.de, s); }
-  if (e.t === 'wType' || e.t === 'wListen') r = checkWord(x, given);
+  const anyOf = (list, g) => { for (const a of list) { const rr = checkSent(a, g); if (rr && rr.ok) return rr; } return { ok: false }; };
+  if (['wPlural', 'gConj', 'gCase', 'gAdj', 'gTrans'].includes(e.t) && !given) return;
+  if (e.t === 'wPlural') r = anyOf(['die ' + x.pl], /^die /i.test(given) ? given : 'die ' + given);
+  else if (e.t === 'gConj') r = anyOf(e.ans, given.replace(/^(ich|du|er\/sie|er|sie|es|wir|ihr)\s+/i, ''));
+  else if (e.t === 'gCase' || e.t === 'gAdj') r = norm(given.split(/\s+/)[0]) === norm(e.ans[0]) ? { ok: true, q: 'good' } : { ok: false };
+  else if (e.t === 'gTrans') r = anyOf(e.ans, given);
+  else if (e.t === 'wType' || e.t === 'wListen') r = checkWord(x, given);
   else if (e.t === 'wCloze') { r = checkSent(e.cz.word, given); }
   else if (e.t === 'sCloze') { r = checkSent(x.ans, given); if (r && !r.ok) { const r2 = checkSent(x.de, given); if (r2 && r2.ok) r = r2; } }
   else if (e.t === 'sSpeak') { if (!given) { toast('Tap the mic and read the sentence.'); return; } const g = norm(given).split(' '), w = norm(x.de).split(' '); r = { ok: w.filter(t => g.includes(t)).length / w.length >= 0.7, q: 'good' }; }
@@ -1130,6 +1536,8 @@ document.addEventListener('click', ev => {
   const f = acts[el.dataset.act]; if (f) { ev.preventDefault(); f(el); }
 });
 document.addEventListener('input', ev => {
+  if (EX && ev.target.id === 'exw') { EX.write = ev.target.value; const c = document.getElementById('wc'); if (c) c.textContent = (EX.write.trim().match(/\S+/g) || []).length + ' words'; return; }
+  if (EX && /^exs[01]$/.test(ev.target.id)) { EX.speak[+ev.target.id.slice(3)] = ev.target.value; return; }
   if (ev.target.id === 'wsearch') { V.q = ev.target.value; V.open = null; const pos = ev.target.selectionStart; render(); const s = document.getElementById('wsearch'); if (s) { s.focus(); try { s.setSelectionRange(pos, pos); } catch (e) {} } }
 });
 document.addEventListener('change', ev => {

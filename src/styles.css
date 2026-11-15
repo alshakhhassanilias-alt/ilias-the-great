@@ -262,3 +262,28 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .tile[disabled]{cursor:default}
 @media (max-width:420px){.facts b{font-size:1.35rem}.skill{grid-template-columns:minmax(0,1fr) 70px 40px}}
 .btn svg{width:18px;height:18px;flex:none}
+
+/* ===== v4: drills, listening, exams, rest state ===== */
+.board.rest{background:linear-gradient(160deg,var(--board),color-mix(in srgb,var(--u3) 30%,var(--board)))}
+.btn.ghostb{background:transparent;color:var(--board-ink);border-color:color-mix(in srgb,var(--board-ink) 35%,transparent)}
+.recc .recs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.rec{display:flex;flex-direction:column;gap:6px;background:var(--sunk);border-radius:12px;padding:12px;min-width:0}
+.rec.ai{background:color-mix(in srgb,var(--good-bg) 70%,var(--card));border:1px solid var(--good)}
+.rec b{font-family:var(--display);font-stretch:108%;font-weight:800}
+.fam{display:flex;flex-direction:column;gap:6px}
+.dline{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.dline:first-of-type{border-top:0}
+.dline p{flex:1;min-width:0;margin:0}
+.who{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 .78rem/1 var(--mono);color:#fff;background:var(--u3)}
+.who.w1{background:var(--u2)} .who.w2{background:var(--u4)} .who.w3{background:var(--u1)}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-size:.78rem;padding:6px 10px;border-radius:99px;border:1px dashed var(--line);color:var(--mute)}
+.badge.on{border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 22%,var(--card));color:var(--ink);font-weight:600}
+.cert{border:3px double var(--ink);border-radius:18px;padding:28px 22px;text-align:center;display:flex;flex-direction:column;gap:12px;background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--accent) 10%,var(--card)))}
+.cert .cl{font:900 4rem/1 var(--display);font-stretch:125%;color:var(--u3)}
+.opt.sel{border-color:var(--ink);background:color-mix(in srgb,var(--accent) 18%,var(--card))}
+.tk.okk{border-color:var(--good);background:var(--good-bg)} .tk.nok{border-color:var(--bad);background:var(--bad-bg)}
+.pool.fix .tk{font-size:1.05rem}
+.task{font-weight:600;color:var(--u3)}
+.vtalk{min-height:64px;font-size:1rem}
+.vtalk span{font-family:var(--body);font-weight:600;font-stretch:100%}
