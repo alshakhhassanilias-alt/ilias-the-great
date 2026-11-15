@@ -123,11 +123,26 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
   if (cloudReady) { clearTimeout(cloudTimer); cloudTimer = setTimeout(push, 2500); }
 }
+/* Cloud sync in chunks: one artifact database document holds at most 256 KiB, and a year of
+   progress (4,000+ items) is larger than that. "state" holds everything except the memory records;
+   those are split over it0, it1, … and only changed chunks are written. */
+const CHUNK = 700;
+let cloudCol = null, lastChunks = [];
+function splitState() {
+  const ids = Object.keys(S.it).sort(), chunks = [];
+  for (let i = 0; i < ids.length; i += CHUNK) { const o = {}; ids.slice(i, i + CHUNK).forEach(id => { o[id] = S.it[id].map(v => typeof v === 'number' && !Number.isInteger(v) ? Math.round(v * 1000) / 1000 : v); }); chunks.push(JSON.stringify(o)); }
+  const rest = Object.assign({}, S, { it: undefined }); delete rest.it;
+  return { head: JSON.stringify(rest), chunks };
+}
 async function push() {
-  if (!cloudRef) return;
+  if (!cloudCol) return;
   if (cloudBusy) { cloudDirty = true; return; }
   cloudBusy = true;
-  try { await cloudRef.set({ json: JSON.stringify(S), t: S.t }); } catch (e) {}
+  try {
+    const { head, chunks } = splitState();
+    for (let i = 0; i < chunks.length; i++) if (lastChunks[i] !== chunks[i]) { await cloudCol.doc('it' + i).set({ json: chunks[i] }); lastChunks[i] = chunks[i]; }
+    await cloudCol.doc('state').set({ json: head, t: S.t, chunks: chunks.length, v: 3 });
+  } catch (e) {}
   cloudBusy = false;
   if (cloudDirty) { cloudDirty = false; push(); }
 }
@@ -138,11 +153,16 @@ async function initCloud() {
   if (!db || !user) return;
   try {
     const id = await user.id(); if (!id) return;
-    cloudRef = db.collection('data/users/' + id).doc('state');
+    cloudCol = db.collection('data/users/' + id); cloudRef = cloudCol.doc('state');
     const snap = await cloudRef.get();
     if (snap.exists) {
-      const r = migrate(JSON.parse(snap.data().json));
-      if (r && (r.t || 0) > (S.t || 0)) { S = r; buildMyPack(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!FOCUS.includes(V.name)) render(); }
+      const head = snap.data(), raw = JSON.parse(head.json);
+      if (head.v === 3) {
+        raw.it = {};
+        for (let i = 0; i < (head.chunks || 0); i++) { const c = await cloudCol.doc('it' + i).get(); if (c.exists) { lastChunks[i] = c.data().json; Object.assign(raw.it, JSON.parse(c.data().json)); } }
+      }
+      const r = migrate(raw);
+      if (r && (r.t || 0) > (S.t || 0)) { S = r; buildMyPack(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (V.name === 'onb' && S.prof.onboarded) go('home'); else if (!FOCUS.includes(V.name)) render(); }
     }
     cloudReady = true; if (S.t) push();
     if (V.name === 'me') render();
@@ -473,10 +493,13 @@ function adjStep() {
   const fr = { n: ['Das ist', '.'], a: ['Ich sehe', '.'], d: ['mit', ''] }[c];
   return { t: 'gAdj', x: n, pre: `${fr[0]} ${det} `, post: ` ${n.noun}${fr[1]}`, hint: adj, caseName: { n: 'Nominativ', a: 'Akkusativ', d: 'Dativ' }[c], ans: [adj + ENDS[k][c][n.g]], skill: 'case' };
 }
-function transStep() { const ok = TRANS.filter(t => S.les[t.sid]); if (!ok.length) return null; const t = pick(ok); return { t: 'gTrans', x: { id: 'T:' + t.from + t.task, kind: 'g', de: t.ans[0], en: t.task }, tr: t, ans: t.ans, skill: 'trans' }; }
+const transFrom = t => ({ t: 'gTrans', x: { id: 'T:' + t.from + t.task, kind: 'g', de: t.ans[0], en: t.task }, tr: t, ans: t.ans, skill: 'trans' });
+function transStep() { const ok = TRANS.concat(S.aiT || []).filter(t => S.les[t.sid]); return ok.length ? transFrom(pick(ok)) : null; }
 function fixStep() {
-  const ok = FIX.filter(f => S.les[f.sid]); if (!ok.length) return null;
-  const f = pick(ok), b = f.bad.split(' '), g = f.good.split(' ');
+  const ok = FIX.concat(S.aiF || []).filter(f => S.les[f.sid]); return ok.length ? fixFrom(pick(ok)) : null;
+}
+function fixFrom(f) {
+  const b = f.bad.split(' '), g = f.good.split(' ');
   let i = 0; while (i < b.length && b[i] === g[i]) i++;
   let j = 0; while (j < b.length - i && j < g.length - i && b[b.length - 1 - j] === g[g.length - 1 - j]) j++;
   const errs = []; for (let k = i; k < b.length - j; k++) errs.push(k);
@@ -556,7 +579,7 @@ function start(kind, opts) {
     title = 'Sprechtraining';
     const xs = shuffle(Object.keys(S.it).map(getItem).filter(Boolean)).slice(0, 10);
     q = xs.map(x => ({ t: 'sSpeak', x: x.kind === 's' ? x : { id: x.id, kind: 'w', de: x.ex || x.ans, en: x.exEn || x.en }, free: true }));
-  } else if (kind === 'drill') { title = 'Grammatik-Training'; q = drillSteps(12, opts.type); }
+  } else if (kind === 'drill') { title = opts.title || 'Grammatik-Training'; q = opts.steps || drillSteps(12, opts.type); }
   else if (kind === 'check') { q = checkSteps(opts.lvl); title = 'Level-Check ' + opts.lvl; }
   else if (kind === 'place') { q = placeSteps(0); title = 'Einstufungstest'; }
   q = q.filter(Boolean);
@@ -766,7 +789,7 @@ VIEWS.home = () => {
   const allDone = !revDue && !wLeft && !sLeft;
   const hello = (S.prof.name ? 'Hallo ' + esc(S.prof.name) : ['Guten Morgen', 'Guten Tag', 'Guten Abend'][new Date().getHours() < 11 ? 0 : new Date().getHours() < 18 ? 1 : 2]);
   const status = p.aheadDays >= 3 ? `<span class="pill good">${p.aheadDays} days ahead</span>` : p.aheadDays <= -3 ? `<span class="pill warn">${-p.aheadDays} days behind</span>` : '<span class="pill">On schedule</span>';
-  const ck = (done, label, sub) => `<li class="${done ? 'done' : ''}"><span class="box">${ICON.chk}</span><div><b>${label}</b><span>${sub}</span></div></li>`;
+  const ck = (done, label, sub, act) => `<li class="${done ? 'done' : ''} ${act ? 'tap' : ''}" ${act || ''}><span class="box">${ICON.chk}</span><div><b>${label}</b><span>${sub}</span></div></li>`;
   const days = []; for (let i = 6; i >= 0; i--) { const d = Date.now() - i * DAY, h = hget(dstr(d)), m = h ? h.s / 60 : 0; days.push(`<span class="${i ? '' : 'now'}"><i class="${m >= goal ? 'hit' : m >= 3 ? 'some' : ''}"></i>${'SMTWTFS'[new Date(d).getDay()]}</span>`); }
   const ds = dayState(), wk = weekCard();
   const restBoard = ds.enough ? `<div class="board rest"><span class="lab">Feierabend · genug für heute</span><h1>${ds.reason === 'tired' ? 'Time to let it settle.' : ds.reason === 'new' ? 'Your brain is full, in a good way.' : 'Daily goal smashed.'}</h1>
@@ -783,6 +806,7 @@ VIEWS.home = () => {
     <ul class="ck">${ck(!revDue, revDue ? `Review ${revDue} items` : 'Reviews done', 'Before you forget them')}
     ${ck(!wLeft, wLeft ? `Learn ${wLeft} new words` : `${p.doneW} new words learned`, p.fac < 0.8 ? 'Fewer today so your reviews can catch up' : p.fac > 1.05 ? 'More today: your accuracy is high' : 'Taught first, then practised')}
     ${ck(!sLeft && !lessonPending, lessonPending ? 'Grammar lesson: ' + esc(st.name) : sLeft ? `Learn ${sLeft} new sentences` : 'Grammar done', st ? esc(st.sub) : 'All stations complete')}
+    ${(() => { const nd = nextDialog(), nr = nextRead(), lr = (hget(today()) || {}).lr; return ck(!!lr, lr ? 'Listening or reading done' : nd ? 'Hören: ' + esc(nd.t) : nr ? 'Lesen: ' + esc(nr.t) : 'Hören oder Lesen', 'One dialogue or text, about 5 minutes', lr ? '' : nd ? `data-act="go" data-v="dialog" data-id="${nd.id}"` : nr ? `data-act="go" data-v="reader" data-id="${nr.id}"` : 'data-act="go" data-v="hoeren"'); })()}
     ${ck((S.out[today()] || 0) >= 15, 'Listen to real German', 'A podcast, series or video. Log it below.')}</ul></div>
   <div class="card"><div class="row"><span class="lab">This week</span><span class="sp"></span><span class="small mute">${Math.round(p.hrs)} h of ~${B2_HOURS} h to B2</span></div>
     <div class="week">${days.join('')}</div>
@@ -868,6 +892,7 @@ VIEWS.practice = () => {
     <button class="tile" data-act="drill" data-v="adj" ${S.les.s16 ? '' : 'disabled'}><b>Adjektivendungen</b><span>ein neues Auto, mit dem alten Mann</span></button>
     <button class="tile" data-act="drill" data-v="trans" ${anyLesson ? '' : 'disabled'}><b>Sätze umbauen</b><span>Change tense, join, make passive</span></button>
     <button class="tile" data-act="drill" data-v="fix" ${anyLesson ? '' : 'disabled'}><b>Fehler finden</b><span>Spot the mistake in a sentence</span></button>
+    ${AI ? `<button class="tile" data-act="gendrills" ${anyLesson && !V.busy ? '' : 'disabled'}><b>${V.busy ? 'Claude is writing…' : 'Fresh from Claude'}</b><span>New rewriting and error-hunting exercises for your grammar. ${(S.aiT || []).length + (S.aiF || []).length} so far</span></button>` : ''}
   </div>
   <div class="linehd"><h2>Hören, Lesen, Sprechen</h2></div>
   <div class="tiles">
@@ -1112,12 +1137,16 @@ Suggest ONE relaxed, enjoyable activity in real German for the evening (15-30 mi
 }
 
 /* ---------- listening dialogues ---------- */
+const allDialogs = () => (S.aiL || []).concat(LISTEN);
 const parseDialog = d => d.d.split('\n').map(l => { const m = l.match(/^([A-Z]): (.*)$/); return m ? { who: m[1], text: m[2] } : null; }).filter(Boolean);
-function nextDialog() { const l = LV.indexOf(lvlNow()); return LISTEN.find(d => S.heard[d.id] == null && LV.indexOf(d.lvl) <= l) || null; }
+function nextDialog() { const l = LV.indexOf(lvlNow()); return allDialogs().find(d => S.heard[d.id] == null && LV.indexOf(d.lvl) <= l) || null; }
 VIEWS.hoeren = () => header() + `<div><h1>Hören</h1><p class="mute">Real-life conversations read by different voices. Listen without the text first, answer, then check the transcript.</p></div>` +
+  (AI ? `<div class="card"><div class="row"><span class="lab">Von Claude, für dich</span><span class="sp"></span><button class="btn sm pri" data-act="gendialog" ${V.busy ? 'disabled' : ''}>${V.busy ? 'Writing…' : 'New dialogue'}</button></div>
+    <p class="small mute">A fresh conversation at your level (${lvlNow()}) that reuses words you're learning. Unlimited.</p>
+    ${(S.aiL || []).slice(0, 8).map(d => `<button class="prow" data-act="go" data-v="dialog" data-id="${d.id}"><span class="t"><b>${esc(d.t)}</b><span>${d.lvl} · ${d.q.length} questions</span></span>${S.heard[d.id] != null ? `<span class="pill ${S.heard[d.id] === d.q.length ? 'good' : ''}">${S.heard[d.id]}/${d.q.length}</span>` : '<span class="pill ghost">new</span>'}</button>`).join('')}</div>` : '') +
   LV.map(l => `<div class="linehd"><span class="roundel ${l}">${LINE[l]}</span><h2>${l}</h2></div>` + LISTEN.filter(d => d.lvl === l).map(d => `<button class="prow" data-act="go" data-v="dialog" data-id="${d.id}"><span class="t"><b>${esc(d.t)}</b><span>${parseDialog(d).length} lines · ${d.q.length} questions</span></span>${S.heard[d.id] != null ? `<span class="pill ${S.heard[d.id] === d.q.length ? 'good' : ''}">${S.heard[d.id]}/${d.q.length}</span>` : '<span class="pill ghost">new</span>'}</button>`).join('')).join('');
 VIEWS.dialog = () => {
-  const d = LISTEN.find(x => x.id === V.id) || LISTEN[0], lines = parseDialog(d); V.ans = V.ans || {}; V.t0 = V.t0 || Date.now();
+  const d = allDialogs().find(x => x.id === V.id) || LISTEN[0], lines = parseDialog(d); V.ans = V.ans || {}; V.t0 = V.t0 || Date.now();
   const done = Object.keys(V.ans).length === d.q.length, score = d.q.filter((q, i) => V.ans[i] === q[2]).length;
   const who = [...new Set(lines.map(l => l.who))];
   return `<div class="ridebar"><button class="x" data-act="go" data-v="hoeren" aria-label="Close">✕</button><span class="lab">${d.lvl} · Hören</span></div>
@@ -1127,6 +1156,47 @@ VIEWS.dialog = () => {
     ${done || V.tx ? `<div class="card"><span class="lab">Transkript</span>${lines.map(l => `<div class="dline"><span class="who w${who.indexOf(l.who)}">${l.who}</span><p>${esc(l.text)}</p>${spk(l.text)}</div>`).join('')}</div>` : '<button class="btn sm" data-act="dtx" style="align-self:flex-start">Show transcript (counts as a hint)</button>'}
     ${done ? `<div class="fb ${score === d.q.length ? '' : 'no'}"><h3>${score} of ${d.q.length} right</h3><p class="small">${score === d.q.length ? 'You understood the whole conversation.' : 'Listen again while reading the transcript, then try a new one.'}</p>${nextDialog() ? `<button class="btn pri wide" data-act="go" data-v="dialog" data-id="${nextDialog().id}">Next dialogue</button>` : ''}<button class="btn wide" data-act="go" data-v="hoeren">All dialogues</button></div>` : ''}`;
 };
+
+async function genDialog() {
+  if (!AI || V.busy) return; V.busy = true; render();
+  const lv = lvlNow(), words = shuffle(WORDS.filter(w => learned(w.id) && w.lvl === lv)).slice(0, 25).map(w => w.ans);
+  try {
+    const d = await AI.json(`Write a realistic German listening dialogue for a learner at CEFR level ${lv}: 8 to 12 lines between two people (A and B) in an everyday situation${S.prof.why.length ? ' relevant to someone learning German for: ' + S.prof.why.join(', ') : ''}. Natural spoken German, level-appropriate. Reuse several of these words: ${words.join(', ')}. Seed ${Math.random().toString(36).slice(2, 7)}.
+Return ONLY JSON: {"title": short German title, "lines": [{"who": "A" or "B", "text": string}], "questions": [3 objects {"q": German question testing understanding (not word matching), "options": [3 short German answers], "answer": index 0-2}]}`, { cache: false });
+    const ok = d && d.title && Array.isArray(d.lines) && d.lines.length >= 4 && d.lines.every(l => l && /^[AB]$/.test(l.who) && l.text) && Array.isArray(d.questions) && d.questions.length >= 2 && d.questions.every(q => q && q.q && Array.isArray(q.options) && q.options[q.answer] != null);
+    if (!ok) throw { code: 'bad' };
+    const item = { id: 'ai' + Date.now().toString(36), lvl: lv, t: String(d.title), d: d.lines.map(l => l.who + ': ' + String(l.text).replace(/\n/g, ' ')).join('\n'), q: d.questions.slice(0, 4).map(q => [String(q.q), q.options.map(String), q.answer]) };
+    S.aiL = [item].concat(S.aiL || []).slice(0, 30); save();
+    V.busy = false; go('dialog', item.id); return;
+  } catch (e) { toast(e && e.code === 'bad' ? 'Claude\'s dialogue came back incomplete. Try again.' : aiErr(e) || 'Try again.'); }
+  V.busy = false; render();
+}
+async function genDrills() {
+  if (!AI || V.busy) return;
+  const done = STATIONS.filter(st => S.les[st.id]); if (!done.length) { toast('Finish a grammar lesson first.'); return; }
+  V.busy = true; render();
+  const topics = shuffle(done.slice(-3).concat(shuffle(done).slice(0, 2))).filter((x, i, a) => a.indexOf(x) === i).slice(0, 4);
+  const words = shuffle(WORDS.filter(w => learned(w.id))).slice(0, 40).map(w => w.ans);
+  try {
+    const d = await AI.json(`Create German grammar exercises for a learner at level ${lvlNow()}. Topics (id: name, description):
+${topics.map(t => `${t.id}: ${t.name} (${t.sub}). Rules: ${t.g.join(' / ').replace(/\*/g, '')}`).join('\n')}
+Return ONLY JSON {"trans": [...], "fix": [...]}:
+- "trans": 3 items per topic: {"sid": topic id, "from": a natural German sentence of 5-12 words, "task": a short English instruction to transform it so it practises the topic (e.g. "Put it in the Perfekt.", "Join with weil."), "answers": [the correct transformed sentence, plus 1 other fully correct version if one exists]}
+- "fix": 2 items per topic: {"sid": topic id, "bad": a sentence with exactly ONE mistake about the topic, "good": the same sentence corrected (change as few words as possible), "why": one short English explanation}
+Prefer words the learner knows: ${words.join(', ')}. Answers must be unambiguous.`, { cache: false });
+    const sids = new Set(topics.map(t => t.id));
+    const tr = (d && Array.isArray(d.trans) ? d.trans : []).filter(x => x && sids.has(x.sid) && x.from && x.task && Array.isArray(x.answers) && x.answers[0]).map(x => ({ sid: x.sid, from: String(x.from), task: String(x.task), ans: x.answers.map(String).filter(Boolean).slice(0, 3) }));
+    const fx = (d && Array.isArray(d.fix) ? d.fix : []).filter(x => x && sids.has(x.sid) && x.bad && x.good && x.bad !== x.good && x.why).filter(x => { const b = String(x.bad).split(' '), g = String(x.good).split(' '); let i = 0; while (i < b.length && b[i] === g[i]) i++; let j = 0; while (j < b.length - i && j < g.length - i && b[b.length - 1 - j] === g[g.length - 1 - j]) j++; return b.length - i - j <= 3 && Math.abs(b.length - g.length) <= 1; }).map(x => ({ sid: x.sid, bad: String(x.bad), good: String(x.good), why: String(x.why) }));
+    if (!tr.length && !fx.length) throw { code: 'bad' };
+    S.aiT = tr.concat(S.aiT || []).slice(0, 300); S.aiF = fx.concat(S.aiF || []).slice(0, 300); save();
+    toast(`${tr.length + fx.length} new exercises from Claude.`);
+    V.busy = false;
+    const steps = shuffle(tr.map(transFrom).concat(fx.map(fixFrom))).slice(0, 12).map(st => Object.assign(st, { free: true, drill: true }));
+    start('drill', { steps, title: 'Frisch von Claude' });
+    return;
+  } catch (e) { toast(e && e.code === 'bad' ? 'Claude\'s exercises came back incomplete. Try again.' : aiErr(e) || 'Try again.'); }
+  V.busy = false; render();
+}
 
 /* ---------- mock exam ---------- */
 let EX = null;
@@ -1455,14 +1525,16 @@ const acts = {
     else if (rec) { rec.onend = () => { rec = null; micState(false); send(); }; try { rec.stop(); } catch (e) { send(); } }
   },
   recai: () => recAI(),
+  gendialog: () => genDialog(),
+  gendrills: () => genDrills(),
   weekok: () => { S.wk = dstr(weekStart(Date.now())); save(); render(); },
-  dplay: el => { const d = LISTEN.find(z => z.id === V.id); if (d) sayLines(parseDialog(d), !!el.dataset.slow); },
+  dplay: el => { const d = allDialogs().find(z => z.id === V.id); if (d) sayLines(parseDialog(d), !!el.dataset.slow); },
   dstop: () => stopSpeech(),
   dtx: () => { V.tx = true; render(); },
   dq: el => {
-    const d = LISTEN.find(z => z.id === V.id), qi = +el.dataset.q, o = +el.dataset.o; if (V.ans[qi] != null) return;
+    const d = allDialogs().find(z => z.id === V.id), qi = +el.dataset.q, o = +el.dataset.o; if (V.ans[qi] != null) return;
     V.ans[qi] = o; const ok = o === d.q[qi][2]; beep(ok); if (!V.tx) stat('lis', ok); dayTouch(); const h = H(); h.a++; if (ok) { h.c++; addXp(8); }
-    if (Object.keys(V.ans).length === d.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.heard[d.id] = Math.max(S.heard[d.id] || 0, d.q.filter((q, i) => V.ans[i] === q[2]).length); checkBadges(); }
+    if (Object.keys(V.ans).length === d.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.heard[d.id] = Math.max(S.heard[d.id] || 0, d.q.filter((q, i) => V.ans[i] === q[2]).length); h.lr = 1; checkBadges(); }
     save(); render();
   },
   exam: el => startExam(el.dataset.v),
@@ -1482,7 +1554,7 @@ const acts = {
   rq: el => {
     const r = READ.find(x => x.id === V.id), qi = +el.dataset.q, o = +el.dataset.o; if (V.ans[qi] != null) return;
     V.ans[qi] = o; const ok = o === r.q[qi][2]; beep(ok); stat('rec', ok); dayTouch(); const h = H(); h.a++; if (ok) { h.c++; addXp(8); }
-    if (Object.keys(V.ans).length === r.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.read[r.id] = Math.max(S.read[r.id] || 0, r.q.filter((q, i) => V.ans[i] === q[2]).length); }
+    if (Object.keys(V.ans).length === r.q.length) { const sec = Math.min(Date.now() - V.t0, 12 * 60e3) / 1000; S.secs += sec; h.s += sec; S.read[r.id] = Math.max(S.read[r.id] || 0, r.q.filter((q, i) => V.ans[i] === q[2]).length); h.lr = 1; }
     save(); render();
   },
   readsave: el => {

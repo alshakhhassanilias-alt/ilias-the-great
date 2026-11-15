@@ -287,3 +287,4 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .task{font-weight:600;color:var(--u3)}
 .vtalk{min-height:64px;font-size:1rem}
 .vtalk span{font-family:var(--body);font-weight:600;font-stretch:100%}
+.ck li.tap{cursor:pointer;border-radius:10px} .ck li.tap:hover b{text-decoration:underline}
