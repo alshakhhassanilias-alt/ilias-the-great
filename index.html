@@ -292,6 +292,13 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .vtalk{min-height:64px;font-size:1rem}
 .vtalk span{font-family:var(--body);font-weight:600;font-stretch:100%}
 .ck li.tap{cursor:pointer;border-radius:10px} .ck li.tap:hover b{text-decoration:underline}
+
+/* status panel and collection */
+.strow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.strow:first-of-type{border-top:0}
+.strow>div{flex:1;min-width:0;display:flex;flex-direction:column}.strow span:not(.dot):not(.pill){font-size:.84rem;color:var(--mute)}
+.dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--bad)} .dot.ok{background:var(--good)} .dot.warn{background:var(--accent)}
+.wcard.flip{text-align:left;width:100%;min-height:220px;cursor:pointer;font:inherit;color:var(--ink)}
 </style>
 <main id="app" class="wrap"></main>
 <nav id="nav" aria-label="Sections"></nav>
@@ -7438,6 +7445,7 @@ async function initCloud() {
   } catch (e) {}
 }
 use('sample').then(s => { AI = s; if (s && ['home', 'practice', 'station', 'tutor'].includes(V.name)) render(); });
+let PERM = null; use('permissions').then(x => { PERM = x; });
 use('tts').then(t => { TTS = t; });
 use('dictation').then(d => {
   DICT = d; if (!d) return;
@@ -7452,17 +7460,26 @@ const pickVoice = () => { try { const vs = speechSynthesis.getVoices(); voice = 
 if ('speechSynthesis' in window) { pickVoice(); try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {} }
 const canSpeak = () => !!TTS || ('speechSynthesis' in window);
 const VOICES = ['buttery', 'airy', 'glassy', 'rounded'];
-function browserSay(text, slow) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'de-DE'; u.rate = 0.92 * (S.set.rate || 1) * (slow ? 0.75 : 1); if (voice) u.voice = voice; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
+function noGermanVoice() { try { return 'speechSynthesis' in window && speechSynthesis.getVoices().length > 0 && !speechSynthesis.getVoices().some(v => /^de/i.test(v.lang)); } catch (e) { return false; } }
+function warnOnce(key, msg) { warnOnce.done = warnOnce.done || {}; if (!warnOnce.done[key]) { warnOnce.done[key] = 1; toast(msg); } }
+function browserSay(text, slow) { if (!('speechSynthesis' in window)) { warnOnce('nosynth', 'No voice available in this view. Open Wortwerk in Chrome or the Claude desktop app.'); return; } if (noGermanVoice()) warnOnce('node', 'Your device has no German voice installed, so audio may sound wrong. Add one in your system language settings.'); try { const u = new SpeechSynthesisUtterance(text); u.lang = 'de-DE'; u.rate = 0.92 * (S.set.rate || 1) * (slow ? 0.75 : 1); if (voice) u.voice = voice; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
 function say(text, slow) {
   if (!text) return;
   const rate = (S.set.rate || 1) * (slow ? 0.75 : 1);
-  if (TTS) { TTS.speak(text, { language: 'de', rate, voice: S.set.voice || 'buttery' }).catch(e => { if (e && ['unavailable', 'upstream_error', 'not_granted'].includes(e.code)) { TTS = null; browserSay(text, slow); } }); return; }
+  if (TTS) { TTS.speak(text, { language: 'de', rate, voice: S.set.voice || 'buttery' }).catch(e => ttsFail(e, () => browserSay(text, slow))); return; }
   browserSay(text, slow);
+}
+function ttsFail(e, fallback) {
+  const c = e && e.code;
+  if (c === 'stopped' || c === 'busy') return;
+  if (c === 'unavailable' || c === 'not_granted') TTS = null;
+  warnOnce('tts' + c, c === 'not_granted' ? 'Claude voice is switched off for this page (Permissions menu). Using your device voice.' : c === 'rate_limited' ? 'Claude voice is busy for a moment. Using your device voice.' : 'Claude voice failed (' + (c || 'error') + '). Using your device voice.');
+  fallback();
 }
 function sayLines(lines, slow) {
   const rate = (S.set.rate || 1) * (slow ? 0.8 : 1), main = S.set.voice || 'buttery', order = [main].concat(VOICES.filter(v => v !== main)), vmap = {};
   let k = 0; lines.forEach(l => { if (!(l.who in vmap)) vmap[l.who] = order[k++ % order.length]; });
-  if (TTS) { TTS.speak(lines.map(l => ({ text: l.text, voice: vmap[l.who] })), { language: 'de', rate }).catch(e => { if (e && ['unavailable', 'upstream_error', 'not_granted'].includes(e.code)) { TTS = null; browserLines(lines, rate); } }); return; }
+  if (TTS) { TTS.speak(lines.map(l => ({ text: l.text, voice: vmap[l.who] })), { language: 'de', rate }).catch(e => ttsFail(e, () => browserLines(lines, rate))); return; }
   browserLines(lines, rate);
 }
 function browserLines(lines, rate) {
@@ -7794,7 +7811,7 @@ function drillSteps(n, type) {
 
 /* ================= sessions ================= */
 let V = { name: 'home' }, R = null, G = null, C = null, ST = null;
-const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb', 'reader', 'dialog', 'exam'];
+const FOCUS = ['ride', 'done', 'blitz', 'verb', 'chat', 'story', 'onb', 'reader', 'dialog', 'exam', 'cards'];
 function newWordBlock(ws) {
   const q = [];
   ws.forEach(w => q.push({ t: 'wIntro', x: w, isNew: true }));
@@ -7848,7 +7865,8 @@ function start(kind, opts) {
     title = 'Sprechtraining';
     const xs = shuffle(Object.keys(S.it).map(getItem).filter(Boolean)).slice(0, 10);
     q = xs.map(x => ({ t: 'sSpeak', x: x.kind === 's' ? x : { id: x.id, kind: 'w', de: x.ex || x.ans, en: x.exEn || x.en }, free: true }));
-  } else if (kind === 'drill') { title = opts.title || 'Grammatik-Training'; q = opts.steps || drillSteps(12, opts.type); }
+  } else if (kind === 'coll') { title = 'Meine Sammlung'; q = shuffle(collection(opts.filter)).slice(0, 15).map(w => ({ t: pick(['wMc', 'wMcR', 'wType', w.kind === 'n' && w.g !== 'p' ? 'wArt' : 'wType']), x: w, free: true })); }
+  else if (kind === 'drill') { title = opts.title || 'Grammatik-Training'; q = opts.steps || drillSteps(12, opts.type); }
   else if (kind === 'check') { q = checkSteps(opts.lvl); title = 'Level-Check ' + opts.lvl; }
   else if (kind === 'place') { q = placeSteps(0); title = 'Einstufungstest'; }
   q = q.filter(Boolean);
@@ -8133,7 +8151,37 @@ VIEWS.pack = () => {
   <div class="wlist">${pk.words.map(w => wordRow(w, V.open === w.id)).join('')}</div>`;
 };
 /* ---------- words ---------- */
+const mastered = w => { const r = S.it[w.id]; return !!r && r[0] >= 21 && r[4] > 0; };
+function collection(filter) { return WORDS.concat(MYPACK.words).filter(w => S.it[w.id] && (filter === 'all' || mastered(w))); }
+function collectionView() {
+  const sure = collection('sure'), all = collection('all');
+  const f = V.cf || (sure.length >= 15 ? 'sure' : 'all'), q = (V.cq || '').trim().toLowerCase(), sort = V.cs || 'new';
+  let list = f === 'sure' ? sure : all;
+  if (q) list = list.filter(w => flat(w.de).includes(flat(q)) || w.en.toLowerCase().includes(q));
+  list = list.slice().sort(sort === 'az' ? (a, b) => (a.noun || a.ans).localeCompare(b.noun || b.ans, 'de') : sort === 'lvl' ? (a, b) => LV.indexOf(a.lvl) - LV.indexOf(b.lvl) || a.ans.localeCompare(b.ans, 'de') : (a, b) => (S.it[b.id][5] || 0) - (S.it[a.id][5] || 0));
+  const by = l => all.filter(w => w.lvl === l).length;
+  return `<div class="stats"><div class="stat"><b>${sure.length}</b><span>words you know for sure</span></div><div class="stat"><b>${all.length}</b><span>words learned in total</span></div></div>
+    <p class="small mute">"For sure" means you've recalled the word correctly over at least three weeks, so the app is confident it's in long-term memory. ${LV.map(l => `${l}: ${by(l)}`).join(' · ')}</p>
+    <div class="row"><div class="seg-ctl"><button class="${f === 'sure' ? 'on' : ''}" data-act="cfilt" data-v="sure">Sicher · ${sure.length}</button><button class="${f === 'all' ? 'on' : ''}" data-act="cfilt" data-v="all">Alle gelernten · ${all.length}</button></div>
+      <div class="seg-ctl"><button class="${sort === 'new' ? 'on' : ''}" data-act="csort" data-v="new">Recent</button><button class="${sort === 'az' ? 'on' : ''}" data-act="csort" data-v="az">A–Z</button><button class="${sort === 'lvl' ? 'on' : ''}" data-act="csort" data-v="lvl">Level</button></div></div>
+    ${list.length ? `<div class="row"><button class="btn pri" style="flex:1" data-act="cards">Flip through cards</button><button class="btn" style="flex:1" data-act="cquiz">Mini-quiz</button></div>` : ''}
+    <input class="inp" id="csearch" type="search" placeholder="Search your words" value="${esc(V.cq || '')}" autocomplete="off" spellcheck="false">
+    ${list.length ? `<div class="wlist">${list.slice(0, 200).map(w => wordRow(w, V.open === w.id)).join('')}</div>${list.length > 200 ? `<p class="small mute">Showing 200 of ${list.length}. Search to find the rest.</p>` : ''}`
+      : `<div class="card"><b>${f === 'sure' ? 'No words here yet.' : 'No words learned yet.'}</b><p class="small mute">${f === 'sure' ? 'A word moves here once you\'ve got it right across about three weeks of reviews. Keep doing your daily rides. Meanwhile, "Alle gelernten" shows everything you\'ve learned so far.' : 'Start your first daily ride on the Heute tab.'}</p></div>`}`;
+}
+VIEWS.cards = () => {
+  const K = V.k; if (!K || !K.ids.length) return '<button class="back" data-act="go" data-v="words">← Wörter</button><p>No cards.</p>';
+  const w = WMAP[K.ids[K.i]]; if (!w) return '';
+  return `<div class="ridebar"><button class="x" data-act="cardsclose" aria-label="Close">✕</button><div class="bar"><i style="width:${(K.i + 1) / K.ids.length * 100}%"></i></div><span class="combo num">${K.i + 1}/${K.ids.length}</span></div>
+    <div class="ex"><span class="lab">Meine Sammlung</span>
+    <button class="wcard flip ${artCls(w)}" data-act="cflip"><div class="row"><div class="big">${wordHead(w)}</div><span class="sp"></span></div>
+      ${K.show ? `${w.pl ? `<p class="small"><span class="lab">Plural</span> die ${esc(w.pl)}</p>` : ''}${w.forms ? `<p class="small"><span class="lab">Forms</span> ${esc(w.forms)}</p>` : ''}<p class="mean">${esc(w.en)}</p>${w.ex ? `<div class="exl"><div><div class="de2">${esc(w.ex)}</div><div class="mute small">${esc(w.exEn)}</div></div></div>` : ''}` : '<p class="small mute">Say the meaning out loud, then tap the card.</p>'}</button>
+    <div class="row">${spk(w.ans, 'lg')}${w.ex ? `<button class="btn sm" data-act="say" data-t="${esc(w.ex)}">Example</button>` : ''}<span class="sp"></span><span class="small mute">${pips(w.id)}</span></div>
+    <div class="row"><button class="btn" style="flex:1" data-act="cprev" ${K.i ? '' : 'disabled'}>← Back</button><button class="btn pri" style="flex:2" data-act="cnext">${K.show ? (K.i + 1 < K.ids.length ? 'Next →' : 'Done') : 'Show'}</button></div>
+    <button class="btn ghost wide" data-act="cshuffle">Shuffle</button></div>`;
+};
 VIEWS.words = () => {
+  if (V.tab === 'mine') return header() + `<h1>Wörter</h1><div class="seg-ctl wide"><button data-act="wtab" data-v="all">Alle Wörter</button><button class="on" data-act="wtab" data-v="mine">Meine Sammlung</button></div>` + collectionView();
   const q = (V.q || '').trim(), fl = V.lvl || '';
   const total = WORDS.length, l = WORDS.filter(w => learned(w.id)).length, s = WORDS.filter(w => strong(w.id)).length;
   let list = '';
@@ -8143,7 +8191,7 @@ VIEWS.words = () => {
   } else {
     list = PACKS.concat(MYPACK.words.length ? [MYPACK] : []).filter(p => !fl || p.lvl === fl).map(p => { const k = p.words.filter(w => learned(w.id)).length; return `<button class="prow" data-act="go" data-v="pack" data-id="${p.id}" data-from="words"><span class="roundel ${p.lvl}">${p.lvl}</span><span class="t"><b>${esc(p.t)}</b><span>${esc(p.en)}</span></span><span class="pbar"><i style="width:${k / Math.max(1, p.words.length) * 100}%"></i></span><span class="num small">${k}/${p.words.length}</span></button>`; }).join('');
   }
-  return header() + `<h1>Wörter</h1>
+  return header() + `<h1>Wörter</h1><div class="seg-ctl wide"><button class="on" data-act="wtab" data-v="all">Alle Wörter</button><button data-act="wtab" data-v="mine">Meine Sammlung · ${collection('sure').length}</button></div>
   <div class="stats"><div class="stat"><b>${l}</b><span>learned</span></div><div class="stat"><b>${s}</b><span>in long-term memory</span></div><div class="stat"><b>${total}</b><span>in the course</span></div></div>
   <input class="inp" id="wsearch" type="search" placeholder="Search German or English" value="${esc(q)}" autocomplete="off" spellcheck="false">
   ${q ? '' : `<div class="seg-ctl">${['', ...LV].map(x => `<button class="${fl === x ? 'on' : ''}" data-act="wlvl" data-v="${x}">${x || 'All'}</button>`).join('')}</div>`}
@@ -8167,7 +8215,7 @@ VIEWS.practice = () => {
   <div class="tiles">
     <button class="tile" data-act="go" data-v="hoeren"><b>Hören</b><span>${LISTEN.length} dialogues with different voices. ${Object.keys(S.heard).length} done</span></button>
     <button class="tile" data-act="go" data-v="read"><b>Lesen</b><span>${READ.length} graded texts. ${Object.keys(S.read).length} read</span></button>
-    ${AI ? `<button class="tile" data-act="chat" data-id="frei" data-v="voice"><b>Sprechen mit dem Tutor</b><span>Speak, hear the answer, get corrected</span></button>` : ''}
+    ${AI ? `<button class="tile" data-act="chat" data-id="frei" data-v="voice"><b>Sprechen mit dem Tutor</b><span>${canMic() ? 'Speak, hear the answer, get corrected' : 'Mic not available here: you can type, and still hear answers'}</span></button>` : ''}
     <button class="tile" data-act="listen" ${n && canSpeak() ? '' : 'disabled'}><b>Hör-Drill</b><span>Your own words and sentences, spoken</span></button>
     <button class="tile" data-act="speak" ${n && canMic() ? '' : 'disabled'}><b>Vorlesen</b><span>${canMic() ? 'Read aloud, get checked' : 'Needs speech recognition'}</span></button>
     <button class="tile" data-act="weak" ${weak ? '' : 'disabled'}><b>Schwachstellen</b><span>${weak} items you've struggled with</span></button>
@@ -8178,7 +8226,7 @@ VIEWS.practice = () => {
   <div class="linehd"><h2>KI-Tutor: Rollenspiele</h2></div>
   ${AI ? `<p class="mute small">Real conversations at your level (${lvlNow()}), with every message corrected. Switch on voice inside the chat to speak instead of type.</p><div class="tiles">${D.scenes.map(sc => `<button class="tile" data-act="chat" data-id="${sc.id}"><b>${esc(sc.t)}</b><span>${esc(sc.en)}</span>${sc.lvl ? `<span class="roundel ${sc.lvl}" style="align-self:flex-start;margin-top:4px">${sc.lvl}</span>` : ''}</button>`).join('')}</div>
     <button class="btn wide" data-act="story">Write me a story to read</button>`
-    : `<div class="card"><b>The tutor runs inside Claude.</b><p class="mute small">Open the Claude version of Wortwerk to use conversations, exams and stories.</p><a class="btn sm" href="${CLAUDE_URL}" target="_blank" rel="noopener">Open Wortwerk in Claude</a></div>`}
+    : IN_CLAUDE ? `<div class="card warnc"><b>The tutor isn't available in this view.</b><p class="small">Check Ich → Status. It usually works in a browser tab at claude.ai or in the Claude desktop app.</p><button class="btn sm" data-act="go" data-v="me">Open status</button></div>` : `<div class="card"><b>The tutor runs inside Claude.</b><p class="mute small">Open the Claude version of Wortwerk to use conversations, exams and stories.</p><a class="btn sm" href="${CLAUDE_URL}" target="_blank" rel="noopener">Open Wortwerk in Claude</a></div>`}
   <div class="linehd"><h2>Spiele</h2></div>
   <div class="tiles">
     <button class="tile" data-act="go" data-v="blitz"><b>Artikel-Blitz</b><span>der, die or das? 45 seconds. Best ${S.hi.blitz}</span></button>
@@ -8199,6 +8247,7 @@ VIEWS.me = () => {
   <div class="board"><span class="lab">You are working on</span><div class="dest"><span class="roundel ${lv}">${LINE[lv]}</span><h1>${lv} · ${Math.round(fr * 100)}%</h1></div>
     <div class="bar seg">${LV.map(l => `<span class="${l}"><i style="width:${lvlFrac(l) * 100}%"></i></span>`).join('')}</div>
     <div class="brow"><span>B2 target <b>${fmtDate(p.target)}</b></span><span>${p.projected ? `at your pace <b>${fmtDate(p.projected)}</b>` : 'pace: learn for a few days to see a forecast'}</span></div></div>
+  ${statusCard()}
   <div class="card"><div class="row"><span class="lab">Learning hours</span><span class="sp"></span><span class="num small">${p.hrs.toFixed(1)} / ~${B2_HOURS} h</span></div>
     <div class="bar"><i style="width:${Math.min(100, p.hrs / B2_HOURS * 100)}%"></i></div>
     <p class="small mute">${(S.secs / 3600).toFixed(1)} h in Wortwerk · ${((S.outMin || 0) / 60).toFixed(1)} h logged outside${S.prof.credit ? ` · ${S.prof.credit} h credited from your placement` : ''}. To stay on track you need about <b>${Math.round(p.hrsPerDay * 60)} min a day</b> in total.</p>
@@ -8228,6 +8277,33 @@ VIEWS.me = () => {
     <textarea class="inp" id="imp" rows="2" placeholder="Paste a backup code to restore"></textarea><button class="btn sm" data-act="import" style="align-self:flex-start">Restore</button></div>
   <div class="card"><span class="lab">Start over</span>${V.confirm ? `<p>This erases all progress, words and settings.</p><div class="row"><button class="btn sm danger" data-act="reset">Yes, erase everything</button><button class="btn sm" data-act="unconfirm">Keep my progress</button></div>` : '<button class="btn sm" data-act="confirm" style="align-self:flex-start">Reset progress</button>'}</div>`;
 };
+async function loadCaps() {
+  const st = async n => { try { return PERM ? await PERM.state(n) : 'unknown'; } catch (e) { return 'unknown'; } };
+  V.caps = { inClaude: IN_CLAUDE, ai: AI ? await st('sample') : 'unavailable', tts: TTS ? 'granted' : 'unavailable', mic: DICT ? await st('dictation') : 'unavailable',
+    device: 'speechSynthesis' in window, deVoice: (() => { try { return speechSynthesis.getVoices().some(v => /^de/i.test(v.lang)); } catch (e) { return false; } })() };
+  if (V.name === 'me') render();
+}
+function statusCard() {
+  const c = V.caps;
+  if (!c) { if (!V.capsBusy) { V.capsBusy = 1; setTimeout(loadCaps, 0); } return `<div class="card"><span class="lab">Status</span><p class="small mute">Checking…</p></div>`; }
+  const row = (name, state, ok, msg) => `<div class="strow"><span class="dot ${ok === true ? 'ok' : ok === 'warn' ? 'warn' : 'no'}"></span><div><b>${name}</b><span>${msg}</span></div><span class="pill ${ok === true ? 'good' : ok === 'warn' ? '' : 'warn'}">${state}</span></div>`;
+  const aiRow = !c.inClaude ? row('Claude tutor', 'off', false, 'Only works in the Claude version of Wortwerk.')
+    : c.ai === 'granted' ? row('Claude tutor', 'ready', true, 'Conversations, exams, stories and fresh exercises work.')
+    : c.ai === 'prompt' ? row('Claude tutor', 'ask', 'warn', 'You\'ll be asked to allow it the first time you use the tutor. Tap Allow.')
+    : c.ai === 'denied' ? row('Claude tutor', 'blocked', false, 'You declined it. Tap "Fix permissions" and switch Claude on.')
+    : row('Claude tutor', 'not here', false, 'Not available in this view. Open Wortwerk in a browser tab at claude.ai or the Claude desktop app.');
+  const ttsRow = c.tts === 'granted' ? row('Claude voice', 'ready', true, 'High-quality German voice.')
+    : c.device && c.deVoice ? row('Voice', 'device', 'warn', 'Claude\'s voice isn\'t offered in this view (phone apps, Safari, pop-out windows). Your device\'s German voice is used instead.')
+    : c.device ? row('Voice', 'no German', false, 'No Claude voice here and your device has no German voice installed. Add German in your system\'s text-to-speech settings, or open Wortwerk in Chrome or the desktop app.')
+    : row('Voice', 'none', false, 'This view can\'t play speech. Open Wortwerk in Chrome or the Claude desktop app.');
+  const micRow = c.mic === 'granted' || c.mic === 'prompt' ? row('Microphone', c.mic === 'granted' ? 'ready' : 'ask', c.mic === 'granted' ? true : 'warn', c.mic === 'granted' ? 'Speaking practice and voice chat work.' : 'You\'ll be asked the first time you tap the mic.')
+    : c.mic === 'denied' ? row('Microphone', 'blocked', false, 'Tap "Fix permissions" and allow dictation.')
+    : row('Microphone', 'not here', false, 'Dictation only works in Chrome or Edge at claude.ai, or the main window of the Claude desktop app. Not in the phone apps or Safari.');
+  return `<div class="card"><div class="row"><span class="lab">Status: what works on this device</span><span class="sp"></span><button class="btn sm ghost" data-act="recheck">Recheck</button></div>
+    ${aiRow}${ttsRow}${micRow}
+    <div class="row">${PERM ? '<button class="btn sm" data-act="perms">Fix permissions</button>' : ''}<button class="btn sm" data-act="say" data-t="Hallo! Kannst du mich hören?">Test voice</button>${AI ? '<button class="btn sm" data-act="testai">Test tutor</button>' : ''}</div>
+    ${V.aiTest ? `<p class="small">${esc(V.aiTest)}</p>` : ''}</div>`;
+}
 VIEWS.method = () => `<button class="back" data-act="go" data-v="${S.prof.onboarded ? 'me' : 'onb'}">← Back</button>
   <h1>Why this works, and what it takes</h1>
   <div class="card"><span class="lab">1 · Teach, then test</span><p>Every word arrives as a teaching card with its gender, plural, audio and an example sentence. Every grammar station starts with a short lesson and quick checks. You are only tested on what you've been taught.</p></div>
@@ -8640,7 +8716,20 @@ function vcheck() { const q = G.qs[G.i], given = document.getElementById('ans').
 function vnext() { G.fb = null; G.i++; if (G.i >= 10) { G.state = 'over'; if (G.score > S.hi.verb) S.hi.verb = G.score; if (G.score) addXp(G.score * 5); save(); if (G.score >= 8) confetti(); } render(); }
 
 /* ---------- AI tutor (Claude version) ---------- */
-const aiErr = e => ({ not_granted: 'The tutor is switched off for this page. Allow it in the page\'s Permissions menu.', rate_limited: 'Too many requests. Give it a moment and try again.', cancelled: '' }[e && e.code] ?? 'The tutor didn\'t answer. Try again.');
+const AIMSG = {
+  not_granted: 'Claude isn\'t allowed on this page yet. Open Ich → Status and tap "Fix permissions", or allow Claude in the page\'s Permissions menu.',
+  sampling_disabled: 'Claude isn\'t available for this account or in this view.',
+  capability_disabled: 'The tutor can\'t run in this view. Open Wortwerk in a browser tab at claude.ai or in the Claude desktop app.',
+  not_declared: 'This version of the page can\'t use Claude. Reload it.',
+  session_expired: 'Your Claude session expired. Reload the page and sign in again.',
+  rate_limited: 'Too many requests right now. Wait a minute and try again.',
+  refused: 'Claude declined that request. Try rephrasing it.',
+  empty_completion: 'Claude returned an empty answer. Try again.',
+  invalid_json: 'Claude\'s answer came back malformed. Try again.',
+  queue_overflow: 'Too many requests at once. Wait a moment and try again.',
+  cancelled: ''
+};
+const aiErr = e => { const c = e && e.code; return c in AIMSG ? AIMSG[c] : 'The tutor didn\'t answer' + (c ? ' (' + c + ')' : '') + '. Try again.'; };
 function knownWordsSample() { return shuffle(WORDS.filter(w => learned(w.id))).slice(0, 60).map(w => w.ans).join(', '); }
 function startChat(id, voiceMode) {
   const sc = D.scenes.find(s => s.id === id), L = sc.lvl && LV.indexOf(sc.lvl) > LV.indexOf(lvlNow()) ? sc.lvl : lvlNow();
@@ -8652,7 +8741,7 @@ Rules for EVERY reply:
 2. Then a line containing exactly ### and after it feedback in English on the learner's LAST message: ${sc.write ? 'list every mistake as "wrong → right (short reason)", then give the fully corrected text.' : 'if it had mistakes, give the corrected German sentence and a one-line reason; if it was correct write "Perfekt ✓" and, when useful, one more natural way to say it.'}
 3. No markdown, no translations of your own reply.
 Begin now with your first in-role line. For this first message leave out the ### part.`;
-  C = { sc, turns: [{ role: 'user', content: rules }], busy: false, err: '', voice: !!voiceMode && canMic() };
+  C = { sc, turns: [{ role: 'user', content: rules }], busy: false, err: '', voice: !!voiceMode && canMic(), speakReplies: !!voiceMode };
   go('chat'); ask();
 }
 async function ask() {
@@ -8661,7 +8750,7 @@ async function ask() {
   try {
     const { text } = await AI(C.turns, { cache: false, signal: aiCtl.signal, onText: ({ text }) => { const el = document.getElementById('live'); if (el) el.textContent = text.split('###')[0].trim() || '…'; } });
     C.turns.push({ role: 'assistant', content: text });
-    if (C.voice && V.name === 'chat') say(text.split('###')[0].trim());
+    if ((C.voice || C.speakReplies) && V.name === 'chat') say(text.split('###')[0].trim());
     if (C.turns.length > 3) { addXp(6); save(); }
   } catch (e) { C.err = aiErr(e); if (C.turns[C.turns.length - 1].role === 'user' && C.turns.length > 1) C.draft = C.turns.pop().content; }
   C.busy = false;
@@ -8675,8 +8764,8 @@ VIEWS.chat = () => {
     else { const [de, note] = t.content.split('###'); if (note && note.trim()) h += `<div class="note">${esc(note.trim())}</div>`; h += `<div class="msg them">${esc(de.trim())}</div><div class="msgact">${spk(de.trim())}${t.tr ? '' : `<button class="btn sm" data-act="tr" data-i="${i}">Translate</button>`}</div>${t.tr ? `<div class="small mute">${esc(t.tr)}</div>` : ''}`; }
   });
   if (C.busy) h += '<div class="msg them" id="live">…</div>';
-  return `<div class="ridebar"><button class="x" data-act="go" data-v="practice" aria-label="Leave">✕</button><div style="flex:1;min-width:0"><b>${esc(C.sc.t)}</b><div class="small mute">${esc(C.sc.en)}</div></div>${canMic() ? `<button class="btn sm ${C.voice ? 'pri' : ''}" data-act="voice">${ICON.mic} ${C.voice ? 'Voice on' : 'Voice off'}</button>` : ''}</div>
-    <div class="msgs">${h}</div>${C.err ? `<p class="small" style="color:var(--bad)">${esc(C.err)}</p>` : ''}
+  return `<div class="ridebar"><button class="x" data-act="go" data-v="practice" aria-label="Leave">✕</button><div style="flex:1;min-width:0"><b>${esc(C.sc.t)}</b><div class="small mute">${esc(C.sc.en)}</div></div>${canMic() ? `<button class="btn sm ${C.voice ? 'pri' : ''}" data-act="voice">${ICON.mic} ${C.voice ? 'Voice on' : 'Voice off'}</button>` : `<button class="btn sm" data-act="nomic">${ICON.mic} Voice?</button>`}</div>
+    <div class="msgs">${h}</div>${C.err ? `<div class="card warnc"><p class="small">${esc(C.err)}</p><div class="row"><button class="btn sm" data-act="retry">Try again</button><button class="btn sm" data-act="go" data-v="me">Check status</button></div></div>` : ''}
     <div class="send"><textarea class="inp" id="msg" rows="2" placeholder="Schreib auf Deutsch…" ${C.busy ? 'disabled' : 'data-focus'}>${esc(C.draft || '')}</textarea>
     ${C.voice ? `<button class="btn pri wide mic vtalk" data-act="vtalk" ${C.busy ? 'disabled' : ''}>${ICON.mic} <span>Tap, speak, tap again to send</span></button>` : ''}
     <div class="row">${UML('msg')}<span class="sp"></span><button class="btn ${C.voice ? '' : 'pri'}" data-act="send" ${C.busy ? 'disabled' : ''}>Senden</button></div></div>`;
@@ -8785,6 +8874,8 @@ const acts = {
   vstart: () => { G = { kind: 'verb', state: 'play', i: 0, score: 0, fb: null, qs: shuffle(VERBS).slice(0, 10).map(v => ({ v, form: Math.random() < 0.5 ? 'pr' : 'pf' })) }; render(); },
   vcheck, vnext,
   chat: el => startChat(el.dataset.id, el.dataset.v === 'voice'), send,
+  nomic: () => toast('Speaking needs the microphone, which works in Chrome or Edge at claude.ai or the Claude desktop app\'s main window. Check Ich → Status.'),
+  retry: () => { if (C && !C.busy) { if (C.draft) { C.turns.push({ role: 'user', content: C.draft }); C.draft = ''; } ask(); } },
   voice: () => { C.voice = !C.voice; if (!C.voice) { micStop(); stopSpeech(); } render(); },
   vtalk: () => {
     if (C.busy) return;
@@ -8794,6 +8885,9 @@ const acts = {
     else if (rec) { rec.onend = () => { rec = null; micState(false); send(); }; try { rec.stop(); } catch (e) { send(); } }
   },
   recai: () => recAI(),
+  recheck: () => { V.caps = null; V.capsBusy = 0; V.aiTest = ''; render(); },
+  perms: () => { if (!PERM) return; PERM.manage().then(() => { V.caps = null; V.capsBusy = 0; render(); }).catch(() => toast('Open the page\'s Permissions menu (top of the artifact) and allow Claude, voice and dictation.')); },
+  testai: async () => { V.aiTest = 'Asking Claude…'; render(); try { const r = await AI('Antworte mit genau einem kurzen deutschen Satz: Begrüße einen Deutschlernenden.', { modelTier: 'quick', cache: false }); V.aiTest = 'Tutor works ✓ Claude said: ' + r.text.trim(); } catch (e) { V.aiTest = 'Tutor problem: ' + aiErr(e); } V.caps = null; V.capsBusy = 0; render(); },
   gendialog: () => genDialog(),
   gendrills: () => genDrills(),
   weekok: () => { S.wk = dstr(weekStart(Date.now())); save(); render(); },
@@ -8836,6 +8930,16 @@ const acts = {
   tiredstop: () => { const h = H(); if (R.q[R.i].why === 'tired') h.tired = 1; save(); finish(); },
   tiredgo: () => { R.fb = { ok: true }; next(); },
   drill: el => start('drill', { type: el.dataset.v || '' }),
+  wtab: el => { V.tab = el.dataset.v; V.open = null; render(); },
+  cfilt: el => { V.cf = el.dataset.v; render(); },
+  csort: el => { V.cs = el.dataset.v; render(); },
+  cards: () => { const f = V.cf || (collection('sure').length >= 15 ? 'sure' : 'all'); const ids = shuffle(collection(f)).map(w => w.id); go('cards', null, { k: { ids, i: 0, show: false }, back: { tab: 'mine', cf: V.cf, cs: V.cs } }); },
+  cflip: () => { V.k.show = !V.k.show; if (V.k.show && S.set.autoplay) say(WMAP[V.k.ids[V.k.i]].ans); tick(); render(); },
+  cnext: () => { const K = V.k; if (!K.show) { acts.cflip(); return; } if (K.i + 1 < K.ids.length) { K.i++; K.show = false; render(); } else acts.cardsclose(); },
+  cprev: () => { const K = V.k; if (K.i) { K.i--; K.show = false; render(); } },
+  cshuffle: () => { V.k.ids = shuffle(V.k.ids); V.k.i = 0; V.k.show = false; render(); },
+  cardsclose: () => { tick(); save(); const b = V.back || {}; go('words', null, { tab: 'mine', cf: b.cf, cs: b.cs }); },
+  cquiz: () => start('coll', { filter: V.cf || (collection('sure').length >= 15 ? 'sure' : 'all') }),
   wopen: el => { V.open = V.open === el.dataset.id ? null : el.dataset.id; render(); },
   wlvl: el => { V.lvl = el.dataset.v; render(); },
   soon: el => { const id = el.dataset.id; if (!S.soon.includes(id)) S.soon.unshift(id); S.soon = S.soon.slice(0, 40); save(); toast('It\'ll be taught in your next session.'); render(); },
@@ -8877,6 +8981,7 @@ document.addEventListener('click', ev => {
   const f = acts[el.dataset.act]; if (f) { ev.preventDefault(); f(el); }
 });
 document.addEventListener('input', ev => {
+  if (ev.target.id === 'csearch') { V.cq = ev.target.value; const pos = ev.target.selectionStart; render(); const s2 = document.getElementById('csearch'); if (s2) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (e) {} } return; }
   if (EX && ev.target.id === 'exw') { EX.write = ev.target.value; const c = document.getElementById('wc'); if (c) c.textContent = (EX.write.trim().match(/\S+/g) || []).length + ' words'; return; }
   if (EX && /^exs[01]$/.test(ev.target.id)) { EX.speak[+ev.target.id.slice(3)] = ev.target.value; return; }
   if (ev.target.id === 'wsearch') { V.q = ev.target.value; V.open = null; const pos = ev.target.selectionStart; render(); const s = document.getElementById('wsearch'); if (s) { s.focus(); try { s.setSelectionRange(pos, pos); } catch (e) {} } }

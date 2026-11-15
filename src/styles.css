@@ -288,3 +288,10 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .vtalk{min-height:64px;font-size:1rem}
 .vtalk span{font-family:var(--body);font-weight:600;font-stretch:100%}
 .ck li.tap{cursor:pointer;border-radius:10px} .ck li.tap:hover b{text-decoration:underline}
+
+/* status panel and collection */
+.strow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.strow:first-of-type{border-top:0}
+.strow>div{flex:1;min-width:0;display:flex;flex-direction:column}.strow span:not(.dot):not(.pill){font-size:.84rem;color:var(--mute)}
+.dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--bad)} .dot.ok{background:var(--good)} .dot.warn{background:var(--accent)}
+.wcard.flip{text-align:left;width:100%;min-height:220px;cursor:pointer;font:inherit;color:var(--ink)}
