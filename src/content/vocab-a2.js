@@ -5,7 +5,7 @@ der Umzug, Umzüge|move (house)|Der Umzug war anstrengend.|The move was exhausti
 der Vermieter, Vermieter|landlord|Der Vermieter will mehr Miete.|The landlord wants more rent.
 der Mieter, Mieter|tenant|Die Mieter beschweren sich.|The tenants are complaining.
 der Mietvertrag, Mietverträge|tenancy agreement|Ich habe den Mietvertrag unterschrieben.|I've signed the tenancy agreement.
-die Kaution, Kautionen|deposit|Die Kaution sind drei Monatsmieten.|The deposit is three months' rent.
+die Kaution, Kautionen|deposit|Die Kaution beträgt drei Monatsmieten.|The deposit is three months' rent.
 die Nebenkosten (Pl.)|utility costs|Die Nebenkosten sind gestiegen.|The utility costs have gone up.
 die Heizung, Heizungen|heating|Die Heizung funktioniert nicht.|The heating isn't working.
 der Strom|electricity|Der Strom ist teuer geworden.|Electricity has become expensive.

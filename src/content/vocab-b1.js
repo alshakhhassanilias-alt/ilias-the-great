@@ -434,7 +434,7 @@ vorschlagen (schlägt vor, schlug vor, hat vorgeschlagen)|to suggest|Ich schlage
 die Kritik, Kritiken|criticism; review|Die Kritik war positiv.|The review was positive.
 kritisieren|to criticise|Er kritisiert alles.|He criticises everything.
 überzeugen|to convince|Du hast mich überzeugt.|You've convinced me.
-behaupten|to claim|Er behauptet, er war zu Hause.|He claims he was at home.
+behaupten|to claim|Er behauptet, dass er zu Hause war.|He claims he was at home.
 betonen|to emphasise|Ich möchte betonen, dass …|I'd like to emphasise that …
 erwähnen|to mention|Er hat es nicht erwähnt.|He didn't mention it.
 der Eindruck, Eindrücke|impression|Ich habe den Eindruck, dass …|I have the impression that …

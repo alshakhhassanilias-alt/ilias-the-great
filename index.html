@@ -299,6 +299,11 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .strow>div{flex:1;min-width:0;display:flex;flex-direction:column}.strow span:not(.dot):not(.pill){font-size:.84rem;color:var(--mute)}
 .dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--bad)} .dot.ok{background:var(--good)} .dot.warn{background:var(--accent)}
 .wcard.flip{text-align:left;width:100%;min-height:220px;cursor:pointer;font:inherit;color:var(--ink)}
+
+/* answer diff: what the learner typed */
+.yw { margin: 4px 0 0; line-height: 1.6; }
+.yw .dbad { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 3px; font-weight: 600; }
+.yw .dmove { color: var(--u2); text-decoration: underline dotted; text-underline-offset: 3px; }
 </style>
 <main id="app" class="wrap"></main>
 <nav id="nav" aria-label="Sections"></nav>
@@ -594,7 +599,7 @@ stations: [
  '{Trotz/Wegen/Statt} des Regens sind wir spazieren gegangen.|Despite the rain, we went for a walk.',
  'Während {der/die/dem} Pause trinken wir Kaffee.|During the break we drink coffee.',
  'Am Ende {des/dem/der} Tages war ich total erschöpft.|At the end of the day I was totally exhausted.',
- 'Die Meinung {der/den/des} Kollegen ist mir wichtig.|My colleagues\' opinion is important to me.',
+ 'Die Meinung {der/den/dem} Kollegen ist mir wichtig.|My colleagues\' opinion is important to me.',
  '{Innerhalb/Außerhalb/Während} einer Woche bekommen Sie eine Antwort.|You\'ll get an answer within a week.',
  'Die Miete {dieser/diese/diesem} Wohnung ist viel zu hoch.|The rent of this flat is far too high.' ]},
 { id:'s23', lvl:'B1', name:'Obwohl & trotzdem', sub:'Linking ideas', g:[
@@ -669,7 +674,7 @@ stations: [
  'Alternatives: *sich lassen* + infinitive (can be done) · *sein + zu* + infinitive (must/can be done)',
  '*-bar* adjectives: lösbar, machbar, essbar · impersonal: Es *wurde* getanzt.' ], items:[
  'Das Problem muss sofort gelöst {werden/sein/worden}.|The problem must be solved immediately.',
- 'Der Laden {ist/wird/hat} sonntags geschlossen.|The shop is closed on Sundays.',
+ 'Der Laden {ist/hat/bin} sonntags geschlossen.|The shop is closed on Sundays.',
  'Das {lässt/kann/wird} sich leicht erklären.|That can be explained easily.',
  'Die Formulare sind bis Freitag {abzugeben/abgeben/abgegeben}.|The forms are to be handed in by Friday.',
  'Der Fehler konnte nicht gefunden {werden/worden/sein}.|The error couldn\'t be found.',
@@ -746,8 +751,8 @@ stations: [
  '*ja* = surprise or shared knowledge · *denn* makes questions friendlier · *halt/eben* = that is just how it is',
  'Opinions: *Meiner Meinung nach* … · Ich bin *davon überzeugt, dass* … · Da bin ich *anderer Meinung*.',
  '*Das kommt darauf an* = it depends' ], items:[
- 'Komm {doch/ja/eben} mal vorbei, wenn du Zeit hast!|Do come by sometime when you have time!',
- 'Das ist {ja/mal/denn} eine Überraschung!|Well, that\'s a surprise!',
+ 'Komm {doch/ja/denn} mal vorbei, wenn du Zeit hast!|Do come by sometime when you have time!',
+ 'Das ist {ja/denn/etwa} eine Überraschung!|Well, that\'s a surprise!',
  'Wie heißt du {denn/doch/halt}?|So what\'s your name?',
  'Das ist {halt/denn/mal} so, da kann man nichts machen.|That\'s just how it is, nothing can be done.',
  'Meiner Meinung {nach/zu/von} ist das keine gute Idee.|In my opinion that\'s not a good idea.',
@@ -1672,7 +1677,7 @@ Modal verb in position 2, then *participle + werden* at the end.
 The *werden* passive describes a process; *sein* + participle describes the *result*.
 > Die Tür *wird* geschlossen. = The door is being closed. (process)
 > Die Tür *ist* geschlossen. = The door is closed. (state)
-? Das Geschäft {ist/wird/hat} heute geschlossen. = The shop is closed today.
+? Das Geschäft {ist/hat/sind} heute geschlossen. = The shop is closed today.
 ---
 ## Alternatives to the passive
 | *sich lassen* + infinitive | can be done | Das lässt sich ändern. |
@@ -1688,7 +1693,7 @@ items: [
 'Die Kosten sollen gesenkt {werden/worden/sein}.|The costs are supposed to be reduced.',
 'Das Wasser ist hier nicht {trinkbar/getrunken/trinkend}.|The water here isn\'t drinkable.',
 'In diesem Raum {darf/muss/kann} nicht telefoniert werden.|No phone calls may be made in this room.',
-'Die Arbeit {ist/wird/hat} endlich erledigt.|The work is finally done.',
+'Die Arbeit {ist/hat/sind} endlich erledigt.|The work is finally done.',
 '{Man/Es/Wer} sagt, dass er sehr reich ist.|People say he\'s very rich.',
 'Dieser Plan ist leider nicht {umsetzbar/umgesetzt/umsetzen}.|This plan unfortunately isn\'t feasible.' ]},
 
@@ -1882,13 +1887,13 @@ items: [
 'Hör {mal/denn/ja}, ich muss dir was erzählen!|Listen, I have to tell you something!',
 'Das hast du {ja/denn/halt} toll gemacht!|You did that really well!',
 'Was ist {denn/doch/mal} passiert?|What happened, then?',
-'Da kann man nichts machen, das ist {eben/denn/mal} so.|Nothing you can do, that\'s just the way it is.',
+'Da kann man nichts machen, das ist {eben/denn/gar} so.|Nothing you can do, that\'s just the way it is.',
 'Ich bin der Meinung, {dass/das/weil} wir mehr investieren sollten.|I\'m of the opinion that we should invest more.',
 'Da stimme ich dir völlig {zu/an/bei}.|I completely agree with you there.',
 'Das sehe ich {genauso/gleich so/so gleich}.|I see it exactly the same way.',
 'Wie {meinst/sagst/denkst} du das?|What do you mean by that?',
 'Na ja, das kommt {darauf/davon/dafür} an.|Well, that depends.',
-'Setz dich {doch/denn/eben}!|Do sit down!' ]}
+'Setz dich {doch/denn/etwa}!|Do sit down!' ]}
 };
 
 /* Vocabulary. Line format: German|English|Example|Example in English
@@ -2459,7 +2464,7 @@ der Schnee|snow|Im Winter gibt es Schnee.|In winter there's snow.
 schneien|to snow|Es schneit!|It's snowing!
 der Wind, Winde|wind|Der Wind ist stark.|The wind is strong.
 die Wolke, Wolken|cloud|Viele Wolken heute.|Lots of clouds today.
-das Grad, Grad|degree|Es sind 20 Grad.|It's 20 degrees.
+der Grad, Grad|degree|Es sind 20 Grad.|It's 20 degrees.
 der Frühling, Frühlinge|spring|Im Frühling blühen die Blumen.|In spring the flowers bloom.
 der Sommer, Sommer|summer|Im Sommer ist es heiß.|In summer it's hot.
 der Herbst, Herbste|autumn|Im Herbst regnet es oft.|In autumn it often rains.
@@ -2500,7 +2505,7 @@ der Umzug, Umzüge|move (house)|Der Umzug war anstrengend.|The move was exhausti
 der Vermieter, Vermieter|landlord|Der Vermieter will mehr Miete.|The landlord wants more rent.
 der Mieter, Mieter|tenant|Die Mieter beschweren sich.|The tenants are complaining.
 der Mietvertrag, Mietverträge|tenancy agreement|Ich habe den Mietvertrag unterschrieben.|I've signed the tenancy agreement.
-die Kaution, Kautionen|deposit|Die Kaution sind drei Monatsmieten.|The deposit is three months' rent.
+die Kaution, Kautionen|deposit|Die Kaution beträgt drei Monatsmieten.|The deposit is three months' rent.
 die Nebenkosten (Pl.)|utility costs|Die Nebenkosten sind gestiegen.|The utility costs have gone up.
 die Heizung, Heizungen|heating|Die Heizung funktioniert nicht.|The heating isn't working.
 der Strom|electricity|Der Strom ist teuer geworden.|Electricity has become expensive.
@@ -3468,7 +3473,7 @@ vorschlagen (schlägt vor, schlug vor, hat vorgeschlagen)|to suggest|Ich schlage
 die Kritik, Kritiken|criticism; review|Die Kritik war positiv.|The review was positive.
 kritisieren|to criticise|Er kritisiert alles.|He criticises everything.
 überzeugen|to convince|Du hast mich überzeugt.|You've convinced me.
-behaupten|to claim|Er behauptet, er war zu Hause.|He claims he was at home.
+behaupten|to claim|Er behauptet, dass er zu Hause war.|He claims he was at home.
 betonen|to emphasise|Ich möchte betonen, dass …|I'd like to emphasise that …
 erwähnen|to mention|Er hat es nicht erwähnt.|He didn't mention it.
 der Eindruck, Eindrücke|impression|Ich habe den Eindruck, dass …|I have the impression that …
@@ -4142,7 +4147,7 @@ das Waschmittel, Waschmittel|detergent|Das Waschmittel ist alle.|We're out of de
 die Ordnung|order, tidiness|Ordnung ist ihm wichtig.|Tidiness is important to him.
 ordentlich|tidy|Sein Zimmer ist immer ordentlich.|His room is always tidy.
 die Unordnung|mess|Was für eine Unordnung!|What a mess!
-der Fleck, Flecken|stain|Auf dem Hemd ist ein Fleck.|There's a stain on the shirt.
+der Fleck, Flecke|stain|Auf dem Hemd ist ein Fleck.|There's a stain on the shirt.
 der Staub|dust|Überall liegt Staub.|There's dust everywhere.
 das Werkzeug, Werkzeuge|tool|Hast du Werkzeug?|Do you have tools?
 der Hammer, Hämmer|hammer|Gib mir mal den Hammer.|Pass me the hammer.
@@ -4296,7 +4301,7 @@ die Pünktlichkeit|punctuality|Die Pünktlichkeit der Bahn ist schlecht.|The rai
 der Pendler, Pendler|commuter|Viele Pendler fahren mit der S-Bahn.|Many commuters take the S-Bahn.
 der Unfall, Unfälle|accident|Auf der Autobahn gab es einen Unfall.|There was an accident on the motorway.
 der Strafzettel, Strafzettel|parking ticket|Ich habe einen Strafzettel bekommen.|I got a parking ticket.
-blitzen|to be caught by a speed camera|Ich wurde geblitzt.|I got caught by a speed camera.
+blitzen|to flash (lightning, speed camera)|Ich wurde geblitzt.|I got caught by a speed camera.
 der Fahrschein, Fahrscheine|ticket|Fahrschein, bitte!|Ticket, please!
 schwarzfahren (fährt schwarz, fuhr schwarz, ist schwarzgefahren)|to travel without a ticket|Schwarzfahren kostet 60 Euro.|Travelling without a ticket costs 60 euros.
 die Kontrolle, Kontrollen|inspection|Fahrkartenkontrolle!|Ticket inspection!
@@ -5024,7 +5029,7 @@ der Tennisplatz, Tennisplätze|tennis court|Der Tennisplatz ist reserviert.|The 
 die Halle, Hallen|hall, indoor arena|Im Winter trainieren wir in der Halle.|In winter we train indoors.
 die Medaille, Medaillen|medal|Sie hat eine Goldmedaille gewonnen.|She won a gold medal.
 der Rekord, Rekorde|record|Das ist ein neuer Rekord!|That's a new record!
-die Weltmeisterschaft, Weltmeisterschaften|world championship|Die Weltmeisterschaft findet in Katar statt.|The world championship takes place in Qatar.
+die Weltmeisterschaft, Weltmeisterschaften|world championship|Wer hat die letzte Weltmeisterschaft gewonnen?|Who won the last World Cup?
 die Olympischen Spiele (Pl.)|the Olympic Games|Die Olympischen Spiele sind alle vier Jahre.|The Olympic Games are every four years.
 sich aufwärmen|to warm up|Vor dem Training wärmen wir uns auf.|We warm up before training.
 die Kondition|fitness, stamina|Ich habe keine Kondition.|I have no stamina.
@@ -5181,7 +5186,7 @@ mangelhaft|defective|Die Ware ist mangelhaft.|The goods are defective.
 die Gewährleistung|statutory warranty|Die Gewährleistung beträgt zwei Jahre.|The statutory warranty is two years.
 der Ersatz|replacement|Wir schicken Ihnen Ersatz.|We'll send you a replacement.
 der Kundenservice|customer service|Der Kundenservice ist schwer zu erreichen.|Customer service is hard to reach.
-die Hotline, Hotlines|hotline|Ich hänge seit 20 Minuten in der Hotline.|I've been on hold for 20 minutes.
+die Hotline, Hotlines|hotline|Ich hänge seit 20 Minuten in der Warteschleife der Hotline.|I've been on hold for 20 minutes.
 die Kundennummer, Kundennummern|customer number|Wie ist Ihre Kundennummer?|What's your customer number?
 die Bewertung, Bewertungen|review, rating|Das Produkt hat gute Bewertungen.|The product has good reviews.
 bewerten|to rate|Bitte bewerten Sie unseren Service.|Please rate our service.
@@ -5895,7 +5900,7 @@ der Fortschritt, Fortschritte|progress|Der technische Fortschritt ist enorm.|Tec
 die Elektromobilität|electric mobility|Die Elektromobilität wird gefördert.|Electric mobility is being promoted.
 die Batterie, Batterien|battery|Die Batterie hält 500 Kilometer.|The battery lasts 500 kilometres.
 die Ladestation, Ladestationen|charging station|Es gibt zu wenige Ladestationen.|There are too few charging stations.
-der Verbrennungsmotor, Verbrennungsmotoren|combustion engine|Der Verbrennungsmotor wird verboten.|The combustion engine is being banned.
+der Verbrennungsmotor, Verbrennungsmotoren|combustion engine|Das Auto hat einen Verbrennungsmotor.|The car has a combustion engine.
 die Effizienz|efficiency|Die Effizienz der Anlage ist hoch.|The plant's efficiency is high.
 der Wettbewerbsvorteil, Wettbewerbsvorteile|competitive advantage|Qualität ist unser Wettbewerbsvorteil.|Quality is our competitive advantage.
 die Marktführerschaft|market leadership|Die Firma hat die Marktführerschaft verloren.|The company has lost its market leadership.
@@ -5916,7 +5921,7 @@ die Globalisierung|globalisation|Die Globalisierung hat Gewinner und Verlierer.|
 der Strukturwandel|structural change|Das Ruhrgebiet erlebt einen Strukturwandel.|The Ruhr area is going through structural change.` },
 
 { id:'b2v25', lvl:'B2', t:'Verhandeln & Überzeugen', en:'Negotiating and persuading', tag:'work', w:`
-das Angebot unterbreiten|to submit an offer|Wir unterbreiten Ihnen ein Angebot.|We'll submit an offer to you.
+ein Angebot unterbreiten|to submit an offer|Wir unterbreiten Ihnen ein Angebot.|We'll submit an offer to you.
 die Verhandlungsbasis|basis for negotiation|Der Preis ist Verhandlungsbasis.|The price is negotiable.
 entgegenkommen (kommt entgegen, kam entgegen, ist entgegengekommen)|to accommodate, to meet halfway|Wir kommen Ihnen beim Preis entgegen.|We'll meet you halfway on the price.
 das Zugeständnis, Zugeständnisse|concession|Beide Seiten machten Zugeständnisse.|Both sides made concessions.
@@ -5928,10 +5933,10 @@ nachgeben (gibt nach, gab nach, hat nachgegeben)|to give in|Er hat schließlich 
 ablehnen|to reject|Wir lehnen das Angebot ab.|We reject the offer.
 zusagen|to agree, to accept|Ich kann Ihnen das fest zusagen.|I can promise you that.
 die Bedingung, Bedingungen|condition|Unter einer Bedingung stimme ich zu.|I agree on one condition.
-die Frist setzen|to set a deadline|Wir setzen Ihnen eine Frist bis Freitag.|We're setting you a deadline of Friday.
+eine Frist setzen|to set a deadline|Wir setzen Ihnen eine Frist bis Freitag.|We're setting you a deadline of Friday.
 der Standpunkt, Standpunkte|position|Ich verstehe Ihren Standpunkt.|I understand your position.
 argumentieren|to argue|Sie argumentiert sehr überzeugend.|She argues very convincingly.
-das Argument entkräften|to refute an argument|Er konnte das Argument nicht entkräften.|He couldn't refute the argument.
+ein Argument entkräften|to refute an argument|Er konnte das Argument nicht entkräften.|He couldn't refute the argument.
 einwenden (wendet ein, wandte ein, hat eingewandt)|to object|Man könnte einwenden, dass …|One could object that …
 der Einwand, Einwände|objection|Gibt es Einwände?|Are there any objections?
 zugeben (gibt zu, gab zu, hat zugegeben)|to admit|Ich gebe zu, das war ein Fehler.|I admit that was a mistake.
@@ -5950,7 +5955,7 @@ schriftlich festhalten (hält fest, hielt fest, hat festgehalten)|to put in writ
 verbindlich|binding|Das Angebot ist verbindlich.|The offer is binding.
 unverbindlich|non-binding|Das ist ein unverbindliches Angebot.|That's a non-binding offer.
 die Konditionen (Pl.)|terms|Die Konditionen sind gut.|The terms are good.
-der Rabatt gewähren|to grant a discount|Wir gewähren Ihnen fünf Prozent Rabatt.|We'll give you a five percent discount.
+einen Rabatt gewähren|to grant a discount|Wir gewähren Ihnen fünf Prozent Rabatt.|We'll give you a five percent discount.
 die Verhandlungsposition, Verhandlungspositionen|bargaining position|Wir haben eine starke Verhandlungsposition.|We have a strong bargaining position.
 taktisch|tactical|Das war ein taktischer Fehler.|That was a tactical mistake.
 das Fingerspitzengefühl|tact, sensitivity|Dafür braucht man Fingerspitzengefühl.|That requires tact.
@@ -5979,7 +5984,7 @@ die Geldstrafe, Geldstrafen|fine|Er muss eine Geldstrafe zahlen.|He has to pay a
 die Bewährung|probation|Er bekam zwei Jahre auf Bewährung.|He got two years' probation.
 die Haftstrafe, Haftstrafen|prison sentence|Sie wurde zu einer Haftstrafe verurteilt.|She was sentenced to prison.
 Berufung einlegen|to appeal|Der Anwalt legt Berufung ein.|The lawyer is appealing.
-das Gesetz verabschieden|to pass a law|Das Parlament hat das Gesetz verabschiedet.|Parliament passed the law.
+ein Gesetz verabschieden|to pass a law|Das Parlament hat das Gesetz verabschiedet.|Parliament passed the law.
 in Kraft treten (tritt, trat, ist getreten)|to come into force|Das Gesetz tritt im Januar in Kraft.|The law comes into force in January.
 die Verordnung, Verordnungen|regulation|Laut Verordnung ist das verboten.|According to the regulation that's forbidden.
 der Mieterverein, Mietervereine|tenants' association|Der Mieterverein hat mir geholfen.|The tenants' association helped me.
@@ -6545,7 +6550,7 @@ die Produktpalette, Produktpaletten|product range|Die Produktpalette wird erweit
 die Markteinführung, Markteinführungen|product launch|Die Markteinführung ist im Herbst.|The launch is in the autumn.
 die Zielvorgabe, Zielvorgaben|target|Wir haben die Zielvorgaben erreicht.|We've met the targets.
 der Quartalsbericht, Quartalsberichte|quarterly report|Der Quartalsbericht ist positiv.|The quarterly report is positive.
-die Bilanz ziehen|to take stock|Am Jahresende ziehen wir Bilanz.|At year-end we take stock.
+Bilanz ziehen|to take stock|Am Jahresende ziehen wir Bilanz.|At year-end we take stock.
 die Kosten-Nutzen-Analyse|cost-benefit analysis|Wir machen eine Kosten-Nutzen-Analyse.|We're doing a cost-benefit analysis.
 profitabel|profitable|Das Geschäft ist profitabel.|The business is profitable.` },
 
@@ -7066,7 +7071,7 @@ C: Ich halte die Debatte für symbolisch. Der Effekt aufs Klima ist im Vergleich
 B: Mit Verlaub, Freiheit endet dort, wo andere gefährdet werden.`,
   q:[['Welche Vorteile nennt Herr Kraus?',['Weniger CO2 und weniger schwere Unfälle','Kürzere Fahrzeiten','Mehr Einnahmen für den Staat'],0],['Wie bewertet Frau Lenz die Debatte?',['Als dringend','Als eher symbolisch','Als zu spät'],1],['Welches Argument bringt Frau Lenz?',['Tempolimits sind zu teuer','Man sollte Menschen nicht bevormunden','Autobahnen sind sicher genug'],1]] },
 { id:'h19', lvl:'B2', t:'Nachrichten', d:`A: Die Bundesregierung hat sich auf ein neues Entlastungspaket geeinigt. Haushalte mit geringem Einkommen sollen im kommenden Jahr einen einmaligen Zuschuss zu den Heizkosten erhalten. Die Opposition kritisierte das Paket als unzureichend.
-A: Die Deutsche Bahn will bis Ende des Jahrzehnts rund 50 Milliarden Euro in ihr Schienennetz investieren. Ziel sei es, die Pünktlichkeit deutlich zu verbessern. Derzeit erreicht nur etwa jeder dritte Fernzug sein Ziel mit Verspätung, so ein Sprecher.
+A: Die Deutsche Bahn will bis Ende des Jahrzehnts rund 50 Milliarden Euro in ihr Schienennetz investieren. Ziel sei es, die Pünktlichkeit deutlich zu verbessern. Derzeit erreicht etwa jeder dritte Fernzug sein Ziel mit Verspätung, so ein Sprecher.
 A: Und zum Wetter: Im Norden bleibt es wechselhaft mit Schauern, im Süden setzt sich zunehmend die Sonne durch. Die Temperaturen erreichen bis zu 22 Grad.`,
   q:[['Wer soll einen Zuschuss bekommen?',['Alle Rentner','Haushalte mit geringem Einkommen','Unternehmen'],1],['Was will die Bahn verbessern?',['Die Pünktlichkeit','Die Ticketpreise','Das Essen im Zug'],0],['Wie wird das Wetter im Süden?',['Regnerisch','Zunehmend sonnig','Stürmisch'],1]] },
 { id:'h20', lvl:'B2', t:'Beratungsgespräch an der Uni', d:`A: Ich überlege, ob ich mein Studium abbrechen soll. Ich studiere Maschinenbau im dritten Semester, aber es macht mir überhaupt keinen Spaß mehr.
@@ -7100,14 +7105,14 @@ s07|Er schreibt eine E-Mail.|Put it in the Perfekt.|Er hat eine E-Mail geschrieb
 s08|Wir fahren nach Berlin.|Put it in the Perfekt.|Wir sind nach Berlin gefahren.
 s08|Sie steht früh auf.|Put it in the Perfekt.|Sie ist früh aufgestanden.
 s09|Ich fahre mit (der Zug).|Put the bracket in the right case.|Ich fahre mit dem Zug.
-s09|Ich gebe das Buch.|Add "mein Bruder" as the receiver.|Ich gebe meinem Bruder das Buch.
+s09|Ich gebe das Buch.|Add "mein Bruder" as the receiver.|Ich gebe meinem Bruder das Buch.||Ich gebe das Buch meinem Bruder.
 s10|Das Buch liegt auf dem Tisch.|Rewrite with "Ich lege das Buch …".|Ich lege das Buch auf den Tisch.
-s10|Ich bin in (das Büro).|Put the bracket in the right form.|Ich bin im Büro.
+s10|Ich bin in (das Büro).|Put the bracket in the right form.|Ich bin im Büro.||Ich bin in dem Büro.
 s11|Ich bleibe zu Hause. Ich bin krank.|Join with "weil".|Ich bleibe zu Hause, weil ich krank bin.
 s11|Er kommt morgen.|Start with "Ich glaube, dass".|Ich glaube, dass er morgen kommt.
 s12|Ich habe Zeit. Ich koche.|Join, starting with "Wenn".|Wenn ich Zeit habe, koche ich.
 s12|Ich war ein Kind. Ich hatte einen Hund.|Join, starting with "Als".|Als ich ein Kind war, hatte ich einen Hund.
-s13|Mein Auto ist schnell. Dein Auto ist schneller.|Make one sentence starting "Dein Auto ist …".|Dein Auto ist schneller als mein Auto.||Dein Auto ist schneller als meins.
+s13|Mein Auto ist schnell. Dein Auto ist schneller.|Make one sentence starting "Dein Auto ist …".|Dein Auto ist schneller als mein Auto.||Dein Auto ist schneller als meins.||Dein Auto ist schneller als meines.
 s13|Anna ist groß.|Use the superlative: "Anna ist am …".|Anna ist am größten.
 s14|Ich freue mich.|Change the subject to "wir".|Wir freuen uns.
 s14|Ich wasche mich.|Add "die Hände".|Ich wasche mir die Hände.
@@ -7120,7 +7125,7 @@ s17|Das ist das Buch. Ich lese es.|Join with a relative clause.|Das ist das Buch
 s18|Ich rufe dich an.|Put it in the Futur I.|Ich werde dich anrufen.
 s18|Morgen regnet es.|Put it in the Futur I.|Morgen wird es regnen.||Es wird morgen regnen.
 s19|Ich habe kein Geld, also kaufe ich kein Auto.|Make it unreal: "Wenn ich Geld hätte, …".|Wenn ich Geld hätte, würde ich ein Auto kaufen.
-s19|Können Sie mir helfen?|Make it more polite (Konjunktiv II).|Könnten Sie mir helfen?
+s19|Können Sie mir helfen?|Make it more polite (Konjunktiv II).|Könnten Sie mir helfen?||Würden Sie mir helfen?
 s20|Man repariert das Auto.|Make it passive.|Das Auto wird repariert.
 s20|Man baute das Haus 1990.|Make it passive (Präteritum).|Das Haus wurde 1990 gebaut.
 s21|Ich lerne Deutsch. Ich will in Berlin studieren.|Join with "um … zu".|Ich lerne Deutsch, um in Berlin zu studieren.
@@ -7141,9 +7146,9 @@ s28|Man muss das Problem lösen.|Make it passive with "muss".|Das Problem muss g
 s28|Man kann das leicht erklären.|Use "sich lassen".|Das lässt sich leicht erklären.
 s29|Er sagt: „Ich bin krank.“|Report it with Konjunktiv I.|Er sagt, er sei krank.
 s29|Sie sagt: „Ich habe keine Zeit.“|Report it with Konjunktiv I.|Sie sagt, sie habe keine Zeit.
-s30|Wir entscheiden morgen.|Use "eine Entscheidung treffen".|Wir treffen morgen eine Entscheidung.
+s30|Wir entscheiden morgen.|Use "eine Entscheidung treffen".|Wir treffen morgen eine Entscheidung.||Morgen treffen wir eine Entscheidung.
 s30|Darf ich etwas fragen?|Use "eine Frage stellen".|Darf ich eine Frage stellen?
-s31|Er hat keine Zeit. Er hat kein Geld.|Join with "weder … noch".|Er hat weder Zeit noch Geld.
+s31|Er hat keine Zeit. Er hat kein Geld.|Join with "weder … noch".|Er hat weder Zeit noch Geld.||Er hat weder Geld noch Zeit.
 s31|Sie spricht Deutsch. Sie spricht Englisch.|Join with "sowohl … als auch".|Sie spricht sowohl Deutsch als auch Englisch.
 s32|der Hund, der bellt|Use a participle.|der bellende Hund
 s32|das Auto, das gestohlen wurde|Use a participle.|das gestohlene Auto
@@ -7244,7 +7249,7 @@ nehmen|annehmen = to accept; die Annahme = assumption; teilnehmen = to take part
 geben|die Gabe = gift; ausgeben = to spend; aufgeben = to give up; die Aufgabe = task
 leben|das Leben = life; lebendig = alive; erleben = to experience; das Erlebnis = experience
 lieben|die Liebe = love; lieb = dear; verliebt = in love; beliebt = popular
-schlafen|der Schlaf = sleep; einschlafen = to fall asleep; ausschlafen = to sleep in; müde = tired
+schlafen|der Schlaf = sleep; einschlafen = to fall asleep; ausschlafen = to sleep in
 fühlen|das Gefühl = feeling; sich wohlfühlen = to feel good; einfühlsam = empathetic
 wissen|das Wissen = knowledge; die Wissenschaft = science; bewusst = conscious
 bauen|der Bau = construction; das Gebäude = building; aufbauen = to build up; der Bauer = farmer
@@ -7333,7 +7338,7 @@ function parseWord(line, p, i) {
   } else {
     const v = f[0].match(/^(.+?) \(([^)]*,[^)]*)\)$/);
     if (v) { w.kind = 'v'; w.ans = v[1]; w.forms = v[2]; } else w.ans = f[0].replace(/\s*\([^)]*\)/g, '').trim();
-    if (w.kind === 'x' && /^(sich )?[a-zäöüß]+(en|ern|eln)$/.test(w.ans)) w.kind = 'v';
+    if (w.kind === 'x' && /^(sich )?[a-zäöüß]+(en|ern|eln)$/.test(w.ans) && /^to /.test(w.en)) w.kind = 'v';
   }
   return w;
 }
@@ -7447,6 +7452,7 @@ async function initCloud() {
 use('sample').then(s => { AI = s; if (s && ['home', 'practice', 'station', 'tutor'].includes(V.name)) render(); });
 let PERM = null; use('permissions').then(x => { PERM = x; });
 use('tts').then(t => { TTS = t; });
+let DL = null; use('downloads').then(d => { DL = d; if (d && V.name === 'me') render(); });
 use('dictation').then(d => {
   DICT = d; if (!d) return;
   d.onFinal(({ text }) => micText(text));
@@ -7709,27 +7715,83 @@ function prep(e) {
   if (e.t === 'gFix') { e.solution = e.fx.good; e.solNote = e.fx.why; }
   return e;
 }
+const ANSIDX = {};
+WORDS.forEach(w => { const k = norm(w.ans); if (!ANSIDX[k]) ANSIDX[k] = w; });
+const stripP = s => String(s).trim().replace(/[.!?,;:]+$/, '').replace(/\s+/g, ' ');
+// Correct answer typed with ss for ß, ae for ä, or wrong capitals: count it, but show the exact form.
+function exactNote(input, target, sentence) {
+  let i = stripP(input), t = stripP(target);
+  if (sentence) { i = i.charAt(0).toUpperCase() + i.slice(1); t = t.charAt(0).toUpperCase() + t.slice(1); }
+  if (i === t) return '';
+  if (i.toLowerCase() === t.toLowerCase()) return 'Correct. Watch the capital letters: ' + stripP(target);
+  return 'Correct. Exact spelling: ' + stripP(target);
+}
+const tolFor = t => t.length >= 9 ? 2 : t.length >= 5 ? 1 : 0;
+const deUml = s => s.replace(/([aou])e/g, '$1');
+// A one-letter slip in the middle of a long word. Never in the ending (endings carry grammar), never an umlaut.
+function typoOk(x, y) {
+  if (x.length < 6 || y.length < 6 || lev(x, y) !== 1 || deUml(x) === deUml(y) || ANSIDX[x]) return false;
+  let p = 0; while (p < x.length && x[p] === y[p]) p++;
+  let q = 0; while (q < x.length && q < y.length && x[x.length - 1 - q] === y[y.length - 1 - q]) q++;
+  return p >= 2 && q >= 3;
+}
 function checkWord(w, input) {
   const a = norm(input), t = norm(w.ans);
   if (!a) return null;
-  if (a === t) return { ok: true, q: 'good' };
-  if (flat(input) === flat(w.ans)) return { ok: true, q: 'hard', note: 'Watch the umlauts: ' + w.ans };
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, w.ans) };
+  const other = ANSIDX[a];
+  if (other && other !== w) {
+    const gl = z => z.toLowerCase().replace(/\(.*?\)/g, '').split(/[,;/]/).map(y => y.replace(/^to /, '').trim()).filter(Boolean), g1 = gl(w.en);
+    if (gl(other.en).some(y => g1.includes(y))) return { ok: false, note: '“' + other.ans + '” means the same (' + other.en + '), but this card practises: ' + w.ans + '. If yours fits, tap “Mine was right too”.' };
+    return { ok: false, note: '“' + other.ans + '” is a different word (' + other.en + '). This one is: ' + w.ans };
+  }
   if (w.kind === 'n') {
-    if (a === norm(w.noun)) return { ok: false, note: 'Right word, but German nouns need their article: ' + w.ans, artMiss: true };
-    const other = ['der', 'die', 'das'].find(r => a === norm(r + ' ' + w.noun));
-    if (other) return { ok: false, note: 'Right word, wrong article. It\'s ' + w.art + '.', artMiss: true };
+    const m = a.match(/^(der|die|das) (.+)$/), body = m ? m[2] : a, raw = input.trim().replace(/^(der|die|das)\s+/i, ''), tn = norm(w.noun), close = body === tn || lev(body, tn) <= tolFor(tn) || flat(raw) === flat(w.noun);
+    if (!m && close) return { ok: false, note: 'Right word, but German nouns need their article: ' + w.ans, artMiss: true };
+    if (m && m[1] !== w.art && close) return { ok: false, note: 'Wrong article. It\'s ' + w.ans + '.', artMiss: true };
+    if (m && m[1] === w.art) {
+      if (flat(raw) === flat(w.noun)) return { ok: true, q: 'hard', note: 'Watch the umlauts: ' + w.ans };
+      if (lev(body, tn) <= tolFor(tn)) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + w.ans };
+    }
+    return { ok: false };
   }
   if (w.kind === 'v' && a === norm(w.ans.replace(/^sich /, ''))) return { ok: true, q: 'hard', note: 'Remember it\'s reflexive: ' + w.ans };
-  const tol = t.length >= 9 ? 2 : t.length >= 5 ? 1 : 0;
-  if (lev(a, t) <= tol) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + w.ans };
+  if (flat(input) === flat(w.ans)) return { ok: true, q: 'hard', note: 'Watch the umlauts: ' + w.ans };
+  if (lev(a, t) <= tolFor(t)) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + w.ans };
   return { ok: false };
 }
+// Grammar answers (a verb form, an ending, an article, a plural): every letter matters, no typo tolerance.
+function checkGram(target, input) {
+  const a = norm(input), t = norm(target); if (!a) return null;
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, target) };
+  if (flat(input) === flat(target)) return { ok: false, note: 'So close, but the umlaut changes the grammar here. Correct: ' + target };
+  if (lev(a, t) <= 2) return { ok: false, note: 'So close, but in grammar every letter counts. Correct: ' + target };
+  return { ok: false };
+}
+// A single vocabulary word inside a sentence: allow a slip in the stem, never in the ending.
+function checkClozeWord(target, input) {
+  const a = norm(input), t = norm(target); if (!a) return null;
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, target) };
+  if (typoOk(a, t)) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + target };
+  return checkGram(target, input);
+}
+// Whole sentences: same words in the same order; a slip inside a long word is OK, a wrong ending/article/umlaut is not.
 function checkSent(target, input) {
   const a = norm(input), t = norm(target); if (!a) return null;
-  if (a === t) return { ok: true, q: 'good' };
-  if (flat(input) === flat(target)) return { ok: true, q: 'hard', note: 'Watch the umlauts.' };
-  if (lev(a, t) <= Math.max(1, Math.floor(t.length * 0.06))) return { ok: true, q: 'hard', note: 'Almost perfect. Compare the spelling below.' };
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, target, true) };
+  const A = a.split(' '), T = t.split(' ');
+  if (A.length === T.length) {
+    let typos = 0, bad = 0;
+    T.forEach((tok, i) => { if (A[i] !== tok) { if (typoOk(A[i], tok)) typos++; else bad++; } });
+    if (!bad && typos <= Math.max(1, Math.floor(T.length / 8))) return { ok: true, q: 'hard', note: 'Small spelling slip. Compare: ' + stripP(target) };
+    if (bad === 1 && !typos) { const i = T.findIndex((tok, k) => A[k] !== tok); return { ok: false, note: 'One word is off: you wrote “' + input.trim().split(/\s+/)[i] + '”, it should be “' + stripP(target).split(/\s+/)[i] + '”.' }; }
+  }
   return { ok: false };
+}
+// Marks which typed words don't match the answer (for the "You wrote" line).
+function diffHtml(given, target) {
+  const T = norm(target).split(' ');
+  return String(given).trim().split(/\s+/).map((g, i) => { const n = norm(g); return n && (T[i] === n) ? esc(g) : n && T.includes(n) ? `<span class="dmove">${esc(g)}</span>` : `<span class="dbad">${esc(g)}</span>`; }).join(' ');
 }
 
 /* ================= production drills ================= */
@@ -7739,14 +7801,17 @@ const FAMS = {};
 DRILL.FAM.trim() && DRILL.FAM.trim().split('\n').forEach(l => { const i = l.indexOf('|'), root = l.slice(0, i), mem = l.slice(i + 1).split(';').map(z => z.split(' = ').map(y => y.trim())); const fam = { root, mem }; [root].concat(mem.map(m => m[0])).forEach(k => { FAMS[k.toLowerCase()] = fam; }); });
 const familyOf = w => FAMS[(w.ans || '').toLowerCase()] || (w.noun && FAMS[w.noun.toLowerCase()]) || null;
 const NOCONJ = new Set(['möchten', 'mögen', 'wissen', 'haben', 'sein', 'werden', 'tun', 'können', 'müssen', 'wollen', 'sollen', 'dürfen']);
-const SEPS = /^(ab|an|auf|aus|bei|ein|fern|fest|her|hin|los|mit|nach|statt|teil|um|vor|weg|zu|zurück|zusammen|weiter|kennen|spazieren|sauber|frei|dazu|kaputt)/;
+const SEPS = /^(ab|an|auf|aus|bei|dar|durch|ein|entgegen|fern|fest|her|hin|klar|los|mit|nach|statt|stumm|teil|um|vor|weg|zu|zurück|zusammen|weiter|kennen|spazieren|sauber|frei|dazu|kaputt)/;
 function conjRegular(inf, p) {
   if (!/^[a-zäöüß]+en$/.test(inf) || /(eln|ern)$/.test(inf) || NOCONJ.has(inf) || SEPS.test(inf)) return null;
-  const st = inf.slice(0, -2), e = /[td]$/.test(st) || /[^aeiouäöülrhmn][mn]$/.test(st), sz = /[sßzx]$/.test(st);
+  const st = inf.slice(0, -2), e = /[td]$/.test(st) || /chn$/.test(st) || /[^aeiouäöülrhmn][mn]$/.test(st), sz = /[sßzx]$/.test(st);
   return { ich: st + 'e', du: st + (e ? 'est' : sz ? 't' : 'st'), 'er/sie': st + (e ? 'et' : 't'), wir: inf, ihr: st + (e ? 'et' : 't') }[p];
 }
+window.__wwTest = () => ({ WORDS, checkWord, checkGram, checkSent, checkClozeWord, conjRegular, isWeakNoun, parseWord });
 const learnedVerbs = () => WORDS.filter(w => w.kind === 'v' && learned(w.id));
-const learnedNouns = () => WORDS.filter(w => w.kind === 'n' && /^[rse]$/.test(w.g) && learned(w.id));
+const WEAKN = new Set(['Mensch', 'Herr', 'Nachbar', 'Bär', 'Bauer', 'Held', 'Prinz', 'Pilot', 'Kunde', 'Junge', 'Kollege', 'Name', 'Gedanke', 'Buchstabe', 'Glaube', 'Wille', 'Friede', 'Frieden', 'Herz', 'Graf', 'Fürst', 'Narr', 'Christ', 'Automat', 'Satellit', 'Planet', 'Komet', 'Elefant', 'Affe', 'Löwe', 'Hase', 'Rabe']);
+const isWeakNoun = w => WEAKN.has(w.noun) || (w.g === 'r' && w.pl && (w.pl === w.noun + 'n' || w.pl === w.noun + 'en') && /(e|ent|ant|ist|at|oge|nom|graf|graph|soph|it|et)$/.test(w.noun));
+const learnedNouns = () => WORDS.filter(w => w.kind === 'n' && /^[rse]$/.test(w.g) && !isWeakNoun(w) && learned(w.id));
 const TENSES = ['Präsens', 'Präteritum', 'Perfekt'];
 function conjStep() {
   const vs = learnedVerbs(); if (vs.length < 4) return null;
@@ -8273,7 +8338,7 @@ VIEWS.me = () => {
     <div class="row"><span>Sound effects</span><span class="sp"></span>${seg('sfx', [[true, 'On'], [false, 'Off']])}</div>
     <p class="small mute">${cloudReady ? 'Progress is saved to your Claude account and follows you across devices.' : 'Progress is saved on this device. Make a backup now and then.'}</p></div>
   <div class="card"><span class="lab">Backup</span><p class="small mute">Copy this code somewhere safe, or paste one here to restore progress on another device.</p>
-    <div class="row"><button class="btn sm" data-act="export">Copy backup code</button>${IN_CLAUDE ? '' : '<button class="btn sm" data-act="dl">Download file</button>'}</div>
+    <div class="row"><button class="btn sm" data-act="export">Copy backup code</button>${IN_CLAUDE && !DL ? '' : '<button class="btn sm" data-act="dl">Download file</button>'}</div>
     <textarea class="inp" id="imp" rows="2" placeholder="Paste a backup code to restore"></textarea><button class="btn sm" data-act="import" style="align-self:flex-start">Restore</button></div>
   <div class="card"><span class="lab">Start over</span>${V.confirm ? `<p>This erases all progress, words and settings.</p><div class="row"><button class="btn sm danger" data-act="reset">Yes, erase everything</button><button class="btn sm" data-act="unconfirm">Keep my progress</button></div>` : '<button class="btn sm" data-act="confirm" style="align-self:flex-start">Reset progress</button>'}</div>`;
 };
@@ -8382,6 +8447,7 @@ VIEWS.ride = () => {
     foot = `<div class="fb ${fb.ok ? '' : 'no'}"><div class="row"><h3>${esc(fb.word)}</h3><span class="sp"></span>${fb.xp ? `<span class="num small">+${fb.xp} XP</span>` : ''}${quiet ? '' : spk(showDe)}</div>
       ${quiet ? '' : e.solution ? `<p class="ans">${esc(e.solution)}</p>${e.solNote ? `<p class="small mute">${esc(e.solNote)}</p>` : ''}` : `<p class="ans">${x.kind === 'n' || x.kind === 'v' || x.kind === 'x' ? wordHead(x) : esc(showDe)}</p><p class="small mute">${esc(x.en)}</p>`}
       ${!quiet && !e.solution && x.ex && x.kind !== 's' ? `<p class="small"><span class="de2">${esc(x.ex)}</span><br><span class="mute">${esc(x.exEn)}</span></p>` : ''}
+      ${!quiet && fb.given && fb.given !== 'skip' && (!fb.ok || fb.note) && !isMc && e.t !== 'sBuild' && e.t !== 'sSpeak' ? `<p class="small yw"><span class="mute">You wrote:</span> ${diffHtml(fb.given, e.solution || (x.kind === 's' ? x.de : x.ans))}</p>` : ''}
       ${fb.note ? `<div class="why">${esc(fb.note)}</div>` : ''}${fb.why ? `<div class="why">${esc(fb.why)}</div>` : ''}
       ${!fb.ok && !quiet ? `<div class="row">${AI && x.kind === 's' && !fb.why ? '<button class="btn sm" data-act="why">Why?</button>' : ''}${['wType', 'wCloze', 'wListen', 'sCloze', 'sWrite', 'sSpeak', 'sListen', 'wPlural', 'gConj', 'gTrans'].includes(e.t) && e.first ? '<button class="btn sm" data-act="override">Mine was right too</button>' : ''}</div>` : ''}
       <button class="btn pri wide" data-act="next" data-focus>Weiter</button></div>`;
@@ -8947,7 +9013,9 @@ const acts = {
   set: el => { const k = el.dataset.k, v = el.dataset.v; S.set[k] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; save(); render(); if (k === 'voice' || k === 'rate') say('Hallo! So klinge ich.'); },
   pset: el => { S.prof[el.dataset.k] = +el.dataset.v; save(); render(); },
   export: async () => { const code = backupCode(); try { await navigator.clipboard.writeText(code); toast('Backup code copied.'); } catch (e) { const t = document.getElementById('imp'); t.value = code; t.select(); toast('Select and copy the code in the box.'); } },
-  dl: () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'wortwerk-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download isn\'t available here. Use the backup code.'); } },
+  dl: async () => {
+    if (DL) { try { await DL.save({ filename: 'wortwerk-backup-' + today() + '.json', data: JSON.stringify(S) }); toast('Backup saved.'); } catch (e) { toast(e && e.code === 'declined' ? 'Download cancelled.' : 'Download isn\'t available here. Use "Copy backup code" instead.'); } return; }
+    try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'wortwerk-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download isn\'t available here. Use the backup code.'); } },
   import: () => {
     const raw = document.getElementById('imp').value.trim(); if (!raw) return;
     try { let txt = raw; if (!raw.startsWith('{')) txt = decodeURIComponent(escape(atob(raw))); const m = migrate(JSON.parse(txt)); if (!m) throw 0; S = m; buildMyPack(); save(); if (cloudReady) push(); toast('Progress restored.'); go('home'); }
@@ -8962,15 +9030,15 @@ function doCheck() {
   const e = R.q[R.i], x = e.x, el = document.getElementById('ans'), given = el ? el.value.trim() : '';
   let r;
   if (e.t === 'sBuild') { const s = e.pick.map(i => e.pool[i]).join(' '); return grade(s === x.de, s); }
-  const anyOf = (list, g) => { for (const a of list) { const rr = checkSent(a, g); if (rr && rr.ok) return rr; } return { ok: false }; };
+  const anyOf = (list, g, fn) => { let best = null; for (const a of list) { const rr = (fn || checkSent)(a, g); if (rr && rr.ok) return rr; if (rr && rr.note && !best) best = rr; } return best || { ok: false }; };
   if (['wPlural', 'gConj', 'gCase', 'gAdj', 'gTrans'].includes(e.t) && !given) return;
-  if (e.t === 'wPlural') r = anyOf(['die ' + x.pl], /^die /i.test(given) ? given : 'die ' + given);
-  else if (e.t === 'gConj') r = anyOf(e.ans, given.replace(/^(ich|du|er\/sie|er|sie|es|wir|ihr)\s+/i, ''));
-  else if (e.t === 'gCase' || e.t === 'gAdj') r = norm(given.split(/\s+/)[0]) === norm(e.ans[0]) ? { ok: true, q: 'good' } : { ok: false };
+  if (e.t === 'wPlural') r = anyOf(['die ' + x.pl], /^die /i.test(given) ? given : 'die ' + given, checkGram);
+  else if (e.t === 'gConj') r = anyOf(e.ans, given.replace(/^(ich|du|er\/sie|er|sie|es|wir|ihr)\s+/i, ''), checkGram);
+  else if (e.t === 'gCase' || e.t === 'gAdj') r = checkGram(e.ans[0], given.split(/\s+/)[0]);
   else if (e.t === 'gTrans') r = anyOf(e.ans, given);
   else if (e.t === 'wType' || e.t === 'wListen') r = checkWord(x, given);
-  else if (e.t === 'wCloze') { r = checkSent(e.cz.word, given); }
-  else if (e.t === 'sCloze') { r = checkSent(x.ans, given); if (r && !r.ok) { const r2 = checkSent(x.de, given); if (r2 && r2.ok) r = r2; } }
+  else if (e.t === 'wCloze') { r = checkClozeWord(e.cz.word, given); }
+  else if (e.t === 'sCloze') { r = checkGram(x.ans, given); if (r && !r.ok) { const r2 = checkSent(x.de, given); if (r2 && r2.ok) r = r2; } }
   else if (e.t === 'sSpeak') { if (!given) { toast('Tap the mic and read the sentence.'); return; } const g = norm(given).split(' '), w = norm(x.de).split(' '); r = { ok: w.filter(t => g.includes(t)).length / w.length >= 0.7, q: 'good' }; }
   else r = checkSent(x.de, given);
   if (!r) return;

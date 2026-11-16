@@ -288,7 +288,7 @@ stations: [
  '{Trotz/Wegen/Statt} des Regens sind wir spazieren gegangen.|Despite the rain, we went for a walk.',
  'Während {der/die/dem} Pause trinken wir Kaffee.|During the break we drink coffee.',
  'Am Ende {des/dem/der} Tages war ich total erschöpft.|At the end of the day I was totally exhausted.',
- 'Die Meinung {der/den/des} Kollegen ist mir wichtig.|My colleagues\' opinion is important to me.',
+ 'Die Meinung {der/den/dem} Kollegen ist mir wichtig.|My colleagues\' opinion is important to me.',
  '{Innerhalb/Außerhalb/Während} einer Woche bekommen Sie eine Antwort.|You\'ll get an answer within a week.',
  'Die Miete {dieser/diese/diesem} Wohnung ist viel zu hoch.|The rent of this flat is far too high.' ]},
 { id:'s23', lvl:'B1', name:'Obwohl & trotzdem', sub:'Linking ideas', g:[
@@ -363,7 +363,7 @@ stations: [
  'Alternatives: *sich lassen* + infinitive (can be done) · *sein + zu* + infinitive (must/can be done)',
  '*-bar* adjectives: lösbar, machbar, essbar · impersonal: Es *wurde* getanzt.' ], items:[
  'Das Problem muss sofort gelöst {werden/sein/worden}.|The problem must be solved immediately.',
- 'Der Laden {ist/wird/hat} sonntags geschlossen.|The shop is closed on Sundays.',
+ 'Der Laden {ist/hat/bin} sonntags geschlossen.|The shop is closed on Sundays.',
  'Das {lässt/kann/wird} sich leicht erklären.|That can be explained easily.',
  'Die Formulare sind bis Freitag {abzugeben/abgeben/abgegeben}.|The forms are to be handed in by Friday.',
  'Der Fehler konnte nicht gefunden {werden/worden/sein}.|The error couldn\'t be found.',
@@ -440,8 +440,8 @@ stations: [
  '*ja* = surprise or shared knowledge · *denn* makes questions friendlier · *halt/eben* = that is just how it is',
  'Opinions: *Meiner Meinung nach* … · Ich bin *davon überzeugt, dass* … · Da bin ich *anderer Meinung*.',
  '*Das kommt darauf an* = it depends' ], items:[
- 'Komm {doch/ja/eben} mal vorbei, wenn du Zeit hast!|Do come by sometime when you have time!',
- 'Das ist {ja/mal/denn} eine Überraschung!|Well, that\'s a surprise!',
+ 'Komm {doch/ja/denn} mal vorbei, wenn du Zeit hast!|Do come by sometime when you have time!',
+ 'Das ist {ja/denn/etwa} eine Überraschung!|Well, that\'s a surprise!',
  'Wie heißt du {denn/doch/halt}?|So what\'s your name?',
  'Das ist {halt/denn/mal} so, da kann man nichts machen.|That\'s just how it is, nothing can be done.',
  'Meiner Meinung {nach/zu/von} ist das keine gute Idee.|In my opinion that\'s not a good idea.',

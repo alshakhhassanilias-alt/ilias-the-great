@@ -273,7 +273,7 @@ der Fortschritt, Fortschritte|progress|Der technische Fortschritt ist enorm.|Tec
 die Elektromobilität|electric mobility|Die Elektromobilität wird gefördert.|Electric mobility is being promoted.
 die Batterie, Batterien|battery|Die Batterie hält 500 Kilometer.|The battery lasts 500 kilometres.
 die Ladestation, Ladestationen|charging station|Es gibt zu wenige Ladestationen.|There are too few charging stations.
-der Verbrennungsmotor, Verbrennungsmotoren|combustion engine|Der Verbrennungsmotor wird verboten.|The combustion engine is being banned.
+der Verbrennungsmotor, Verbrennungsmotoren|combustion engine|Das Auto hat einen Verbrennungsmotor.|The car has a combustion engine.
 die Effizienz|efficiency|Die Effizienz der Anlage ist hoch.|The plant's efficiency is high.
 der Wettbewerbsvorteil, Wettbewerbsvorteile|competitive advantage|Qualität ist unser Wettbewerbsvorteil.|Quality is our competitive advantage.
 die Marktführerschaft|market leadership|Die Firma hat die Marktführerschaft verloren.|The company has lost its market leadership.
@@ -294,7 +294,7 @@ die Globalisierung|globalisation|Die Globalisierung hat Gewinner und Verlierer.|
 der Strukturwandel|structural change|Das Ruhrgebiet erlebt einen Strukturwandel.|The Ruhr area is going through structural change.` },
 
 { id:'b2v25', lvl:'B2', t:'Verhandeln & Überzeugen', en:'Negotiating and persuading', tag:'work', w:`
-das Angebot unterbreiten|to submit an offer|Wir unterbreiten Ihnen ein Angebot.|We'll submit an offer to you.
+ein Angebot unterbreiten|to submit an offer|Wir unterbreiten Ihnen ein Angebot.|We'll submit an offer to you.
 die Verhandlungsbasis|basis for negotiation|Der Preis ist Verhandlungsbasis.|The price is negotiable.
 entgegenkommen (kommt entgegen, kam entgegen, ist entgegengekommen)|to accommodate, to meet halfway|Wir kommen Ihnen beim Preis entgegen.|We'll meet you halfway on the price.
 das Zugeständnis, Zugeständnisse|concession|Beide Seiten machten Zugeständnisse.|Both sides made concessions.
@@ -306,10 +306,10 @@ nachgeben (gibt nach, gab nach, hat nachgegeben)|to give in|Er hat schließlich 
 ablehnen|to reject|Wir lehnen das Angebot ab.|We reject the offer.
 zusagen|to agree, to accept|Ich kann Ihnen das fest zusagen.|I can promise you that.
 die Bedingung, Bedingungen|condition|Unter einer Bedingung stimme ich zu.|I agree on one condition.
-die Frist setzen|to set a deadline|Wir setzen Ihnen eine Frist bis Freitag.|We're setting you a deadline of Friday.
+eine Frist setzen|to set a deadline|Wir setzen Ihnen eine Frist bis Freitag.|We're setting you a deadline of Friday.
 der Standpunkt, Standpunkte|position|Ich verstehe Ihren Standpunkt.|I understand your position.
 argumentieren|to argue|Sie argumentiert sehr überzeugend.|She argues very convincingly.
-das Argument entkräften|to refute an argument|Er konnte das Argument nicht entkräften.|He couldn't refute the argument.
+ein Argument entkräften|to refute an argument|Er konnte das Argument nicht entkräften.|He couldn't refute the argument.
 einwenden (wendet ein, wandte ein, hat eingewandt)|to object|Man könnte einwenden, dass …|One could object that …
 der Einwand, Einwände|objection|Gibt es Einwände?|Are there any objections?
 zugeben (gibt zu, gab zu, hat zugegeben)|to admit|Ich gebe zu, das war ein Fehler.|I admit that was a mistake.
@@ -328,7 +328,7 @@ schriftlich festhalten (hält fest, hielt fest, hat festgehalten)|to put in writ
 verbindlich|binding|Das Angebot ist verbindlich.|The offer is binding.
 unverbindlich|non-binding|Das ist ein unverbindliches Angebot.|That's a non-binding offer.
 die Konditionen (Pl.)|terms|Die Konditionen sind gut.|The terms are good.
-der Rabatt gewähren|to grant a discount|Wir gewähren Ihnen fünf Prozent Rabatt.|We'll give you a five percent discount.
+einen Rabatt gewähren|to grant a discount|Wir gewähren Ihnen fünf Prozent Rabatt.|We'll give you a five percent discount.
 die Verhandlungsposition, Verhandlungspositionen|bargaining position|Wir haben eine starke Verhandlungsposition.|We have a strong bargaining position.
 taktisch|tactical|Das war ein taktischer Fehler.|That was a tactical mistake.
 das Fingerspitzengefühl|tact, sensitivity|Dafür braucht man Fingerspitzengefühl.|That requires tact.

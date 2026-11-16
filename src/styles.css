@@ -295,3 +295,8 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .strow>div{flex:1;min-width:0;display:flex;flex-direction:column}.strow span:not(.dot):not(.pill){font-size:.84rem;color:var(--mute)}
 .dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--bad)} .dot.ok{background:var(--good)} .dot.warn{background:var(--accent)}
 .wcard.flip{text-align:left;width:100%;min-height:220px;cursor:pointer;font:inherit;color:var(--ink)}
+
+/* answer diff: what the learner typed */
+.yw { margin: 4px 0 0; line-height: 1.6; }
+.yw .dbad { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 3px; font-weight: 600; }
+.yw .dmove { color: var(--u2); text-decoration: underline dotted; text-underline-offset: 3px; }

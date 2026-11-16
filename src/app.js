@@ -57,7 +57,7 @@ function parseWord(line, p, i) {
   } else {
     const v = f[0].match(/^(.+?) \(([^)]*,[^)]*)\)$/);
     if (v) { w.kind = 'v'; w.ans = v[1]; w.forms = v[2]; } else w.ans = f[0].replace(/\s*\([^)]*\)/g, '').trim();
-    if (w.kind === 'x' && /^(sich )?[a-zäöüß]+(en|ern|eln)$/.test(w.ans)) w.kind = 'v';
+    if (w.kind === 'x' && /^(sich )?[a-zäöüß]+(en|ern|eln)$/.test(w.ans) && /^to /.test(w.en)) w.kind = 'v';
   }
   return w;
 }
@@ -171,6 +171,7 @@ async function initCloud() {
 use('sample').then(s => { AI = s; if (s && ['home', 'practice', 'station', 'tutor'].includes(V.name)) render(); });
 let PERM = null; use('permissions').then(x => { PERM = x; });
 use('tts').then(t => { TTS = t; });
+let DL = null; use('downloads').then(d => { DL = d; if (d && V.name === 'me') render(); });
 use('dictation').then(d => {
   DICT = d; if (!d) return;
   d.onFinal(({ text }) => micText(text));
@@ -433,27 +434,83 @@ function prep(e) {
   if (e.t === 'gFix') { e.solution = e.fx.good; e.solNote = e.fx.why; }
   return e;
 }
+const ANSIDX = {};
+WORDS.forEach(w => { const k = norm(w.ans); if (!ANSIDX[k]) ANSIDX[k] = w; });
+const stripP = s => String(s).trim().replace(/[.!?,;:]+$/, '').replace(/\s+/g, ' ');
+// Correct answer typed with ss for ß, ae for ä, or wrong capitals: count it, but show the exact form.
+function exactNote(input, target, sentence) {
+  let i = stripP(input), t = stripP(target);
+  if (sentence) { i = i.charAt(0).toUpperCase() + i.slice(1); t = t.charAt(0).toUpperCase() + t.slice(1); }
+  if (i === t) return '';
+  if (i.toLowerCase() === t.toLowerCase()) return 'Correct. Watch the capital letters: ' + stripP(target);
+  return 'Correct. Exact spelling: ' + stripP(target);
+}
+const tolFor = t => t.length >= 9 ? 2 : t.length >= 5 ? 1 : 0;
+const deUml = s => s.replace(/([aou])e/g, '$1');
+// A one-letter slip in the middle of a long word. Never in the ending (endings carry grammar), never an umlaut.
+function typoOk(x, y) {
+  if (x.length < 6 || y.length < 6 || lev(x, y) !== 1 || deUml(x) === deUml(y) || ANSIDX[x]) return false;
+  let p = 0; while (p < x.length && x[p] === y[p]) p++;
+  let q = 0; while (q < x.length && q < y.length && x[x.length - 1 - q] === y[y.length - 1 - q]) q++;
+  return p >= 2 && q >= 3;
+}
 function checkWord(w, input) {
   const a = norm(input), t = norm(w.ans);
   if (!a) return null;
-  if (a === t) return { ok: true, q: 'good' };
-  if (flat(input) === flat(w.ans)) return { ok: true, q: 'hard', note: 'Watch the umlauts: ' + w.ans };
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, w.ans) };
+  const other = ANSIDX[a];
+  if (other && other !== w) {
+    const gl = z => z.toLowerCase().replace(/\(.*?\)/g, '').split(/[,;/]/).map(y => y.replace(/^to /, '').trim()).filter(Boolean), g1 = gl(w.en);
+    if (gl(other.en).some(y => g1.includes(y))) return { ok: false, note: '“' + other.ans + '” means the same (' + other.en + '), but this card practises: ' + w.ans + '. If yours fits, tap “Mine was right too”.' };
+    return { ok: false, note: '“' + other.ans + '” is a different word (' + other.en + '). This one is: ' + w.ans };
+  }
   if (w.kind === 'n') {
-    if (a === norm(w.noun)) return { ok: false, note: 'Right word, but German nouns need their article: ' + w.ans, artMiss: true };
-    const other = ['der', 'die', 'das'].find(r => a === norm(r + ' ' + w.noun));
-    if (other) return { ok: false, note: 'Right word, wrong article. It\'s ' + w.art + '.', artMiss: true };
+    const m = a.match(/^(der|die|das) (.+)$/), body = m ? m[2] : a, raw = input.trim().replace(/^(der|die|das)\s+/i, ''), tn = norm(w.noun), close = body === tn || lev(body, tn) <= tolFor(tn) || flat(raw) === flat(w.noun);
+    if (!m && close) return { ok: false, note: 'Right word, but German nouns need their article: ' + w.ans, artMiss: true };
+    if (m && m[1] !== w.art && close) return { ok: false, note: 'Wrong article. It\'s ' + w.ans + '.', artMiss: true };
+    if (m && m[1] === w.art) {
+      if (flat(raw) === flat(w.noun)) return { ok: true, q: 'hard', note: 'Watch the umlauts: ' + w.ans };
+      if (lev(body, tn) <= tolFor(tn)) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + w.ans };
+    }
+    return { ok: false };
   }
   if (w.kind === 'v' && a === norm(w.ans.replace(/^sich /, ''))) return { ok: true, q: 'hard', note: 'Remember it\'s reflexive: ' + w.ans };
-  const tol = t.length >= 9 ? 2 : t.length >= 5 ? 1 : 0;
-  if (lev(a, t) <= tol) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + w.ans };
+  if (flat(input) === flat(w.ans)) return { ok: true, q: 'hard', note: 'Watch the umlauts: ' + w.ans };
+  if (lev(a, t) <= tolFor(t)) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + w.ans };
   return { ok: false };
 }
+// Grammar answers (a verb form, an ending, an article, a plural): every letter matters, no typo tolerance.
+function checkGram(target, input) {
+  const a = norm(input), t = norm(target); if (!a) return null;
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, target) };
+  if (flat(input) === flat(target)) return { ok: false, note: 'So close, but the umlaut changes the grammar here. Correct: ' + target };
+  if (lev(a, t) <= 2) return { ok: false, note: 'So close, but in grammar every letter counts. Correct: ' + target };
+  return { ok: false };
+}
+// A single vocabulary word inside a sentence: allow a slip in the stem, never in the ending.
+function checkClozeWord(target, input) {
+  const a = norm(input), t = norm(target); if (!a) return null;
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, target) };
+  if (typoOk(a, t)) return { ok: true, q: 'hard', note: 'Small typo. Correct spelling: ' + target };
+  return checkGram(target, input);
+}
+// Whole sentences: same words in the same order; a slip inside a long word is OK, a wrong ending/article/umlaut is not.
 function checkSent(target, input) {
   const a = norm(input), t = norm(target); if (!a) return null;
-  if (a === t) return { ok: true, q: 'good' };
-  if (flat(input) === flat(target)) return { ok: true, q: 'hard', note: 'Watch the umlauts.' };
-  if (lev(a, t) <= Math.max(1, Math.floor(t.length * 0.06))) return { ok: true, q: 'hard', note: 'Almost perfect. Compare the spelling below.' };
+  if (a === t) return { ok: true, q: 'good', note: exactNote(input, target, true) };
+  const A = a.split(' '), T = t.split(' ');
+  if (A.length === T.length) {
+    let typos = 0, bad = 0;
+    T.forEach((tok, i) => { if (A[i] !== tok) { if (typoOk(A[i], tok)) typos++; else bad++; } });
+    if (!bad && typos <= Math.max(1, Math.floor(T.length / 8))) return { ok: true, q: 'hard', note: 'Small spelling slip. Compare: ' + stripP(target) };
+    if (bad === 1 && !typos) { const i = T.findIndex((tok, k) => A[k] !== tok); return { ok: false, note: 'One word is off: you wrote “' + input.trim().split(/\s+/)[i] + '”, it should be “' + stripP(target).split(/\s+/)[i] + '”.' }; }
+  }
   return { ok: false };
+}
+// Marks which typed words don't match the answer (for the "You wrote" line).
+function diffHtml(given, target) {
+  const T = norm(target).split(' ');
+  return String(given).trim().split(/\s+/).map((g, i) => { const n = norm(g); return n && (T[i] === n) ? esc(g) : n && T.includes(n) ? `<span class="dmove">${esc(g)}</span>` : `<span class="dbad">${esc(g)}</span>`; }).join(' ');
 }
 
 /* ================= production drills ================= */
@@ -463,14 +520,17 @@ const FAMS = {};
 DRILL.FAM.trim() && DRILL.FAM.trim().split('\n').forEach(l => { const i = l.indexOf('|'), root = l.slice(0, i), mem = l.slice(i + 1).split(';').map(z => z.split(' = ').map(y => y.trim())); const fam = { root, mem }; [root].concat(mem.map(m => m[0])).forEach(k => { FAMS[k.toLowerCase()] = fam; }); });
 const familyOf = w => FAMS[(w.ans || '').toLowerCase()] || (w.noun && FAMS[w.noun.toLowerCase()]) || null;
 const NOCONJ = new Set(['möchten', 'mögen', 'wissen', 'haben', 'sein', 'werden', 'tun', 'können', 'müssen', 'wollen', 'sollen', 'dürfen']);
-const SEPS = /^(ab|an|auf|aus|bei|ein|fern|fest|her|hin|los|mit|nach|statt|teil|um|vor|weg|zu|zurück|zusammen|weiter|kennen|spazieren|sauber|frei|dazu|kaputt)/;
+const SEPS = /^(ab|an|auf|aus|bei|dar|durch|ein|entgegen|fern|fest|her|hin|klar|los|mit|nach|statt|stumm|teil|um|vor|weg|zu|zurück|zusammen|weiter|kennen|spazieren|sauber|frei|dazu|kaputt)/;
 function conjRegular(inf, p) {
   if (!/^[a-zäöüß]+en$/.test(inf) || /(eln|ern)$/.test(inf) || NOCONJ.has(inf) || SEPS.test(inf)) return null;
-  const st = inf.slice(0, -2), e = /[td]$/.test(st) || /[^aeiouäöülrhmn][mn]$/.test(st), sz = /[sßzx]$/.test(st);
+  const st = inf.slice(0, -2), e = /[td]$/.test(st) || /chn$/.test(st) || /[^aeiouäöülrhmn][mn]$/.test(st), sz = /[sßzx]$/.test(st);
   return { ich: st + 'e', du: st + (e ? 'est' : sz ? 't' : 'st'), 'er/sie': st + (e ? 'et' : 't'), wir: inf, ihr: st + (e ? 'et' : 't') }[p];
 }
+window.__wwTest = () => ({ WORDS, checkWord, checkGram, checkSent, checkClozeWord, conjRegular, isWeakNoun, parseWord });
 const learnedVerbs = () => WORDS.filter(w => w.kind === 'v' && learned(w.id));
-const learnedNouns = () => WORDS.filter(w => w.kind === 'n' && /^[rse]$/.test(w.g) && learned(w.id));
+const WEAKN = new Set(['Mensch', 'Herr', 'Nachbar', 'Bär', 'Bauer', 'Held', 'Prinz', 'Pilot', 'Kunde', 'Junge', 'Kollege', 'Name', 'Gedanke', 'Buchstabe', 'Glaube', 'Wille', 'Friede', 'Frieden', 'Herz', 'Graf', 'Fürst', 'Narr', 'Christ', 'Automat', 'Satellit', 'Planet', 'Komet', 'Elefant', 'Affe', 'Löwe', 'Hase', 'Rabe']);
+const isWeakNoun = w => WEAKN.has(w.noun) || (w.g === 'r' && w.pl && (w.pl === w.noun + 'n' || w.pl === w.noun + 'en') && /(e|ent|ant|ist|at|oge|nom|graf|graph|soph|it|et)$/.test(w.noun));
+const learnedNouns = () => WORDS.filter(w => w.kind === 'n' && /^[rse]$/.test(w.g) && !isWeakNoun(w) && learned(w.id));
 const TENSES = ['Präsens', 'Präteritum', 'Perfekt'];
 function conjStep() {
   const vs = learnedVerbs(); if (vs.length < 4) return null;
@@ -997,7 +1057,7 @@ VIEWS.me = () => {
     <div class="row"><span>Sound effects</span><span class="sp"></span>${seg('sfx', [[true, 'On'], [false, 'Off']])}</div>
     <p class="small mute">${cloudReady ? 'Progress is saved to your Claude account and follows you across devices.' : 'Progress is saved on this device. Make a backup now and then.'}</p></div>
   <div class="card"><span class="lab">Backup</span><p class="small mute">Copy this code somewhere safe, or paste one here to restore progress on another device.</p>
-    <div class="row"><button class="btn sm" data-act="export">Copy backup code</button>${IN_CLAUDE ? '' : '<button class="btn sm" data-act="dl">Download file</button>'}</div>
+    <div class="row"><button class="btn sm" data-act="export">Copy backup code</button>${IN_CLAUDE && !DL ? '' : '<button class="btn sm" data-act="dl">Download file</button>'}</div>
     <textarea class="inp" id="imp" rows="2" placeholder="Paste a backup code to restore"></textarea><button class="btn sm" data-act="import" style="align-self:flex-start">Restore</button></div>
   <div class="card"><span class="lab">Start over</span>${V.confirm ? `<p>This erases all progress, words and settings.</p><div class="row"><button class="btn sm danger" data-act="reset">Yes, erase everything</button><button class="btn sm" data-act="unconfirm">Keep my progress</button></div>` : '<button class="btn sm" data-act="confirm" style="align-self:flex-start">Reset progress</button>'}</div>`;
 };
@@ -1106,6 +1166,7 @@ VIEWS.ride = () => {
     foot = `<div class="fb ${fb.ok ? '' : 'no'}"><div class="row"><h3>${esc(fb.word)}</h3><span class="sp"></span>${fb.xp ? `<span class="num small">+${fb.xp} XP</span>` : ''}${quiet ? '' : spk(showDe)}</div>
       ${quiet ? '' : e.solution ? `<p class="ans">${esc(e.solution)}</p>${e.solNote ? `<p class="small mute">${esc(e.solNote)}</p>` : ''}` : `<p class="ans">${x.kind === 'n' || x.kind === 'v' || x.kind === 'x' ? wordHead(x) : esc(showDe)}</p><p class="small mute">${esc(x.en)}</p>`}
       ${!quiet && !e.solution && x.ex && x.kind !== 's' ? `<p class="small"><span class="de2">${esc(x.ex)}</span><br><span class="mute">${esc(x.exEn)}</span></p>` : ''}
+      ${!quiet && fb.given && fb.given !== 'skip' && (!fb.ok || fb.note) && !isMc && e.t !== 'sBuild' && e.t !== 'sSpeak' ? `<p class="small yw"><span class="mute">You wrote:</span> ${diffHtml(fb.given, e.solution || (x.kind === 's' ? x.de : x.ans))}</p>` : ''}
       ${fb.note ? `<div class="why">${esc(fb.note)}</div>` : ''}${fb.why ? `<div class="why">${esc(fb.why)}</div>` : ''}
       ${!fb.ok && !quiet ? `<div class="row">${AI && x.kind === 's' && !fb.why ? '<button class="btn sm" data-act="why">Why?</button>' : ''}${['wType', 'wCloze', 'wListen', 'sCloze', 'sWrite', 'sSpeak', 'sListen', 'wPlural', 'gConj', 'gTrans'].includes(e.t) && e.first ? '<button class="btn sm" data-act="override">Mine was right too</button>' : ''}</div>` : ''}
       <button class="btn pri wide" data-act="next" data-focus>Weiter</button></div>`;
@@ -1671,7 +1732,9 @@ const acts = {
   set: el => { const k = el.dataset.k, v = el.dataset.v; S.set[k] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; save(); render(); if (k === 'voice' || k === 'rate') say('Hallo! So klinge ich.'); },
   pset: el => { S.prof[el.dataset.k] = +el.dataset.v; save(); render(); },
   export: async () => { const code = backupCode(); try { await navigator.clipboard.writeText(code); toast('Backup code copied.'); } catch (e) { const t = document.getElementById('imp'); t.value = code; t.select(); toast('Select and copy the code in the box.'); } },
-  dl: () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'wortwerk-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download isn\'t available here. Use the backup code.'); } },
+  dl: async () => {
+    if (DL) { try { await DL.save({ filename: 'wortwerk-backup-' + today() + '.json', data: JSON.stringify(S) }); toast('Backup saved.'); } catch (e) { toast(e && e.code === 'declined' ? 'Download cancelled.' : 'Download isn\'t available here. Use "Copy backup code" instead.'); } return; }
+    try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'wortwerk-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download isn\'t available here. Use the backup code.'); } },
   import: () => {
     const raw = document.getElementById('imp').value.trim(); if (!raw) return;
     try { let txt = raw; if (!raw.startsWith('{')) txt = decodeURIComponent(escape(atob(raw))); const m = migrate(JSON.parse(txt)); if (!m) throw 0; S = m; buildMyPack(); save(); if (cloudReady) push(); toast('Progress restored.'); go('home'); }
@@ -1686,15 +1749,15 @@ function doCheck() {
   const e = R.q[R.i], x = e.x, el = document.getElementById('ans'), given = el ? el.value.trim() : '';
   let r;
   if (e.t === 'sBuild') { const s = e.pick.map(i => e.pool[i]).join(' '); return grade(s === x.de, s); }
-  const anyOf = (list, g) => { for (const a of list) { const rr = checkSent(a, g); if (rr && rr.ok) return rr; } return { ok: false }; };
+  const anyOf = (list, g, fn) => { let best = null; for (const a of list) { const rr = (fn || checkSent)(a, g); if (rr && rr.ok) return rr; if (rr && rr.note && !best) best = rr; } return best || { ok: false }; };
   if (['wPlural', 'gConj', 'gCase', 'gAdj', 'gTrans'].includes(e.t) && !given) return;
-  if (e.t === 'wPlural') r = anyOf(['die ' + x.pl], /^die /i.test(given) ? given : 'die ' + given);
-  else if (e.t === 'gConj') r = anyOf(e.ans, given.replace(/^(ich|du|er\/sie|er|sie|es|wir|ihr)\s+/i, ''));
-  else if (e.t === 'gCase' || e.t === 'gAdj') r = norm(given.split(/\s+/)[0]) === norm(e.ans[0]) ? { ok: true, q: 'good' } : { ok: false };
+  if (e.t === 'wPlural') r = anyOf(['die ' + x.pl], /^die /i.test(given) ? given : 'die ' + given, checkGram);
+  else if (e.t === 'gConj') r = anyOf(e.ans, given.replace(/^(ich|du|er\/sie|er|sie|es|wir|ihr)\s+/i, ''), checkGram);
+  else if (e.t === 'gCase' || e.t === 'gAdj') r = checkGram(e.ans[0], given.split(/\s+/)[0]);
   else if (e.t === 'gTrans') r = anyOf(e.ans, given);
   else if (e.t === 'wType' || e.t === 'wListen') r = checkWord(x, given);
-  else if (e.t === 'wCloze') { r = checkSent(e.cz.word, given); }
-  else if (e.t === 'sCloze') { r = checkSent(x.ans, given); if (r && !r.ok) { const r2 = checkSent(x.de, given); if (r2 && r2.ok) r = r2; } }
+  else if (e.t === 'wCloze') { r = checkClozeWord(e.cz.word, given); }
+  else if (e.t === 'sCloze') { r = checkGram(x.ans, given); if (r && !r.ok) { const r2 = checkSent(x.de, given); if (r2 && r2.ok) r = r2; } }
   else if (e.t === 'sSpeak') { if (!given) { toast('Tap the mic and read the sentence.'); return; } const g = norm(given).split(' '), w = norm(x.de).split(' '); r = { ok: w.filter(t => g.includes(t)).length / w.length >= 0.7, q: 'good' }; }
   else r = checkSent(x.de, given);
   if (!r) return;

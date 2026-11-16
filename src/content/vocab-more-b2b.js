@@ -19,7 +19,7 @@ die Geldstrafe, Geldstrafen|fine|Er muss eine Geldstrafe zahlen.|He has to pay a
 die Bewährung|probation|Er bekam zwei Jahre auf Bewährung.|He got two years' probation.
 die Haftstrafe, Haftstrafen|prison sentence|Sie wurde zu einer Haftstrafe verurteilt.|She was sentenced to prison.
 Berufung einlegen|to appeal|Der Anwalt legt Berufung ein.|The lawyer is appealing.
-das Gesetz verabschieden|to pass a law|Das Parlament hat das Gesetz verabschiedet.|Parliament passed the law.
+ein Gesetz verabschieden|to pass a law|Das Parlament hat das Gesetz verabschiedet.|Parliament passed the law.
 in Kraft treten (tritt, trat, ist getreten)|to come into force|Das Gesetz tritt im Januar in Kraft.|The law comes into force in January.
 die Verordnung, Verordnungen|regulation|Laut Verordnung ist das verboten.|According to the regulation that's forbidden.
 der Mieterverein, Mietervereine|tenants' association|Der Mieterverein hat mir geholfen.|The tenants' association helped me.

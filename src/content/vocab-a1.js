@@ -566,7 +566,7 @@ der Schnee|snow|Im Winter gibt es Schnee.|In winter there's snow.
 schneien|to snow|Es schneit!|It's snowing!
 der Wind, Winde|wind|Der Wind ist stark.|The wind is strong.
 die Wolke, Wolken|cloud|Viele Wolken heute.|Lots of clouds today.
-das Grad, Grad|degree|Es sind 20 Grad.|It's 20 degrees.
+der Grad, Grad|degree|Es sind 20 Grad.|It's 20 degrees.
 der Frühling, Frühlinge|spring|Im Frühling blühen die Blumen.|In spring the flowers bloom.
 der Sommer, Sommer|summer|Im Sommer ist es heiß.|In summer it's hot.
 der Herbst, Herbste|autumn|Im Herbst regnet es oft.|In autumn it often rains.

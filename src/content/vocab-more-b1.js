@@ -106,7 +106,7 @@ mangelhaft|defective|Die Ware ist mangelhaft.|The goods are defective.
 die Gewährleistung|statutory warranty|Die Gewährleistung beträgt zwei Jahre.|The statutory warranty is two years.
 der Ersatz|replacement|Wir schicken Ihnen Ersatz.|We'll send you a replacement.
 der Kundenservice|customer service|Der Kundenservice ist schwer zu erreichen.|Customer service is hard to reach.
-die Hotline, Hotlines|hotline|Ich hänge seit 20 Minuten in der Hotline.|I've been on hold for 20 minutes.
+die Hotline, Hotlines|hotline|Ich hänge seit 20 Minuten in der Warteschleife der Hotline.|I've been on hold for 20 minutes.
 die Kundennummer, Kundennummern|customer number|Wie ist Ihre Kundennummer?|What's your customer number?
 die Bewertung, Bewertungen|review, rating|Das Produkt hat gute Bewertungen.|The product has good reviews.
 bewerten|to rate|Bitte bewerten Sie unseren Service.|Please rate our service.

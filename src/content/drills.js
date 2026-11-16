@@ -20,14 +20,14 @@ s07|Er schreibt eine E-Mail.|Put it in the Perfekt.|Er hat eine E-Mail geschrieb
 s08|Wir fahren nach Berlin.|Put it in the Perfekt.|Wir sind nach Berlin gefahren.
 s08|Sie steht früh auf.|Put it in the Perfekt.|Sie ist früh aufgestanden.
 s09|Ich fahre mit (der Zug).|Put the bracket in the right case.|Ich fahre mit dem Zug.
-s09|Ich gebe das Buch.|Add "mein Bruder" as the receiver.|Ich gebe meinem Bruder das Buch.
+s09|Ich gebe das Buch.|Add "mein Bruder" as the receiver.|Ich gebe meinem Bruder das Buch.||Ich gebe das Buch meinem Bruder.
 s10|Das Buch liegt auf dem Tisch.|Rewrite with "Ich lege das Buch …".|Ich lege das Buch auf den Tisch.
-s10|Ich bin in (das Büro).|Put the bracket in the right form.|Ich bin im Büro.
+s10|Ich bin in (das Büro).|Put the bracket in the right form.|Ich bin im Büro.||Ich bin in dem Büro.
 s11|Ich bleibe zu Hause. Ich bin krank.|Join with "weil".|Ich bleibe zu Hause, weil ich krank bin.
 s11|Er kommt morgen.|Start with "Ich glaube, dass".|Ich glaube, dass er morgen kommt.
 s12|Ich habe Zeit. Ich koche.|Join, starting with "Wenn".|Wenn ich Zeit habe, koche ich.
 s12|Ich war ein Kind. Ich hatte einen Hund.|Join, starting with "Als".|Als ich ein Kind war, hatte ich einen Hund.
-s13|Mein Auto ist schnell. Dein Auto ist schneller.|Make one sentence starting "Dein Auto ist …".|Dein Auto ist schneller als mein Auto.||Dein Auto ist schneller als meins.
+s13|Mein Auto ist schnell. Dein Auto ist schneller.|Make one sentence starting "Dein Auto ist …".|Dein Auto ist schneller als mein Auto.||Dein Auto ist schneller als meins.||Dein Auto ist schneller als meines.
 s13|Anna ist groß.|Use the superlative: "Anna ist am …".|Anna ist am größten.
 s14|Ich freue mich.|Change the subject to "wir".|Wir freuen uns.
 s14|Ich wasche mich.|Add "die Hände".|Ich wasche mir die Hände.
@@ -40,7 +40,7 @@ s17|Das ist das Buch. Ich lese es.|Join with a relative clause.|Das ist das Buch
 s18|Ich rufe dich an.|Put it in the Futur I.|Ich werde dich anrufen.
 s18|Morgen regnet es.|Put it in the Futur I.|Morgen wird es regnen.||Es wird morgen regnen.
 s19|Ich habe kein Geld, also kaufe ich kein Auto.|Make it unreal: "Wenn ich Geld hätte, …".|Wenn ich Geld hätte, würde ich ein Auto kaufen.
-s19|Können Sie mir helfen?|Make it more polite (Konjunktiv II).|Könnten Sie mir helfen?
+s19|Können Sie mir helfen?|Make it more polite (Konjunktiv II).|Könnten Sie mir helfen?||Würden Sie mir helfen?
 s20|Man repariert das Auto.|Make it passive.|Das Auto wird repariert.
 s20|Man baute das Haus 1990.|Make it passive (Präteritum).|Das Haus wurde 1990 gebaut.
 s21|Ich lerne Deutsch. Ich will in Berlin studieren.|Join with "um … zu".|Ich lerne Deutsch, um in Berlin zu studieren.
@@ -61,9 +61,9 @@ s28|Man muss das Problem lösen.|Make it passive with "muss".|Das Problem muss g
 s28|Man kann das leicht erklären.|Use "sich lassen".|Das lässt sich leicht erklären.
 s29|Er sagt: „Ich bin krank.“|Report it with Konjunktiv I.|Er sagt, er sei krank.
 s29|Sie sagt: „Ich habe keine Zeit.“|Report it with Konjunktiv I.|Sie sagt, sie habe keine Zeit.
-s30|Wir entscheiden morgen.|Use "eine Entscheidung treffen".|Wir treffen morgen eine Entscheidung.
+s30|Wir entscheiden morgen.|Use "eine Entscheidung treffen".|Wir treffen morgen eine Entscheidung.||Morgen treffen wir eine Entscheidung.
 s30|Darf ich etwas fragen?|Use "eine Frage stellen".|Darf ich eine Frage stellen?
-s31|Er hat keine Zeit. Er hat kein Geld.|Join with "weder … noch".|Er hat weder Zeit noch Geld.
+s31|Er hat keine Zeit. Er hat kein Geld.|Join with "weder … noch".|Er hat weder Zeit noch Geld.||Er hat weder Geld noch Zeit.
 s31|Sie spricht Deutsch. Sie spricht Englisch.|Join with "sowohl … als auch".|Sie spricht sowohl Deutsch als auch Englisch.
 s32|der Hund, der bellt|Use a participle.|der bellende Hund
 s32|das Auto, das gestohlen wurde|Use a participle.|das gestohlene Auto
@@ -164,7 +164,7 @@ nehmen|annehmen = to accept; die Annahme = assumption; teilnehmen = to take part
 geben|die Gabe = gift; ausgeben = to spend; aufgeben = to give up; die Aufgabe = task
 leben|das Leben = life; lebendig = alive; erleben = to experience; das Erlebnis = experience
 lieben|die Liebe = love; lieb = dear; verliebt = in love; beliebt = popular
-schlafen|der Schlaf = sleep; einschlafen = to fall asleep; ausschlafen = to sleep in; müde = tired
+schlafen|der Schlaf = sleep; einschlafen = to fall asleep; ausschlafen = to sleep in
 fühlen|das Gefühl = feeling; sich wohlfühlen = to feel good; einfühlsam = empathetic
 wissen|das Wissen = knowledge; die Wissenschaft = science; bewusst = conscious
 bauen|der Bau = construction; das Gebäude = building; aufbauen = to build up; der Bauer = farmer

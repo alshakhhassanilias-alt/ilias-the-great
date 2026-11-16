@@ -343,7 +343,7 @@ der Tennisplatz, Tennisplätze|tennis court|Der Tennisplatz ist reserviert.|The 
 die Halle, Hallen|hall, indoor arena|Im Winter trainieren wir in der Halle.|In winter we train indoors.
 die Medaille, Medaillen|medal|Sie hat eine Goldmedaille gewonnen.|She won a gold medal.
 der Rekord, Rekorde|record|Das ist ein neuer Rekord!|That's a new record!
-die Weltmeisterschaft, Weltmeisterschaften|world championship|Die Weltmeisterschaft findet in Katar statt.|The world championship takes place in Qatar.
+die Weltmeisterschaft, Weltmeisterschaften|world championship|Wer hat die letzte Weltmeisterschaft gewonnen?|Who won the last World Cup?
 die Olympischen Spiele (Pl.)|the Olympic Games|Die Olympischen Spiele sind alle vier Jahre.|The Olympic Games are every four years.
 sich aufwärmen|to warm up|Vor dem Training wärmen wir uns auf.|We warm up before training.
 die Kondition|fitness, stamina|Ich habe keine Kondition.|I have no stamina.

@@ -195,7 +195,7 @@ das Waschmittel, Waschmittel|detergent|Das Waschmittel ist alle.|We're out of de
 die Ordnung|order, tidiness|Ordnung ist ihm wichtig.|Tidiness is important to him.
 ordentlich|tidy|Sein Zimmer ist immer ordentlich.|His room is always tidy.
 die Unordnung|mess|Was für eine Unordnung!|What a mess!
-der Fleck, Flecken|stain|Auf dem Hemd ist ein Fleck.|There's a stain on the shirt.
+der Fleck, Flecke|stain|Auf dem Hemd ist ein Fleck.|There's a stain on the shirt.
 der Staub|dust|Überall liegt Staub.|There's dust everywhere.
 das Werkzeug, Werkzeuge|tool|Hast du Werkzeug?|Do you have tools?
 der Hammer, Hämmer|hammer|Gib mir mal den Hammer.|Pass me the hammer.

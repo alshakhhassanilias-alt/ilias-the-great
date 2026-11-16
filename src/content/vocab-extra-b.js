@@ -63,7 +63,7 @@ die Pünktlichkeit|punctuality|Die Pünktlichkeit der Bahn ist schlecht.|The rai
 der Pendler, Pendler|commuter|Viele Pendler fahren mit der S-Bahn.|Many commuters take the S-Bahn.
 der Unfall, Unfälle|accident|Auf der Autobahn gab es einen Unfall.|There was an accident on the motorway.
 der Strafzettel, Strafzettel|parking ticket|Ich habe einen Strafzettel bekommen.|I got a parking ticket.
-blitzen|to be caught by a speed camera|Ich wurde geblitzt.|I got caught by a speed camera.
+blitzen|to flash (lightning, speed camera)|Ich wurde geblitzt.|I got caught by a speed camera.
 der Fahrschein, Fahrscheine|ticket|Fahrschein, bitte!|Ticket, please!
 schwarzfahren (fährt schwarz, fuhr schwarz, ist schwarzgefahren)|to travel without a ticket|Schwarzfahren kostet 60 Euro.|Travelling without a ticket costs 60 euros.
 die Kontrolle, Kontrollen|inspection|Fahrkartenkontrolle!|Ticket inspection!

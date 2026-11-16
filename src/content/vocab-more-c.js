@@ -247,7 +247,7 @@ die Produktpalette, Produktpaletten|product range|Die Produktpalette wird erweit
 die Markteinführung, Markteinführungen|product launch|Die Markteinführung ist im Herbst.|The launch is in the autumn.
 die Zielvorgabe, Zielvorgaben|target|Wir haben die Zielvorgaben erreicht.|We've met the targets.
 der Quartalsbericht, Quartalsberichte|quarterly report|Der Quartalsbericht ist positiv.|The quarterly report is positive.
-die Bilanz ziehen|to take stock|Am Jahresende ziehen wir Bilanz.|At year-end we take stock.
+Bilanz ziehen|to take stock|Am Jahresende ziehen wir Bilanz.|At year-end we take stock.
 die Kosten-Nutzen-Analyse|cost-benefit analysis|Wir machen eine Kosten-Nutzen-Analyse.|We're doing a cost-benefit analysis.
 profitabel|profitable|Das Geschäft ist profitabel.|The business is profitable.` },
 

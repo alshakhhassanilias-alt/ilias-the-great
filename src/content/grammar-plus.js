@@ -888,7 +888,7 @@ Modal verb in position 2, then *participle + werden* at the end.
 The *werden* passive describes a process; *sein* + participle describes the *result*.
 > Die Tür *wird* geschlossen. = The door is being closed. (process)
 > Die Tür *ist* geschlossen. = The door is closed. (state)
-? Das Geschäft {ist/wird/hat} heute geschlossen. = The shop is closed today.
+? Das Geschäft {ist/hat/sind} heute geschlossen. = The shop is closed today.
 ---
 ## Alternatives to the passive
 | *sich lassen* + infinitive | can be done | Das lässt sich ändern. |
@@ -904,7 +904,7 @@ items: [
 'Die Kosten sollen gesenkt {werden/worden/sein}.|The costs are supposed to be reduced.',
 'Das Wasser ist hier nicht {trinkbar/getrunken/trinkend}.|The water here isn\'t drinkable.',
 'In diesem Raum {darf/muss/kann} nicht telefoniert werden.|No phone calls may be made in this room.',
-'Die Arbeit {ist/wird/hat} endlich erledigt.|The work is finally done.',
+'Die Arbeit {ist/hat/sind} endlich erledigt.|The work is finally done.',
 '{Man/Es/Wer} sagt, dass er sehr reich ist.|People say he\'s very rich.',
 'Dieser Plan ist leider nicht {umsetzbar/umgesetzt/umsetzen}.|This plan unfortunately isn\'t feasible.' ]},
 
@@ -1098,11 +1098,11 @@ items: [
 'Hör {mal/denn/ja}, ich muss dir was erzählen!|Listen, I have to tell you something!',
 'Das hast du {ja/denn/halt} toll gemacht!|You did that really well!',
 'Was ist {denn/doch/mal} passiert?|What happened, then?',
-'Da kann man nichts machen, das ist {eben/denn/mal} so.|Nothing you can do, that\'s just the way it is.',
+'Da kann man nichts machen, das ist {eben/denn/gar} so.|Nothing you can do, that\'s just the way it is.',
 'Ich bin der Meinung, {dass/das/weil} wir mehr investieren sollten.|I\'m of the opinion that we should invest more.',
 'Da stimme ich dir völlig {zu/an/bei}.|I completely agree with you there.',
 'Das sehe ich {genauso/gleich so/so gleich}.|I see it exactly the same way.',
 'Wie {meinst/sagst/denkst} du das?|What do you mean by that?',
 'Na ja, das kommt {darauf/davon/dafür} an.|Well, that depends.',
-'Setz dich {doch/denn/eben}!|Do sit down!' ]}
+'Setz dich {doch/denn/etwa}!|Do sit down!' ]}
 };
