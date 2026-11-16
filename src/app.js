@@ -279,11 +279,11 @@ function review(id, ok, q) {
   const r = S.it[id]; if (!r) return;
   fsrsInit(r);
   const g = !ok ? 1 : q === 'hard' ? 2 : q === 'easy' ? 4 : 3, R = retr(r), D = r[7], St = r[6];
-  const nD = clamp(FW[7] * D0(3) + (1 - FW[7]) * (D - FW[6] * (g - 3)), 1, 10);
-  let nS = ok ? St * (Math.exp(FW[8]) * (11 - D) * Math.pow(St, -FW[9]) * (Math.exp(FW[10] * (1 - R)) - 1) * (g === 2 ? FW[15] : 1) * (g === 4 ? FW[16] : 1) + 1)
+  const nD = clamp(FW[7] * D0(3) + (1 - FW[7]) * (D - (g === 2 ? -0.25 : FW[6] * (g - 3))), 1, 10);
+  let nS = ok ? St * (Math.exp(FW[8]) * (11 - D) * Math.pow(St, -FW[9]) * (Math.exp(FW[10] * (1 - R)) - 1) * (g === 2 ? 0.7 : 1) * (g === 4 ? FW[16] : 1) + 1)
               : FW[11] * Math.pow(D, -FW[12]) * (Math.pow(St + 1, FW[13]) - 1) * Math.exp(FW[14] * (1 - R));
   nS = clamp(nS, 0.1, 3650);
-  r[6] = nS; r[7] = nD; r[5] = Date.now(); r[2] = (11 - nD) / 3;
+  r[6] = nS; r[7] = g >= 3 ? nD + (D0(3) - nD) * 0.2 : nD; r[5] = Date.now(); r[2] = (11 - nD) / 3;
   if (ok) { r[4]++; r[0] = clamp(Math.round(nS), 1, 365); r[1] = midnight() + r[0] * DAY; }
   else { r[3]++; r[4] = 0; r[0] = 0; r[1] = Date.now(); }
 }
