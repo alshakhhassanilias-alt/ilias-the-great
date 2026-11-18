@@ -9,7 +9,7 @@ import { loadGeo } from '../sim/load';
 import { createGame } from '../sim/init';
 import { tick as simTick, tickSlices } from '../sim/tick';
 import { setInTick } from '../sim/relations';
-import { serialize, deserialize } from '../sim/save';
+import { serialize, serializeSlices, deserialize } from '../sim/save';
 import { DEFAULT_SETTINGS, type CountryId, type GameState, type LogEntry, type Settings, type WarRecord } from '../sim/types';
 import { alliesOf, areAtWar } from '../sim/relations';
 import { neighborsOf } from '../sim/diplomacy';
@@ -36,7 +36,7 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 2;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
 
 const QUICK = 'Quicksave';
 
@@ -250,7 +250,7 @@ class Store {
     this.scenResultOpen = false;
     this.scenClosed = s.scen?.done?.tick ?? -1;
     this.achSent = new Set();
-    this.splash = null; this.callouts = []; this.jolt = null; this.cine = null; this.election = null; this.strikes = [];
+    this.splash = null; this.callouts = []; this.jolt = null; this.cine = null; this.election = null; this.strikes = []; this.saving = null;
     this.focusRequest++;
     this.startLoop();
     this.notify();
@@ -297,6 +297,7 @@ class Store {
       const dt = Math.min(0.25, (t - this.last) / 1000);
       this.last = t;
       if (!this.state || this.state.victory?.achieved === false) return;
+      if (this.saving) return; // an autosave is being written (a few frames)
       if (this.speed === 0 || this.heldBy) { if (this.pending) { this.flushTick(); this.notify(false); } return; }
       this.acc = Math.min(3, this.acc + dt * SPEEDS[this.speed].tps);
       // run the simulation in slices within a small time budget per frame: drawing always gets its share
@@ -504,6 +505,7 @@ class Store {
   /** Run a player action that mutates the state, show feedback, refresh UI. */
   act<T extends ActionResult>(fn: (s: GameState) => T, quiet = false): T {
     const s = this.state!;
+    this.finishSave(); // an autosave in progress is written as the world stood before this action
     const r = fn(s);
     this.actSeq++;
     this.processLog(); // consume events caused by the action so they don't re-trigger later
@@ -557,8 +559,24 @@ class Store {
   /** The snapshot is taken at the week boundary (so it is consistent); writing waits for an idle moment. Autosaves rotate through a few slots. */
   private autosave() {
     if (!this.state || prefs.autosaveMonths <= 0) return;
-    let text: string;
-    try { text = serialize(this.state); } catch { return; }
+    // built over a few frames while the clock is held, so the save never freezes the screen
+    if (this.saving) return;
+    const gen = serializeSlices(this.state);
+    this.saving = gen;
+    const step = () => {
+      if (this.saving !== gen) return;
+      let r: IteratorResult<void, string>;
+      try { r = gen.next(); } catch { this.saving = null; return; }
+      if (!r.done) { requestAnimationFrame(step); return; }
+      this.saving = null;
+      this.storeAutosave(r.value);
+    };
+    requestAnimationFrame(step);
+  }
+  /** an autosave being written: the clock waits for it (and any player action finishes it first) */
+  private saving: Generator<void, string> | null = null;
+  private finishSave() { const g = this.saving; if (!g) return; let r = g.next(); while (!r.done) r = g.next(); this.saving = null; this.storeAutosave(r.value); }
+  private storeAutosave(text: string) {
     const n = Math.max(1, prefs.autosaveSlots);
     const autos = this.saveList.filter((m) => m.auto && /^Autosave \d+$/.test(m.name));
     const free = Array.from({ length: n }, (_, i) => `Autosave ${i + 1}`).find((x) => !autos.some((m) => m.name === x));
@@ -574,7 +592,7 @@ class Store {
     try {
       const txt = await saves.read(name);
       if (!txt) { this.toast('That save is missing.', 'danger'); return false; }
-      this.pending = null;
+      this.pending = null; this.saving = null;
       this.state = deserialize(txt, this.geo.provinces.length);
       this.victoryShown = !!this.state.victory;
       this.preview = false;

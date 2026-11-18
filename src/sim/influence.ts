@@ -187,7 +187,12 @@ function aiCourt(s: GameState, p: Country) {
 
 // ------------------------------------------------------------------ the monthly step
 export function stepInfluence(s: GameState) {
+  for (const _ of stepInfluenceGen(s)) { /* run to completion */ }
+}
+/** The same, in slices: the monthly pass over every country was one of the longest pieces of the week. */
+export function* stepInfluenceGen(s: GameState): Generator<void> {
   if (s.tick % 4 !== 2) return;
+  let n = 0;
   const inf = infOf(s);
   const powers = powersOf(s);
   const top = maxGdp(s);
@@ -197,6 +202,7 @@ export function stepInfluence(s: GameState) {
   // natural influence: each power's holding drifts toward what trade, alliances and size give it; bought influence fades
   for (const t of s.countries) {
     if (!t.alive) continue;
+    if (++n % 24 === 0) yield;
     const m = (inf[t.id] ??= {});
     for (const p of powers) {
       if (p.id === t.id) continue;
@@ -207,7 +213,9 @@ export function stepInfluence(s: GameState) {
     }
     for (const k of Object.keys(m)) if (!s.countries[Number(k)]?.alive) delete m[Number(k)];
   }
-  for (const p of powers) if (p.id !== s.player) aiCourt(s, p);
+  yield;
+  for (const p of powers) { if (p.id !== s.player) aiCourt(s, p); if (++n % 6 === 0) yield; }
+  yield;
   // the effects of a sphere, and the news when one changes hands
   for (const t of s.countries) {
     if (!t.alive) continue;

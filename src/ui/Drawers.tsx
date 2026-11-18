@@ -1,4 +1,5 @@
 import { nationalColor } from '../map/palette';
+import { RecordPanel } from './Record';
 import { powerTable } from '../sim/power';
 import { START_YEAR } from '../sim/types';
 import { TROPHIES } from '../sim/trophies';
@@ -48,6 +49,7 @@ export function Drawers() {
   if (open === 'peace') return <PeaceDrawer onClose={close} />;
   if (open === 'help') return <HelpModal onClose={close} />;
   if (open === 'legacy' && store.state.legacy) return <LegacyDossier onClose={close} />;
+  if (open === 'record') return <RecordPanel onClose={close} />;
   return null;
 }
 
@@ -253,6 +255,7 @@ function MenuDrawer({ onClose }: { onClose: () => void }) {
         <button className="btn primary" onClick={onClose}>▶ Resume</button>
         <button className="btn" onClick={() => store.openDrawer('save')}>💾 Save game<small>{keyName(prefs.keys.quickSave)} quick save</small></button>
         <button className="btn" onClick={() => store.openDrawer('load')}>📂 Load game<small>{keyName(prefs.keys.quickLoad)} quick load</small></button>
+        <button className="btn" onClick={() => store.openDrawer('record')}>📜 Your years<small>every year's grade, numbers and story</small></button>
         <button className="btn" onClick={() => store.openDrawer('settings')}>⚙ Settings<small>game, display, sound, controls</small></button>
         <button className="btn" onClick={() => { store.helpStep = 0; store.openDrawer('help'); }}>❓ How to play</button>
         <button className="btn" onClick={() => { setPrefs({ walk: 0, tips: [] }); onClose(); }}>🧭 Replay the walkthrough</button>

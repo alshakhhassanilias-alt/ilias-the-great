@@ -11,6 +11,7 @@ import { seedOf } from '../../sim/story';
 import { goalHelp, guideLevel } from '../guides';
 import { priced } from './Desk';
 import { Glyph } from '../art/Glyphs';
+import { GradeStrip } from '../Record';
 
 const THEME_COL: Record<string, string> = { economy: 'var(--teal)', politics: 'var(--blue)', military: 'var(--red)' };
 const THEME_ICON: Record<string, string> = { economy: 'rise', politics: 'scale', military: 'sword' };
@@ -44,6 +45,7 @@ export function MissionCard() {
             {A && <i className="mr-bar"><i style={{ width: `${Math.round(race.toNext * 100)}%` }} /></i>}
           </div>
         </div>
+        {(s.plan?.history.length ?? 0) > 0 && <GradeStrip hist={s.plan!.history} max={10} onOpen={() => store.openDrawer('record')} />}
         <span className="mission-path">Make {c.name} {ambition} · <b>{PATH_LABEL[path.path]}</b>{waiting ? <em className="mission-now"> · a story decision is waiting</em> : null}</span>
       </div>
       <ol className="mission-goals">

@@ -3623,3 +3623,62 @@ function playStory38(s: GameState, weeks: number) {
   }
   return seen;
 }
+
+import { recordsOf as recordsOf39, goodStreak as goodStreak39, gpaGrade as gpaGrade39, type YearRec as YearRec39 } from '../src/sim/plan';
+describe('every year is kept (round 39b)', () => {
+  it('each closed year keeps its grade, report card, numbers, moments and world growth rank', () => {
+    const s = fresh('Jordan', { mode: 'legacy', seed: 5 });
+    for (let w = 0; w < 52 * 3 + 1; w++) {
+      for (const it of [...s.inbox]) resolveEvent(s, geo, 0, it.uid);
+      if (s.legacy?.hand.length) s.legacy.hand = [];
+      if (s.plan) s.plan.pending = false;
+      tick(s, geo);
+    }
+    const h = s.plan!.history;
+    expect(h.length).toBe(3);
+    expect(h.map((x) => x.year)).toEqual([2021, 2022, 2023].map((y) => y + (s.settings.startYear ?? 2021) - 2021));
+    for (const r of h) {
+      expect(r.lines!.length, `${r.year}`).toBeGreaterThan(3);
+      expect(r.headline!.length).toBeGreaterThan(5);
+      for (const k of ['gdppc', 'growth', 'stab', 'appr', 'rank', 'debt', 'gdp', 'pop', 'troops'] as const) expect(Number.isFinite(r[k]), `${r.year} ${k}`).toBe(true);
+      expect(r.growthRank).toBeGreaterThanOrEqual(1);
+      expect(r.growthRank!).toBeLessThanOrEqual(r.growthOf!);
+      expect(r.growthOf!).toBeGreaterThan(100);
+      expect(r.leader).toBe(s.legacy!.leader);
+      expect(Array.isArray(r.moments)).toBe(true);
+      for (const m of r.moments!) expect(m).not.toMatch(/in review: grade|^🎙/);
+    }
+    // the record survives a save and load
+    const back = deserialize(serialize(s), geo.provinces.length);
+    const brief = (x: typeof h) => x.map((r) => [r.year, r.grade, r.score, r.headline, r.moments, r.records, r.growthRank, r.lines?.length, Math.round(r.gdppc!)]);
+    expect(brief(back.plan!.history)).toEqual(brief(h)); // (numbers are rounded to nine digits in a save)
+  });
+  it('records are set only against earlier years, and good streaks are counted', () => {
+    const y = (year: number, score: number, extra: Partial<YearRec39> = {}): YearRec39 => ({ year, score, grade: score >= 70 ? 'A' : score >= 57 ? 'B' : 'C', gdppc: 1000 + year, growth: 0.03, appr: 50, rank: 50, ...extra });
+    const past = [y(2021, 60), y(2022, 64), y(2023, 50)];
+    expect(recordsOf39(past.slice(0, 1), y(2022, 99))).toEqual([]); // too early to call anything a record
+    const r = recordsOf39(past, y(2024, 80, { growth: 0.07, appr: 61, rank: 40 }));
+    expect(r[0]).toBe('Best year of the career');
+    expect(r.join(' ')).toMatch(/Fastest growth.*7\.0%/);
+    expect(r.length).toBeLessThanOrEqual(3);
+    expect(recordsOf39(past, y(2024, 55, { growth: 0.01, appr: 40, rank: 70 }))).toEqual([]);
+    expect(goodStreak39([y(2021, 40), y(2022, 60), y(2023, 75)])).toBe(2);
+    expect(goodStreak39([y(2021, 60), y(2022, 40)])).toBe(0);
+    expect(gpaGrade39(4)).toBe('A'); expect(gpaGrade39(2.5)).toBe('B'); expect(gpaGrade39(0.2)).toBe('F');
+  });
+});
+
+import { serializeSlices as serializeSlices39 } from '../src/sim/save';
+describe('autosaves never freeze the screen (round 39b)', () => {
+  it('a save written in pieces is the same save', () => {
+    const s = fresh('Poland', { mode: 'legacy' });
+    for (let w = 0; w < 30; w++) tick(s, geo);
+    const g = serializeSlices39(s, 0);
+    let r = g.next(), steps = 0;
+    while (!r.done) { r = g.next(); steps++; }
+    expect(steps).toBeGreaterThan(20); // it really is cut into pieces
+    const strip = (x: string) => x.replace(/"savedAt":"[^"]+"/, '');
+    expect(strip(r.value)).toBe(strip(serialize(s)));
+    expect(deserialize(r.value, geo.provinces.length).tick).toBe(s.tick);
+  });
+});

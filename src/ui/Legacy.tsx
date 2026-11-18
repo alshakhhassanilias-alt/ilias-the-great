@@ -5,6 +5,7 @@
 import { Portrait, faceFor } from './art/Portrait';
 import { leaderFace } from './LookEditor';
 import { DynastyPanel, LeaderEditor } from './Dynasty';
+import { GradeStrip } from './Record';
 import { useState } from 'react';
 import { store, useStore } from '../state/store';
 import { AGENDA, actAgendaAction, agendaById, type AgendaCat } from '../sim/agenda';
@@ -32,6 +33,7 @@ export function LegacyChip() {
   return (
     <button className={`legacy-chip ${L.status}`} onClick={() => store.openDrawer('legacy')} title="Your career and legacy">
       <span className={`grade g-${g}`}>{g}</span>
+      {(() => { const y = s.plan?.history.at(-1); return y ? <span className={`lc-year g-${y.grade}`} title={`${y.year}: ${y.grade} (${y.score}/100)`}><b>{y.grade}</b><small>{y.year}</small></span> : null; })()}
       <span className="lc-txt">
         <b>{L.status === 'office' ? `Term ${L.term} · ${isFree(s.countries[s.player].gov) ? 'election' : 'congress'} in ${years(left)}` : L.status === 'opposition' ? `${isFree(s.countries[s.player].gov) ? 'In opposition' : 'In exile'} · ${L.opposition?.support.toFixed(0)}% support` : 'Career over'}</b>
         <small>Legacy {L.score.toFixed(0)}{L.status === 'office' ? ` · polls ${voteShare(s).toFixed(0)}%` : ''}</small>
@@ -142,6 +144,7 @@ export function LegacyDossier({ onClose }: { onClose: () => void }) {
             </div>
             <div className="ld-grade"><b className={`grade big g-${grade(score)}`}>{grade(score)}</b><small>{score.toFixed(0)} pts</small></div>
           </div>
+          {(s.plan?.history.length ?? 0) > 0 && <div className="ld-years"><h4>Year by year</h4><GradeStrip hist={s.plan!.history} max={16} onOpen={() => store.openDrawer('record')} /></div>}
           <PersonaPanel />
           <div className="ld-parts">
             {Object.entries(PART_LABEL).map(([k, label]) => {

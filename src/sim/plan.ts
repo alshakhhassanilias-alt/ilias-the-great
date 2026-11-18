@@ -16,7 +16,7 @@ import { gainPC } from './domestic';
 import { focusById, type FocusId } from './focus';
 import { START_YEAR, type GameState } from './types';
 
-export interface Snap { tick: number; real: number; stab: number; appr: number; rank: number; debt: number; rep: number; goals: number; kept: number; techs: number; clients: number; prov: number }
+export interface Snap { /** every country's real output when the year began (for the world growth table) */ world?: number[]; tick: number; real: number; stab: number; appr: number; rank: number; debt: number; rep: number; goals: number; kept: number; techs: number; clients: number; prov: number }
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 export interface ReportLine { key: string; label: string; text: string; pts: number }
 export interface Report { year: number; grade: Grade; score: number; headline: string; lines: ReportLine[]; pledge?: { title: string; kept: boolean }; focus?: FocusId; reward: string }
@@ -29,7 +29,7 @@ export interface Plan {
   snap: Snap;
   pledge?: { id: string; title: string; done?: boolean };
   report?: Report;
-  history: { year: number; grade: Grade; score: number; focus?: FocusId; pledge?: boolean }[];
+  history: YearRec[];
   /** a mid-year change of focus has been made */
   switched?: boolean;
   /** the country when the game began (the yearly 'then and now') */
@@ -38,12 +38,73 @@ export interface Plan {
   top?: number[]; topPrev?: number[];
 }
 
+/**
+ * One year of your record, kept for good: the grade and the full report card, who governed, the numbers as the year
+ * closed, and its biggest moments. (Older saves only have the first five fields.)
+ */
+export interface YearRec {
+  year: number; grade: Grade; score: number; focus?: FocusId; pledge?: boolean;
+  headline?: string; lines?: ReportLine[]; pledgeTitle?: string;
+  leader?: string; term?: number; gen?: number; office?: boolean;
+  /** income per head (real), growth over the year, stability, approval, world power rank, debt (share of GDP) */
+  gdppc?: number; growth?: number; stab?: number; appr?: number; rank?: number; debt?: number;
+  gdp?: number; pop?: number; troops?: number; prov?: number; rep?: number; unemp?: number; infl?: number; wars?: number;
+  /** where your growth ranked among all the world's economies that year (1 = fastest), and out of how many */
+  growthRank?: number; growthOf?: number;
+  /** the year's biggest moments, from the news */
+  moments?: string[];
+  /** career records this year set ("best year", "fastest growth" ...) */
+  records?: string[];
+}
+export const GPA: Record<Grade, number> = { S: 4.3, A: 4, B: 3, C: 2, D: 1, F: 0 };
+/** what a grade average reads as */
+export const gpaGrade = (v: number): Grade => (v >= 4.15 ? 'S' : v >= 3.5 ? 'A' : v >= 2.5 ? 'B' : v >= 1.5 ? 'C' : v >= 0.5 ? 'D' : 'F');
+
+/** The year's biggest moments for you, from the news: wars, elections, land, promises, crises (at most five). */
+function momentsOf(s: GameState, from: number, to: number): string[] {
+  const P = s.player;
+  const weight = (text: string, kind: string, big?: boolean) => {
+    let w = big ? 3 : 1;
+    if (/ELECTION|PARTY CONGRESS|PALACE COUP|COUP|CAPITAL FALLS|wiped off the map|INTERVENTION|declared war|PEACE|surrender|WORLD CRISIS|GREAT AMBITION|CHAPTER .* WRITTEN|RECORD/.test(text)) w += 4;
+    if (/PROMISE KEPT|PROMISE BROKEN|STAR WON|TROPHY|overtakes|passes|RED LINE|ENCIRCLED|UPRISING|default/i.test(text)) w += 2;
+    if (kind === 'war' || kind === 'territory' || kind === 'peace') w += 1;
+    if (/in review: grade|^🏅 RECORD YEAR|GOOD YEARS IN A ROW|^🎙|declares .*'s year/.test(text)) w = -1; // the year's own verdict, and other leaders' slogans, are not its story
+    return w;
+  };
+  const seen = new Set<string>();
+  return s.log
+    .filter((e) => e.tick > from && e.tick <= to && e.countries.includes(P) && (e.important || e.big))
+    .map((e) => ({ e, w: weight(e.text, e.kind, e.big) }))
+    .filter((x) => x.w > 0)
+    .sort((a, b) => b.w - a.w || a.e.tick - b.e.tick)
+    .filter((x) => { const k = x.e.text.slice(0, 40); if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 5)
+    .sort((a, b) => a.e.tick - b.e.tick)
+    .map((x) => (x.e.text.length > 170 ? `${x.e.text.slice(0, 168)}…` : x.e.text));
+}
+
+/** The records a year sets against every earlier year of the same career (the first year sets none). */
+export function recordsOf(prev: YearRec[], r: YearRec): string[] {
+  const past = prev.filter((h) => h.gdppc !== undefined);
+  if (past.length < 2) return [];
+  const out: string[] = [];
+  if (r.score > Math.max(...prev.map((h) => h.score))) out.push('Best year of the career');
+  if (r.growth !== undefined && r.growth > Math.max(...past.map((h) => h.growth ?? -1)) && r.growth > 0.02) out.push(`Fastest growth yet (${(r.growth * 100).toFixed(1)}%)`);
+  if (r.appr !== undefined && r.appr > Math.max(...past.map((h) => h.appr ?? 0)) && r.appr > 50) out.push(`Highest approval yet (${r.appr.toFixed(0)}%)`);
+  if (r.rank !== undefined && r.rank < Math.min(...past.map((h) => h.rank ?? 999))) out.push(`Highest world rank yet (#${r.rank})`);
+  if (r.gdppc !== undefined && r.gdppc > Math.max(...past.map((h) => h.gdppc ?? 0)) * 1.0001 && out.length === 0 && r.score >= 57) out.push('The country has never been richer');
+  return out.slice(0, 3);
+}
+/** How many years in a row, up to now, were graded B or better. */
+export function goodStreak(h: YearRec[]): number { let n = 0; for (let i = h.length - 1; i >= 0 && GPA[h[i].grade] >= 3; i--) n++; return n; }
+
 export const PLEDGE_MISS = 4;
 export const SWITCH_PC = 15;
 
 function snapOf(s: GameState): Snap {
   const c = s.countries[s.player];
   return {
+    world: s.countries.map((x) => (x.alive ? Math.round(x.eco.realGdp) : 0)),
     tick: s.tick, real: c.eco.realGdp, stab: c.eco.stability, appr: approval(s, c), rank: powerRank(s, s.player),
     debt: c.eco.debt / Math.max(1, c.eco.gdp), rep: c.reputation, goals: Object.keys(s.goalsDone).length,
     kept: c.politics?.gov?.kept ?? 0, techs: c.rs ? c.rs.lv.reduce((t, v) => t + v, 0) : -1, clients: clientsOf(s, s.player).length, prov: c.provinces.length,
@@ -108,8 +169,41 @@ export function stepPlan(s: GameState) {
   if (R.grade === 'S' || R.grade === 'A' || R.grade === 'B') gainPC(s, R.grade === 'S' ? 12 : R.grade === 'A' ? 8 : 4);
   if (R.grade === 'S' || R.grade === 'A') s.stats.apprBoost = (s.stats.apprBoost ?? 0) + (R.grade === 'S' ? 3 : 2);
   if (R.grade === 'F') s.stats.apprBoost = (s.stats.apprBoost ?? 0) - 2;
-  P.history.push({ year: P.year, grade: R.grade, score: R.score, focus: c.focus, pledge: P.pledge ? !!P.pledge.done : undefined });
-  if (P.history.length > 80) P.history.splice(0, P.history.length - 80);
+  const L = s.legacy;
+  const real0 = P.snap.real, years = Math.max(0.25, (s.tick - P.snap.tick) / 52);
+  const rec: YearRec = {
+    year: P.year, grade: R.grade, score: R.score, focus: c.focus, pledge: P.pledge ? !!P.pledge.done : undefined,
+    headline: R.headline, lines: R.lines, ...(P.pledge ? { pledgeTitle: P.pledge.title } : {}),
+    ...(L && s.settings.mode === 'legacy' ? { leader: L.leader, term: L.term, gen: s.dynasty?.gen ?? 1, office: L.status === 'office' } : {}),
+    gdppc: c.eco.realGdp / Math.max(1, c.eco.pop), growth: Math.pow(Math.max(0.01, c.eco.realGdp / Math.max(1, real0)), 1 / years) - 1,
+    stab: c.eco.stability, appr: approval(s, c), rank: powerRank(s, s.player), debt: c.eco.debt / Math.max(1, c.eco.gdp),
+    gdp: c.eco.gdp, pop: c.eco.pop, troops: c.mil.troops, prov: c.provinces.length, rep: c.reputation, unemp: c.eco.unemployment, infl: c.eco.inflation,
+    wars: s.wars.filter((w) => w.attackers.includes(c.id) || w.defenders.includes(c.id)).length,
+    moments: momentsOf(s, P.started, s.tick),
+  };
+  // the world growth table: every economy's growth over the same year
+  const w0 = P.snap.world;
+  if (w0 && w0.length) {
+    const gs: { id: number; g: number }[] = [];
+    for (const x of s.countries) if (x.alive && (w0[x.id] ?? 0) > 0 && x.eco.pop > 3e5) gs.push({ id: x.id, g: x.eco.realGdp / w0[x.id] });
+    gs.sort((a, b) => b.g - a.g);
+    const at = gs.findIndex((x) => x.id === c.id);
+    if (at >= 0) { rec.growthRank = at + 1; rec.growthOf = gs.length; }
+  }
+  rec.records = recordsOf(P.history, rec);
+  if (rec.growthRank !== undefined && rec.growthRank <= 10 && rec.records.length < 3) rec.records.push(rec.growthRank === 1 ? 'The fastest-growing economy on earth' : `#${rec.growthRank} fastest-growing economy on earth`);
+  P.history.push(rec);
+  if (P.history.length > 200) P.history.splice(0, P.history.length - 200);
+  // a record year, or a run of good years, is news: it deserves its moment
+  const streak = goodStreak(P.history);
+  if (rec.records.length) logEvent(s, `🏅 RECORD YEAR: ${rec.records.join(' · ')}.`, 'info', [s.player], true, { big: true });
+  // a run of good years pays: the country trusts a government that keeps delivering
+  if (streak >= 3 && GPA[R.grade] >= 3) {
+    const pc = streak >= 5 ? 10 : 6;
+    gainPC(s, pc);
+    s.stats.apprBoost = (s.stats.apprBoost ?? 0) + (streak >= 5 ? 3 : 2);
+    logEvent(s, `🔥 ${streak} GOOD YEARS IN A ROW: ${streak >= 5 ? 'people are starting to call it a golden age' : 'the country has found its stride'}. Political capital +${pc}, approval +${streak >= 5 ? 3 : 2}.`, 'info', [s.player], true, { big: !rec.records.length });
+  }
   logEvent(s, `📋 ${P.year} in review: grade ${R.grade}. ${R.headline}`, 'info', [s.player], true);
   P.report = R;
   if (P.top) P.topPrev = P.top;

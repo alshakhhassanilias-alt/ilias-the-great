@@ -47,7 +47,11 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       // backing resolution: up to 2x on desktops, 1.5x on phones, 1x in low quality (far cheaper to paint)
       const cap = quality === 0 ? 1 : coarse || quality === 1 ? 1.5 : 2;
       r.quality = quality; store.quality = quality;
-      r.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, cap));
+      // and a budget of pixels: the base layer (the view plus a margin) is redrawn whole, so on big high-DPI screens it is
+      // drawn a little under full resolution rather than costing tens of milliseconds every time a border moves
+      const m = Math.max(rect.width, rect.height) * 0.24, area = (rect.width + m) * (rect.height + m);
+      const budget = quality === 2 ? 7.2e6 : 4.5e6;
+      r.resize(rect.width, rect.height, Math.max(1, Math.min(window.devicePixelRatio || 1, cap, Math.sqrt(budget / Math.max(1, area)))));
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -62,8 +66,8 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
       const dt = t - lastT; lastT = t;
       if (store.graphics === 'auto' && store.speed > 0 && !store.preview && dt < 1000) {
         samples++; if (dt > 42) slow++;
-        if (samples >= 150) {
-          if (slow / samples > 0.4 && quality > 0) { quality = (quality - 1) as 0 | 1; resize(); store.toast(quality === 1 ? 'Graphics lowered a notch for smoother play (Settings → Graphics).' : 'Graphics set to Fast to keep the game smooth (Settings → Graphics).', 'info'); }
+        if (samples >= 90) {
+          if (slow / samples > 0.33 && quality > 0) { quality = (quality - 1) as 0 | 1; resize(); store.toast(quality === 1 ? 'Graphics lowered a notch for smoother play (Settings → Graphics).' : 'Graphics set to Fast to keep the game smooth (Settings → Graphics).', 'info'); }
           samples = 0; slow = 0;
         }
       }

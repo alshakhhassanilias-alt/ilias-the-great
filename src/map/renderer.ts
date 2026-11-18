@@ -153,6 +153,7 @@ export class MapRenderer {
   private baseSoftDirty = false;
   private lastBase = 0;
   private lastViewChange = 0;
+  private overlayKey = '';
   /** while the map is being dragged or zoomed the base is drawn without its soft shading (cheap); the full picture follows once it rests */
   private draftNow = false;
   private baseDraft = false;
@@ -426,6 +427,7 @@ export class MapRenderer {
       if (this.ownerSnap[p] !== state.owner[p]) {
         const prev = this.ownerSnap[p];
         this.ownerSnap[p] = state.owner[p];
+        this.shadeDirty.add(prev); this.shadeDirty.add(state.owner[p]);
         changed = true;
         this.dirtyProvs.add(p);
         if (this.geomVisible(p)) {
@@ -517,6 +519,13 @@ export class MapRenderer {
       if (tf !== this.lastTransform) { this.lastTransform = tf; this.base.style.transform = tf; }
     }
 
+    // the overlay (hover, selection, battles, armies, effects) is only redrawn when something on it can have changed:
+    // in a quiet week at peace the map then costs nothing to keep on screen
+    const live = this.effects.length > 0 || this.callouts.length > 0 || this.fx.count > 0 || this.battleVisible || this.battlePending || this.armiesMoving || !!this.dragArmy;
+    // wars and armies elsewhere change once a week: redraw then (and when the battle layer's own key changes)
+    const okey = `${state.wars.length || state.armies?.length ? state.tick : 0}|${this.battleData.fronts.length}|${v.k}|${v.x}|${v.y}|${this.hoverOwner}|${this.selectedProv}|${this.selected}|${this.selectedArmy}|${this.ownersVersion}|${this.mode}|${this.w}x${this.h}|${this.dpr}`;
+    if (!live && okey === this.overlayKey) { this.stats.frameMs = performance.now() - t0; return; }
+    this.overlayKey = live ? '' : okey;
     const o = this.octx;
     o.setTransform(1, 0, 0, 1, 0, 0);
     o.clearRect(0, 0, this.overlay.width, this.overlay.height);
@@ -674,7 +683,7 @@ export class MapRenderer {
    * Steps 2–7b of the base layer, shared by the full redraw and the dirty-rectangle repaint: country colours,
    * occupation hatching, lakes and rivers, region lines, coasts, borders, allies/enemies, your realm, frontlines.
    */
-  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null; rims?: Map<number, Path2D> }) {
+  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null; lod?: number }) {
     const colors = this.colorSnap;
     const political = this.mode === 'political';
     // 1b. shallow water: a soft pale band hugging every coast (drawn before the land, which covers its inner half)
@@ -693,22 +702,24 @@ export class MapRenderer {
 
     // 2b. depth: every country is shaded towards its own border and coast, in a deeper tone of its own colour, so
     //     nations read as raised plates, not flat stains (each band is clipped to the country it belongs to)
-    if (paths.rims && this.quality > 0 && !this.draftNow) {
-      const groups = new Map<number, Path2D>();
-      for (const p of provs) { const o = state.owner[p]; let g = groups.get(o); if (!g) { g = new Path2D(); groups.set(o, g); } g.addPath(this.geom.provPaths[p]); }
+    if (paths.lod !== undefined && this.quality > 0 && !this.draftNow) {
+      const owners = new Set<number>();
+      for (const p of provs) { const o = state.owner[p]; if (o >= 0) owners.add(o); }
       const band = clamp(5 + zoomIn * 1.7, 6, 20) / k;
       const passes: [number, number][] = this.quality === 2 ? [[1, 0.3], [0.36, 0.34]] : [[0.7, 0.3]];
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      for (const [o, rim] of paths.rims) {
-        const clip = groups.get(o);
-        if (!clip) continue;
+      for (const o of owners) {
+        const sh = this.shadeOf(state, o, paths.lod);
+        if (!sh) continue;
+        // a country only a few pixels across has no room for a rim: it would only darken it
+        if ((sh.bbox[2] - sh.bbox[0]) * k < 26 && (sh.bbox[3] - sh.bbox[1]) * k < 26) continue;
         ctx.save();
-        ctx.clip(clip, 'evenodd');
+        ctx.clip(sh.fill, 'evenodd');
         ctx.globalCompositeOperation = 'multiply';
         ctx.strokeStyle = deepTone(colors[o]);
-        for (const [w, a] of passes) { ctx.globalAlpha = a; ctx.lineWidth = band * 2 * w; ctx.stroke(rim); }
+        for (const [w, a] of passes) { ctx.globalAlpha = a; ctx.lineWidth = band * 2 * w; ctx.stroke(sh.rim); }
         // a hairline of light just inside the edge: the lip of the plate
-        if (this.quality === 2 && zoomIn > 3) { ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(255,246,224,0.9)'; ctx.lineWidth = 2.6 / k; ctx.stroke(rim); }
+        if (this.quality === 2 && zoomIn > 3) { ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(255,246,224,0.9)'; ctx.lineWidth = 2.6 / k; ctx.stroke(sh.rim); }
         ctx.restore();
       }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
@@ -791,6 +802,32 @@ export class MapRenderer {
     return `${en.join(',')}|${al.join(',')}|${state.wars.map((w) => `${w.id}:${w.attackers.join(',')}/${w.defenders.join(',')}`).join(';')}`;
   }
   private dirtyProvs = new Set<number>();
+  /**
+   * Depth shading, cached per country: its whole outline as one fill (the clip) and its rim (coast and foreign borders)
+   * at one level of detail, with its bounding box. Rebuilt only for countries whose land changed, not on every redraw.
+   */
+  private shadeCache = new Map<number, { lod: number; fill: Path2D; rim: Path2D; bbox: [number, number, number, number] }>();
+  private shadeDirty = new Set<number>();
+  private shadeOf(state: GameState, o: number, lod: number) {
+    if (this.shadeDirty.size) { for (const x of this.shadeDirty) this.shadeCache.delete(x); this.shadeDirty.clear(); }
+    let e = this.shadeCache.get(o);
+    if (e && e.lod === lod) return e;
+    const C = state.countries[o];
+    if (!C) return null;
+    const own = state.owner, geo = this.geom.geo;
+    const fill = new Path2D(), rim = new Path2D();
+    const bb: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const p of C.provinces) {
+      if (own[p] !== o) continue;
+      fill.addPath(this.geom.provPaths[p]);
+      const b = geo.provinces[p].bbox;
+      if (b[0] < bb[0]) bb[0] = b[0]; if (b[1] < bb[1]) bb[1] = b[1]; if (b[2] > bb[2]) bb[2] = b[2]; if (b[3] > bb[3]) bb[3] = b[3];
+      for (const ed of this.geom.edgePaths[p]) if (ed.n < 0 || own[ed.n] !== o) rim.addPath(lod >= 0 ? ed.lod[lod] : ed.path);
+    }
+    e = { lod, fill, rim, bbox: bb };
+    this.shadeCache.set(o, e);
+    return e;
+  }
   private baseSideKey = '';
   private baseTerrainOff: [number, number, number, number] = [0, 0, 0, 0];
 
@@ -846,8 +883,6 @@ export class MapRenderer {
   private borderPaths(state: GameState, provs: number[], lod: number, box: [number, number, number, number]) {
     const own = state.owner, P = state.player;
     const inner = new Path2D(), coast = new Path2D(), land = new Path2D(), ally = new Path2D(), enemy = new Path2D(), player = new Path2D(), front = new Path2D();
-    const rims = new Map<number, Path2D>();
-    const rim = (o: number, path: Path2D) => { if (o < 0) return; let r = rims.get(o); if (!r) { r = new Path2D(); rims.set(o, r); } r.addPath(path); };
     const showSides = !this.plain && this.mode === 'political';
     const en = new Set<number>(), al = new Set<number>();
     if (showSides) for (const c of state.countries) { if (!c.alive || c.id === P) continue; if (areAtWar(state, c.id, P)) en.add(c.id); else if (hasAlliance(state, c.id, P)) al.add(c.id); }
@@ -861,14 +896,14 @@ export class MapRenderer {
         const bb = e.bbox;
         if (bb[2] < x0 || bb[0] > x1 || bb[3] < y0 || bb[1] > y1) continue;
         const path = lod >= 0 ? e.lod[lod] : e.path;
-        if (e.n < 0) { coast.addPath(path); rim(a, path); } else if (own[e.n] === a) inner.addPath(path); else { land.addPath(path); rim(a, path); rim(own[e.n], path); }
+        if (e.n < 0) coast.addPath(path); else if (own[e.n] === a) inner.addPath(path); else land.addPath(path);
         if (showSides && al.size && outlineOf(al, a, e.n)) ally.addPath(path);
         if (showSides && en.size && outlineOf(en, a, e.n)) enemy.addPath(path);
         if (showPlayer && outlineOf(P, a, e.n)) player.addPath(path);
         if (sides.length && e.n >= 0 && own[e.n] !== a) { const b = own[e.n]; if (sides.some(([A, D]) => (A.has(a) && D.has(b)) || (D.has(a) && A.has(b)))) front.addPath(path); }
       }
     }
-    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null, rims };
+    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null, lod };
   }
 
   // ------------------------------------------------------------------ overlays

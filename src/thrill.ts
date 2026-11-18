@@ -48,6 +48,8 @@ export function thrillOf(e: Pick<LogEntry, 'text' | 'kind' | 'countries' | 'big'
   if (/No-confidence vote passes|Early elections/.test(t)) return { jolt: { kind: 'alarm', power: 0.9 }, cine: { kicker: 'The government falls', title: 'SNAP ELECTION', sub: clean(t), tone: 'steel' } };
   if (/HARDLINERS STRIKE BACK/.test(t)) return { jolt: { kind: 'hit', power: 0.9 } };
   if (/GREAT AMBITION|AMBITION ACHIEVED|STAGE COMPLETE/i.test(t)) return { jolt: { kind: 'glory', power: 1 }, cine: { kicker: 'They said it could not be done', title: 'A GREAT AMBITION', sub: clean(t), tone: 'gold' } };
+  if (/RECORD YEAR/.test(t)) return { jolt: { kind: 'glory', power: 0.9 }, cine: { kicker: 'For the history books', title: 'A RECORD YEAR', sub: after(t, 'RECORD YEAR'), tone: 'gold' } };
+  if (/GOOD YEARS IN A ROW/.test(t)) return { jolt: { kind: 'glory', power: 0.6 } };
   if (/PROMISE KEPT|STAR WON|TROPHY/.test(t)) return { jolt: { kind: 'glory', power: 0.5 } };
   if (/PROMISE BROKEN/.test(t)) return { jolt: { kind: 'hit', power: 0.4 } };
   if (/^📈/.test(t)) return { jolt: { kind: 'glory', power: 0.35 } };

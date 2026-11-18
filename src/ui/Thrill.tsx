@@ -12,7 +12,9 @@ import { Portrait } from './art/Portrait';
 import { leaderFace } from './LookEditor';
 
 const still = () => prefs.calm || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
-const restart = (el: HTMLElement, cls: string) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+let lastShake = -1e9;
+/** replay a CSS animation: remove the class now, add it back next frame (reading offsetWidth instead forced a re-layout of the whole page) */
+const restart = (el: HTMLElement, cls: string) => { el.classList.remove(cls); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add(cls))); };
 
 /** the map jolts and the screen flashes: red when you are struck, white-hot for an explosion, gold for a triumph */
 export function ImpactLayer() {
@@ -25,7 +27,11 @@ export function ImpactLayer() {
     el.style.setProperty('--p', String(p));
     el.className = `impact ${j.kind}`;
     restart(el, 'on');
-    if (!still() && j.kind !== 'glory') {
+    // the map shakes for real blows only, and not more than once every two seconds (a war of many small losses must not
+    // keep the screen trembling, or repainting)
+    const now = performance.now();
+    if (!still() && j.kind !== 'glory' && p >= 0.6 && now - lastShake > 2000) {
+      lastShake = now;
       const m = document.querySelector<HTMLElement>('.map-area');
       if (m) { m.style.setProperty('--shake', `${(2 + 6 * p).toFixed(1)}px`); restart(m, 'shake'); }
     }

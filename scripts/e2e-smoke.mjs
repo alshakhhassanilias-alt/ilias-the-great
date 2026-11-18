@@ -245,6 +245,18 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.waitForSelector('.legacy-modal');
   check('Leader editor: the saved face is shown in the dossier', (await pg.locator('.ld-face img').getAttribute('src')) === face2);
   await pg.keyboard.press('Escape'); await pg.locator('.legacy-modal .iconbtn').click().catch(() => {});
+  // your years: the pause menu opens the year-by-year record (empty in the first year, then one card per year)
+  await pg.evaluate(() => window.__store.openDrawer('menu'));
+  await pg.click('.pause-menu button:has-text("Your years")');
+  await pg.waitForSelector('.rec-modal');
+  check('Your years: the record opens from the menu', (await pg.locator('.rec-modal').innerText()).includes('first year'));
+  await pg.evaluate(() => { const st = window.__store, s = st.state; s.plan.history.push({ year: 2021, grade: 'A', score: 74, headline: 'A test year.', lines: [{ key: 'growth', label: 'Growth', text: '+3%', pts: 6 }], gdppc: 15000, growth: 0.03, stab: 70, appr: 55, rank: 20, debt: 0.5, moments: ['Something happened.'], records: [], growthRank: 12, growthOf: 170 }, { year: 2022, grade: 'S', score: 90, headline: 'Another.', lines: [{ key: 'growth', label: 'Growth', text: '+6%', pts: 12 }], gdppc: 16000, growth: 0.06, stab: 75, appr: 63, rank: 18, debt: 0.45, moments: ['A big thing.'], records: ['Best year of the career'], growthRank: 3, growthOf: 170 }); st.notify(); });
+  await pg.waitForSelector('.rec-year');
+  const rec = await pg.locator('.rec-modal').innerText();
+  check('Your years: every year has its card, grade and numbers', (await pg.locator('.rec-year').count()) === 2 && rec.includes('2022') && /#3 of 170/i.test(rec) && rec.includes('Best year of the career'));
+  check('Your years: charts of the numbers by year', (await pg.locator('.rec-chart').count()) >= 6);
+  await pg.click('.rec-modal .iconbtn');
+  await pg.evaluate(() => { const s = window.__store.state; s.plan.history = []; window.__store.notify(); });
   // the pulse of the game: a big moment takes the screen without taking a click; an election is a night of counting
   await pg.evaluate(() => { const st = window.__store; st.showCine({ kicker: 'A test', title: 'TEST MOMENT', sub: 'It lands.', tone: 'gold' }); st.shake('hit', 1); st.notify(); });
   check('Pulse: a big moment takes the screen', (await pg.locator('.cine-title').innerText()) === 'TEST MOMENT');

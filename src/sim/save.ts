@@ -16,6 +16,30 @@ export function serialize(state: GameState): string {
   return JSON.stringify(f, (_k, v) => (typeof v === 'number' && !Number.isInteger(v) && Number.isFinite(v) ? Number(v.toPrecision(9)) : v));
 }
 
+/**
+ * The same text as `serialize`, built a piece at a time (a top-level field, or one element of a big array, per step),
+ * so an autosave never freezes the screen: the game holds the clock for the few frames it takes.
+ */
+export function* serializeSlices(state: GameState, budgetMs = 5): Generator<void, string> {
+  const rep = (_k: string, v: unknown) => (typeof v === 'number' && !Number.isInteger(v) && Number.isFinite(v) ? Number(v.toPrecision(9)) : v);
+  const head = JSON.stringify({ format: 'world-order-save', version: SAVE_VERSION, savedAt: new Date().toISOString(), player: state.countries[state.player].name, tick: state.tick }, rep);
+  const out: string[] = [head.slice(0, -1), ',"state":{'];
+  let t0 = performance.now(), first = true;
+  const pause = function* () { if (performance.now() - t0 > budgetMs) { yield; t0 = performance.now(); } };
+  for (const k of Object.keys(state)) {
+    const v = (state as unknown as Record<string, unknown>)[k];
+    if (v === undefined || typeof v === 'function') continue;
+    out.push(`${first ? '' : ','}${JSON.stringify(k)}:`); first = false;
+    if (Array.isArray(v) && v.length > 50 && typeof v[0] === 'object') {
+      out.push('[');
+      for (let i = 0; i < v.length; i++) { const el = JSON.stringify(v[i], rep); out.push(`${i ? ',' : ''}${el === undefined ? 'null' : el}`); yield* pause(); }
+      out.push(']');
+    } else { out.push(JSON.stringify(v, rep)); yield* pause(); }
+  }
+  out.push('}}');
+  return out.join('');
+}
+
 export function deserialize(text: string, nProvinces: number): GameState {
   const f = JSON.parse(text) as SaveFile;
   if (f.format !== 'world-order-save') throw new Error('Not a World Order save file');

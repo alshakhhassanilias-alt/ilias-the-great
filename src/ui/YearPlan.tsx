@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../state/store';
 import { FOCI, focusById, type FocusId } from '../sim/focus';
+import { GradeStrip } from './Record';
 import { GRADE_WORD, PLEDGE_MISS, actBeginYear, actSwitchFocus, switchCost, type Report } from '../sim/plan';
 import { PLEDGE_PC, PLEDGE_APPR, activeGoals } from '../sim/goals';
 import { dateLabel } from '../sim/tick';
@@ -48,6 +49,11 @@ function ReportCard({ r }: { r: Report }) {
         <small className="sotn-k">{r.year} in review · {GRADE_WORD[r.grade]}</small>
         <p className="sotn-head">{r.headline}</p>
         {r.reward && <span className="sotn-reward">{r.reward}</span>}
+        {(() => { const h = store.state?.plan?.history.find((x) => x.year === r.year); if (!h) return null; return (
+          <span className="sotn-feats">
+            {h.growthRank ? <em title="Your growth against every economy in the world this year">#{h.growthRank} of {h.growthOf} for growth in the world</em> : null}
+            {h.records?.map((x) => <em key={x} className="rec">🏅 {x}</em>)}
+          </span>); })()}
         <button className="linkbtn sotn-share" onClick={() => { const s = store.state!; const c = s.countries[s.player]; void shareCard({ kicker: `${r.year} in review`, title: c.name, big: `GRADE ${r.grade}`, lines: [r.headline, `${r.score}/100`], foot: 'WORLD ORDER · STATE OF THE NATION' }, `world-order-${r.year}`, `${c.name}, ${r.year}: grade ${r.grade} in World Order`).then((x) => store.toast(x === 'failed' ? 'Could not make the card' : x === 'shared' ? 'Shared' : 'Year card saved', x === 'failed' ? 'danger' : 'info')); }}>Share this year</button>
       </div>
       <div className="sotn-lines">
@@ -182,7 +188,7 @@ export function YearPlanModal() {
             <div className="sotn-news"><div className="sn-mast">The {c.name} Herald · {P.year - 1} in headlines</div>{hs.map((h, i) => <p key={i} className={i === 0 ? 'lead' : ''}>{h}</p>)}</div>); })()}
           {P.report && (pending || P.report.year === P.year - 1) && <ReportCard r={P.report} />}
           {pending && <YearFeature s={s} />}
-          {hist.length > 1 && <div className="sotn-hist" aria-label="Your record">{hist.map((h) => <span key={h.year} className={`g-${h.grade}`} title={`${h.year}: ${GRADE_WORD[h.grade]}${h.pledge === undefined ? '' : h.pledge ? ' · promise kept' : ' · promise broken'}`}><b>{h.grade}</b><small>{h.year}</small></span>)}</div>}
+          {hist.length > 0 && <GradeStrip hist={P.history} max={14} onOpen={() => store.openDrawer('record')} />}
           {rivals.length > 0 && (
             <>
               <h3 className="sotn-h">The rivals</h3>

@@ -62,6 +62,28 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 40: your years, and less lag
+
+* **Every year is kept** (`src/sim/plan.ts`, `src/ui/Record.tsx`). Before, only last year's report card survived and the
+  grades showed up only on the 1 January screen. Now each year stores its grade and full report card, who governed
+  (leader, term, generation of the dynasty), the numbers as it closed (income per head, growth, approval, stability,
+  world rank, debt, army, population, unemployment, inflation), its biggest moments from the news, and any career
+  records it set.
+* **Your years** (pause menu, the grade strip on the overview, the Legacy dossier and the 1 January screen): the
+  grade average, best and worst years, streaks, records, a grade distribution, charts of every number by year (a dotted
+  line where the leader changed), and a card for every year with its deltas, moments and report card. With a dynasty
+  you can look at one ruler's years at a time. The Legacy chip shows last year's grade.
+* **The world growth table**: every year your growth is ranked against every economy on earth ("#3 of 172"); a place
+  in the top ten is a record, and the best rank is kept.
+* **Records and streaks pay off**: a record year gets its moment on screen; three good years (B or better) in a row
+  give political capital +6 and approval +2 (+10 and +3 from five).
+* **Less lag.** Measured under a 4x CPU slowdown: the monthly influence pass is cut into pieces (it was one 50-80 ms
+  block), autosaves are written over several frames while the clock waits (one 110 ms freeze before), the map overlay is
+  no longer redrawn every frame when nothing on it changed, each country's depth shading is cached and only rebuilt when
+  its land changes (and skipped for countries a few pixels wide), the base map has a pixel budget on very large
+  high-DPI screens, the jolt no longer forces a page re-layout and shakes only for real blows, and automatic graphics
+  steps down sooner on a slow machine. Worst frame in peace: 200 ms before, 133 ms after; slow frames down by a quarter.
+
 ## Round 39: the game is playable again
 
 Three bugs made most countries unplayable; all three are fixed and guarded by tests.
