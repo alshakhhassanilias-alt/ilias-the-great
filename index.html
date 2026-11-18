@@ -7479,6 +7479,7 @@ function ttsFail(e, fallback) {
   const c = e && e.code;
   if (c === 'stopped' || c === 'busy') return;
   if (c === 'unavailable' || c === 'not_granted') TTS = null;
+  if (warnOnce.done && warnOnce.done['tts' + c]) toast('Claude voice failed again (' + (c || 'error') + '). Ich → Status → Test voice shows why.');
   warnOnce('tts' + c, c === 'not_granted' ? 'Claude voice is switched off for this page (Permissions menu). Using your device voice.' : c === 'rate_limited' ? 'Claude voice is busy for a moment. Using your device voice.' : 'Claude voice failed (' + (c || 'error') + '). Using your device voice.');
   fallback();
 }
@@ -8356,7 +8357,7 @@ VIEWS.me = () => {
 };
 async function loadCaps() {
   const st = async n => { try { return PERM ? await PERM.state(n) : 'unknown'; } catch (e) { return 'unknown'; } };
-  V.caps = { inClaude: IN_CLAUDE, ai: AI ? await st('sample') : 'unavailable', tts: TTS ? 'granted' : 'unavailable', mic: DICT ? await st('dictation') : 'unavailable',
+  V.caps = { inClaude: IN_CLAUDE, ai: AI ? await st('sample') : 'unavailable', tts: TTS ? await (async () => { const v = await st('tts'); return v === 'denied' ? 'denied' : 'granted'; })() : 'unavailable', mic: DICT ? await st('dictation') : 'unavailable',
     device: 'speechSynthesis' in window, deVoice: (() => { try { return speechSynthesis.getVoices().some(v => /^de/i.test(v.lang)); } catch (e) { return false; } })() };
   if (V.name === 'me') render();
 }
@@ -8369,7 +8370,8 @@ function statusCard() {
     : c.ai === 'prompt' ? row('Claude tutor', 'ask', 'warn', 'You\'ll be asked to allow it the first time you use the tutor. Tap Allow.')
     : c.ai === 'denied' ? row('Claude tutor', 'blocked', false, 'You declined it. Tap "Fix permissions" and switch Claude on.')
     : row('Claude tutor', 'not here', false, 'Not available in this view. Open Wortwerk in a browser tab at claude.ai or the Claude desktop app.');
-  const ttsRow = c.tts === 'granted' ? row('Claude voice', 'ready', true, 'High-quality German voice.')
+  const ttsRow = c.tts === 'denied' ? row('Claude voice', 'blocked', false, 'Claude\'s voice is switched off for this page. Tap "Fix permissions" and allow it.')
+    : c.tts === 'granted' ? row('Claude voice', 'ready', true, 'High-quality German voice. If you hear nothing, tap "Test voice" below.')
     : c.device && c.deVoice ? row('Voice', 'device', 'warn', 'Claude\'s voice isn\'t offered in this view (phone apps, Safari, pop-out windows). Your device\'s German voice is used instead.')
     : c.device ? row('Voice', 'no German', false, 'No Claude voice here and your device has no German voice installed. Add German in your system\'s text-to-speech settings, or open Wortwerk in Chrome or the desktop app.')
     : row('Voice', 'none', false, 'This view can\'t play speech. Open Wortwerk in Chrome or the Claude desktop app.');
@@ -8378,8 +8380,8 @@ function statusCard() {
     : row('Microphone', 'not here', false, 'Dictation only works in Chrome or Edge at claude.ai, or the main window of the Claude desktop app. Not in the phone apps or Safari.');
   return `<div class="card"><div class="row"><span class="lab">Status: what works on this device</span><span class="sp"></span><button class="btn sm ghost" data-act="recheck">Recheck</button></div>
     ${aiRow}${ttsRow}${micRow}
-    <div class="row">${PERM ? '<button class="btn sm" data-act="perms">Fix permissions</button>' : ''}<button class="btn sm" data-act="say" data-t="Hallo! Kannst du mich hören?">Test voice</button>${AI ? '<button class="btn sm" data-act="testai">Test tutor</button>' : ''}</div>
-    ${V.aiTest ? `<p class="small">${esc(V.aiTest)}</p>` : ''}</div>`;
+    <div class="row">${PERM ? '<button class="btn sm" data-act="perms">Fix permissions</button>' : ''}<button class="btn sm" data-act="testvoice">Test voice</button>${AI ? '<button class="btn sm" data-act="testai">Test tutor</button>' : ''}</div>
+    ${V.vTest ? `<p class="small">${esc(V.vTest)}</p>` : ''}${V.aiTest ? `<p class="small">${esc(V.aiTest)}</p>` : ''}</div>`;
 }
 VIEWS.method = () => `<button class="back" data-act="go" data-v="${S.prof.onboarded ? 'me' : 'onb'}">← Back</button>
   <h1>Why this works, and what it takes</h1>
@@ -8963,6 +8965,15 @@ const acts = {
     else if (rec) { rec.onend = () => { rec = null; micState(false); send(); }; try { rec.stop(); } catch (e) { send(); } }
   },
   recai: () => recAI(),
+  testvoice: async () => {
+    const line = 'Hallo! Kannst du mich hören?', show = m => { V.vTest = m; if (V.name === 'me') render(); };
+    if (!IN_CLAUDE) { browserSay(line); show(('speechSynthesis' in window) ? 'Played with your device voice. Heard nothing? Check the volume and that German text-to-speech is installed.' : 'This browser can\'t speak.'); return; }
+    if (!TTS) { TTS = await use('tts'); }
+    if (!TTS) { browserSay(line); show('Claude voice isn\'t offered in this view (phone app, Safari or pop-out window). Tried your device voice instead' + (noGermanVoice() ? ', but it has no German voice installed.' : '. Heard nothing? Check volume / silent mode.')); return; }
+    show('Playing with Claude voice…');
+    try { await TTS.speak(line, { language: 'de', voice: S.set.voice || 'buttery', rate: S.set.rate || 1 }); show('✓ Claude voice played the test sentence. If you heard nothing, your device volume or silent mode is the problem, not the app.'); }
+    catch (e) { const c = (e && e.code) || 'error', why = { not_granted: 'the voice permission is off: tap "Fix permissions" and allow it', rate_limited: 'too many requests just now: wait a minute', busy: 'the microphone is on: stop dictation first', unavailable: 'this view doesn\'t offer it (phone app, Safari, pop-out)', upstream_error: 'Claude\'s voice service had a hiccup: try again in a few minutes' }[c] || 'unknown problem'; show('✗ Claude voice failed: ' + c + ' (' + why + '). Tried your device voice instead.'); browserSay(line); }
+  },
   recheck: () => { V.caps = null; V.capsBusy = 0; V.aiTest = ''; render(); },
   perms: () => { if (!PERM) return; PERM.manage().then(() => { V.caps = null; V.capsBusy = 0; render(); }).catch(() => toast('Open the page\'s Permissions menu (top of the artifact) and allow Claude, voice and dictation.')); },
   testai: async () => { V.aiTest = 'Asking Claude…'; render(); try { const r = await AI('Antworte mit genau einem kurzen deutschen Satz: Begrüße einen Deutschlernenden.', { modelTier: 'quick', cache: false }); V.aiTest = 'Tutor works ✓ Claude said: ' + r.text.trim(); } catch (e) { V.aiTest = 'Tutor problem: ' + aiErr(e); } V.caps = null; V.capsBusy = 0; render(); },
