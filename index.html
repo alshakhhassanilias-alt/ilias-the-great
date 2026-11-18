@@ -304,6 +304,24 @@ a.btn{text-decoration:none;color:inherit;align-self:flex-start}
 .yw { margin: 4px 0 0; line-height: 1.6; }
 .yw .dbad { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 3px; font-weight: 600; }
 .yw .dmove { color: var(--u2); text-decoration: underline dotted; text-underline-offset: 3px; }
+
+/* stop button while Claude's voice is speaking */
+#stopspk{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;background:var(--ink);color:var(--bg);border:0;border-radius:99px;padding:10px 18px;font:600 .85rem/1 var(--body);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#stopspk[hidden]{display:none}
+/* memory dashboard */
+.membar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--sunk);margin:4px 0}
+.membar i.sg{background:var(--good)} .membar i.lr{background:var(--accent)}
+.chart.fc{height:110px;gap:6px}
+.chart.fc>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;min-width:0}
+.chart.fc>div i{width:100%;background:var(--u3);border-radius:4px 4px 0 0;min-height:3px}
+.chart.fc>div:first-child i{background:var(--accent)}
+.chart.fc b{font-size:.7rem} .chart.fc span{font:500 .62rem/1 var(--mono);color:var(--mute)}
+/* Fehlerheft + Spickzettel */
+.mrow{display:flex;flex-direction:column;gap:4px} .mrow .de{font-family:var(--display);font-weight:800;overflow-wrap:anywhere}
+.mrow .dbad{color:var(--bad);text-decoration:line-through;text-decoration-thickness:1.5px}
+.gref ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px} .gref li{font-size:.92rem}
+.gref.locked{opacity:.62} .gtitle{background:none;border:0;padding:0;width:100%;text-align:left;color:inherit}
+.gtitle b{font-family:var(--display);font-stretch:108%;font-weight:800}
 </style>
 <main id="app" class="wrap"></main>
 <nav id="nav" aria-label="Sections"></nav>
@@ -7381,7 +7399,7 @@ LV.forEach(l => {
 });
 
 /* ================= state ================= */
-const fresh = () => ({ v: 2, t: 0, prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, read: {}, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true, voice: 'buttery', rate: 1 }, freeze: 0, recs: {}, exams: [], badges: {}, certs: {}, heard: {}, wk: '' });
+const fresh = () => ({ v: 2, t: 0, mist: [], prof: { name: '', why: [], mins: 45, target: 0, start: 0, onboarded: false, placed: '', base: 0, credit: 0 }, it: {}, les: {}, xp: 0, streak: 0, lastDay: '', hist: {}, secs: 0, outMin: 0, out: {}, hi: { blitz: 0, verb: 0 }, read: {}, checks: {}, extra: {}, my: [], soon: [], sk: {}, set: { audio: true, sfx: true, autoplay: true, voice: 'buttery', rate: 1 }, freeze: 0, recs: {}, exams: [], badges: {}, certs: {}, heard: {}, wk: '' });
 let S = fresh();
 function migrate(r) {
   if (!r) return null;
@@ -7451,7 +7469,7 @@ async function initCloud() {
 }
 use('sample').then(s => { AI = s; if (s && ['home', 'practice', 'station', 'tutor'].includes(V.name)) render(); });
 let PERM = null; use('permissions').then(x => { PERM = x; });
-use('tts').then(t => { TTS = t; });
+use('tts').then(t => { TTS = t; if (t && t.onState) t.onState(({ state }) => { const b = document.getElementById('stopspk'); if (b) b.hidden = state === 'idle'; }); });
 let DL = null; use('downloads').then(d => { DL = d; if (d && V.name === 'me') render(); });
 use('dictation').then(d => {
   DICT = d; if (!d) return;
@@ -7472,15 +7490,19 @@ function browserSay(text, slow) { if (!('speechSynthesis' in window)) { warnOnce
 function say(text, slow) {
   if (!text) return;
   const rate = (S.set.rate || 1) * (slow ? 0.75 : 1);
-  if (TTS) { TTS.speak(text, { language: 'de', rate, voice: S.set.voice || 'buttery' }).catch(e => ttsFail(e, () => browserSay(text, slow))); return; }
+  const v = S.set.voice || 'buttery';
+  // Claude's voice takes up to 2,000 characters per line: longer texts are read as several lines.
+  const parts = text.length > 1800 ? (text.match(/[^.!?]+[.!?]*\s*/g) || [text]).reduce((a, p) => { if (a.length && (a[a.length - 1] + p).length < 1500) a[a.length - 1] += p; else a.push(p); return a; }, []).map(t => ({ text: t.trim(), voice: v })).filter(l => l.text) : null;
+  if (TTS) { TTS.speak(parts || text, { language: 'de', rate, voice: v }).catch(e => ttsFail(e, () => browserSay(text, slow))); return; }
   browserSay(text, slow);
 }
 function ttsFail(e, fallback) {
   const c = e && e.code;
   if (c === 'stopped' || c === 'busy') return;
-  if (c === 'unavailable' || c === 'not_granted') TTS = null;
+  if (c === 'not_granted') { TTS = null; warnOnce('ttsoff', 'Claude\'s voice is switched off for this page. Turn it back on in the artifact\'s Permissions menu (Ich → Status → Fix permissions).'); return; }
+  if (c === 'unavailable') TTS = null;
   if (warnOnce.done && warnOnce.done['tts' + c]) toast('Claude voice failed again (' + (c || 'error') + '). Ich → Status → Test voice shows why.');
-  warnOnce('tts' + c, c === 'not_granted' ? 'Claude voice is switched off for this page (Permissions menu). Using your device voice.' : c === 'rate_limited' ? 'Claude voice is busy for a moment. Using your device voice.' : 'Claude voice failed (' + (c || 'error') + '). Using your device voice.');
+  warnOnce('tts' + c, c === 'not_granted' ? 'Claude voice is switched off for this page (Permissions menu). Using your device voice.' : c === 'rate_limited' ? 'Claude voice is busy for a moment. Using your device voice.' : c === 'no_gesture' ? 'Audio was stopped (Stop or Esc). Tap a speaker button to turn Claude\'s voice back on.' : 'Claude voice failed (' + (c || 'error') + '). Using your device voice.');
   fallback();
 }
 function sayLines(lines, slow) {
@@ -7932,7 +7954,8 @@ function start(kind, opts) {
     else if (S.les[st.id] && !opts.relearn) q = shuffle(sentsOf(st)).slice(0, 10).map(x => Object.assign(exFor(x), { free: true }));
   } else if (kind === 'weak') {
     title = 'Schwachstellen';
-    const ids = Object.keys(S.it).filter(id => isWeak(S.it[id])).sort((a, b) => (S.it[b][3] - S.it[a][3]) || ((S.it[b][7] || 5) - (S.it[a][7] || 5))).slice(0, 14);
+    const ids = opts.ids ? opts.ids.slice(0, 14) : Object.keys(S.it).filter(id => isWeak(S.it[id])).sort((a, b) => (S.it[b][3] - S.it[a][3]) || ((S.it[b][7] || 5) - (S.it[a][7] || 5))).slice(0, 14);
+    if (opts.ids) title = 'Fehlerheft';
     const xs = ids.map(getItem).filter(Boolean);
     q = xs.map(x => exFor(x, true)).concat(shuffle(xs).map(x => exFor(x)));
   } else if (kind === 'listen') {
@@ -8010,11 +8033,47 @@ function grade(ok, given, extra) {
   if (!ok && !e.check && !e.idk && e.t !== 'pause' && (e.tries || 0) < 2) { e.re = prep(Object.assign({}, e, { first: false, fbHad: true, tries: (e.tries || 0) + 1 })); if (e.re.t === 'wCloze' && !e.re.cz) e.re.t = 'wType'; R.q.splice(Math.min(R.q.length, R.i + 3), 0, e.re); }
   if (e.place != null) placeStep(ok);
   if (xp) { R.xp += xp; addXp(xp); }
+  if (!ok && e.first && !e.check && R.kind !== 'place' && e.t !== 'pause' && x && x.id && x.id !== 'pause') logMistake(e, x, given);
   save(); beep(ok);
   R.fb = { ok, given, xp, note: extra.note, word: ok ? pick(['Richtig!', 'Genau!', 'Stark!', 'Sauber!', 'Super!', 'Top!']) : 'Not quite' };
   render();
   if (S.set.audio && !['sSpeak', 'cMc', 'gFix'].includes(e.t)) say(e.solution || (x.kind === 's' ? x.de : x.ans));
 }
+/* ---------- Fehlerheft: every first-try mistake, with what you wrote ---------- */
+const EXLAB = { wMc: 'Meaning', wMcR: 'German word', wArt: 'Article', wType: 'Write the word', wCloze: 'Word in a sentence', wListen: 'Listening', wPlural: 'Plural', sMc: 'Grammar choice', sBuild: 'Word order', sCloze: 'Gap', sListen: 'Dictation', sWrite: 'Translate', sSpeak: 'Speaking', cMc: 'Quiz', gConj: 'Verb form', gCase: 'Case', gAdj: 'Adjective ending', gTrans: 'Rewrite', gFix: 'Find the mistake' };
+function rightAnswer(e, x) {
+  if (e.solution) return e.solution;
+  if (e.t === 'cMc') return e.ans; if (e.t === 'wMc') return x.en; if (e.t === 'wArt') return x.art + ' ' + x.noun;
+  return x.kind === 's' ? x.de : x.ans;
+}
+function logMistake(e, x, given) {
+  S.mist = S.mist || [];
+  S.mist.push({ id: x.id, t: Date.now(), g: String(given == null ? '' : given).slice(0, 90), a: String(rightAnswer(e, x)).slice(0, 160), mc: ['wMc', 'wMcR', 'wArt', 'sMc', 'cMc', 'gFix', 'sBuild'].includes(e.t) ? 1 : 0, k: (EXLAB[e.t] || 'Exercise') + (e.t === 'gConj' ? ' · ' + e.person + ' · ' + e.tense : e.caseName ? ' · ' + e.caseName : '') });
+  if (S.mist.length > 250) S.mist = S.mist.slice(-250);
+}
+const fixedItem = id => { const r = S.it[id]; return !!r && r[4] >= 2 && r[0] >= 4; };
+function mistakeGroups() {
+  const m = {}; (S.mist || []).forEach(z => { const g = m[z.id] || (m[z.id] = { id: z.id, n: 0, last: z }); g.n++; if (z.t >= g.last.t) g.last = z; });
+  return Object.values(m).map(g => Object.assign(g, { x: getItem(g.id) || WMAP[g.id], fixed: fixedItem(g.id) })).filter(g => g.x).sort((a, b) => b.last.t - a.last.t);
+}
+function viewGram() {
+  const q = (V.gq || '').toLowerCase().trim(), hit = st => !q || (st.name + ' ' + st.sub + ' ' + st.g.join(' ')).toLowerCase().includes(q);
+  const done = STATIONS.filter(st => S.les[st.id]).length;
+  return header() + `<div><h1>Grammatik-Spickzettel</h1><p class="mute">Every grammar rule of the course on one page. ${done} of ${STATIONS.length} stations done; the ones you haven't reached yet are greyed out but readable.</p></div>
+  <input id="gsearch" class="inp" placeholder="Search: Dativ, weil, Perfekt, Adjektiv…" value="${esc(V.gq || '')}" autocomplete="off">
+  ${LV.map(l => { const sts = STATIONS.filter(st => st.lvl === l && hit(st)); return sts.length ? `<div class="linehd"><span class="roundel ${l}">${LINE[l]}</span><h2>${l}</h2></div>` + sts.map(st => `<div class="card gref ${S.les[st.id] ? '' : 'locked'}"><button class="row gtitle" data-act="go" data-v="station" data-id="${st.id}"><b>${esc(st.name)}</b><span class="sp"></span><span class="pill ${S.les[st.id] ? 'good' : 'ghost'}">${S.les[st.id] ? 'done' : 'not yet'}</span></button><p class="small mute">${esc(st.sub)}</p><ul>${st.g.map(g => '<li>' + inline(g) + '</li>').join('')}</ul></div>`).join('') : ''; }).join('') || '<div class="card"><p class="mute">No rule matches that search.</p></div>'}`;
+};
+function viewFehler() {
+  const all = mistakeGroups(), tricky = all.filter(g => !g.fixed), f = V.mf || 'tricky', list = f === 'all' ? all : tricky;
+  const when = t => { const d = Math.floor((midnight() + DAY - t) / DAY); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
+  return header() + `<div><h1>Fehlerheft</h1><p class="mute">Every mistake you make is saved here with what you wrote and the right answer, so you never need a notebook. An item counts as fixed after two correct reviews in a row.</p></div>
+  <div class="row"><div class="seg-ctl"><button class="${f === 'tricky' ? 'on' : ''}" data-act="mfilt" data-v="tricky">Still tricky · ${tricky.length}</button><button class="${f === 'all' ? 'on' : ''}" data-act="mfilt" data-v="all">All · ${all.length}</button></div></div>
+  ${tricky.length ? `<button class="btn pri wide" data-act="mtrain">Train my mistakes (${Math.min(14, tricky.length)})</button>` : ''}
+  ${list.length ? list.map(g => `<div class="card mrow"><div class="row"><b class="de">${esc(g.x.kind === 's' ? g.x.de : g.x.ans)}</b><span class="sp"></span><span class="pill ${g.fixed ? 'good' : 'warn'}">${g.fixed ? 'fixed' : g.n + '× missed'}</span></div>
+    <p class="small mute">${esc(g.x.en)} · ${esc(g.last.k)} · ${when(g.last.t)}</p>
+    ${g.last.g ? `<p class="small"><span class="mute">${g.last.mc ? 'You chose' : 'You wrote'}:</span> <span class="dbad">${esc(g.last.g)}</span></p>` : ''}<p class="small"><span class="mute">Correct:</span> <b>${esc(g.last.a)}</b></p></div>`).join('')
+    : `<div class="card"><p class="mute">${f === 'tricky' && all.length ? 'Nothing tricky left. Every mistake you made has been fixed. Stark!' : 'No mistakes saved yet. They will show up here as you learn.'}</p></div>`}`;
+};
 function placeStep(ok) {
   const p = R.place; p.n++; if (ok) p.r++;
   if (p.n === 5) {
@@ -8096,7 +8155,7 @@ function lessonHtml(card, e, readOnly) {
 function go(name, id, extra) { cleanup(); V = Object.assign({ name, id }, extra || {}); render(); window.scrollTo(0, 0); }
 function cleanup() { if (G && G.timer) { clearInterval(G.timer); G.timer = 0; } if (aiCtl) { aiCtl.abort(); aiCtl = null; } micStop(); stopSpeech(); }
 const NAV = [['home', 'Heute'], ['course', 'Kurs'], ['words', 'Wörter'], ['practice', 'Üben'], ['me', 'Ich']];
-const NAVOF = { station: 'course', pack: 'course', method: 'me', tutor: 'practice', read: 'practice', hoeren: 'practice', cert: 'me' };
+const NAVOF = { fehler: 'practice', gram: 'practice', station: 'course', pack: 'course', method: 'me', tutor: 'practice', read: 'practice', hoeren: 'practice', cert: 'me' };
 function render() {
   if (!S.prof.onboarded && !['onb', 'ride', 'done', 'method'].includes(V.name)) V = { name: 'onb', step: 0 };
   const fn = VIEWS[V.name] || VIEWS.home;
@@ -8111,6 +8170,7 @@ const header = () => `<div class="top"><div class="mark"><i>W</i>ortwerk</div><s
   <span class="chip" title="Days in a row"><b>STREAK</b>${streakNow()}</span><span class="chip" title="Player level"><b>LVL</b>${playerLvl()}</span></div>`;
 
 const VIEWS = {};
+VIEWS.gram = viewGram; VIEWS.fehler = viewFehler;
 /* ---------- onboarding ---------- */
 VIEWS.onb = () => {
   const st = V.step || 0, p = S.prof;
@@ -8297,6 +8357,8 @@ VIEWS.practice = () => {
     <button class="tile" data-act="listen" ${n && canSpeak() ? '' : 'disabled'}><b>Hör-Drill</b><span>Your own words and sentences, spoken</span></button>
     <button class="tile" data-act="speak" ${n && canMic() ? '' : 'disabled'}><b>Vorlesen</b><span>${canMic() ? 'Read aloud, get checked' : 'Needs speech recognition'}</span></button>
     <button class="tile" data-act="weak" ${weak ? '' : 'disabled'}><b>Schwachstellen</b><span>${weak} items you've struggled with</span></button>
+    <button class="tile" data-act="go" data-v="fehler"><b>Fehlerheft</b><span>Your mistakes with what you wrote. ${mistakeGroups().filter(g => !g.fixed).length} still tricky</span></button>
+    <button class="tile" data-act="go" data-v="gram"><b>Spickzettel</b><span>All grammar rules on one searchable page</span></button>
   </div>
   <div class="linehd"><h2>Prüfungstraining</h2></div>
   <p class="mute small">A mini mock exam in the Goethe format: reading, listening, writing and speaking, about 50 minutes. Claude writes a new exam each time and grades your writing and speaking.</p>
@@ -8312,6 +8374,20 @@ VIEWS.practice = () => {
   </div>`;
 };
 /* ---------- me ---------- */
+function memCard() {
+  const items = WORDS.map(w => w.id).concat(allSents().map(x => x.id)); let nw = 0, lr = 0, sg = 0;
+  items.forEach(id => { const r = S.it[id]; if (!r) nw++; else if (r[0] >= 21) sg++; else lr++; });
+  const m0 = midnight(), fc = []; for (let d = 0; d < 7; d++) fc.push(0);
+  Object.values(S.it).forEach(r => { const d = Math.max(0, Math.floor((r[1] - m0) / DAY)); if (d < 7) fc[d]++; });
+  const mx = Math.max(10, ...fc), tot = items.length, pc = v => (v / tot * 100).toFixed(1);
+  return `<div class="card"><span class="lab">Dein Gedächtnis · your memory</span>
+    <div class="membar"><i class="sg" style="width:${pc(sg)}%"></i><i class="lr" style="width:${pc(lr)}%"></i></div>
+    <div class="row small"><span><b class="num">${sg}</b> strong</span><span><b class="num">${lr}</b> learning</span><span class="mute"><b class="num">${nw}</b> not started</span></div>
+    <span class="lab" style="margin-top:6px">Reviews coming up · next 7 days</span>
+    <div class="chart fc">${fc.map((v, i) => `<div><i style="height:${Math.max(3, v / mx * 100)}%"></i><b class="num">${v}</b><span>${i ? 'SMTWTFS'[new Date(m0 + i * DAY + 3600e3).getDay()] : 'Today'}</span></div>`).join('')}</div>
+    <p class="small mute">Strong = you'll remember it for 3+ weeks without seeing it. A review you skip just waits for you, it never disappears.</p>
+    <div class="row"><button class="btn sm" data-act="go" data-v="fehler">Fehlerheft · ${mistakeGroups().filter(g => !g.fixed).length} tricky</button><button class="btn sm" data-act="go" data-v="gram">Grammatik-Spickzettel</button></div></div>`;
+}
 VIEWS.me = () => {
   const p = plan(), lv = lvlNow(), fr = lvlFrac(lv);
   const skills = Object.entries(SKILLS).map(([k, l]) => { const a = S.sk[k]; const v = a && a[1] >= 8 ? a[0] / a[1] : null; return { k, l, v }; });
@@ -8335,6 +8411,7 @@ VIEWS.me = () => {
     ${skills.map(s => `<div class="skill"><span>${esc(s.l)}</span><span class="pbar"><i class="${s.v == null ? '' : s.v < 0.7 ? 'lo' : s.v < 0.85 ? 'mid' : 'hi'}" style="width:${s.v == null ? 0 : s.v * 100}%"></i></span><span class="num small">${s.v == null ? '–' : Math.round(s.v * 100) + '%'}</span></div>`).join('')}
     ${hard.length ? `<span class="lab">Hardest for you</span><div class="gloss">${hard.map(x => `<span>${esc(x.kind === 's' ? x.de : x.ans)}</span>`).join('')}</div><button class="btn sm" data-act="weak" style="align-self:flex-start">Train weak spots</button>` : ''}</div>
   <div class="card"><span class="lab">Minutes per day · last 14 days</span><div class="chart">${bars.join('')}</div></div>
+  ${memCard()}
   <div class="card"><span class="lab">Level checks</span><div class="tiles">${LV.map(l => `<button class="tile" data-act="lcheck" data-v="${l}"><b>${l}</b><span>${S.checks[l] != null ? 'Best ' + S.checks[l] + '%' + (S.checks[l] >= 75 ? ' · passed' : '') : 'Not taken yet'}</span></button>`).join('')}</div></div>
   <div class="card"><span class="lab">Abzeichen · ${Object.keys(S.badges).length}/${BADGES.length}</span><div class="badges">${BADGES.map(([id, t]) => `<span class="badge ${S.badges[id] ? 'on' : ''}" title="${S.badges[id] ? 'Earned ' + fmtDate(S.badges[id]) : 'Not yet'}">${esc(t)}</span>`).join('')}</div>
     <p class="small mute">Streak freezes: <b>${S.freeze || 0}</b> (you earn one for every 7-day streak; it saves your streak if you miss a single day).</p></div>
@@ -8939,10 +9016,16 @@ const acts = {
   pick: el => { R.q[R.i].pick.push(+el.dataset.k); render(); },
   unpick: el => { R.q[R.i].pick.splice(+el.dataset.k, 1); render(); },
   check: () => doCheck(),
+  stopspk: () => stopSpeech(),
+  replay: () => { const e = R && R.q[R.i]; if (!e) return; const x = e.x; if (R.fb) say(e.solution || (x.kind === 's' ? x.de : x.ans)); else if (e.audio) say(e.audio); else if (['wIntro', 'wListen', 'wMc', 'wArt'].includes(e.t)) say(x.ans); else if (['sListen', 'sSpeak'].includes(e.t)) say(x.de); else toast('No audio for this question before you answer.'); },
+  mfilt: el => { V.mf = el.dataset.v; render(); },
+  mtrain: () => { const ids = mistakeGroups().filter(g => !g.fixed && S.it[g.id]).map(g => g.id); if (!ids.length) return toast('These mistakes are from free practice only. Learn the items first.'); start('weak', { ids }); },
+  gq: el => { V.gq = el.dataset.v || ''; render(); },
   next, why,
   skip: () => { R.fb = { ok: true, given: '', xp: 0, word: 'Skipped' }; render(); },
   override: () => {
-    const e = R.q[R.i], x = e.x, i = R.q.indexOf(e.re); if (i > -1) R.q.splice(i, 1);
+    const e = R.q[R.i], x = e.x; if (S.mist && S.mist.length && S.mist[S.mist.length - 1].id === x.id) S.mist.pop();
+    const i = R.q.indexOf(e.re); if (i > -1) R.q.splice(i, 1);
     if (!e.free && !e.isNew && e.prev) { S.it[x.id] = e.prev; review(x.id, true, 'hard'); }
     if (e.isNew && e.final && !e.free && !learned(x.id)) { learn(x.id); if (x.kind === 's') R.ns++; else R.nw++; }
     R.miss--; R.ok++; R.xp += 10; addXp(10); R.fb.ok = true; R.fb.xp = 10; R.fb.word = 'Counted'; save(); render();
@@ -8972,7 +9055,7 @@ const acts = {
     if (!TTS) { browserSay(line); show('Claude voice isn\'t offered in this view (phone app, Safari or pop-out window). Tried your device voice instead' + (noGermanVoice() ? ', but it has no German voice installed.' : '. Heard nothing? Check volume / silent mode.')); return; }
     show('Playing with Claude voice…');
     try { await TTS.speak(line, { language: 'de', voice: S.set.voice || 'buttery', rate: S.set.rate || 1 }); show('✓ Claude voice played the test sentence. If you heard nothing, your device volume or silent mode is the problem, not the app.'); }
-    catch (e) { const c = (e && e.code) || 'error', why = { not_granted: 'the voice permission is off: tap "Fix permissions" and allow it', rate_limited: 'too many requests just now: wait a minute', busy: 'the microphone is on: stop dictation first', unavailable: 'this view doesn\'t offer it (phone app, Safari, pop-out)', upstream_error: 'Claude\'s voice service had a hiccup: try again in a few minutes' }[c] || 'unknown problem'; show('✗ Claude voice failed: ' + c + ' (' + why + '). Tried your device voice instead.'); browserSay(line); }
+    catch (e) { const c = (e && e.code) || 'error', why = { not_granted: 'the voice permission is off: tap "Fix permissions" and allow it', rate_limited: 'too many requests just now: wait a minute', busy: 'the microphone is on: stop dictation first', unavailable: 'this view doesn\'t offer it (phone app, Safari, pop-out)', upstream_error: 'Claude\'s voice service had a hiccup: try again in a few minutes', no_gesture: 'audio was stopped with Stop or Esc a moment ago: wait 6 seconds, then tap Test voice again', invalid_argument: 'the app sent text the voice can\'t read: please tell Claude which screen this was' }[c] || 'unknown problem'; show('✗ Claude voice failed: ' + c + ' (' + why + '). Tried your device voice instead.'); browserSay(line); }
   },
   recheck: () => { V.caps = null; V.capsBusy = 0; V.aiTest = ''; render(); },
   perms: () => { if (!PERM) return; PERM.manage().then(() => { V.caps = null; V.capsBusy = 0; render(); }).catch(() => toast('Open the page\'s Permissions menu (top of the artifact) and allow Claude, voice and dictation.')); },
@@ -9072,6 +9155,7 @@ document.addEventListener('click', ev => {
   const f = acts[el.dataset.act]; if (f) { ev.preventDefault(); f(el); }
 });
 document.addEventListener('input', ev => {
+  if (ev.target.id === 'gsearch') { V.gq = ev.target.value; const pos = ev.target.selectionStart; render(); const g2 = document.getElementById('gsearch'); if (g2) { g2.focus(); try { g2.setSelectionRange(pos, pos); } catch (e) {} } return; }
   if (ev.target.id === 'csearch') { V.cq = ev.target.value; const pos = ev.target.selectionStart; render(); const s2 = document.getElementById('csearch'); if (s2) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (e) {} } return; }
   if (EX && ev.target.id === 'exw') { EX.write = ev.target.value; const c = document.getElementById('wc'); if (c) c.textContent = (EX.write.trim().match(/\S+/g) || []).length + ' words'; return; }
   if (EX && /^exs[01]$/.test(ev.target.id)) { EX.speak[+ev.target.id.slice(3)] = ev.target.value; return; }
@@ -9094,6 +9178,7 @@ document.addEventListener('keydown', ev => {
     return;
   }
   if (inField) return;
+  if ((ev.key === 'r' || ev.key === 'R') && V.name === 'ride' && R && !ev.metaKey && !ev.ctrlKey) { ev.preventDefault(); acts.replay(); return; }
   const n = '1234'.indexOf(ev.key);
   if (n > -1 && V.name === 'ride' && R && !R.fb) {
     const e = R.q[R.i]; const list = e.t === 'wArt' ? ['der', 'die', 'das'] : e.opts;
@@ -9101,6 +9186,7 @@ document.addEventListener('keydown', ev => {
   } else if (n > -1 && n < 3 && V.name === 'blitz') bans(['der', 'die', 'das'][n]);
 });
 buildMyPack();
+(function () { const b = document.createElement('button'); b.id = 'stopspk'; b.hidden = true; b.dataset.act = 'stopspk'; b.textContent = '■ Stop audio'; document.body.appendChild(b); })();
 window.addEventListener('pagehide', () => { if (FOCUS.includes(V.name)) { tick(); save(); } });
 render();
 initCloud();

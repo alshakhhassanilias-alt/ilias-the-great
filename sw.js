@@ -1,5 +1,5 @@
-// Offline support for Wortwerk. Version 759cf8754b
-const CACHE = 'wortwerk-759cf8754b';
+// Offline support for Wortwerk. Version 9319994953
+const CACHE = 'wortwerk-9319994953';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('wortwerk-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
