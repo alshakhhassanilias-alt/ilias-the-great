@@ -60,18 +60,6 @@ const MAP_ABBR: Record<string, string> = {
   Turkmenistan: 'Turkmen.', 'Burkina Faso': 'Burkina', 'Guinea-Bissau': 'G.-Bissau', 'Sierra Leone': 'S. Leone', 'United Arab Emirates': 'UAE',
 };
 /** Tileable fractal value noise: fine grain that keeps land crisp when zoomed far in. */
-/** A deeper, richer tone of a map colour: what a country is shaded with towards its own edge. */
-const deepCache = new Map<string, string>();
-function deepTone(color: string | undefined): string {
-  if (!color) return 'rgb(70,64,58)';
-  let d = deepCache.get(color);
-  if (d) return d;
-  const m = /hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/.exec(color);
-  d = m ? `hsl(${m[1]},${Math.min(92, Number(m[2]) + 22)}%,${Math.max(24, Math.min(44, Number(m[3]) * 0.62))}%)` : 'rgb(84,76,70)';
-  if (deepCache.size > 600) deepCache.clear();
-  deepCache.set(color, d);
-  return d;
-}
 function grainTile(size = 192): HTMLCanvasElement {
   return tile(size, (c) => {
     const img = c.createImageData(size, size);
@@ -153,7 +141,10 @@ export class MapRenderer {
   private baseSoftDirty = false;
   private lastBase = 0;
   private lastViewChange = 0;
+  /** the base canvas's own pixel ratio (below the screen's while the map moves) */
+  private bdpr = 1;
   private overlayKey = '';
+  private overlayEmpty = false;
   /** while the map is being dragged or zoomed the base is drawn without its soft shading (cheap); the full picture follows once it rests */
   private draftNow = false;
   private baseDraft = false;
@@ -251,7 +242,7 @@ export class MapRenderer {
   // ------------------------------------------------------------------ view control
   resize(w: number, h: number, dpr: number) {
     const first = this.w === 0;
-    this.w = w; this.h = h; this.dpr = dpr;
+    this.w = w; this.h = h; this.dpr = dpr; this.bdpr = dpr;
     this.margin = Math.round(Math.max(w, h) * 0.12);
     this.overlay.width = Math.round(w * dpr);
     this.overlay.height = Math.round(h * dpr);
@@ -427,7 +418,6 @@ export class MapRenderer {
       if (this.ownerSnap[p] !== state.owner[p]) {
         const prev = this.ownerSnap[p];
         this.ownerSnap[p] = state.owner[p];
-        this.shadeDirty.add(prev); this.shadeDirty.add(state.owner[p]);
         changed = true;
         this.dirtyProvs.add(p);
         if (this.geomVisible(p)) {
@@ -474,14 +464,14 @@ export class MapRenderer {
     const v = this.view, bv = this.baseView;
     const f = v.k / bv.k;
     const ox = v.x - bv.x * f, oy = v.y - bv.y * f;
-    const bw = (this.base.width / this.dpr) * f, bh = (this.base.height / this.dpr) * f;
+    const bw = (this.base.width / this.bdpr) * f, bh = (this.base.height / this.bdpr) * f;
     const covered = this.baseValid && ox <= 0 && oy <= 0 && ox + bw >= this.w && oy + bh >= this.h;
     const idle = t0 - this.lastViewChange > 130;
     const moved = Math.abs(f - 1) > 0.001 || Math.abs(ox + this.margin) > 0.5 || Math.abs(oy + this.margin) > 0.5;
     const farScale = f < 0.7 || f > 1.45;
     let render = false, ownersOnly = false;
     // while dragging, an uncovered edge is refilled at most ~8 times a second (a thin dark strip for a moment beats a stutter)
-    const refill = !covered && (idle || t0 - this.lastBase > 120);
+    const refill = !covered && (idle || t0 - this.lastBase > 160);
     if (!covered && !refill) this.dirty = true;
     // the selection is drawn on the overlay: picking a country no longer redraws the whole map (only the plain modes,
     // where the player's outline depends on the selection, still need the base layer)
@@ -493,7 +483,7 @@ export class MapRenderer {
       if (refill) render = true;
       else if (covered && t0 - this.lastBase > 320) { if (!this.repaintDirty(state)) { render = true; ownersOnly = true; } } else this.dirty = true;
     }
-    else if (refill || (farScale && t0 - this.lastBase > 90)) render = true;
+    else if (refill || (farScale && t0 - this.lastBase > 140)) render = true;
     else if (idle && moved) render = true;
     else if (this.baseSoftDirty && t0 - this.lastBase > 450 && idle) render = true;
     else if (this.baseDraft && t0 - this.lastViewChange > 280) render = true; // the view has come to rest: now the full picture
@@ -525,6 +515,16 @@ export class MapRenderer {
     // wars and armies elsewhere change once a week: redraw then (and when the battle layer's own key changes)
     const okey = `${state.wars.length || state.armies?.length ? state.tick : 0}|${this.battleData.fronts.length}|${v.k}|${v.x}|${v.y}|${this.hoverOwner}|${this.selectedProv}|${this.selected}|${this.selectedArmy}|${this.ownersVersion}|${this.mode}|${this.w}x${this.h}|${this.dpr}`;
     if (!live && okey === this.overlayKey) { this.stats.frameMs = performance.now() - t0; return; }
+    // nothing on the overlay at all (no hover, no selected region, no battle, army or effect): once it is clear, it stays
+    // clear, whatever the view does (dragging the map at peace no longer redraws it every frame)
+    const bd = this.battleData;
+    const nothingShown = !live && this.hoverOwner < 0 && this.selectedProv === null && !!this.lctx && !state.armies?.length
+      && !bd.fronts.length && !bd.markers.length && !bd.pockets.length && !bd.planes.length && !bd.counters.length && !bd.supplies.length && !bd.arrows?.length;
+    // only while the map moves: at rest the overlay is drawn as usual, which is also when it finds what came into view
+    // (garrisons when you zoom in, battles when you pan to them)
+    const empty = nothingShown && t0 - this.lastViewChange < 130;
+    if (empty && this.overlayEmpty) { this.overlayKey = ''; this.stats.frameMs = performance.now() - t0; return; } // ('' : drawn for real once the map rests)
+    this.overlayEmpty = empty;
     this.overlayKey = live ? '' : okey;
     const o = this.octx;
     o.setTransform(1, 0, 0, 1, 0, 0);
@@ -581,9 +581,18 @@ export class MapRenderer {
     const t0 = performance.now();
     this.draftNow = this.baseValid && t0 - this.lastViewChange < 280;
     this.baseDraft = this.draftNow;
+    // while the map moves it is drawn at reduced resolution (a third to a quarter of the pixels: on a laptop's built-in
+    // graphics this was the cost of every drag and zoom), then once more at full resolution when it comes to rest
+    const want = this.draftNow ? Math.max(0.5, Math.min(1, this.dpr * 0.55)) : this.dpr;
+    if (want !== this.bdpr) {
+      this.bdpr = want;
+      this.base.width = Math.round((this.w + 2 * this.margin) * want);
+      this.base.height = Math.round((this.h + 2 * this.margin) * want);
+      this.bctx.imageSmoothingEnabled = true;
+    }
     const ctx = this.bctx;
     const { k, x, y } = this.view;
-    const m = this.margin, dpr = this.dpr;
+    const m = this.margin, dpr = this.bdpr;
     this.baseView = { k, x: x + m, y: y + m };
     const geo = this.geom.geo;
     const nP = geo.provinces.length;
@@ -604,12 +613,31 @@ export class MapRenderer {
     //    copied with an offset while you pan; it is redrawn only when you zoom or pan beyond the cached border.
     const ti = performance.now();
     const Wc = W / dpr, Hc = H / dpr; // base canvas size in CSS px
-    const tsc = Math.min(1, dpr);
+    const tsc = Math.min(1, this.dpr); // (the screen's ratio: the terrain cache is not rebuilt when a moving map drops to draft resolution)
     const pad = Math.round(Math.max(this.w, this.h) * 0.35);
     const T = this.terrainCache;
     let sx0 = this.tcX - (x + m), sy0 = this.tcY - (y + m);
     const tkey = `${!!this.terrain}|${Wc}|${Hc}|${tsc}`;
-    if (this.terrainKey !== tkey || this.tcK !== k || sx0 < 0 || sy0 < 0 || sx0 + Wc > this.tcW || sy0 + Hc > this.tcH) {
+    const stale = this.terrainKey !== tkey || this.tcK !== k || sx0 < 0 || sy0 < 0 || sx0 + Wc > this.tcW || sy0 + Hc > this.tcH;
+    // while the map moves, an out-of-date terrain picture is scaled and shifted into place (one copy) instead of being
+    // painted again from the full texture at every step of a zoom; it is painted sharp once the map comes to rest
+    let drafted = false;
+    if (stale && this.draftNow && this.terrainKey === tkey && this.tcK > 0) {
+      // the world rectangle the base canvas shows, in terrain-cache pixels
+      const wx0 = -(x + m) / k, wy0 = -(y + m) / k, wx1 = wx0 + Wc / k, wy1 = wy0 + Hc / k;
+      const cx = (wx: number) => (wx * this.tcK + this.tcX) * tsc, cy = (wy: number) => (wy * this.tcK + this.tcY) * tsc;
+      const a0 = cx(wx0), b0 = cy(wy0), a1 = cx(wx1), b1 = cy(wy1);
+      const cw = T.width, ch = T.height;
+      const ca0 = clamp(a0, 0, cw), cb0 = clamp(b0, 0, ch), ca1 = clamp(a1, 0, cw), cb1 = clamp(b1, 0, ch);
+      if (ca1 - ca0 > 1 && cb1 - cb0 > 1) {
+        const sxs = W / (a1 - a0), sys = H / (b1 - b0);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(T, ca0, cb0, ca1 - ca0, cb1 - cb0, (ca0 - a0) * sxs, (cb0 - b0) * sys, (ca1 - ca0) * sxs, (cb1 - cb0) * sys);
+        drafted = true;
+      }
+    }
+    if (stale && !drafted) {
       this.terrainKey = tkey;
       this.tcK = k; this.tcW = Wc + 2 * pad; this.tcH = Hc + 2 * pad;
       this.tcX = x + m + pad; this.tcY = y + m + pad;
@@ -644,9 +672,11 @@ export class MapRenderer {
         t2.fillRect(cx0, cy0, cx1 - cx0, cy1 - cy0);
       }
     }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(T, sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc, 0, 0, W, H);
+    if (!drafted) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(T, sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc, 0, 0, W, H);
+    }
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (x + m), dpr * (y + m));
     this.stats.imageMs = performance.now() - ti;
 
@@ -657,7 +687,8 @@ export class MapRenderer {
     this.paintMap(ctx, state, k, zoomIn, provs, this.borderPaths(state, provs, edgeLod(k), [vx0 - 8 / k, vy0 - 8 / k, vx1 + 8 / k, vy1 + 8 / k]));
     this.dirtyProvs.clear();
     this.baseSideKey = this.sideKey(state);
-    this.baseTerrainOff = [sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc];
+    // (a drafted picture has no matching rectangle in the cache: a partial repaint then redraws the whole base instead)
+    this.baseTerrainOff = drafted ? [0, 0, 0, 0] : [sx0 * tsc, sy0 * tsc, Wc * tsc, Hc * tsc];
     this.baseSel = this.selected;
     this.baseMode = this.mode;
 
@@ -683,7 +714,7 @@ export class MapRenderer {
    * Steps 2–7b of the base layer, shared by the full redraw and the dirty-rectangle repaint: country colours,
    * occupation hatching, lakes and rivers, region lines, coasts, borders, allies/enemies, your realm, frontlines.
    */
-  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null; lod?: number }) {
+  private paintMap(ctx: CanvasRenderingContext2D, state: GameState, k: number, zoomIn: number, provs: number[], paths: { inner: Path2D; coast: Path2D; land: Path2D; ally: Path2D | null; enemy: Path2D | null; player: Path2D | null; front: Path2D | null }) {
     const colors = this.colorSnap;
     const political = this.mode === 'political';
     // 1b. shallow water: a soft pale band hugging every coast (drawn before the land, which covers its inner half)
@@ -702,27 +733,17 @@ export class MapRenderer {
 
     // 2b. depth: every country is shaded towards its own border and coast, in a deeper tone of its own colour, so
     //     nations read as raised plates, not flat stains (each band is clipped to the country it belongs to)
-    if (paths.lod !== undefined && this.quality > 0 && !this.draftNow) {
-      const owners = new Set<number>();
-      for (const p of provs) { const o = state.owner[p]; if (o >= 0) owners.add(o); }
+    if (this.quality > 0 && !this.draftNow) {
+      // two soft dark strokes along every border and coast, drawn plainly: an earlier version clipped each country and
+      // blended in 'multiply', some 190 clipped draws per redraw, which laptop graphics chips handle very slowly
       const band = clamp(5 + zoomIn * 1.7, 6, 20) / k;
-      const passes: [number, number][] = this.quality === 2 ? [[1, 0.3], [0.36, 0.34]] : [[0.7, 0.3]];
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      for (const o of owners) {
-        const sh = this.shadeOf(state, o, paths.lod);
-        if (!sh) continue;
-        // a country only a few pixels across has no room for a rim: it would only darken it
-        if ((sh.bbox[2] - sh.bbox[0]) * k < 26 && (sh.bbox[3] - sh.bbox[1]) * k < 26) continue;
-        ctx.save();
-        ctx.clip(sh.fill, 'evenodd');
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.strokeStyle = deepTone(colors[o]);
-        for (const [w, a] of passes) { ctx.globalAlpha = a; ctx.lineWidth = band * 2 * w; ctx.stroke(sh.rim); }
-        // a hairline of light just inside the edge: the lip of the plate
-        if (this.quality === 2 && zoomIn > 3) { ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.5; ctx.strokeStyle = 'rgba(255,246,224,0.9)'; ctx.lineWidth = 2.6 / k; ctx.stroke(sh.rim); }
-        ctx.restore();
+      ctx.strokeStyle = 'rgba(14,9,4,1)';
+      for (const [w, a] of (this.quality === 2 ? [[1.5, 0.13], [0.6, 0.16]] : [[1, 0.16]]) as [number, number][]) {
+        ctx.globalAlpha = a; ctx.lineWidth = band * w;
+        ctx.stroke(paths.land); ctx.stroke(paths.coast);
       }
-      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
     }
 
     // 3. occupied land: hatched with the original owner's colour until it is integrated
@@ -802,32 +823,6 @@ export class MapRenderer {
     return `${en.join(',')}|${al.join(',')}|${state.wars.map((w) => `${w.id}:${w.attackers.join(',')}/${w.defenders.join(',')}`).join(';')}`;
   }
   private dirtyProvs = new Set<number>();
-  /**
-   * Depth shading, cached per country: its whole outline as one fill (the clip) and its rim (coast and foreign borders)
-   * at one level of detail, with its bounding box. Rebuilt only for countries whose land changed, not on every redraw.
-   */
-  private shadeCache = new Map<number, { lod: number; fill: Path2D; rim: Path2D; bbox: [number, number, number, number] }>();
-  private shadeDirty = new Set<number>();
-  private shadeOf(state: GameState, o: number, lod: number) {
-    if (this.shadeDirty.size) { for (const x of this.shadeDirty) this.shadeCache.delete(x); this.shadeDirty.clear(); }
-    let e = this.shadeCache.get(o);
-    if (e && e.lod === lod) return e;
-    const C = state.countries[o];
-    if (!C) return null;
-    const own = state.owner, geo = this.geom.geo;
-    const fill = new Path2D(), rim = new Path2D();
-    const bb: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
-    for (const p of C.provinces) {
-      if (own[p] !== o) continue;
-      fill.addPath(this.geom.provPaths[p]);
-      const b = geo.provinces[p].bbox;
-      if (b[0] < bb[0]) bb[0] = b[0]; if (b[1] < bb[1]) bb[1] = b[1]; if (b[2] > bb[2]) bb[2] = b[2]; if (b[3] > bb[3]) bb[3] = b[3];
-      for (const ed of this.geom.edgePaths[p]) if (ed.n < 0 || own[ed.n] !== o) rim.addPath(lod >= 0 ? ed.lod[lod] : ed.path);
-    }
-    e = { lod, fill, rim, bbox: bb };
-    this.shadeCache.set(o, e);
-    return e;
-  }
   private baseSideKey = '';
   private baseTerrainOff: [number, number, number, number] = [0, 0, 0, 0];
 
@@ -837,8 +832,8 @@ export class MapRenderer {
    * (a change of alliances or wars recolours outlines everywhere; a patch bigger than half the map is not worth it).
    */
   private repaintDirty(state: GameState): boolean {
-    if (!this.dirtyProvs.size || this.sideKey(state) !== this.baseSideKey || !this.baseValid) return false;
-    const geo = this.geom.geo, bv = this.baseView, k = bv.k, dpr = this.dpr;
+    if (!this.dirtyProvs.size || this.sideKey(state) !== this.baseSideKey || !this.baseValid || this.baseDraft || this.baseTerrainOff[2] <= 0) return false;
+    const geo = this.geom.geo, bv = this.baseView, k = bv.k, dpr = this.bdpr;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const grow = (p: number) => { const b = geo.provinces[p].bbox; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); };
     // every border run of a changed region lies on its own outline, so its own box (plus line widths) is enough
@@ -903,7 +898,7 @@ export class MapRenderer {
         if (sides.length && e.n >= 0 && own[e.n] !== a) { const b = own[e.n]; if (sides.some(([A, D]) => (A.has(a) && D.has(b)) || (D.has(a) && A.has(b)))) front.addPath(path); }
       }
     }
-    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null, lod };
+    return { inner, coast, land, ally: showSides ? ally : null, enemy: showSides ? enemy : null, player: showPlayer ? player : null, front: state.wars.length ? front : null };
   }
 
   // ------------------------------------------------------------------ overlays

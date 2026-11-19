@@ -62,6 +62,23 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 41: a smooth map on a laptop
+
+Measured on a 1536x864 laptop screen (pixel ratio 1.25): dragging the map ran at 14 fps with frames up to 1.5 s,
+zooming at 27 fps. Now 42 fps (worst frame 0.17 s) and 39 fps.
+
+* **The moving map is drawn at reduced resolution** (about a third of the pixels) and redrawn sharp once it rests; mid-drag
+  refills come at most every 160 ms.
+* **Zooming scales the last terrain picture** instead of painting it again from the 4000-pixel texture at every step
+  (each step cost 40-58 ms, now under 1 ms); it is painted sharp at rest.
+* **Country shading without per-country clipping and blend modes.** The depth shading clipped each country and blended
+  in multiply about 190 times per redraw, the kind of work integrated laptop graphics handle worst; it is now two plain
+  soft strokes along all borders and coasts, with nearly the same look.
+* **The overlay is skipped while the map moves** when nothing is on it, and the hover highlight is cleared when a drag
+  starts (it was redrawn every frame of the drag).
+* **Auto graphics also watches dragging and zooming** (before, only frames while the clock ran), and remembers the level
+  it stepped down to, so a slow machine is not rediscovered every session. Choosing Auto again starts afresh.
+
 ## Round 40: your years, and less lag
 
 * **Every year is kept** (`src/sim/plan.ts`, `src/ui/Record.tsx`). Before, only last year's report card survived and the

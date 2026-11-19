@@ -39,7 +39,10 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     rendRef.current = r;
     (window as unknown as { __renderer?: MapRenderer }).__renderer = r;
     const coarse = !!window.matchMedia?.('(pointer: coarse)').matches;
-    const pickQuality = (): 0 | 1 | 2 => store.graphics === 'high' ? 2 : store.graphics === 'medium' ? 1 : store.graphics === 'low' ? 0 : (coarse ? 1 : 2);
+    // on Auto, a level this machine was once stepped down to is remembered (a slow laptop should not have to stutter
+    // for a minute every session before it is noticed again)
+    const remembered = (): number => { try { const v = Number(localStorage.getItem('wo-auto-quality')); return Number.isFinite(v) && localStorage.getItem('wo-auto-quality') !== null ? v : 2; } catch { return 2; } };
+    const pickQuality = (): 0 | 1 | 2 => store.graphics === 'high' ? 2 : store.graphics === 'medium' ? 1 : store.graphics === 'low' ? 0 : (Math.min(coarse ? 1 : 2, remembered()) as 0 | 1 | 2);
     let quality = pickQuality();
     let graphics = store.graphics;
     const resize = () => {
@@ -59,24 +62,27 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
     let raf = 0;
     let lastDraw = 0;
     // automatic graphics: if frames keep coming in slow while the clock runs, step the effects down (never back up on its own)
-    let lastT = 0, samples = 0, slow = 0;
+    let lastT = 0, samples = 0, slow = 0, drew = false;
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
       if (graphics !== store.graphics) { graphics = store.graphics; quality = pickQuality(); resize(); }
       const dt = t - lastT; lastT = t;
-      if (store.graphics === 'auto' && store.speed > 0 && !store.preview && dt < 1000) {
+      // judged on frames that followed real drawing (the clock running, or the map being dragged or zoomed), so a slow
+      // machine is noticed when you move the map as well, not only while time passes
+      const busy = drew; drew = false;
+      if (store.graphics === 'auto' && busy && !store.preview && dt < 1000) {
         samples++; if (dt > 42) slow++;
         if (samples >= 90) {
-          if (slow / samples > 0.33 && quality > 0) { quality = (quality - 1) as 0 | 1; resize(); store.toast(quality === 1 ? 'Graphics lowered a notch for smoother play (Settings → Graphics).' : 'Graphics set to Fast to keep the game smooth (Settings → Graphics).', 'info'); }
+          if (slow / samples > 0.33 && quality > 0) { quality = (quality - 1) as 0 | 1; resize(); try { localStorage.setItem('wo-auto-quality', String(quality)); } catch { /* storage unavailable */ } store.toast(quality === 1 ? 'Graphics lowered a notch for smoother play (Settings → Graphics).' : 'Graphics set to Fast to keep the game smooth (Settings → Graphics).', 'info'); }
           samples = 0; slow = 0;
         }
       }
       // distant artillery when you are zoomed in on a running battle
       if (r.battleVisible && store.sound && store.speed > 0 && r.view.k > r.fitK * 2.2 && Math.random() < 0.012) sfx('boom');
       r.step(t);
-      if (r.dirty) { r.dirty = false; lastDraw = t; r.draw(); }
+      if (r.dirty) { r.dirty = false; lastDraw = t; r.draw(); drew = true; }
       // ambient animation: every frame in Beautiful (about 30 fps while the clock runs, so the simulation gets its share), ~18 fps otherwise
-      else if (r.animating(store.state) && t - lastDraw > (quality === 2 ? (store.speed > 0 ? 30 : 12) : 55)) { lastDraw = t; r.draw(); }
+      else if (r.animating(store.state) && t - lastDraw > (quality === 2 ? (store.speed > 0 ? 30 : 12) : 55)) { lastDraw = t; r.draw(); drew = true; }
     };
     raf = requestAnimationFrame(loop);
     (window as unknown as { __map?: MapRenderer }).__map = r;
@@ -150,6 +156,7 @@ export function MapView({ onPick, insetBottom, insetRight, focusOnMount = true }
         setTip(null);
       } else if (pts.size === 1) {
         rr.panBy(p.x - prev.x, p.y - prev.y, e.timeStamp - lastMove); lastMove = e.timeStamp;
+        if (rr.hoverOwner >= 0) rr.hoverOwner = -1; // the hover highlight would be redrawn on every frame of the drag
         moved += Math.abs(p.x - prev.x) + Math.abs(p.y - prev.y);
         setTip(null);
       } else if (pts.size === 2) {

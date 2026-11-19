@@ -93,7 +93,7 @@ class Store {
   quality: 0 | 1 | 2 = 2;
   setGraphics(g: 'auto' | 'high' | 'medium' | 'low') {
     this.graphics = g;
-    try { localStorage.setItem('wo-graphics', g); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('wo-graphics', g); if (g === 'auto') localStorage.removeItem('wo-auto-quality'); } catch { /* storage unavailable */ } // choosing Auto again starts the detection afresh
     this.notify();
   }
   autoSlow = true;
