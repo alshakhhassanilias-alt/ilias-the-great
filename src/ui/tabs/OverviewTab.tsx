@@ -1,0 +1,193 @@
+import { nationalColor } from '../../map/palette';
+import { LeaderMind, TheirJudgement } from './Minds';
+import { store } from '../../state/store';
+import { Meter, Note, RelationBar, Section, Stat } from '../widgets';
+import { GOV, REGION, fog, fmtMoney, fmtNum, pct, relLabel, signedPct, sizeClass } from '../format';
+import { LineChart } from '../LineChart';
+import { alertsFor, sectorsOf, stabilityParts, tradeProfile } from '../explain';
+import { CabinetSection } from './Cabinet';
+import { Portrait, faceFor } from '../art/Portrait';
+import { getRelation, isAtWar, warsOf } from '../../sim/relations';
+import { strengthIndex } from '../../sim/military';
+import { warScore } from '../../sim/war';
+import { popGrowthRate } from '../../sim/economy';
+import { traitById, grudgesOf } from '../../sim/leaders';
+import { dateLabel } from '../../sim/tick';
+import { SituationSection } from './Situation';
+import { DoctrinesSection } from './Doctrines';
+import { ProvincePanel } from './ProvincePanel';
+import { CharacterSection } from './Character';
+import { MissionCard } from './Mission';
+import { DeskSection } from './Desk';
+import { RivalsSection } from './Rivals';
+import { ScenarioPanel } from '../Scenario';
+import { WarPanel } from '../WarCouncil';
+
+const TIP = {
+  gdp: 'Gross domestic product: the total value of everything the economy produces in a year (nominal US dollars).',
+  growth: 'Real growth: how fast output grows after removing inflation.',
+  stab: 'Stability 0-100. Low stability cuts output and invites coups. Open "Why is stability like this?" below.',
+  debt: 'Public debt as a share of GDP. High debt raises interest costs and can end in default.',
+  power: 'Military power index in troop-equivalents: combines troops, equipment quality, technology, readiness, air and naval power.',
+};
+
+export function OverviewTab({ id }: { id: number }) {
+  const s = store.state!;
+  const c = s.countries[id];
+  const mine = id === s.player;
+  const e = c.eco;
+  const rank = [...s.countries].filter((x) => x.alive).sort((a, b) => b.eco.gdp - a.eco.gdp).findIndex((x) => x.id === id) + 1;
+  const rel = getRelation(s, id, s.player);
+  const rl = relLabel(rel);
+  const gdp = fog(s, c, e.gdp, 'gdp');
+  const alerts = mine ? alertsFor(c, s) : [];
+  const pr = store.selectedProv;
+  const wars = warsOf(s, id);
+  const sectors = sectorsOf(c);
+  const parts = stabilityParts(c);
+  const maxStab = Math.max(6, ...parts.map((p) => Math.abs(p.v)));
+  const partners = tradeProfile(s, c);
+
+  return (
+    <>
+      {mine && <WarPanel />}
+      {mine && <ScenarioPanel />}
+      {mine && <MissionCard />}
+      {mine && <DeskSection />}
+      {mine && <RivalsSection />}
+      {mine && <SituationSection />}
+      {mine && <CabinetSection />}
+
+      {!mine && c.leader && (
+        <Section title="Leadership" hint={`in power ${Math.max(0, (s.tick - c.leader.since) / 52).toFixed(1)} yr`}>
+          <div className="card leader-card">
+            <div className="leader-top"><Portrait f={faceFor(c, c.leader.name, 'leader')} size={72} title={c.leader.name} /><div><small className="faint">{c.gov === 'M' ? 'Monarch' : c.gov === 'D' || c.gov === 'F' ? 'Head of government' : 'Ruler'} of {c.name}</small><div style={{ fontSize: 16, fontWeight: 650 }}>{c.leader.name}</div>{(() => { const cb = (s.cables ?? []).filter((x) => x.from === id).slice(-1)[0]; return cb ? <div className={`leader-quote mood-${cb.mood}`}>“{cb.text}” <span className="faint">· {dateLabel(cb.tick)}</span></div> : null; })()}</div></div>
+            <div className="chips" style={{ margin: '6px 0' }}>
+              {c.leader.traits.map((t) => { const tr = traitById(t); return <span className="pill" key={t} title={tr.desc}>{tr.icon} {tr.title}</span>; })}
+            </div>
+            <div className="faint" style={{ fontSize: 12 }}>{c.leader.traits.map((t) => traitById(t).desc).join(' ')}</div>
+            <LeaderMind c={c} />
+            <TheirJudgement id={id} />
+            {(() => { const g = grudgesOf(s, id, s.player); return g.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div className="why-title">They have not forgotten</div>
+                {g.slice().sort((a, b) => b.w - a.w).slice(0, 4).map((x, i) => <div className="why-row" key={i}><span>You {x.why}</span><span className="faint">{dateLabel(x.tick)}</span></div>)}
+              </div>); })()}
+          </div>
+        </Section>
+      )}
+
+      {!mine && (
+        <Section title="What they are up to" hint={isAtWar(s, id) ? 'AT WAR' : undefined}>
+          <div className="card">
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{c.intent || 'Going about its business'}</div>
+            <div className="row" style={{ border: 'none', paddingBottom: 8 }}>
+              <div className="grow"><b>{rl.text}</b> <span className="faint num">toward you ({rel >= 0 ? '+' : ''}{rel.toFixed(0)})</span></div>
+              <button className="btn" onClick={() => store.setTab('diplomacy')}>Diplomacy →</button>
+            </div>
+            <RelationBar value={rel} />
+          </div>
+        </Section>
+      )}
+
+      {pr !== null && <ProvincePanel p={pr} />}
+
+
+      <Section title="Snapshot" hint={`${sizeClass(c)} · #${rank} economy`}>
+        <div className="grid2">
+          <Stat label="Population" value={fmtNum(e.pop)} sub={`${signedPct(popGrowthRate(c, s), 1)} / yr trend`} />
+          <Stat label="GDP (nominal)" tip={TIP.gdp} value={`${gdp.approx ? '≈' : ''}${fmtMoney(gdp.v)}`} sub={`${fmtMoney(e.gdp / e.pop, 0)} per person`} />
+          <Stat label="Real growth" tip={TIP.growth} value={signedPct(e.growth)} tone={e.growth < 0 ? 'bad' : e.growth > 0.04 ? 'good' : undefined} sub={`inflation ${pct(e.inflation)}`} />
+          <Stat label="Stability" tip={TIP.stab} value={e.stability.toFixed(0)} tone={e.stability < 35 ? 'bad' : e.stability > 60 ? 'good' : 'warn'} sub={`unemployment ${pct(e.unemployment)}`} />
+          <Stat label="Public debt" tip={TIP.debt} value={pct(e.debt / e.gdp, 0)} sub={`of GDP · ${fmtMoney(e.debt)}`} tone={e.debt / e.gdp > 1.5 ? 'bad' : undefined} />
+          <Stat label="Military power" tip={TIP.power} value={fog(s, c, strengthIndex(c), 'pow').approx ? `≈${fmtNum(fog(s, c, strengthIndex(c), 'pow').v * 1000)}` : fmtNum(strengthIndex(c) * 1000)} sub={c.mil.nuclear ? '☢ nuclear-armed' : 'troop-equivalents'} />
+          <Stat label="Territory" value={`${c.provinces.length}`} sub={`regions (started with ${c.baseline.provinces})`} />
+          <Stat label="Reputation" tip="How trustworthy the world thinks this country is. Broken treaties and aggression lower it; honoured deals, aid and mediation raise it." value={c.reputation.toFixed(0)} sub={GOV[c.gov] ?? c.gov} />
+        </div>
+      </Section>
+
+      {!mine && <CharacterSection c={c} />}
+
+      <Section fold="sectors" closed={mine} title="Economy by sector" hint="game estimate">
+        <div className="card">
+          <div className="stack" role="img" aria-label="Sector shares">{sectors.map((x) => <i key={x.key} style={{ width: `${x.share * 100}%`, background: x.color }} title={`${x.label} ${(x.share * 100).toFixed(0)}%`} />)}</div>
+          <div className="legend-row" style={{ marginTop: 8 }}>{sectors.map((x) => <span key={x.key}><i style={{ background: x.color }} />{x.label} {(x.share * 100).toFixed(0)}%</span>)}</div>
+        </div>
+      </Section>
+
+      {mine && (
+        <Section fold="whystab" closed title="Why is stability like this?" hint={`${e.stability.toFixed(0)} / 100`}>
+          <div className="card">
+            <div className="explain">
+              {parts.filter((p) => Math.abs(p.v) >= 0.4 || p.key === 'base').map((p) => p.key === 'base' ? (
+                <div key={p.key} style={{ display: 'contents' }}><div style={{ fontSize: 12.5 }}>{p.label}</div><div className="num" style={{ textAlign: 'right', fontWeight: 600 }}>{p.v.toFixed(0)}</div></div>
+              ) : (
+                <div key={p.key} style={{ display: 'contents' }}>
+                  <div><div style={{ fontSize: 12.5, marginBottom: 3 }}>{p.label}</div>
+                    <div className="track"><i style={{ background: p.v >= 0 ? 'var(--green)' : 'var(--red)', left: p.v >= 0 ? '50%' : `${50 - (Math.abs(p.v) / maxStab) * 50}%`, width: `${(Math.abs(p.v) / maxStab) * 50}%` }} /></div></div>
+                  <div className={`num ${p.v >= 0 ? 'good' : 'bad'}`} style={{ textAlign: 'right', fontWeight: 600 }}>{p.v >= 0 ? '+' : ''}{p.v.toFixed(1)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>Stability drifts towards the sum of these factors. Fix the biggest red bar first.</div>
+          </div>
+        </Section>
+      )}
+
+      {partners.length > 0 && (
+        <Section fold="partners" closed={mine} title="Main trade partners" hint="est. share of exports">
+          <div className="card">
+            {partners.map((p) => (
+              <button key={p.id} className="listitem" style={{ padding: '6px 2px' }} onClick={() => store.select(p.id, null, true)}>
+                <span className="dot" style={{ background: nationalColor(s.countries[p.id]) }} />
+                <span style={{ flex: 1 }}>{s.countries[p.id].name}</span>
+                <span className="faint num">{fmtMoney(p.volume)}</span>
+                <span className="num" style={{ width: 44, textAlign: 'right', fontWeight: 600 }}>{(p.share * 100).toFixed(0)}%</span>
+              </button>
+            ))}
+            {partners[0].share > 0.3 && <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>⚠ Heavy reliance on {s.countries[partners[0].id].name}: if it turns hostile, it can hurt you.</div>}
+          </div>
+        </Section>
+      )}
+
+      {alerts.length > 0 && mine && (
+        <Section fold="warnings" closed title="Warnings" hint={`${alerts.length}`}>
+          <div className="list card" style={{ padding: 4 }}>
+            {alerts.slice(0, 6).map((a, i) => (
+              <button key={i} className="listitem" onClick={() => a.tab && store.setTab(a.tab)}>
+                <span className="dot" style={{ background: a.level === 'bad' ? 'var(--red)' : a.level === 'warn' ? 'var(--amber)' : 'var(--blue)' }} />
+                <span style={{ fontSize: 12.5 }}>{a.text}</span>
+              </button>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {wars.length > 0 && (
+        <Section title="Wars">
+          <div className="list card" style={{ padding: 4 }}>
+            {wars.map((w) => {
+              const score = warScore(s, w, id);
+              return (
+                <div key={w.id} className="row" style={{ padding: '8px 6px' }}>
+                  <div className="grow"><b>{w.name}</b><div className="hint">{w.attackers.map((x) => s.countries[x].name).join(', ')} vs {w.defenders.map((x) => s.countries[x].name).join(', ')}</div></div>
+                  <span className={`pill ${score > 0.15 ? 'green' : score < -0.15 ? 'red' : ''}`}>{score > 0.15 ? 'winning' : score < -0.15 ? 'losing' : 'stalemate'}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      <Section fold="ecohist" closed={mine} title="Economic history" hint="GDP (nominal)">
+        <div className="card"><LineChart endTick={s.tick} series={[{ label: 'GDP', color: 'var(--teal)', data: c.hist.gdp, fmt: (v) => fmtMoney(v) }]} /></div>
+      </Section>
+      {mine && <Section fold="stabhist" closed title="Stability history"><div className="card"><LineChart endTick={s.tick} series={[{ label: 'Stability', color: 'var(--amber)', data: c.hist.stab, fmt: (v) => v.toFixed(0) }]} height={80} /></div></Section>}
+      <p className="faint" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
+        {c.estimated ? 'Baseline values for this country are rough game estimates. ' : 'Baseline: approximate 2023–24 real-world figures (rounded). '}
+        Everything else (capital stock, tech, infrastructure, sectors, trade shares) is game-generated.
+      </p>
+      {!mine && <Note>Intel quality: yours {(s.countries[s.player].mil.intel * 100).toFixed(0)} vs theirs {(c.mil.intel * 100).toFixed(0)}. A weaker intelligence service shows only estimates (≈); the Diplomacy tab has operations to see the real numbers.</Note>}
+    </>
+  );
+}

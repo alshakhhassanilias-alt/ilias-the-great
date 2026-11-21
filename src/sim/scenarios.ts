@@ -1,0 +1,245 @@
+/**
+ * Scenarios: curated starts with a clear ending. Each gives you a nation, a moment and a deadline, and three goals,
+ * one star each. The first goal is the one that decides victory; the other two are stars for doing it well. Goals are
+ * of three kinds: reached once (it counts from then on), held for a stretch of time, or judged on the final day.
+ * The scenario ends at the deadline, early once all three stars are won, or in defeat if the nation falls.
+ */
+import { clamp } from './util';
+import { logEvent } from './log';
+import { powerRank } from './power';
+import { clientsOf } from './influence';
+import { alliesOf, isAtWar, NAME_TO_ID } from './relations';
+import type { Country, GameState } from './types';
+
+export interface ScenGoal {
+  label: string;
+  kind: 'reach' | 'hold' | 'end';
+  /** for 'hold': how many weeks in a row */
+  weeks?: number;
+  /** progress 0..1 (1 = met right now) and a short status */
+  value: (s: GameState, c: Country, st: ScenarioState) => { v: number; text: string };
+}
+export interface Scenario {
+  id: string; icon: string; title: string; country: string; year: 2021 | 2024; years: number;
+  pitch: string; brief: string; difficulty: 'easy' | 'normal' | 'hard'; goals: ScenGoal[];
+  /** the tutorial: starts the walkthrough, on easy */
+  tutorial?: boolean;
+  /** the nation falls (on top of being annexed): returns why, or null */
+  fail?: (s: GameState, c: Country, st: ScenarioState) => string | null;
+}
+export interface ScenarioState {
+  id: string; start: number; until: number;
+  /** stars won (reach/hold goals count from the moment they are met) */
+  stars: boolean[];
+  /** weeks the 'hold' goals have been met in a row */
+  streak: number[];
+  /** the starting numbers goals are measured against */
+  base: { real: number; rank: number; prov: number; techs: number; ind: number; laws?: number; indAll?: number };
+  done?: { won: boolean; stars: number; score: number; why: string; tick: number };
+}
+
+const rankGoal = (n: number): ScenGoal['value'] => (s, c, st) => { const r = powerRank(s, c.id); return { v: r <= n ? 1 : clamp((st.base.rank - r) / Math.max(1, st.base.rank - n), 0, 0.99), text: `#${r} now (goal #${n})` }; };
+const lowGoal = (get: (c: Country) => number, goal: number, fmt: (v: number) => string): ScenGoal['value'] => (_s, c) => { const v = get(c); return { v: v <= goal ? 1 : clamp(goal / Math.max(1e-6, v), 0, 0.99), text: `${fmt(v)} now (goal ${fmt(goal)})` }; };
+const pctF = (v: number) => `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%`;
+const clientsGoal = (n: number): ScenGoal['value'] => (s, c) => { const k = clientsOf(s, c.id).length; return { v: clamp(k / n, 0, 1), text: `${k} of ${n} client states` }; };
+const realGoal = (x: number): ScenGoal['value'] => (_s, c, st) => { const g = c.eco.realGdp / Math.max(1, st.base.real); return { v: clamp((g - 1) / (x - 1), 0, 1), text: `economy ×${g.toFixed(2)} (goal ×${x})` }; };
+/** rungs climbed (−1 before research has started: the base is filled in on the first month) */
+const techs = (c: Country) => (c.rs ? c.rs.lv.reduce((t, v) => t + v, 0) : -1);
+const ALL_SECTORS = ['agri', 'energy', 'mining', 'heavy', 'manuf', 'tech', 'arms', 'services'];
+const indOf = (c: Country, ids: string[]) => (c.ind ? ids.reduce((t, k) => t + ((c.ind!.lv as Record<string, number>)[k] ?? 0), 0) : -1);
+
+export const SCENARIOS: Scenario[] = [
+  { id: 'tutorial', icon: '📖', title: 'First Steps', country: 'Poland', year: 2024, years: 3, difficulty: 'easy', tutorial: true,
+    pitch: 'Learn to govern in ten minutes, with your chief of staff at your side.',
+    brief: 'A calm start: Poland in 2024, a growing economy and a stable coalition. Your chief of staff walks you through the essentials: plan the year, act from your desk, research, build an industry, pass a law. Do the three things below and you are ready for the real challenges.',
+    goals: [
+      { label: 'Declare a national focus for the year', kind: 'reach', value: (_s, c) => ({ v: c.focus ? 1 : 0, text: c.focus ? 'declared' : 'open the State of the Nation from your desk' }) },
+      { label: 'Expand one of your industries', kind: 'reach', value: (s, c) => { const n = s.stats.indDone ?? 0; const run = (c.ind?.prog?.length ?? 0) > 0; return { v: n > 0 ? 1 : run ? 0.5 : 0, text: n > 0 ? 'done' : run ? 'under way: it takes a few months' : 'Economy → Industries' }; } },
+      { label: 'Pass a law', kind: 'reach', value: (_s, c, st) => { const n = (c.politics?.laws.length ?? 0) - (st.base.laws ?? 0); return { v: n > 0 ? 1 : 0, text: n > 0 ? 'done' : 'Politics → Laws, or a law from your desk' }; } },
+    ] },
+  { id: 'poland', icon: '🦅', title: 'The Eagle Rises', country: 'Poland', year: 2024, years: 15, difficulty: 'normal',
+    pitch: 'Europe’s fastest riser wants a seat at the top table.',
+    brief: 'Poland has grown for thirty years without a recession and now spends more on defence than almost anyone in Europe. Turn that momentum into real power: break into the world’s top fourteen and build a circle of friends to the east, without wrecking the books.',
+    goals: [
+      { label: 'Break into the world’s top 14', kind: 'reach', value: rankGoal(14) },
+      { label: 'Win 3 client states', kind: 'reach', value: clientsGoal(3) },
+      { label: 'Finish with public debt below 70% of GDP', kind: 'end', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 0.7, pctF) },
+    ] },
+  { id: 'argentina', icon: '🧉', title: 'Never Again', country: 'Argentina', year: 2024, years: 10, difficulty: 'hard',
+    pitch: 'Inflation at 25%, debt at 85%. Break the cycle for good.',
+    brief: 'Argentina has defaulted nine times and lived with runaway prices for most of a century. You have ten years to do what nobody has managed: bring inflation down and keep it down, put the debt on a sane path, and climb back up the world table. The inflation spiral is a national challenge: your desk offers shock therapy, an IMF programme or a dollar peg, and an independent central bank helps.',
+    goals: [
+      { label: 'Hold inflation below 5% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.05, pctF) },
+      { label: 'Bring public debt below 60% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 0.6, pctF) },
+      { label: 'Climb into the world’s top 25', kind: 'reach', value: rankGoal(25) },
+    ],
+    fail: (_s, c) => (c.eco.stability < 12 ? 'The streets turned against the government and it fell.' : null) },
+  { id: 'turkey', icon: '🌉', title: 'The Bridge Between Worlds', country: 'Turkey', year: 2024, years: 12, difficulty: 'normal',
+    pitch: 'Lead your region, answer to no camp.',
+    brief: 'Turkey sits between Europe, Russia and the Middle East and plays them against each other. Make it a power in its own right: a top-ten nation with its own sphere of influence, and finally tame the inflation that eats your people’s wages (your desk shows how to tackle the inflation spiral).',
+    goals: [
+      { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
+      { label: 'Win 5 client states', kind: 'reach', value: clientsGoal(5) },
+      { label: 'Hold inflation below 8% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.08, pctF) },
+    ] },
+  { id: 'ukraine', icon: '🌻', title: 'Survive and Rebuild', country: 'Ukraine', year: 2024, years: 10, difficulty: 'hard',
+    pitch: 'At war with a far larger neighbour. Endure, then rebuild.',
+    brief: 'It is 2024 and the war is in its third year. Hold the capital and the heart of the country, find allies who will stand with you, and when the guns fall silent, rebuild an economy that outgrows what you lost.',
+    goals: [
+      { label: 'Still hold Kyiv and at least 18 regions at the end', kind: 'end', value: (_s, c) => ({ v: c.provinces.includes(c.capital) ? clamp(c.provinces.length / 18, 0, 1) : 0, text: `${c.provinces.length} regions${c.provinces.includes(c.capital) ? '' : ', capital lost'}` }) },
+      { label: 'Grow the economy by 60%', kind: 'reach', value: realGoal(1.6) },
+      { label: 'Have 2 allies and be at peace', kind: 'end', value: (s, c) => { const a = alliesOf(s, c.id).length; const w = isAtWar(s, c.id); return { v: w ? Math.min(0.5, a / 4) : clamp(a / 2, 0, 1), text: `${a} allies${w ? ', still at war' : ', at peace'}` }; } },
+    ] },
+  { id: 'india', icon: '🐘', title: 'The Next Superpower', country: 'India', year: 2024, years: 25, difficulty: 'normal',
+    pitch: 'The most people, the fastest growth. Now the crown.',
+    brief: 'India is already the world’s third power and growing faster than any large economy. A quarter of a century from now, the world could have a new superpower. Overtake the two ahead of you and lead the world in technology.',
+    goals: [
+      { label: 'Become the world’s #2 power', kind: 'reach', value: rankGoal(2) },
+      { label: 'Become the world’s #1 power', kind: 'reach', value: rankGoal(1) },
+      { label: 'Master 10 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 10, 0, 1), text: `${n} of 10` }; } },
+    ] },
+  { id: 'japan', icon: '🗾', title: 'The Comeback', country: 'Japan', year: 2021, years: 15, difficulty: 'hard',
+    pitch: 'Three lost decades. Wake the giant.',
+    brief: 'Japan has barely grown since 1990 and carries the heaviest public debt in the rich world. Prove the pessimists wrong: grow the economy by more than a third, bring the debt below 180% of GDP, and climb back into the top three.',
+    goals: [
+      { label: 'Grow the economy by 35%', kind: 'reach', value: realGoal(1.35) },
+      { label: 'Bring public debt below 180% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 1.8, pctF) },
+      { label: 'Climb into the world’s top 3', kind: 'reach', value: rankGoal(3) },
+    ] },
+  { id: 'saudi', icon: '🛢', title: 'Beyond Oil', country: 'Saudi Arabia', year: 2024, years: 15, difficulty: 'normal',
+    pitch: 'Turn oil money into a modern economy before the oil age ends.',
+    brief: 'Oil pays for everything in Saudi Arabia, for now. Use the windfall to build industries that will outlast it: technology and services, a top-ten place in the world, and a circle of client states across the region.',
+    goals: [
+      { label: 'Expand technology and services by 4 levels', kind: 'reach', value: (_s, c, st) => { const n = st.base.ind < 0 ? 0 : indOf(c, ['tech', 'services']) - st.base.ind; return { v: clamp(n / 4, 0, 1), text: `+${n.toFixed(1)} of 4 levels` }; } },
+      { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
+      { label: 'Win 4 client states', kind: 'reach', value: clientsGoal(4) },
+    ] },
+  { id: 'germany', icon: '⚙', title: 'Reinvent the Engine', country: 'Germany', year: 2024, years: 12, difficulty: 'normal',
+    pitch: 'Cheap gas is gone and the car industry is under siege. Build a new model.',
+    brief: 'Germany built its wealth on cheap Russian gas, cars and machine tools. All three are in trouble. Make the country grow again, power it yourself, and climb back into the world’s top four.',
+    goals: [
+      { label: 'Grow the economy by 25%', kind: 'reach', value: realGoal(1.25) },
+      { label: 'Produce 90% of the energy you use', kind: 'end', value: (_s, c) => { const r = c.eco.energyCap / Math.max(1, c.eco.energyDemand); return { v: clamp(r / 0.9, 0, 1), text: `${Math.round(r * 100)}% now (goal 90%)` }; } },
+      { label: 'Climb into the world’s top 4', kind: 'reach', value: rankGoal(4) },
+    ] },
+  { id: 'brazil', icon: '🌿', title: 'The Green Superpower', country: 'Brazil', year: 2024, years: 15, difficulty: 'normal',
+    pitch: 'Food, forests, clean power: lead the Global South.',
+    brief: 'Brazil feeds the world and runs on clean power, yet it has never turned that into lasting power abroad. Become one of the world’s top eight, gather a circle of client states, and lead in the technologies of the future.',
+    goals: [
+      { label: 'Break into the world’s top 8', kind: 'reach', value: rankGoal(8) },
+      { label: 'Win 5 client states', kind: 'reach', value: clientsGoal(5) },
+      { label: 'Master 8 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 8, 0, 1), text: `${n} of 8` }; } },
+    ] },
+  { id: 'indonesia', icon: '🌋', title: 'Archipelago Rising', country: 'Indonesia', year: 2024, years: 20, difficulty: 'normal',
+    pitch: '17,000 islands, 280 million people, one ambition.',
+    brief: 'Indonesia is the largest economy in Southeast Asia and still growing fast. Turn the archipelago into a world power: nearly double the economy, enter the top ten and make your neighbours look to Jakarta first.',
+    goals: [
+      { label: 'Grow the economy by 80%', kind: 'reach', value: realGoal(1.8) },
+      { label: 'Break into the world’s top 10', kind: 'reach', value: rankGoal(10) },
+      { label: 'Win 3 client states', kind: 'reach', value: clientsGoal(3) },
+    ] },
+  { id: 'vietnam', icon: '🐉', title: 'The Next Tiger', country: 'Vietnam', year: 2024, years: 15, difficulty: 'hard',
+    pitch: 'Factories are leaving China. Catch them.',
+    brief: 'Vietnam is where the world’s factories move when they leave China. Double the economy, climb into the world’s top twenty, and build the technology to stop being only the workshop.',
+    goals: [
+      { label: 'Double the economy', kind: 'reach', value: realGoal(2) },
+      { label: 'Climb into the world’s top 20', kind: 'reach', value: rankGoal(20) },
+      { label: 'Master 8 new technologies', kind: 'reach', value: (_s, c, st) => { const n = st.base.techs < 0 ? 0 : techs(c) - st.base.techs; return { v: clamp(n / 8, 0, 1), text: `${n} of 8` }; } },
+    ] },
+  { id: 'egypt', icon: '🏺', title: 'Bread and Bonds', country: 'Egypt', year: 2024, years: 10, difficulty: 'hard',
+    pitch: 'Debt at 92%, a falling pound, 110 million mouths to feed.',
+    brief: 'Egypt borrows to import the bread that keeps the peace, and the pound keeps falling. Put the debt on a sane path, tame the prices, and finish with a country at peace with itself.',
+    goals: [
+      { label: 'Bring public debt below 70% of GDP', kind: 'reach', value: lowGoal((c) => c.eco.debt / c.eco.gdp, 0.7, pctF) },
+      { label: 'Hold inflation below 8% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.08, pctF) },
+      { label: 'Finish with stability of 60 or more', kind: 'end', value: (_s, c) => ({ v: clamp(c.eco.stability / 60, 0, 1), text: `stability ${c.eco.stability.toFixed(0)} (goal 60)` }) },
+    ],
+    fail: (_s, c) => (c.eco.stability < 12 ? 'Bread riots brought the government down.' : null) },
+  { id: 'nigeria', icon: '🦁', title: 'Africa’s Giant', country: 'Nigeria', year: 2024, years: 20, difficulty: 'hard',
+    pitch: 'Two hundred million people. Make them prosperous.',
+    brief: 'Nigeria has the people, the oil and the energy of a great power, and the inflation, insecurity and debts of a fragile one. Make it the richest economy in Africa, calm the prices, and take a place among the world’s top 20.',
+    goals: [
+      { label: 'Become Africa’s largest economy', kind: 'reach', value: (s, c) => { const top = s.countries.filter((x) => x.alive && x.region === 'AF' && x.id !== c.id).sort((a, b) => b.eco.gdp - a.eco.gdp)[0]; return { v: top ? clamp(c.eco.gdp / top.eco.gdp, 0, 1) : 1, text: top ? `${Math.round((c.eco.gdp / top.eco.gdp) * 100)}% of ${top.name}` : 'first' }; } },
+      { label: 'Hold inflation below 6% for a full year', kind: 'hold', weeks: 52, value: lowGoal((c) => c.eco.inflation, 0.06, pctF) },
+      { label: 'Climb into the world’s top 20', kind: 'reach', value: rankGoal(20) },
+    ],
+    fail: (_s, c) => (c.eco.stability < 10 ? 'The country slid into chaos and the government fell.' : null) },
+];
+const DAILY_POOL = ['Poland', 'Turkey', 'Mexico', 'Indonesia', 'Vietnam', 'Egypt', 'Kenya', 'Colombia', 'Malaysia', 'Philippines', 'Morocco', 'Chile', 'Kazakhstan', 'Bangladesh', 'Peru', 'Romania', 'Thailand', 'South Africa', 'Ethiopia', 'Ghana'];
+/** A small deterministic hash of a string (the daily challenge's dice). */
+function hstr(t: string) { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
+/** Today's challenge (`date` as YYYYMMDD): a country, a year, three goals, the same seed for everyone. */
+export function dailyScenario(date: string): Scenario {
+  const r = (k: string) => hstr(`${date}:${k}`);
+  const country = DAILY_POOL[Math.floor(r('c') * DAILY_POOL.length)];
+  const climb = 3 + Math.floor(r('k') * 5);
+  const grow = 1.2 + Math.round(r('g') * 3) * 0.05;
+  const third: ScenGoal = r('t') < 0.5
+    ? { label: 'Win 2 client states', kind: 'reach', value: clientsGoal(2) }
+    : { label: 'Finish with stability of 65 or more', kind: 'end', value: (_s, c) => ({ v: clamp(c.eco.stability / 65, 0, 1), text: `stability ${c.eco.stability.toFixed(0)} (goal 65)` }) };
+  return {
+    id: `daily:${date}`, icon: '📅', title: `Daily challenge ${date.slice(6, 8)}/${date.slice(4, 6)}`, country, year: 2024, years: 6, difficulty: 'normal',
+    pitch: `${country} for six years. Everyone plays the same start today.`,
+    brief: `Today's challenge: ${country}, from 2024, for six years, with the same world and the same luck for every player. Climb ${climb} places in the power race, grow the economy by ${Math.round((grow - 1) * 100)}%, and ${third.label.toLowerCase()}. Compare your score.`,
+    goals: [
+      { label: `Climb ${climb} places in the power race`, kind: 'reach', value: (s, c, st) => { const rk = powerRank(s, c.id); const target = Math.max(1, st.base.rank - climb); return { v: rk <= target ? 1 : clamp((st.base.rank - rk) / climb, 0, 0.99), text: `#${rk} now (goal #${target})` }; } },
+      { label: `Grow the economy by ${Math.round((grow - 1) * 100)}%`, kind: 'reach', value: realGoal(grow) },
+      third,
+    ],
+  };
+}
+export const dailySeed = (date: string) => 1 + Math.floor(hstr(`${date}:seed`) * 2 ** 30);
+export const todayKey = (d = new Date()) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+export const scenarioById = (id: string | undefined) => (id?.startsWith('daily:') ? dailyScenario(id.slice(6)) : SCENARIOS.find((x) => x.id === id));
+export const scenarioPlayer = (sc: Scenario) => NAME_TO_ID[sc.country];
+
+export function ensureScenario(s: GameState): ScenarioState | null {
+  const sc = scenarioById(s.settings.scenario);
+  if (!sc) return null;
+  if (!s.scen || s.scen.id !== sc.id) {
+    const c = s.countries[s.player];
+    s.scen = { id: sc.id, start: s.tick, until: s.tick + sc.years * 52, stars: sc.goals.map(() => false), streak: sc.goals.map(() => 0),
+      base: { real: c.eco.realGdp, rank: powerRank(s, s.player), prov: c.provinces.length, techs: techs(c), ind: indOf(c, ['tech', 'services']), laws: c.politics?.laws.length ?? 0, indAll: indOf(c, ALL_SECTORS) } };
+  }
+  return s.scen;
+}
+
+/** Live view of the goals: progress, and whether each star is won (or, for end goals, would be now). */
+export function scenarioGoals(s: GameState) {
+  const sc = scenarioById(s.settings.scenario), st = s.scen;
+  if (!sc || !st) return [];
+  const c = s.countries[s.player];
+  return sc.goals.map((g, i) => { const p = g.value(s, c, st); return { g, i, ...p, won: st.stars[i] || (g.kind === 'end' && p.v >= 1), locked: st.stars[i], streak: st.streak[i] }; });
+}
+
+/** Monthly: stars, the clock, the ending. */
+export function stepScenario(s: GameState) {
+  const st = ensureScenario(s);
+  if (!st || st.done) return;
+  const sc = scenarioById(st.id)!, c = s.countries[s.player];
+  const end = (won: boolean, why: string) => {
+    const stars = sc.goals.filter((g, i) => st.stars[i] || (g.kind === 'end' && c.alive && g.value(s, c, st).v >= 1)).length;
+    const winNow = won && (st.stars[0] || (sc.goals[0].kind === 'end' && c.alive && sc.goals[0].value(s, c, st).v >= 1));
+    const score = (winNow ? 1000 : 0) + stars * 1000 + Math.max(0, st.until - s.tick) * 3 + Math.max(0, (st.base.rank - (c.alive ? powerRank(s, s.player) : 999))) * 25;
+    st.done = { won: winNow, stars: winNow ? stars : Math.min(stars, 1), score: Math.max(0, score), why, tick: s.tick };
+    logEvent(s, `🏁 ${sc.title.toUpperCase()}: ${winNow ? `VICTORY, ${'★'.repeat(st.done.stars)}` : 'DEFEAT'}. ${why}`, winNow ? 'info' : 'danger', [s.player], true, { big: true, prov: c.capital });
+  };
+  if (!c.alive) return end(false, `${c.name} has fallen.`);
+  const why = sc.fail?.(s, c, st);
+  if (why) return end(false, why);
+  const last = s.tick >= st.until;
+  if (s.tick % 4 !== 2 && !last) return;
+  if (st.base.techs < 0) st.base.techs = techs(c);
+  if (st.base.ind < 0) st.base.ind = indOf(c, ['tech', 'services']);
+  if (st.base.indAll === undefined || st.base.indAll < 0) st.base.indAll = indOf(c, ALL_SECTORS);
+  sc.goals.forEach((g, i) => {
+    if (st.stars[i] || g.kind === 'end') return;
+    const v = g.value(s, c, st).v;
+    if (g.kind === 'hold') { if (s.tick % 4 !== 2) return; st.streak[i] = v >= 1 ? st.streak[i] + 4 : 0; if (st.streak[i] < (g.weeks ?? 52)) return; }
+    else if (v < 1) return;
+    st.stars[i] = true;
+    logEvent(s, `⭐ STAR WON: ${g.label}.`, 'info', [s.player], true, { big: true, prov: c.capital });
+  });
+  if (sc.goals.every((_g, i) => st.stars[i])) return end(true, `Every goal achieved, ${Math.round((st.until - s.tick) / 52)} years ahead of time.`);
+  if (last) end(true, `Time is up: ${sc.years} years have passed.`);
+}
