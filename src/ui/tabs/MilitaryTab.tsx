@@ -1,3 +1,4 @@
+import { OperationsSection } from '../Operations';
 import { GOALS_META, PROGRAMMES, actMissileStrike, actStartProgramme, goalOf, hasProg } from '../../sim/wargoals';
 import { nationalColor } from '../../map/palette';
 import { store } from '../../state/store';
@@ -55,6 +56,7 @@ export function MilitaryTab({ id }: { id: number }) {
   return (
     <>
       {mine && <AutopilotBanner area="military" />}
+      {mine && <OperationsSection />}
       <Section title="Forces" hint={`#${rank} in the world`}>
         <div className="grid2">
           <Stat label="Active troops" value={f(m.troops, 'troops')} sub={mine ? `manpower pool ${fmtNum(mpool)}` : undefined} />

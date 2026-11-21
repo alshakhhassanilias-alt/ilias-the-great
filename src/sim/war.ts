@@ -10,6 +10,7 @@
  *   progress per tick = 0.16 · clamp(ln(attack/defence) + 0.25, −1.2, 1.6) scaled by province size.
  * A province changes hands when progress reaches 100%. Casualties are Lanchester-like in the force ratio.
  */
+import { opAttackMult, opDefenceMult, opFocus, opTempo } from './operations';
 import { chronicle } from './chronicle';
 import { addRec } from './minds';
 import { addAggression, coalitionAgainst } from './coalitions';
@@ -550,6 +551,22 @@ export function stepWars(s: GameState, geo: Geo) {
       }
     }
 
+    // --- 1b. a player's operation concentrates the offensive on its objective; the rest of the front thins out
+    const fo = opFocus(s);
+    const PL = s.countries[s.player];
+    if (fo && fo.war === w.id && PL.alive && warSideOf(w, PL.id) >= 0) {
+      const cand = attackCandidates(s, geo, PL, w).find((x) => x.prov === fo.target);
+      if (cand) {
+        const off = PL.mil.troops * clamp(PL.mil.commit, 0.05, 1) * PL.mil.readiness / wr(s, PL.id);
+        for (const [q, list] of strikes) if (q !== fo.target) for (const st of list) if (st.c === PL) st.share *= 1 - fo.share;
+        const list = strikes.get(fo.target) ?? [];
+        const ex = list.find((x) => x.c === PL);
+        if (ex) ex.share += fo.share * off; else list.push({ c: PL, supply: cand.supply, amphibious: cand.amphibious, share: fo.share * off, from: cand.from });
+        strikes.set(fo.target, list);
+        if (!w.fronts.some((f) => f.prov === fo.target && f.by === PL.id)) w.fronts.push({ prov: fo.target, by: PL.id, progress: 0, amphibious: cand.amphibious });
+      }
+    }
+
     // --- 2. defenders' field troops are reinforced where the pressure is (capital gets a bonus)
     const pressure = new Map<ProvId, number>();
     for (const [p, list] of strikes) pressure.set(p, list.reduce((t, st) => t + landPower(st.c.mil, st.share) * st.supply, 0));
@@ -575,7 +592,7 @@ export function stepWars(s: GameState, geo: Geo) {
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.8 : 0);
       const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
-      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) : 1) * campDef(s, E) * charDef(E));
+      const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) * opDefenceMult(s, p) : 1) * campDef(s, E) * charDef(E));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
       for (const st of list) {
@@ -585,8 +602,8 @@ export function stepWars(s: GameState, geo: Geo) {
         const gen = generalAt(C, p);
         st.supply = Math.min(1, st.supply * supplyBonus(gen));
         const pa = (st.order === 'encircle' && pocket ? 1.25 : 1) * attackBonus(gen, pocket) * landPower(C.mil, st.share) * st.supply * (1 + 0.18 * air) * intel * (st.amphibious ? 0.55 + 0.3 * Math.max(0, navalSuperiority(C, E)) : 1) * competence(s, C) * mods(C).off * morale(C) * campOff(s, C, e);
-        contrib.push({ st, pa, air });
-        Pa += pa;
+        contrib.push({ st, pa: pa * (st.c.isPlayer ? opAttackMult(s, p) : 1), air }); // (a planned operation on this sector: operations.ts)
+        Pa += contrib[contrib.length - 1].pa;
       }
       if (Pa <= 0) continue;
       const noise = 1 + (nextRand(s) - 0.5) * 0.16;
@@ -597,7 +614,9 @@ export function stepWars(s: GameState, geo: Geo) {
       const raw = 0.055 * clamp(Math.log(ratio) + 0.25, -1.2, 1.6) * sizeScale;
       // red lines and nuclear warnings hold back an advance into the defender's own homeland (redlines.ts)
       const redLine = s.core[p] === e ? advanceBrake(s, w, e) : 1;
-      const delta = (raw > 0 ? Math.min(raw, pocket ? 0.07 : 0.045) * nuclearBrake * redLine : raw) * (raw > 0 ? amph : 1);
+      // a planned operation on this sector moves at an operation's tempo (operations.ts)
+      const tempo = contrib.some((x) => x.st.c.isPlayer) ? opTempo(s, p) : 1;
+      const delta = (raw > 0 ? Math.min(raw * tempo, (pocket ? 0.07 : 0.045) * tempo) * nuclearBrake * redLine : raw) * (raw > 0 ? amph : 1);
       // casualties
       const defShare = defTroops;
       const gunner = contrib.some((x) => generalAt(x.st.c, p)?.trait === 'artillery');

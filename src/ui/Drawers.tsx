@@ -2,6 +2,7 @@ import { nationalColor } from '../map/palette';
 import { RecordPanel } from './Record';
 import { CampaignHQ } from './Campaign';
 import { SummitScreen } from './Summit';
+import { OperationPlanner } from './Operations';
 import { powerTable } from '../sim/power';
 import { START_YEAR } from '../sim/types';
 import { TROPHIES } from '../sim/trophies';
@@ -53,6 +54,7 @@ export function Drawers() {
   if (open === 'legacy' && store.state.legacy) return <LegacyDossier onClose={close} />;
   if (open === 'record') return <RecordPanel onClose={close} />;
   if (open === 'campaign') return <CampaignHQ onClose={close} />;
+  if (open === 'operation') return <OperationPlanner onClose={close} />;
   if (open === 'summit') return <SummitScreen onClose={() => { store.summitWith = null; close(); }} />;
   return null;
 }

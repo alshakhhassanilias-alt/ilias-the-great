@@ -5,6 +5,7 @@
  *   - the war strip over the map for as long as you are at war;
  *   - the war panel at the top of the Overview: the phase, the numbers, mobilisation and strategy, the war room.
  */
+import { OP_KIND, activeOp } from '../sim/operations';
 import { useEffect, useState } from 'react';
 import { store, useStore } from '../state/store';
 import { mainWar, playerWars, warScale, actWarCouncil, actMobilise, actSetStrategy, TIER_LABEL, TIER_DESC, type WarX } from '../sim/warmode';
@@ -151,6 +152,7 @@ export function WarStrip() {
       </div>
       <div className="ws-score desk-only" title="war score"><i className={sc >= 0 ? 'up' : 'down'} style={{ width: `${Math.round(Math.abs(sc) * 50)}%`, [sc >= 0 ? 'left' : 'right']: '50%' } as React.CSSProperties} /><span>{sc >= 0 ? '+' : ''}{Math.round(sc * 100)}</span></div>
       <span className="ws-num desk-only" title="war support">{Math.round(warSupport(c) * 100)}% support</span>
+      {(() => { const o = activeOp(s); return o ? <span className={`ws-op ${o.status}`} title={o.name}>{OP_KIND[o.kind].icon} {o.status === 'preparing' ? `H-${o.launch - s.tick}` : `${Math.max(0, o.until - s.tick)} wk`}</span> : <button className="btn sm" onClick={() => store.openDrawer('operation')}>Plan an operation</button>; })()}
       {x.council ? <button className="btn sm danger" onClick={() => store.notify()}>Council</button> : <button className="btn sm" onClick={() => store.openWarRoom(w.id)}>War room</button>}
     </div>
   );

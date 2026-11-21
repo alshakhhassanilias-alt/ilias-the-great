@@ -3942,3 +3942,66 @@ describe('summits: diplomacy face to face (round 45)', () => {
     expect(tieOf45(s, T.id)!.rapport).toBe(0);
   });
 });
+
+import { actPlanOperation as plan46, activeOp as activeOp46, opEstimate as est46, opTargets as targets46, opFocus as focus46, OP_EVENTS as OPEV46, type Plan as Plan46 } from '../src/sim/operations';
+import { ensureGenerals as ensureGenerals46 } from '../src/sim/generals';
+import { declareWar as declareWar46 } from '../src/sim/war';
+describe('operations: the war, planned (round 46)', () => {
+  const atWar = (seed = 3) => {
+    const s = fresh('Poland', { randomEvents: false, seed });
+    const P = s.countries[s.player];
+    declareWar46(s, geo, P.id, id('Belarus'));
+    ensureGenerals46(s, P);
+    for (let i = 0; i < 5; i++) { s.inbox = []; tick(s, geo); }
+    return s;
+  };
+  const planFor = (s: GameState, over: Partial<Plan46> = {}): Plan46 => {
+    const t = targets46(s, geo).find((x) => x.kind === 'seize' && s.countries[x.enemy].name === 'Belarus') ?? targets46(s, geo).find((x) => x.kind !== 'hold')!;
+    const g = s.countries[s.player].generals!.find((x) => x.status === 'active')!;
+    return { kind: t.kind, target: t.prov, war: t.war.id, enemy: t.enemy, general: g.id, force: 'standard', prep: 0, deception: 'none', support: [], ...over };
+  };
+  it('objectives come from the real fronts, and a better plan is a better bet', () => {
+    const s = atWar();
+    const ts = targets46(s, geo);
+    expect(ts.length).toBeGreaterThan(2);
+    for (const t of ts) expect(t.kind === 'hold' ? s.owner[t.prov] === s.player : s.owner[t.prov] !== s.player, `${t.name} ${t.kind}`).toBe(true);
+    const light = est46(s, geo, planFor(s, { force: 'light' })).p;
+    const heavy = est46(s, geo, planFor(s, { force: 'allin', prep: 8, deception: 'feint', support: ['guns'] })).p;
+    expect(heavy).toBeGreaterThan(light + 0.08);
+    const e = est46(s, geo, planFor(s));
+    expect(e.lo).toBeLessThanOrEqual(e.p); expect(e.hi).toBeGreaterThanOrEqual(e.p);
+  });
+  it('an operation is prepared, launched, brings a crisis, concentrates the army, and is decided by its deadline', () => {
+    const s = atWar();
+    const pl = planFor(s, { prep: 4, force: 'allin' });
+    expect(plan46(s, geo, pl).ok).toBe(true);
+    expect(plan46(s, geo, pl).ok).toBe(false); // one at a time
+    const o = activeOp46(s)!;
+    expect(o.status).toBe('preparing');
+    expect(s.countries[s.player].generals!.find((g) => g.id === pl.general)!.pinned).toBe(true);
+    let sawCrisis = false, sawFocus = false;
+    for (let i = 0; i < 20 && activeOp46(s); i++) {
+      if (focus46(s)?.target === pl.target) sawFocus = true;
+      for (const it of [...s.inbox]) { if (it.id.startsWith('op_')) sawCrisis = true; resolveEvent(s, geo, 1, it.uid); }
+      tick(s, geo);
+    }
+    expect(sawFocus).toBe(true);
+    expect(activeOp46(s)).toBeUndefined();
+    expect(['won', 'failed']).toContain(o.status);
+    if (o.status === 'won') expect(s.owner[o.target]).toBe(s.player);
+    expect(sawCrisis || o.status === 'won').toBe(true);
+    expect(s.countries[s.player].generals!.find((g) => g.id === pl.general)!.pinned).toBe(false);
+  });
+  it('every crisis choice can be taken and changes the plan', () => {
+    const s = atWar();
+    plan46(s, geo, planFor(s));
+    const o = activeOp46(s)!;
+    for (const ev of OPEV46) for (const op of ev.options) {
+      const b0 = o.boost, u0 = o.until;
+      const txt = op.apply(s, s.countries[s.player], { op: o.id }, geo);
+      expect(typeof txt).toBe('string');
+      expect(o.boost !== b0 || o.until !== u0, `${ev.id}: ${op.label}`).toBe(true);
+      o.boost = b0; o.until = u0;
+    }
+  });
+});

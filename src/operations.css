@@ -1,0 +1,41 @@
+/* Operations: the panel (Military tab), the war strip chip, and the planner (ui/Operations.tsx). */
+.op-card { padding: 10px 12px; border-radius: 10px; background: linear-gradient(180deg, rgba(255, 120, 60, 0.08), rgba(0, 0, 0, 0.25)); border: 1px solid rgba(255, 140, 80, 0.35); display: flex; flex-direction: column; gap: 6px; }
+.op-card.preparing { border-style: dashed; }
+.op-head { display: flex; align-items: center; gap: 10px; }
+.op-ic { font-size: 22px; }
+.op-head b { font-family: 'Cinzel', Georgia, serif; font-size: 15px; display: block; }
+.op-head small { font-size: 11.5px; color: var(--muted); }
+.op-est { font: 700 20px/1 'Barlow Condensed', var(--font); color: #ffd86b; }
+.op-meta { font-size: 11.5px; }
+.op-beats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; }
+.op-beats li { padding: 3px 8px; border-left: 3px solid #6a7c90; background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+.op-beats li.good { border-left-color: var(--green); } .op-beats li.bad { border-left-color: var(--red); }
+.op-beats small { color: var(--faint); margin-right: 6px; font-size: 10.5px; }
+.op-plan-btn { width: 100%; }
+.op-past { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+.op-past li.won b { color: var(--green); } .op-past li.failed b { color: #ff8a70; }
+.ws-op { font: 700 12px/1 'Barlow Condensed', var(--font); padding: 5px 8px; border-radius: 6px; background: rgba(255, 120, 60, 0.18); border: 1px solid rgba(255, 140, 80, 0.5); color: #ffd2b8; white-space: nowrap; }
+.op-scrim { z-index: 86; }
+.op-modal { width: min(920px, 100%); max-height: min(94vh, 1000px); }
+.op-modal .modal-body { display: flex; flex-direction: column; gap: 6px; }
+.op-modal h4 { margin: 8px 0 2px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.op-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+.op-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 5px; }
+.op-opt { display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; border-radius: 8px; text-align: left; font: inherit; color: var(--text); cursor: pointer; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); }
+.op-opt:hover { border-color: rgba(255, 160, 100, 0.6); }
+.op-opt.on { border-color: #ff9a5a; background: rgba(255, 140, 80, 0.1); }
+.op-opt b { font-size: 13px; } .op-opt small { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.oo-top { display: flex; align-items: center; gap: 6px; }
+.oo-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oo-top em { font-style: normal; font-size: 11px; font-weight: 700; color: #ffb48a; white-space: nowrap; }
+.op-desc { font-size: 12px; margin: 2px 0 0; }
+.op-est-box { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 216, 107, 0.3); display: flex; flex-direction: column; gap: 6px; }
+.op-est-box > div:first-child { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.op-est-box small { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.op-est-box b { font: 700 26px/1 'Barlow Condensed', var(--font); color: #ffd86b; }
+.op-est-box em { font-style: normal; font-size: 12px; color: var(--muted); }
+.op-est-bar { position: relative; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #c2412c, #e0a040 50%, #3fb37f); }
+.op-est-bar i { position: absolute; top: -2px; bottom: -2px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); border: 1px solid rgba(255, 255, 255, 0.7); }
+.op-est-bar u { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #fff; }
+.op-est-meta { font-size: 11.5px; }
+.op-go { align-self: flex-start; margin-top: 6px; }

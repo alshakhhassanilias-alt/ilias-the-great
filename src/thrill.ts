@@ -48,6 +48,9 @@ export function thrillOf(e: Pick<LogEntry, 'text' | 'kind' | 'countries' | 'big'
   if (/No-confidence vote passes|Early elections/.test(t)) return { jolt: { kind: 'alarm', power: 0.9 }, cine: { kicker: 'The government falls', title: 'SNAP ELECTION', sub: clean(t), tone: 'steel' } };
   if (/HARDLINERS STRIKE BACK/.test(t)) return { jolt: { kind: 'hit', power: 0.9 } };
   if (/GREAT AMBITION|AMBITION ACHIEVED|STAGE COMPLETE/i.test(t)) return { jolt: { kind: 'glory', power: 1 }, cine: { kicker: 'They said it could not be done', title: 'A GREAT AMBITION', sub: clean(t), tone: 'gold' } };
+  if (/OPERATION .* SUCCEEDS/.test(t)) return { jolt: { kind: 'glory', power: 1 }, cine: { kicker: 'Victory', title: (t.match(/OPERATION [A-Z' ]+?(?= SUCCEEDS)/)?.[0] ?? 'THE OPERATION'), sub: after(t, 'SUCCEEDS'), tone: 'gold' } };
+  if (/OPERATION .* FAILS/.test(t)) return { jolt: { kind: 'hit', power: 1.1 }, cine: { kicker: 'Defeat', title: (t.match(/OPERATION [A-Z' ]+?(?= FAILS)/)?.[0] ?? 'THE OPERATION'), sub: after(t, 'FAILS'), tone: 'red' } };
+  if (/OPERATION .* BEGINS/.test(t)) return { jolt: { kind: 'boom', power: 0.8 }, ...(e.prov !== undefined ? { strike: e.prov } : {}) };
   if (/THE CAMPAIGN BEGINS/.test(t)) return { jolt: { kind: 'alarm', power: 0.5 }, cine: { kicker: 'Twelve weeks to decide everything', title: 'THE CAMPAIGN', sub: after(t, 'THE CAMPAIGN BEGINS'), tone: 'steel' } };
   if (/RECORD YEAR/.test(t)) return { jolt: { kind: 'glory', power: 0.9 }, cine: { kicker: 'For the history books', title: 'A RECORD YEAR', sub: after(t, 'RECORD YEAR'), tone: 'gold' } };
   if (/GOOD YEARS IN A ROW/.test(t)) return { jolt: { kind: 'glory', power: 0.6 } };

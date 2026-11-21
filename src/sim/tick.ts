@@ -25,6 +25,7 @@ import { stepIndustry } from './industry';
 import { stepInfluenceGen } from './influence';
 import { stepDevelop } from './develop';
 import { stepSummits } from './summit';
+import { stepOperations } from './operations';
 import { stepCables } from './cables';
 import { setInTick } from './relations';
 import type { Geo } from './geo';
@@ -136,6 +137,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield;
   mark('stepWars');
   stepWars(s, geo);
+  stepOperations(s, geo);
   stepOngoing(s);
   stepCampaigns(s, geo);
   stepPeaceDeals(s);

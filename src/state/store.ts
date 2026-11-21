@@ -36,7 +36,7 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 2;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'summit' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'summit' | 'operation' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
 
 const QUICK = 'Quicksave';
 

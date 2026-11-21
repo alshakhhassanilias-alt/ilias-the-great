@@ -62,6 +62,30 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 46: operations, the war planned
+
+War had fronts, army groups, generals, supply, campaigns (bombing, blockades, offensives) and a war council, but almost
+all of it ran by itself. Now you plan named operations (`src/sim/operations.ts`, `src/ui/Operations.tsx`; Military tab,
+or the war strip):
+
+* **The objective**, from your real fronts: seize a region, crush an encircled pocket, march on their capital, land
+  behind their lines, or hold one of your regions under attack.
+* **The plan**: a commander whose speciality fits the job or does not (an Encircler for a pocket, a Logistician for a
+  landing or a long push, a Fortress general to hold, a Blitz general for a breakthrough); how much of the army to commit
+  (a spearhead, a full army, everything: the rest of the front thins out); when (now, or after four or eight weeks of
+  preparation, stronger but with a growing chance the enemy finds out); deception (a feint, radio deception if your
+  intelligence services are good enough); support (air cover, worth it only if you own the sky; a barrage).
+* **The staff estimate**, as a range: the better your intelligence, the narrower it is. Calibrated against simulated
+  operations: a quick spearhead reads about 70% and lands 44-81% of the time depending on the war; a fully prepared
+  all-in assault reads about 92% and lands 75-94%.
+* **The battle**: while it runs, the objective gets your concentrated force, the plan's bonuses and an operation's tempo
+  in the real battle engine (`war.ts`), so the map moves. A couple of weeks in a crisis comes to your desk (the bridge, a
+  breakout from the pocket, the gates of the capital, a storm over the beaches, the line bending) and your call changes
+  the odds.
+* **The end**: taken before the deadline, or a last push decided by the odds and how far the front has come. Success:
+  the prize (a pocket destroyed, a beachhead, a capital), war support, a famous general, and its moment on screen.
+  Failure: losses, war support, and questions about the general.
+
 ## Round 45: summits, diplomacy face to face
 
 Diplomacy had a negotiating table (styles, interests, red lines, terms), but nothing personal: no one remembered you,

@@ -131,8 +131,9 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   if (!(await pg.locator('.inbox .event-opt').count())) await pg.locator('.inbox-row').first().click().catch(() => {});
   await answerEvent(pg);
   await pg.evaluate(() => window.__store.openInbox(null));
+  const tAns = (await S(pg)).tick;
   await clearSotn(pg); await pg.click('button[aria-label="Very fast"]'); await sleep(1500);
-  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > s1.tick + 5, `(tick ${(await S(pg)).tick}, from ${s1.tick}, lastChance ${lastChance}, speed ${(await S(pg)).speed}, inbox ${await pg.evaluate(() => window.__store.state.inbox.map((x) => x.id + (x.urgent ? '!' : '')).join(','))}, holds ${await pg.evaluate(() => JSON.stringify(window.__store.holds ?? null))}, council ${await pg.evaluate(() => Object.values(window.__store.state.warx ?? {}).some((x) => x.council))})`);
+  check('an urgent decision pauses the game before it lapses, and play resumes after answering', lastChance && (await S(pg)).tick > Math.max(s1.tick + 1, tAns), `(tick ${(await S(pg)).tick}, from ${s1.tick}, lastChance ${lastChance}, speed ${(await S(pg)).speed}, inbox ${await pg.evaluate(() => window.__store.state.inbox.map((x) => x.id + (x.urgent ? '!' : '')).join(','))}, holds ${await pg.evaluate(() => JSON.stringify(window.__store.holds ?? null))}, council ${await pg.evaluate(() => Object.values(window.__store.state.warx ?? {}).some((x) => x.council))})`);
   // the State of the Nation: step to the next January and it opens, with the report card, the rivals and six foci
   await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
   await pg.evaluate(() => { const st = window.__store; st.state.settings.yearPlan = true; for (let i = 0; i < 60 && !st.state.plan.pending; i++) { st.state.inbox = []; st.stepOnce(); } st.notify(); });
@@ -160,7 +161,7 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   if (atWarNow) {
     await pg.click('.ws-kpi');
     await sleep(200);
-    const body = (await pg.locator('.side-body').innerText()).toLowerCase();
+    const body = (await pg.locator('.side-body').evaluate((el) => el.textContent ?? '')).toLowerCase(); // textContent: sections below the fold skip rendering (content-visibility), so innerText leaves them out
     check('war support shows in the top bar and opens the home front with supply lines', body.includes('home front') && body.includes('supply lines') && (await pg.locator('.ws-big').count()) === 1);
     const ws0 = await pg.evaluate(() => window.__store.state.countries[window.__store.state.player].mil.warSupport);
     await pg.click('button:has-text("Propaganda campaign")');
@@ -362,6 +363,14 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await sleep(800);
   const info = await pg.evaluate(() => { const r = window.__renderer; const s = window.__store.state; const geo = window.__store.geo; const B = s.countries.find((c) => c.name === 'Belarus'); const sd = geo.provinces[B.capital].seed; return { n: s.armies?.length ?? 0, h: r.armyHits[0], tx: sd[0] * r.view.k + r.view.x, ty: sd[1] * r.view.k + r.view.y, cap: B.capital }; });
   check('armies: going to war forms army groups on the map', info.n >= 3 && !!info.h, `(${info.n} armies)`);
+  // operations: plan one against a real objective; it goes under way and shows in the Military tab
+  await pg.evaluate(() => { const st = window.__store; st.openDrawer('operation'); });
+  await pg.waitForSelector('.op-modal');
+  check('operations: the planner offers objectives on the real fronts and a staff estimate', (await pg.locator('.op-grid .op-opt').count()) >= 2 && /%/.test(await pg.locator('.op-est-box').innerText()));
+  await pg.click('.op-row .op-opt:has-text("Now")').catch(() => {});
+  await pg.click('.op-go');
+  check('operations: approving the plan puts an operation under way', await pg.evaluate(() => !!window.__store.state.operations?.some((o) => o.status === 'running' || o.status === 'preparing')));
+  await pg.evaluate(() => { const s = window.__store.state; for (const o of s.operations ?? []) o.status = 'cancelled'; for (const g of s.countries[s.player].generals ?? []) g.pinned = false; window.__store.notify(); });
   if (info.h) {
     const box = await pg.locator('.map-wrap').boundingBox();
     await pg.mouse.move(box.x + info.h.x, box.y + info.h.y); await pg.mouse.down();
