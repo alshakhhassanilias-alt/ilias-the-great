@@ -269,7 +269,7 @@ export function overthrow(s: GameState, why: string) {
   return true;
 }
 
-function goIntoOpposition(s: GameState, share: number) {
+export function goIntoOpposition(s: GameState, share: number) {
   const L = s.legacy!, c = s.countries[s.player];
   L.status = 'opposition';
   L.opposition = { support: clamp(share, 15, 49), since: s.tick, attempts: L.opposition?.attempts ?? 0, gov: personName(c, 'gov', s.tick) };

@@ -686,12 +686,13 @@ export const SITUATIONS: Situation[] = [
 export const sitById = (id: string) => SITUATIONS.find((x) => x.id === id);
 
 /** Every stage of every situation as an inbox decision (weight 0: only the director opens them). */
-export const EVENTS13: EventDef[] = SITUATIONS.flatMap((sit) => sit.stages.map((st, i): EventDef => ({
+export const situationEvents = (list: Situation[], lapseText?: string): EventDef[] => list.flatMap((sit) => sit.stages.map((st, i): EventDef => ({
   id: `sit_${sit.id}_${i}`, icon: sit.icon, title: st.title ?? sit.title, weight: 0, cooldown: 0, ttl: 10, urgent: i === 0 && !!sit.urgent,
   eligible: () => null,
   arc: sit.stages.length > 1 ? { title: sit.title, stage: st.n ?? i + 1, of: Math.max(...sit.stages.map((x, j) => x.n ?? j + 1)) } : undefined,
   text: (s, c, d) => st.text(s, c, d),
   options: st.options.map((o) => ({ label: o.label, hint: o.hint, enabled: o.enabled, apply: (s: GameState, c: Country, d: D) => o.apply(s, c, d) })),
-  lapse: (s, c) => { stab(c, -1); return `You let it drift. ${i === 0 ? 'Others decided for you.' : 'It ended without you.'} Stability −1.`; },
+  lapse: (s, c) => { if (lapseText) return lapseText; stab(c, -1); return `You let it drift. ${i === 0 ? 'Others decided for you.' : 'It ended without you.'} Stability −1.`; },
 })));
+export const EVENTS13: EventDef[] = situationEvents(SITUATIONS);
 void warsOf;

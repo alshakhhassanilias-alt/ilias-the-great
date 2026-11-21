@@ -62,6 +62,25 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 42: something to do, every year
+
+A bot played 15 and 20-year games and counted the decisions that reached the desk each year. Two dry spells showed up.
+
+* **The situations ran out after about five years.** The director never told a situation twice, so once every one that
+  fitted the country had been told, it stopped: decisions fell from 10-13 a year to 4-6. Now each situation remembers
+  when it was last opened and comes back about three years later (sooner if nothing else fits), with fresh people and
+  places; never-told ones are still preferred. A 20-year Sandbox game as Poland now has 7-19 decisions every year;
+  Germany in Legacy 9-19 every year to year 15.
+* **Losing office switched the game off.** In opposition or exile almost nothing reached the desk (0-1 decisions a year,
+  for up to eight years, until the career ended). Now there are fourteen situations of their own out of power
+  (`src/sim/events14.ts`): a leaked envelope that could be a forgery, a minister who wants to defect, a donor whose bill
+  comes later, a split in the movement, a general strike, a warrant for your arrest, a foreign power offering help, a
+  by-election, shots at your motorcade, a student movement, a memoir, a poll that tempts you to strike early. They move
+  your support and the points you carry into the next vote; gambles state their odds. Jordan's run now has 5-7
+  decisions a year out of power, and the bot fought its way back into office in year 8 (before, never).
+* Tests: every year of a ten-year game brings at least five decisions; the opposition gets at least five of its own in
+  two years; every choice out of power runs and keeps support in bounds.
+
 ## Round 41: a smooth map on a laptop
 
 Measured on a 1536x864 laptop screen (pixel ratio 1.25): dragging the map ran at 14 fps with frames up to 1.5 s,

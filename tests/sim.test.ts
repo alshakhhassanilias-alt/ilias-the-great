@@ -2900,7 +2900,7 @@ describe('round 33: research, industries, influence, coalitions, a fairer Legacy
     s.legacy!.opposition = { support: 40, since: 0, attempts: 0, gov: 'Someone' };
     s.inbox = [];
     run(s, 52);
-    expect(s.inbox.every((x) => x.id.startsWith('legacy_') || x.id.startsWith('opp_'))).toBe(true);
+    expect(s.inbox.every((x) => x.id.startsWith('legacy_') || x.id.startsWith('sit_o_') || x.id.startsWith('opp_'))).toBe(true);
   });
   it('Legacy: the leader ages, has skills, a rival and deeds to chase', () => {
     const s = fresh('Germany', { mode: 'legacy' });
@@ -3680,5 +3680,62 @@ describe('autosaves never freeze the screen (round 39b)', () => {
     const strip = (x: string) => x.replace(/"savedAt":"[^"]+"/, '');
     expect(strip(r.value)).toBe(strip(serialize(s)));
     expect(deserialize(r.value, geo.provinces.length).tick).toBe(s.tick);
+  });
+});
+
+import { OPP_SITUATIONS as OPP41 } from '../src/sim/events14';
+import { goIntoOpposition as goIntoOpposition41 } from '../src/sim/legacy';
+describe('there is always something to do (round 41)', () => {
+  const playYears = (s: GameState, years: number) => {
+    const c = s.countries[s.player];
+    const per: number[] = []; const seen = new Set<number>(); let n = 0;
+    for (let w = 0; w < 52 * years; w++) {
+      for (const it of s.inbox) if (!seen.has(it.uid)) { seen.add(it.uid); n++; }
+      for (const it of [...s.inbox]) { const d = eventById(it.id); let k = 0; while (k < d.options.length - 1 && d.options[k].enabled && !d.options[k].enabled!(s, c)) k++; resolveEvent(s, geo, k, it.uid); }
+      if (s.legacy?.hand.length) s.legacy.hand = [];
+      if (s.plan) s.plan.pending = false;
+      tick(s, geo);
+      if (w % 52 === 51) { per.push(n); n = 0; }
+    }
+    return per;
+  };
+  it('the situations never run dry: every year of a long game brings decisions', () => {
+    const s = fresh('Poland', { seed: 4 });
+    const per = playYears(s, 10);
+    for (let y = 0; y < per.length; y++) expect(per[y], `year ${y + 1}: ${per.join(',')}`).toBeGreaterThanOrEqual(5);
+    // and once every fitting situation has been told, they come back, never two years running
+    const when = s.dir!.when!;
+    expect(Object.keys(when).length).toBeGreaterThan(20);
+  });
+  it('out of power is a game too: the opposition gets its own situations', () => {
+    const s = fresh('Germany', { seed: 6, mode: 'legacy' });
+    goIntoOpposition41(s, 38);
+    expect(s.legacy!.status).toBe('opposition');
+    const seenIds: string[] = [];
+    const c = s.countries[s.player];
+    for (let w = 0; w < 52 * 2; w++) {
+      for (const it of [...s.inbox]) { seenIds.push(it.id); resolveEvent(s, geo, 0, it.uid); }
+      tick(s, geo);
+      if (s.legacy!.status !== 'opposition') break;
+    }
+    const opp = seenIds.filter((x) => x.startsWith('sit_o_'));
+    expect(opp.length, seenIds.join(',')).toBeGreaterThanOrEqual(5);
+    expect(c.alive).toBe(true);
+  });
+  it('every choice out of power can be taken and moves your standing sensibly', () => {
+    const s = fresh('Belarus', { mode: 'legacy' });
+    goIntoOpposition41(s, 30);
+    const c = s.countries[s.player];
+    const d = { p: c.capital, n: s.countries.find((x) => x.alive && x.id !== c.id)!.id, k: 3 };
+    for (const x of OPP41) for (const st of x.stages) {
+      expect(typeof st.text(s, c, { ...d }), x.id).toBe('string');
+      for (const o of st.options) {
+        const out = o.apply(s, c, { ...d });
+        expect(out.length, `${x.id}: ${o.label}`).toBeGreaterThan(10);
+        const sup = s.legacy!.opposition!.support;
+        expect(sup).toBeGreaterThanOrEqual(5); expect(sup).toBeLessThanOrEqual(85);
+      }
+    }
+    expect(Number.isFinite(s.stats.campaign ?? 0)).toBe(true);
   });
 });

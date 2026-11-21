@@ -10,6 +10,7 @@ import { EVENTS8 } from './events8';
 import { EVENTS11 } from './events11';
 import { EVENTS12 } from './events12';
 import { EVENTS13 } from './events13';
+import { EVENTS14 } from './events14';
 import { stepDirector } from './director';
 import { EVENTS7, rememberChoice } from './events7';
 import { storyEvents } from './story';
@@ -207,7 +208,7 @@ import { EVENTS10 } from './events10';
 let all: EventDef[] | null = null;
 let byId: Map<string, EventDef> | null = null;
 export function allEvents(): EventDef[] {
-  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...EVENTS12, ...EVENTS13, ...storyEvents()]);
+  return (all ??= [...EVENTS, ...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7, ...EVENTS8, ...EVENTS9, ...EVENTS10, ...EVENTS11, ...EVENTS12, ...EVENTS13, ...EVENTS14, ...storyEvents()]);
 }
 /** (the list as an array-like for older callers and the tests) */
 export const ALL_EVENTS: EventDef[] = new Proxy([] as EventDef[], {
@@ -227,7 +228,7 @@ export function pushInbox(s: GameState, id: string, data: D, ttl?: number): Inbo
   const def = eventById(id);
   if (!def) return null;
   // out of power (Legacy opposition or exile) the government's decisions are not yours: only your own campaign's are
-  if (s.legacy && s.settings.mode === 'legacy' && s.legacy.status !== 'office' && !id.startsWith('legacy_') && !id.startsWith('opp_')) return null;
+  if (s.legacy && s.settings.mode === 'legacy' && s.legacy.status !== 'office' && !id.startsWith('legacy_') && !id.startsWith('opp_') && !id.startsWith('sit_o_')) return null;
   const urgent = !!def.urgent;
   const it: InboxItem = { uid: s.nextInbox++, id, tick: s.tick, expires: s.tick + (ttl ?? def.ttl ?? (urgent ? URGENT_TTL : NORMAL_TTL)), urgent, data };
   s.inbox.push(it);

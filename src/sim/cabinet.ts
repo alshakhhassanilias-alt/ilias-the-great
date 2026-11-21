@@ -244,6 +244,8 @@ for (const id of ['border_incident', 'arms_deal', 'arms_race', 'nuclear_scare', 
 for (const id of ['arc_bank_1', 'arc_bank_2a', 'arc_bank_2b']) PRESENTER[id] = 'finance';
 for (const id of ['arc_standoff_1', 'arc_standoff_2', 'arc_standoff_3']) PRESENTER[id] = 'defence';
 export function presenterOf(s: GameState, eventId: string, data?: Record<string, number>): Minister | undefined {
+  // out of power there is no cabinet: your own campaign's decisions come to you directly
+  if (eventId.startsWith('sit_o_') || eventId.startsWith('opp_') || (s.legacy && s.settings.mode === 'legacy' && s.legacy.status !== 'office')) return undefined;
   const c = s.countries[s.player];
   if (!c?.cabinet) return undefined;
   if ((eventId === 'min_scandal' || eventId === 'min_revolt') && data) return ministerById(c, data.m);
