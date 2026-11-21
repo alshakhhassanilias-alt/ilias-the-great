@@ -62,6 +62,32 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 44: an election is a campaign
+
+Before, an election was three pop-up decisions adding points to one number, then a dice roll; even the regions on
+election night were invented. Now the last twelve weeks before a vote are fought region by region (`src/sim/campaign.ts`,
+`src/ui/Campaign.tsx`).
+
+* **Regions**: the country is split into three to six electoral regions (clusters of its own provinces, weighted by
+  population; remote specks join the nearest real region). Each has a lean and cares about six issues in its own
+  proportions (jobs, prices, security, corruption, services, pride): the capital about services and corruption, a border
+  region about security.
+* **Credibility**: your record decides how believable each message is. Promise jobs with unemployment high and the crowd
+  laughs; the best message is one a region cares about and you can stand behind.
+* **Campaign days**: one a week (three in hand at most), spent in Campaign HQ on a rally (strong, spills into the rest,
+  the same crowd tires of you), door to door (smaller, does not wear thin), a TV address (everywhere, costs money) or an
+  attack ad (2 in 3 it lands, otherwise it backfires). Each builds momentum, which fades. Every move shows what it would
+  do before you commit. Rallies are speeches: your words are quoted on the campaign trail, with the size of the crowd.
+* **An opponent who fights back**: every week, in the closest big region, on the issue where your record is weakest.
+* **The vote**: each region decides (its lean, the national mood, your campaign there and theirs, a little luck), and
+  election night shows your real regions reporting, with your opponent's name. The road back from opposition is a
+  campaign too.
+* **Pacing**: the game stops and opens Campaign HQ when a campaign begins, and again whenever three campaign days are in
+  hand, so twelve weeks are never over in six seconds. A banner over the map shows the race.
+* From identical starting points a good campaign beats sitting it out by 7-8 points (Poland 46 -> 53.5, Germany
+  49 -> 57); a lazy one (always the capital, always jobs) gains about 2. Tests check the regions, the opponent, the
+  count, the comeback campaign, and that a good campaign beats none by more than four points.
+
 ## Round 43: development with depth, and no dead end at 100
 
 * **The chips and services dead end is gone.** Expanding them needed technology of 30 + 6 per level, which passes 100

@@ -7,6 +7,7 @@
  * while a rival government runs the country, and you can win your way back. Two failed comebacks, being
  * conquered, retiring or reaching the end of the era close the book: a history page sums up your rule.
  */
+import { CAMPAIGN_WEEKS, countVotes, startCampaign, stepCampaign, trailOf } from './campaign';
 import { rememberCables } from './minds';
 import type { Geo } from './geo';
 import type { AgendaPick, Country, GameState, LegacyState, Look, TermRecord, WarRecord } from './types';
@@ -171,6 +172,10 @@ export function stepLegacy(s: GameState, geo: Geo) {
       if (s.tick === L.nextVote - 8) pushInbox(s, 'legacy_debate', {}, 4);
       if (s.tick === L.nextVote - 4) pushInbox(s, 'legacy_final', {}, 4);
     } else if (s.tick === L.nextVote - 8 && !s.inbox.some((x) => x.id.startsWith('legacy_'))) pushInbox(s, 'legacy_loyalty', {}, 8);
+    // the last twelve weeks are a campaign, region by region
+    // (a snap election called with less than twelve weeks to go gets a shorter campaign)
+    if (s.tick >= L.nextVote - CAMPAIGN_WEEKS && s.tick < L.nextVote && !s.campaign) startCampaign(s, isFree(c.gov) ? 'election' : 'congress', L.nextVote);
+    else if (s.campaign) stepCampaign(s);
     if (s.tick >= L.nextVote) holdVote(s);
     // a collapse of the state removes you from power
     if (c.eco.stability < 6 && nextRand(s) < 0.03) {
@@ -187,6 +192,8 @@ export function stepLegacy(s: GameState, geo: Geo) {
     o.boost = (o.boost ?? 0) * 0.96;
     o.support = clamp(o.base + o.boost, 5, 85);
     if (s.tick === L.nextVote - 8 && !s.inbox.some((x) => x.id.startsWith('legacy_'))) pushInbox(s, 'legacy_comeback', {}, 8);
+    if (s.tick >= L.nextVote - CAMPAIGN_WEEKS && s.tick < L.nextVote && !s.campaign) startCampaign(s, 'comeback', L.nextVote);
+    else if (s.campaign) stepCampaign(s);
     if (s.tick >= L.nextVote || (c.eco.stability < 18 && s.tick - o.since > 52 && nextRand(s) < 0.02)) comebackVote(s);
   }
   if (yearOfTick(s.tick) >= L.maxYear) {
@@ -224,9 +231,14 @@ export function voteParts(s: GameState): { key: string; label: string; v: number
     { key: 'cabinet', label: 'Cabinet unity', v: cab },
     { key: 'charisma', label: 'Your personal appeal (charisma)', v: charismaVote(s) },
     { key: 'campaign', label: 'Your campaign', v: s.stats.campaign ?? 0 },
+    { key: 'trail', label: 'The campaign trail (your regions against theirs, momentum)', v: s.campaign && s.campaign.kind !== 'comeback' ? trailOf(s.campaign) : 0 },
   ];
   if (diff) parts.push({ key: 'difficulty', label: 'Difficulty', v: diff });
   return parts.filter((p) => Math.abs(p.v) > 0.05 || p.key === 'base');
+}
+/** the national race without the campaign trail (the campaign counts the trail region by region) */
+export function voteBase(s: GameState): number {
+  return clamp(voteParts(s).filter((p) => p.key !== 'trail').reduce((t, p) => t + p.v, 0), 2, 95);
 }
 export function voteShare(s: GameState): number {
   return clamp(voteParts(s).reduce((t, p) => t + p.v, 0), 2, 95);
@@ -240,7 +252,8 @@ function holdVote(s: GameState) {
     const card = agendaById(a.id);
     judge(L, a, card.progress(s, c, a).value >= 0.999 || (!!card.atTermEnd && card.progress(s, c, a).value >= 0.98), s);
   }
-  const share = clamp(voteShare(s) + (nextRand(s) - 0.5) * 6, 1, 97); // polls are rarely off by more than three points
+  // the regions decide (campaign.ts); without a campaign, the national poll and a little luck
+  const share = clamp(countVotes(s) ?? voteShare(s) + (nextRand(s) - 0.5) * 6, 1, 97);
   s.stats.campaign = 0;
   s.stats.lastVote = share;
   const free = isFree(c.gov);
@@ -312,7 +325,7 @@ function remembered(s: GameState) {
 function comebackVote(s: GameState) {
   const L = s.legacy!, c = s.countries[s.player], o = L.opposition!;
   const free = isFree(c.gov);
-  const share = clamp(o.support + (nextRand(s) - 0.5) * 12 + (s.stats.campaign ?? 0), 1, 97);
+  const share = clamp(countVotes(s) ?? o.support + (nextRand(s) - 0.5) * 12 + (s.stats.campaign ?? 0), 1, 97);
   s.stats.campaign = 0;
   if (share >= 50) {
     L.status = 'office'; L.term++; L.termStart = s.tick; L.nextVote = s.tick + TERM;

@@ -260,6 +260,15 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   check('Your years: charts of the numbers by year', (await pg.locator('.rec-chart').count()) >= 6);
   await pg.click('.rec-modal .iconbtn');
   await pg.evaluate(() => { const s = window.__store.state; s.plan.history = []; window.__store.notify(); });
+  // the campaign: twelve weeks before a vote, Campaign HQ opens; a rally moves the race and lands on the trail
+  await pg.evaluate(() => { const st = window.__store, s = st.state; s.inbox = []; s.legacy.hand = []; s.legacy.nextVote = s.tick + 13; st.stepOnce(); st.cine = null; st.notify(); });
+  await pg.waitForSelector('.camp-modal');
+  check('Campaign: HQ opens when the campaign begins, with the regions of the country', (await pg.locator('.camp-reg').count()) >= 2);
+  await pg.click('.camp-move:has-text("Rally")');
+  check('Campaign: a rally speech lands on the campaign trail', /draws/.test(await pg.locator('.camp-trail').innerText()));
+  await pg.click('.camp-modal .iconbtn');
+  check('Campaign: the race stays on the map', (await pg.locator('.camp-banner').count()) === 1);
+  await pg.evaluate(() => { const st = window.__store, s = st.state; delete s.campaign; s.legacy.nextVote = s.tick + 200; st.notify(); });
   // the pulse of the game: a big moment takes the screen without taking a click; an election is a night of counting
   await pg.evaluate(() => { const st = window.__store; st.showCine({ kicker: 'A test', title: 'TEST MOMENT', sub: 'It lands.', tone: 'gold' }); st.shake('hit', 1); st.notify(); });
   check('Pulse: a big moment takes the screen', (await pg.locator('.cine-title').innerText()) === 'TEST MOMENT');

@@ -3805,3 +3805,72 @@ describe('development has depth, and no dead ends (round 43)', () => {
     expect(rs.acc[2]).toBeGreaterThan(acc0);
   });
 });
+
+import { actCampaign as actCampaign44, credibility as credibility44, regionPolls as regionPolls44, nationalPoll as nationalPoll44, ISSUES as ISSUES44 } from '../src/sim/campaign';
+import { voteParts as voteParts44 } from '../src/sim/legacy';
+describe('an election is a campaign, region by region (round 44)', () => {
+  const toCampaign = (name: string, seed = 9) => {
+    const s = fresh(name, { mode: 'legacy', seed, randomEvents: false });
+    s.legacy!.nextVote = s.tick + 13;
+    tick(s, geo);
+    return s;
+  };
+  const play = (s: GameState, how: 'idle' | 'smart') => {
+    const c = s.countries[s.player];
+    while (s.campaign) {
+      s.inbox = []; s.legacy!.hand = []; if (s.plan) s.plan.pending = false;
+      const cm = s.campaign;
+      if (how === 'smart') while (cm.days > 0) {
+        const cr = credibility44(s, c);
+        const t = regionPolls44(s, cm).sort((a, b) => b.r.w / (1 + Math.abs(b.share - 50) / 3) - a.r.w / (1 + Math.abs(a.share - 50) / 3))[0];
+        const is = ISSUES44.map((x) => x.id).sort((a, b) => t.r.sal[b] * cr[b] - t.r.sal[a] * cr[a])[0];
+        actCampaign44(s, t.r.visits > 2 ? 'door' : 'rally', cm.regions.indexOf(t.r), is);
+      }
+      tick(s, geo);
+    }
+    return s.stats.lastVote!;
+  };
+  it('the country is split into regions that cover it, each with its own issues; leans average out', () => {
+    for (const n of ['Poland', 'United States of America', 'Germany', 'Jordan']) {
+      const s = toCampaign(n);
+      const cm = s.campaign!;
+      expect(cm, n).toBeTruthy();
+      expect(cm.regions.length, n).toBeGreaterThanOrEqual(2);
+      expect(cm.regions.length).toBeLessThanOrEqual(6);
+      expect(cm.regions.reduce((t, r) => t + r.w, 0)).toBeCloseTo(1, 5);
+      expect(Math.abs(cm.regions.reduce((t, r) => t + r.w * r.lean, 0))).toBeLessThan(0.2);
+      for (const r of cm.regions) expect(r.w, `${n}: ${r.name}`).toBeGreaterThan(0.015); // no region made of a remote speck
+      // before anyone campaigns, the national poll is the ordinary forecast
+      expect(nationalPoll44(s, cm)).toBeCloseTo(voteParts44(s).reduce((t, p) => t + p.v, 0), 0);
+    }
+  });
+  it('campaigning well wins votes that sitting it out loses', () => {
+    for (const n of ['Poland', 'Germany']) {
+      const s = toCampaign(n);
+      const snap = serialize(s);
+      const idle = play(deserialize(snap, geo.provinces.length), 'idle');
+      const smart = play(deserialize(snap, geo.provinces.length), 'smart');
+      expect(smart - idle, `${n}: idle ${idle.toFixed(1)}, smart ${smart.toFixed(1)}`).toBeGreaterThan(4);
+    }
+  });
+  it('the opponent campaigns every week, the vote is counted by region, and the campaign ends with it', () => {
+    const s = toCampaign('Poland');
+    const foe0 = s.campaign!.regions.reduce((t, r) => t + r.foe, 0);
+    tick(s, geo);
+    expect(s.campaign!.regions.reduce((t, r) => t + r.foe, 0)).toBeGreaterThan(foe0);
+    expect(s.campaign!.trail.some((x) => !x.mine)).toBe(true);
+    expect(actCampaign44(s, 'rally', 0, 'jobs').ok).toBe(true);
+    play(s, 'idle');
+    expect(s.campaign).toBeUndefined();
+    const res = s.campaignResult!;
+    expect(res.regions.length).toBeGreaterThanOrEqual(2);
+    expect(res.share).toBeCloseTo(s.stats.lastVote!, 6);
+  });
+  it('out of power, the road back is a campaign too', () => {
+    const s = fresh('Germany', { mode: 'legacy', randomEvents: false });
+    goIntoOpposition41(s, 40);
+    s.legacy!.nextVote = s.tick + 13;
+    tick(s, geo);
+    expect(s.campaign?.kind).toBe('comeback');
+  });
+});

@@ -117,6 +117,12 @@ export function ElectionNight() {
   }, [done, e]);
   const regions = useMemo(() => {
     if (!e || !s) return [];
+    // the real result, region by region, when the vote was a campaign (campaign.ts): smallest regions report first
+    const res = s.campaignResult;
+    if (res && s.tick - res.tick <= 2) {
+      const sorted = [...res.regions].sort((a, b) => a.w - b.w);
+      return sorted.map((r, i) => ({ name: r.name, at: 0.1 + (0.82 * i) / Math.max(1, sorted.length - 1), share: r.share }));
+    }
     const out: { name: string; at: number; share: number }[] = [];
     const seen = new Set<string>();
     let h = (e.seq * 2654435761) >>> 0;
@@ -147,7 +153,7 @@ export function ElectionNight() {
         <div className="night-race">
           <div className="night-heads">
             <div className="night-side me"><Portrait f={leaderFace(s)} size={72} title={name} /><div><b>{name}</b><span className="night-num">{now.toFixed(1)}<small>%</small></span></div></div>
-            <div className="night-side them"><div><b>{e.free ? 'The opposition' : 'The rival faction'}</b><span className="night-num">{(100 - now).toFixed(1)}<small>%</small></span></div></div>
+            <div className="night-side them"><div><b>{(s.campaignResult && s.tick - s.campaignResult.tick <= 2 && s.campaignResult.foe) || (e.free ? 'The opposition' : 'The rival faction')}</b><span className="night-num">{(100 - now).toFixed(1)}<small>%</small></span></div></div>
           </div>
           <div className="night-bar"><i className="a" style={{ width: `${now}%` }} /><i className="b" style={{ width: `${100 - now}%` }} /><u /></div>
         </div>

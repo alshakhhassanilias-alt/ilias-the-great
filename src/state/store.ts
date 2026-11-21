@@ -36,7 +36,7 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 2;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
 
 const QUICK = 'Quicksave';
 
@@ -359,8 +359,15 @@ class Store {
     }
     if (this.autosaveDue(s.tick)) this.autosave();
   }
+  private campPause = -1;
   private processLog() {
     const s = this.state!;
+    // the campaign is played week by week: a full hand of campaign days stops the clock so it is never over in seconds
+    const cm = s.campaign;
+    if (cm && !this.preview && cm.days >= 3 && this.campPause !== s.tick && this.speed !== 0) {
+      this.campPause = s.tick; this.lastSpeed = this.speed; this.speed = 0;
+      this.toast('🗳 Three campaign days in hand: spend them in Campaign HQ, or your team acts without you.', 'info');
+    }
     for (const e of s.log) {
       if (e.seq <= this.lastSeq) continue;
       this.lastSeq = e.seq;
@@ -373,6 +380,7 @@ class Store {
         const th = thrillOf(e, s.player, e.big ? this.relevant(e) : false);
         if (th.jolt) this.shake(th.jolt.kind, th.jolt.power);
         if (th.cine && !this.splash) this.showCine(th.cine);
+        if (mine && /THE CAMPAIGN BEGINS/.test(e.text)) { if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; } this.drawer = { ...this.drawer, open: 'campaign' }; }
         if (th.strike !== undefined) { this.strikes.push(th.strike); if (this.strikes.length > 6) this.strikes.shift(); }
         if (vote) {
           this.election = { seq: e.seq, share: s.stats.lastVote!, won: / wins a /.test(e.text), free: vote[1] === 'ELECTION', term: s.legacy?.term ?? 1 };

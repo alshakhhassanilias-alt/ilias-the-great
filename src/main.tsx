@@ -21,5 +21,6 @@ import './desk.css';
 import './thrill.css';
 import './record.css';
 import './develop.css';
+import './campaign.css';
 
 createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);

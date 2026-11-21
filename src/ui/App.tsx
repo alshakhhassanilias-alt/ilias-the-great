@@ -24,6 +24,7 @@ import { PopLayer } from './PopLayer';
 import { mainWar } from '../sim/warmode';
 import { ScenarioResult } from './Scenario';
 import { CineBanner, DangerPulse, ElectionNight, ImpactLayer } from './Thrill';
+import { CampaignBanner } from './Campaign';
 
 const insetBottom = () => {
   if (window.innerWidth >= 900) return 0;
@@ -116,6 +117,7 @@ export function App() {
           {!desk && <YearReview />}
           <Splash />
           <DangerPulse />
+          <CampaignBanner />
         </div>
         <SidePanel />
       </div>
