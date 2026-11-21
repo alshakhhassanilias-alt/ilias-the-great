@@ -13,7 +13,7 @@ import { clamp } from './util';
 import { nextRand } from './rng';
 import { logEvent } from './log';
 import { addRelation, alliesOf, areAtWar, getRelation, hasAlliance, sanctionLevel, warSideOf, warsOf } from './relations';
-import { applyTreaty, imposeSanction, neighborsOf } from './diplomacy';
+import { applyTreaty, imposeSanction, liftSanction, neighborsOf } from './diplomacy';
 import { strength } from './military';
 import { isMajor } from './drama';
 import { cable } from './cables';
@@ -45,6 +45,19 @@ export function stepCoalitions(s: GameState, geo: Geo) {
       s.coalitions = s.coalitions.filter((x) => x !== k);
       if (T?.alive) logEvent(s, `🤝 The coalition against ${T.name} has broken up: the threat has receded.`, 'diplo', [k.target, ...k.members], k.target === s.player || k.members.includes(s.player));
     }
+  }
+  // sanctions imposed in play are reviewed: once the target is no longer an aggressor at war, no coalition stands against
+  // it and its record has faded, an AI government lets them lapse (about a year and a half on average). They used to
+  // stay for ever: an AI only reconsiders the few countries it looks at each month, and sanctions keep relations down.
+  for (const k of Object.keys(s.stats)) {
+    if (!k.startsWith('sanc:')) continue;
+    const [from, to] = k.slice(5).split('>').map(Number);
+    const F = s.countries[from], T = s.countries[to];
+    if (!F?.alive || !T?.alive || sanctionLevel(s, from, to) === 0) { delete s.stats[k]; continue; }
+    if (from === s.player || s.tick - s.stats[k] < 52) continue;
+    if (areAtWar(s, from, to) || warsOf(s, to).some((w) => w.attackers.includes(to)) || coalitionAgainst(s, to) || aggOf(s, to) >= FORM) continue;
+    if (opinionOf(s, from, to).v < -20) continue;
+    if (nextRand(s) < 0.12) liftSanction(s, from, to);
   }
   // form new ones
   for (const T of s.countries) {

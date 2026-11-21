@@ -97,6 +97,13 @@ export const lawById = (id: string) => LAWS.find((l) => l.id === id);
 /** The name of a country's system, including what its constitution has made of it. */
 export const govName = (c: Country, fallback: Record<string, string>) => (hasLaw(c, 'clerics') ? 'theocracy' : hasLaw(c, 'crown') && (c.gov === 'D' || c.gov === 'F') ? 'constitutional monarchy' : hasLaw(c, 'federal') && c.gov === 'D' ? 'federal democracy' : fallback[c.gov] ?? c.gov);
 export const hasLaw = (c: Country, id: string) => !!c.politics?.laws.some((l) => l.id === id);
+type LawEntry = Politics['laws'][number];
+/** How a faction feels about a law, after the amendments it was passed with (a sunset clause or a watered-down text
+ *  calms its opponents; watering it down also cools its supporters). */
+export function leanOf(law: Law, f: FactionId, e?: Pick<LawEntry, 'pm' | 'nm'>): number {
+  const v = law.lean[f] ?? 0;
+  return v > 0 ? v * (e?.pm ?? 1) : v * (e?.nm ?? 1);
+}
 
 /** Laws in force plus perks from happy factions, as doctrine-style modifiers. */
 export function politicsEff(c: Country): Eff {
@@ -105,8 +112,10 @@ export function politicsEff(c: Country): Eff {
   if (!P) return out;
   for (const l of P.laws) {
     const e = lawById(l.id)?.eff ?? {};
-    out.tfp += e.tfp ?? 0; out.stab += e.stab ?? 0; out.accept += e.accept ?? 0; out.ops += e.ops ?? 0; out.rep += e.rep ?? 0; out.milTech += e.milTech ?? 0;
-    out.off *= e.off ?? 1; out.def *= e.def ?? 1; out.cost *= e.cost ?? 1; out.deter *= e.deter ?? 1; out.manpower *= e.manpower ?? 1;
+    const k = l.em ?? 1; // a watered-down law does less
+    const m = (v: number | undefined) => 1 + ((v ?? 1) - 1) * k;
+    out.tfp += (e.tfp ?? 0) * k; out.stab += (e.stab ?? 0) * k; out.accept += (e.accept ?? 0) * k; out.ops += (e.ops ?? 0) * k; out.rep += (e.rep ?? 0) * k; out.milTech += (e.milTech ?? 0) * k;
+    out.off *= m(e.off); out.def *= m(e.def); out.cost *= m(e.cost); out.deter *= m(e.deter); out.manpower *= m(e.manpower);
   }
   for (const f of P.factions) {
     if (f.mood < 75) continue;
@@ -228,7 +237,7 @@ export function factionTarget(s: GameState, c: Country, f: Faction): { target: n
   }
   // favours are forgotten quickly, grievances slowly: a law's pull fades as people get used to it
   for (const l of P.laws) {
-    const v = lawById(l.id)?.lean[f.id] ?? 0;
+    const v = lawById(l.id) ? leanOf(lawById(l.id)!, f.id, l) : 0;
     if (!v) continue;
     const age = (s.tick - l.since) / 52;
     add(`Law: ${lawById(l.id)!.title}`, v * (v > 0 ? 0.3 + 0.7 * Math.exp(-age / 1.2) : 0.6 + 0.4 * Math.exp(-age / 3)));
@@ -293,17 +302,50 @@ export function forecast(c: Country, law: Law, whip: number): Forecast {
   const mode = c.gov === 'D' ? 'vote' : c.gov === 'F' ? 'rigged' : 'decree';
   const by = P.factions.map((f) => {
     const lean = law.lean[f.id] ?? 0;
-    const p = 1 / (1 + Math.exp(-((f.mood - 50) / 13 + lean / 7)));
-    return { id: f.id, seats: f.support, p };
+    const p = 1 / (1 + Math.exp(-((f.mood - 50) / 13 + lean / 7))) + (P.gov?.partners.includes(f.id) ? 0.06 : 0);
+    return { id: f.id, seats: f.support, p: Math.min(0.98, p) };
   });
   let yes = by.reduce((t, x) => t + (x.seats / 100) * x.p, 0) + whip * 0.008 + (mode === 'rigged' ? 0.1 : 0) - (minority(c) ? 0.1 : 0);
   if (mode === 'decree') yes = 1;
+  return { yes: clamp(yes, 0, 1), by, mode, cost: lawCost(c, law, mode === 'decree') };
+}
+/** The political capital a law costs: more by decree; a federal constitution, a presidential system, your skill and the
+ *  national focus change it. */
+export function lawCost(c: Country, law: Law, decree: boolean): number {
+  const P = c.politics!;
   const cmult = (hasLaw(c, 'federal') && law.id !== 'federal' ? 1.1 : 1) * (hasLaw(c, 'presidential') && law.id !== 'presidential' ? 0.85 : 1) * (P.lawMult ?? 1) * focusMult(c, 'law');
-  return { yes: clamp(yes, 0, 1), by, mode, cost: Math.round(law.pc * (mode === 'decree' ? 1.3 : 1) * cmult) };
+  return Math.round(law.pc * (decree ? 1.3 : 1) * cmult);
 }
 
-function applyBudget(s: GameState, c: Country, law: Law, sign: 1 | -1) {
-  for (const [k, v] of Object.entries(law.budget ?? {})) setBudget(s, c.id, k as keyof Budget, c.budget[k as keyof Budget] + sign * (v as number));
+function applyBudget(s: GameState, c: Country, law: Law, sign: 1 | -1, k = 1) {
+  for (const [key, v] of Object.entries(law.budget ?? {})) setBudget(s, c.id, key as keyof Budget, c.budget[key as keyof Budget] + sign * k * (v as number));
+}
+
+/** Put a law into force (after a vote, a decree or a deal), with the amendments it was passed with. */
+export function enactLaw(s: GameState, c: Country, id: string, am: Omit<LawEntry, 'id' | 'since'> = {}) {
+  const P = c.politics!, law = lawById(id)!;
+  const e: LawEntry = { id, since: s.tick, ...am };
+  P.laws.push(e);
+  applyBudget(s, c, law, 1, e.em ?? 1);
+  law.once?.(s, c);
+  for (const f of P.factions) { const v = leanOf(law, f.id, e); if (v) f.mood = clamp(f.mood + v * 0.4, 0, 100); }
+  s.stats.lawsMade = (s.stats.lawsMade ?? 0) + 1;
+  // a favour owed (bill.ts) is repaid with a law that faction wants
+  for (const i of [...(P.ious ?? [])]) if (i.law !== id && leanOf(law, i.f, e) >= 6) {
+    P.ious = P.ious!.filter((x) => x !== i);
+    sway(c, i.f, 6);
+    logEvent(s, `🤝 A promise kept: the ${law.title} repays the ${factionMeta(i.f).short} for their votes on the ${lawById(i.law)?.title ?? 'last bill'}.`, 'info', [c.id], true);
+  }
+  return e;
+}
+/** Take a law out of force (repeal, or its sunset clause). */
+export function dropLaw(s: GameState, c: Country, id: string, swayK = 0.3) {
+  const P = c.politics!, law = lawById(id);
+  const e = P.laws.find((l) => l.id === id);
+  if (!law || !e) return;
+  P.laws = P.laws.filter((l) => l !== e);
+  applyBudget(s, c, law, -1, e.em ?? 1);
+  if (swayK) for (const f of FACTIONS) { const v = leanOf(law, f.id, e); if (v) sway(c, f.id, -v * swayK); }
 }
 
 /** Put a law to parliament (or decree it). `whip` = extra PC spent to win votes. */
@@ -316,6 +358,7 @@ export function actPassLaw(s: GameState, id: string, whip = 0) {
   if (law.excl && hasLaw(c, law.excl)) return { ok: false, message: `Repeal the ${lawById(law.excl)!.title} first` };
   const why = law.req?.(c);
   if (why) return { ok: false, message: why };
+  if (P.bill?.law === id && P.bill.status === 'open') return { ok: false, message: 'It is already before parliament' };
   if (s.tick - (s.stats[`lawTry:${id}`] ?? -999) < 12) return { ok: false, message: 'Parliament rejected it recently: wait a few weeks' };
   const fc = forecast(c, law, whip);
   if (!spendPC(c, fc.cost + whip)) return { ok: false, message: `Needs ${fc.cost + whip} political capital (you have ${Math.floor(P.pc)})` };
@@ -327,10 +370,7 @@ export function actPassLaw(s: GameState, id: string, whip = 0) {
     logEvent(s, `🗳 DEFEAT IN PARLIAMENT: the ${law.title} fails ${Math.round(share * 100)}% to ${Math.round((1 - share) * 100)}%.`, 'danger', [c.id], true);
     return { ok: false, message: `Defeated: ${Math.round(share * 100)}% voted yes. Half the political capital is lost.` };
   }
-  P.laws.push({ id, since: s.tick });
-  applyBudget(s, c, law, 1);
-  law.once?.(s, c);
-  for (const [f, v] of Object.entries(law.lean)) { const x = P.factions.find((y) => y.id === f); if (x) x.mood = clamp(x.mood + (v as number) * 0.4, 0, 100); }
+  enactLaw(s, c, id);
   if (fc.mode === 'decree') { sway(c, 'liberals', -5); c.eco.stability = clamp(c.eco.stability - 1, 0, 100); }
   const how = fc.mode === 'vote' ? `passes parliament ${Math.round(share * 100)}% to ${Math.round((1 - share) * 100)}%` : fc.mode === 'rigged' ? `sails through a loyal parliament (${Math.round(share * 100)}%)` : 'is signed into force by decree';
   logEvent(s, `📜 ${law.title} ${how}.`, 'info', [c.id], true);
@@ -342,10 +382,9 @@ export function actRepealLaw(s: GameState, id: string) {
   const P = c.politics, law = lawById(id);
   if (!P || !law || !hasLaw(c, id)) return { ok: false, message: 'Not in force' };
   const cost = Math.round(law.pc / 2);
+  if (P.bill?.law === id) return { ok: false, message: 'A bill about it is before parliament' };
   if (!spendPC(c, cost)) return { ok: false, message: `Needs ${cost} political capital` };
-  P.laws = P.laws.filter((l) => l.id !== id);
-  applyBudget(s, c, law, -1);
-  for (const [f, v] of Object.entries(law.lean)) sway(c, f as FactionId, -(v as number) * 0.3);
+  dropLaw(s, c, id);
   logEvent(s, `📜 The ${law.title} is repealed.`, 'info', [c.id], true);
   return { ok: true, message: `${law.title} repealed.` };
 }

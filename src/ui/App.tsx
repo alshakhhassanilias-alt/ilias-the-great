@@ -25,6 +25,7 @@ import { mainWar } from '../sim/warmode';
 import { ScenarioResult } from './Scenario';
 import { CineBanner, DangerPulse, ElectionNight, ImpactLayer } from './Thrill';
 import { CampaignBanner } from './Campaign';
+import { BillBanner } from './Bill';
 
 const insetBottom = () => {
   if (window.innerWidth >= 900) return 0;
@@ -118,6 +119,7 @@ export function App() {
           <Splash />
           <DangerPulse />
           <CampaignBanner />
+          <BillBanner />
         </div>
         <SidePanel />
       </div>

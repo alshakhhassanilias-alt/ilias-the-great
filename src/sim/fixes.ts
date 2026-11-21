@@ -4,7 +4,8 @@
  */
 import { fmtMoney, fmtNum } from './util';
 import { recruit, setBudget, type ActionResult } from './actions';
-import { actPassLaw, forecast, lawById } from './domestic';
+import { actPassLaw, forecast, free, lawById } from './domestic';
+import { actIntroduceBill, billCost } from './bill';
 import { demandDef, type Demand } from './coalition';
 import { SECTORS, actExpandSector, expansionOf, ensureIndustry, type SectorId } from './industry';
 import { actSetResearch, ensureResearch } from './research';
@@ -46,7 +47,9 @@ export function lawFix(c: Country, id: string, short = false): DeskFix | null {
   const law = lawById(id);
   if (!law || !c.politics) return null;
   const f = forecast(c, law, 0);
-  return { label: short ? 'Pass the law' : `Pass the ${law.title}`, price: `${f.cost} capital · ${Math.round(f.yes * 100)}% yes`, run: (g) => actPassLaw(g, id) };
+  // in a free country a law is a bill to be fought through parliament (bill.ts); an autocrat can decree it
+  if (free(c)) return { label: short ? 'Introduce the bill' : `Introduce the ${law.title}`, price: `${billCost(c, law)} capital · first count ${Math.round(f.yes * 100)}%`, run: (g) => actIntroduceBill(g, id) };
+  return { label: short ? 'Decree the law' : `Decree the ${law.title}`, price: `${f.cost} capital`, run: (g) => actPassLaw(g, id) };
 }
 
 /** The one action that delivers a coalition demand, or what to watch when it is a number that must hold. */

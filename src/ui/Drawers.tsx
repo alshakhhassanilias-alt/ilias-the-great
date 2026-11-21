@@ -3,6 +3,7 @@ import { RecordPanel } from './Record';
 import { CampaignHQ } from './Campaign';
 import { SummitScreen } from './Summit';
 import { OperationPlanner } from './Operations';
+import { BillRoom } from './Bill';
 import { powerTable } from '../sim/power';
 import { START_YEAR } from '../sim/types';
 import { TROPHIES } from '../sim/trophies';
@@ -55,6 +56,7 @@ export function Drawers() {
   if (open === 'record') return <RecordPanel onClose={close} />;
   if (open === 'campaign') return <CampaignHQ onClose={close} />;
   if (open === 'operation') return <OperationPlanner onClose={close} />;
+  if (open === 'bill') return <BillRoom onClose={close} />;
   if (open === 'summit') return <SummitScreen onClose={() => { store.summitWith = null; close(); }} />;
   return null;
 }

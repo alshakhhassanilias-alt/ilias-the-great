@@ -51,6 +51,9 @@ export function thrillOf(e: Pick<LogEntry, 'text' | 'kind' | 'countries' | 'big'
   if (/OPERATION .* SUCCEEDS/.test(t)) return { jolt: { kind: 'glory', power: 1 }, cine: { kicker: 'Victory', title: (t.match(/OPERATION [A-Z' ]+?(?= SUCCEEDS)/)?.[0] ?? 'THE OPERATION'), sub: after(t, 'SUCCEEDS'), tone: 'gold' } };
   if (/OPERATION .* FAILS/.test(t)) return { jolt: { kind: 'hit', power: 1.1 }, cine: { kicker: 'Defeat', title: (t.match(/OPERATION [A-Z' ]+?(?= FAILS)/)?.[0] ?? 'THE OPERATION'), sub: after(t, 'FAILS'), tone: 'red' } };
   if (/OPERATION .* BEGINS/.test(t)) return { jolt: { kind: 'boom', power: 0.8 }, ...(e.prov !== undefined ? { strike: e.prov } : {}) };
+  if (/THE VOTE: .* PASSES/.test(t)) return { jolt: { kind: 'glory', power: /landmark/i.test(t) ? 0.9 : 0.5 } };
+  if (/THE VOTE: .* FALLS/.test(t)) return { jolt: { kind: 'hit', power: 0.6 } };
+  if (/^💢 BETRAYED/.test(t)) return { jolt: { kind: 'hit', power: 0.6 } };
   if (/THE CAMPAIGN BEGINS/.test(t)) return { jolt: { kind: 'alarm', power: 0.5 }, cine: { kicker: 'Twelve weeks to decide everything', title: 'THE CAMPAIGN', sub: after(t, 'THE CAMPAIGN BEGINS'), tone: 'steel' } };
   if (/RECORD YEAR/.test(t)) return { jolt: { kind: 'glory', power: 0.9 }, cine: { kicker: 'For the history books', title: 'A RECORD YEAR', sub: after(t, 'RECORD YEAR'), tone: 'gold' } };
   if (/GOOD YEARS IN A ROW/.test(t)) return { jolt: { kind: 'glory', power: 0.6 } };

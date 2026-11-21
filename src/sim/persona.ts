@@ -137,7 +137,9 @@ export function stepPersona(s: GameState) {
   if (isAtWar(s, c.id) && c.mil.warSupport !== undefined) c.mil.warSupport = clamp(c.mil.warSupport + 0.0004 * (p.skills.cmd - 5), 0, 1);
   // the rival inside the party: grows while you are unpopular, fades while you are not
   const appr = approvalNow(s, c);
-  p.rival.power = clamp(p.rival.power + (appr < 45 ? (45 - appr) * 0.05 : -(appr - 45) * 0.03) + (L.term >= 3 ? 0.08 : 0), 0, 100);
+  // (a regime does not live by its polls: the bar is lower where there are no free elections)
+  const bar = c.gov === 'D' || c.gov === 'F' ? 45 : 34;
+  p.rival.power = clamp(p.rival.power + (appr < bar ? (bar - appr) * 0.05 : -(appr - bar) * 0.03) + (L.term >= 3 ? 0.08 : 0), 0, 100);
   if (p.rival.power >= 100 && !s.inbox.some((x) => x.id === 'legacy_challenge')) {
     s.stats.challengeDue = 1; // legacy.ts puts the challenge on your desk
     p.rival.power = 85;

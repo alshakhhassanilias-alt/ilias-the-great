@@ -202,7 +202,7 @@ function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
       const dislike = rel + op * 0.6 < -50 || (aggressorOfFriend && rel < 15) || (op < -28 && rel < 20 && agendaOf(s, c).ideology > 0.2);
       const cost = O.eco.gdp / Math.max(c.eco.gdp, 1) * c.eco.openness;
       if (dislike && c.ai.ideology > 0.35 && cost < 0.5 && rand(s) < 0.12 * (aggressorOfFriend ? 2 : 1)) imposeSanction(s, c.id, o, aggressorOfFriend && rel < -30 ? 2 : 1);
-    } else if (sanctionLevel(s, c.id, o) > 0 && rel > 5 && rand(s) < 0.08) liftSanction(s, c.id, o);
+    } else if (sanctionLevel(s, c.id, o) > 0 && rel > 5 && rand(s) < 0.08) liftSanction(s, c.id, o); // (and coalitions.ts reviews sanctions imposed in play)
   }
 }
 

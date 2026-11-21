@@ -81,7 +81,7 @@ export function scoreParts(s: GameState): Record<string, number> {
   return p;
 }
 export const totalScore = (parts: Record<string, number>) => Object.values(parts).reduce((t, v) => t + v, 0);
-export function grade(score: number) { return score >= 900 ? 'S' : score >= 600 ? 'A' : score >= 350 ? 'B' : score >= 150 ? 'C' : score >= 0 ? 'D' : 'F'; }
+export function grade(score: number) { return score >= 1600 ? 'S' : score >= 1050 ? 'A' : score >= 650 ? 'B' : score >= 300 ? 'C' : score >= 0 ? 'D' : 'F'; }
 export const PART_LABEL: Record<string, string> = { prosperity: 'Prosperity', power: 'Power & territory', people: 'The people’s mood', standing: 'Standing abroad', agenda: 'Promises (kept − broken)', deeds: 'Deeds for the history books', wars: 'Wars you fought', aims: 'War aims', terms: 'Mandates', heir: 'Your successor', great: 'Great ambitions' };
 /** What each part of the score measures, in one line (shown under the bar). */
 export function partHint(s: GameState, k: string): string {
@@ -191,6 +191,12 @@ export function stepLegacy(s: GameState, geo: Geo) {
     o.base = (o.base ?? o.support) + ((94 - govApproval) - (o.base ?? o.support)) * 0.012 + (c.eco.stability < 35 ? 0.08 : 0);
     o.boost = (o.boost ?? 0) * 0.96;
     o.support = clamp(o.base + o.boost, 5, 85);
+    // the government that replaced you does not fight your wars for ever: it makes peace once the public tires of the
+    // war, and within about a year of taking over in any case (nobody else ends a war for a country you no longer run)
+    if (s.tick % 4 === 0 && isAtWar(s, c.id) && ((c.mil.warSupport ?? 0.6) < 0.5 || (s.tick - o.since > 26 && nextRand(s) < 0.1))) {
+      forcePeaceAll(s, geoRefGet(), c.id);
+      logEvent(s, `🕊 The government of ${o.gov} ends the war: ceasefires on every front.`, 'peace', [c.id], true);
+    }
     if (s.tick === L.nextVote - 8 && !s.inbox.some((x) => x.id.startsWith('legacy_'))) pushInbox(s, 'legacy_comeback', {}, 8);
     if (s.tick >= L.nextVote - CAMPAIGN_WEEKS && s.tick < L.nextVote && !s.campaign) startCampaign(s, 'comeback', L.nextVote);
     else if (s.campaign) stepCampaign(s);
@@ -287,6 +293,7 @@ export function goIntoOpposition(s: GameState, share: number) {
   L.status = 'opposition';
   L.opposition = { support: clamp(share, 15, 49), since: s.tick, attempts: L.opposition?.attempts ?? 0, gov: personName(c, 'gov', s.tick) };
   L.agenda = []; L.hand = [];
+  s.stats.challengeDue = 0; s.inbox = s.inbox.filter((x) => x.id !== 'legacy_challenge'); // no party coup against a leader already out
   L.nextVote = s.tick + TERM;
   L.chronicle.push({ tick: s.tick, text: `${L.leader} loses power; ${L.opposition.gov} forms a government.` });
   // the new government seeks peace in wars the public no longer backs
@@ -325,7 +332,8 @@ function remembered(s: GameState) {
 function comebackVote(s: GameState) {
   const L = s.legacy!, c = s.countries[s.player], o = L.opposition!;
   const free = isFree(c.gov);
-  const share = clamp(countVotes(s) ?? o.support + (nextRand(s) - 0.5) * 12 + (s.stats.campaign ?? 0), 1, 97);
+  const raw = o.support + (nextRand(s) - 0.5) * 12 + (s.stats.campaign ?? 0);
+  const share = clamp(countVotes(s) ?? (free ? 50 + 20 * Math.tanh((raw - 50) / 20) : raw), 1, 97);
   s.stats.campaign = 0;
   if (share >= 50) {
     L.status = 'office'; L.term++; L.termStart = s.tick; L.nextVote = s.tick + TERM;
@@ -338,6 +346,9 @@ function comebackVote(s: GameState) {
     L.chronicle.push({ tick: s.tick, text: free ? `The comeback: ${L.leader} wins back power (${share.toFixed(0)}%).` : `${L.leader} returns from exile and seizes power.` });
     logEvent(s, `🔥 ${free ? 'THE COMEBACK' : 'RETURN FROM EXILE'}: ${L.leader} is back in power${free ? ` with ${share.toFixed(1)}% of the vote` : ''}!`, 'info', [s.player], true, { big: true, prov: c.capital });
     L.opposition = undefined;
+    // you just won: the party closes ranks behind you, and whoever plotted against you lies low for a while
+    if (L.persona) { L.persona.rival.power = Math.min(L.persona.rival.power, 15); L.persona.rival.since = s.tick; }
+    s.stats.challengeDue = 0;
     remembered(s);
   } else {
     o.attempts++;

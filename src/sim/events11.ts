@@ -64,7 +64,7 @@ export const EVENTS11: EventDef[] = [
     options: [
       { label: 'Fight it out', hint: 'You win if approval + charisma + capital outweigh the rival (better with higher approval)', apply: (s, c) => {
         const p = personaOf(s); if (!p) return 'Nothing comes of it.';
-        const odds = clamp(0.3 + (approval(s, c) - 40) / 50 + (p.skills.cha - 5) * 0.04 + pcOf(c) / 400, 0.1, 0.92);
+        const odds = clamp(0.3 + (approval(s, c) - (c.gov === 'D' || c.gov === 'F' ? 40 : 28)) / 50 + (p.skills.cha - 5) * 0.04 + pcOf(c) / 400, 0.1, 0.92); // (a regime's inner circle is not swayed by polls the way a party is)
         p.rival.tries++;
         if (nextRand(s) < odds) { p.rival.power = 15; boost(s, 2); return `You crushed the challenge. ${p.rival.name} returns to the back benches.`; }
         overthrow(s, `${s.legacy?.leader ?? 'The leader'} loses a leadership challenge to ${p.rival.name}.`);

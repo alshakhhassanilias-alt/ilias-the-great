@@ -286,7 +286,10 @@ export function countVotes(s: GameState): number | null {
   const cm = s.campaign;
   if (!cm) return null;
   const polls = regionPolls(s, cm);
-  const regions = polls.map((x) => ({ name: x.r.name, w: x.r.w, share: clamp(x.share + (nextRand(s) - 0.5) * 5, 1, 99) }));
+  // a free vote is never a walkover: landslides flatten out around 70% in a region (a party congress or a loyalty
+  // count in a regime can be as lopsided as it likes)
+  const real = (v: number) => (cm.kind === 'congress' ? v : 50 + 20 * Math.tanh((v - 50) / 20));
+  const regions = polls.map((x) => ({ name: x.r.name, w: x.r.w, share: clamp(real(x.share + (nextRand(s) - 0.5) * 5), 1, 99) }));
   const share = regions.reduce((t, r) => t + r.w * r.share, 0);
   s.campaignResult = { tick: s.tick, regions, share, foe: cm.foe };
   delete s.campaign;

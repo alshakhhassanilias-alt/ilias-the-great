@@ -4005,3 +4005,153 @@ describe('operations: the war, planned (round 46)', () => {
     }
   });
 });
+
+// ------------------------------------------------------------------ round 47: the bill
+import { actIntroduceBill as intro47, actBillMove as move47, actCallVote as call47, actWithdrawBill as withdraw47, activeBill as active47, headcount as head47, previewMove as preview47, stepBill as step47 } from '../src/sim/bill';
+import { ensurePolitics as ensurePol47, hasLaw as hasLaw47, LAWS as LAWS47 } from '../src/sim/domestic';
+describe('round 47: a law is a fight, seat by seat', () => {
+  const setup = (who = 'Germany') => { const s = fresh(who, { randomEvents: false }); run(s, 2); ensurePol47(s); s.countries[s.player].politics!.pc = 100; s.inbox = []; return s; };
+  const lawFor = (s: GameState) => LAWS47.find((l) => !hasLaw47(s.countries[s.player], l.id) && !l.req?.(s.countries[s.player]) && !(l.excl && hasLaw47(s.countries[s.player], l.excl)))!;
+  it('introducing a bill spends capital and seats a real chamber; one bill at a time', () => {
+    const s = setup();
+    const P = s.countries[s.player].politics!;
+    const l = lawFor(s);
+    const pc0 = P.pc;
+    expect(intro47(s, l.id).ok).toBe(true);
+    const b = active47(s)!;
+    expect(P.pc).toBeLessThan(pc0);
+    expect(head47(s, b).total).toBe(400);
+    expect(head47(s, b).need).toBe(201);
+    expect(b.vote - s.tick).toBe(4);
+    expect(intro47(s, LAWS47.find((x) => x.id !== l.id && !hasLaw47(s.countries[s.player], x.id))!.id).ok).toBe(false);
+    // an autocracy fights it out in the inner circle
+    const r = setup('Russia');
+    expect(intro47(r, lawFor(r).id).ok).toBe(true);
+    expect(head47(r, active47(r)!).total).toBe(60);
+  });
+  it('moves do what the preview says, are limited per week, and deals leave a favour owed', () => {
+    const s = setup();
+    intro47(s, lawFor(s).id);
+    const b = active47(s)!;
+    const f = head47(s, b).by.sort((x, y) => y.seats - x.seats)[0].f;
+    const pv = preview47(s, b, 'sweeten', f);
+    expect(move47(s, 'sweeten', f).ok).toBe(true);
+    expect(head47(s, b).yes).toBeCloseTo(pv.after, 5);
+    expect(move47(s, 'sweeten', f).ok).toBe(false); // once per faction
+    expect(move47(s, 'deal', f).ok).toBe(true);
+    expect(s.countries[s.player].politics!.ious!.some((i) => i.f === f)).toBe(true);
+    expect(move47(s, 'water').ok).toBe(false); // no moves left this week
+    s.tick++; step47(s);
+    expect(b.moves).toBe(1);
+  });
+  it('the vote enacts the law with its amendments; a sunset clause runs out', () => {
+    const s = setup();
+    const l = lawFor(s);
+    intro47(s, l.id);
+    const b = active47(s)!;
+    move47(s, 'water'); move47(s, 'sunset');
+    for (const f of Object.keys(b.seats)) b.lock[f as keyof typeof b.lock] = 0.9; // a sure thing
+    call47(s);
+    expect(b.status).toBe('passed');
+    const c = s.countries[s.player];
+    const e = c.politics!.laws.find((x) => x.id === l.id)!;
+    expect(e.em).toBeCloseTo(0.7, 5);
+    expect(e.until).toBe(s.tick + 208);
+    s.tick = e.until!; step47(s);
+    expect(hasLaw47(c, l.id)).toBe(false);
+  });
+  it('a lost vote costs, withdrawing refunds half, and an unpaid favour turns into a betrayal', () => {
+    const s = setup();
+    const c = s.countries[s.player], P = c.politics!;
+    const l = lawFor(s);
+    intro47(s, l.id);
+    const b = active47(s)!;
+    for (const f of Object.keys(b.seats)) b.bonus[f as keyof typeof b.bonus] = -0.95;
+    call47(s);
+    expect(b.status).toBe('failed');
+    expect(hasLaw47(c, l.id)).toBe(false);
+    expect(intro47(s, l.id).ok).toBe(false); // not again for half a year
+    const l2 = LAWS47.find((x) => x.id !== l.id && !hasLaw47(c, x.id) && !x.req?.(c) && !(x.excl && hasLaw47(c, x.excl)))!;
+    P.pc = 60;
+    intro47(s, l2.id);
+    const pcAfter = P.pc;
+    expect(withdraw47(s).ok).toBe(true);
+    expect(P.pc).toBe(pcAfter + Math.floor(P.bill!.cost / 2));
+    P.ious = [{ f: 'labour', since: s.tick, due: s.tick + 1, law: l.id }];
+    const mood0 = P.factions.find((x) => x.id === 'labour')!.mood;
+    s.tick += 1; step47(s);
+    expect(P.ious.length).toBe(0);
+    expect(P.factions.find((x) => x.id === 'labour')!.mood).toBeLessThan(mood0);
+    expect(s.log.some((e) => /BETRAYED/.test(e.text))).toBe(true);
+  });
+});
+
+// ------------------------------------------------------------------ round 47: found by the audit
+import { goIntoOpposition as oppo47 } from '../src/sim/legacy';
+import { OPP_SITUATIONS as OPP47 } from '../src/sim/events14';
+describe('round 47 audit fixes', () => {
+  it('winning power back silences the party rival: no challenge the week you return', () => {
+    const s = fresh('Iran', { mode: 'legacy', randomEvents: false });
+    run(s, 2);
+    const L = s.legacy!;
+    oppo47(s, 40);
+    L.persona!.rival.power = 100; s.stats.challengeDue = 1;
+    L.opposition!.support = 75; L.nextVote = s.tick + 1;
+    for (let i = 0; i < 30 && L.status !== 'office'; i++) { s.inbox = []; tick(s, geo); }
+    expect(L.status).toBe('office');
+    run(s, 1);
+    expect(L.persona!.rival.power).toBeLessThan(30);
+    expect(s.inbox.some((x) => x.id === 'legacy_challenge')).toBe(false);
+  });
+  it('a free comeback is never an 88% walkover', () => {
+    const s = fresh('Nigeria', { mode: 'legacy', randomEvents: false });
+    run(s, 2);
+    const L = s.legacy!;
+    oppo47(s, 40);
+    L.opposition!.support = 95; L.nextVote = s.tick + 1;
+    for (let i = 0; i < 30 && L.status !== 'office'; i++) { s.inbox = []; tick(s, geo); }
+    expect(L.status).toBe('office');
+    const won = s.log.find((e) => /THE COMEBACK/.test(e.text))!.text.match(/([\d.]+)% of the vote/)!;
+    expect(Number(won[1])).toBeLessThan(72);
+  });
+  it('the opposition poll never prints undefined, even if you are back in office when it is read', () => {
+    const s = fresh('Poland', { mode: 'legacy', randomEvents: false });
+    const sit = OPP47.find((x) => x.id === 'o_poll')!;
+    const txt = sit.stages[0].text(s, s.countries[s.player], {});
+    expect(txt).not.toMatch(/undefined|NaN/);
+  });
+});
+
+import { imposeSanction as impose47 } from '../src/sim/diplomacy';
+import { stepCoalitions as stepCoal47 } from '../src/sim/coalitions';
+import { sanctionLevel as sanc47, setSanction as setSanc47 } from '../src/sim/relations';
+describe('round 47 audit: sanctions do not last for ever', () => {
+  it('sanctions imposed in play lapse once their reason has passed; those the world started with stay', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const a = id('France'), b = id('Brazil'), x = id('Italy'), y = id('Argentina');
+    impose47(s, a, b, 1);
+    setSanc47(s, x, y, 1); // as if it had been there at the start
+    expect(sanc47(s, a, b)).toBe(1);
+    s.stats[`sanc:${a}>${b}`] = s.tick - 60;
+    let lifted = false;
+    for (let i = 0; i < 80 && !lifted; i++) { s.tick += 8 - ((s.tick - 3) % 8 + 8) % 8 || 8; stepCoal47(s, geo); lifted = sanc47(s, a, b) === 0; }
+    expect(lifted).toBe(true);
+    expect(sanc47(s, x, y)).toBe(1);
+    expect(s.stats[`sanc:${a}>${b}`]).toBeUndefined();
+  });
+});
+import { isAtWar as isAtWar46 } from '../src/sim/relations';
+describe('round 47 audit: wars do not outlive the government', () => {
+  it('out of office, the government that replaced you ends your war within about a year', () => {
+    const s = fresh('Poland', { mode: 'legacy', randomEvents: false });
+    run(s, 2);
+    declareWar46(s, geo, s.player, id('Belarus'));
+    s.countries[s.player].mil.warSupport = 0.9;
+    oppo47(s, 40);
+    expect(isAtWar46(s, s.player)).toBe(true); // a popular war is not dropped on day one
+    let weeks = 0;
+    for (; weeks < 160 && isAtWar46(s, s.player); weeks++) { s.inbox = []; s.countries[s.player].mil.warSupport = 0.9; tick(s, geo); }
+    expect(isAtWar46(s, s.player)).toBe(false);
+    expect(weeks).toBeLessThan(130);
+  });
+});

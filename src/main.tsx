@@ -24,5 +24,6 @@ import './develop.css';
 import './campaign.css';
 import './summit.css';
 import './operations.css';
+import './bill.css';
 
 createRoot(document.getElementById('root')!).render(<CrashGuard><App /></CrashGuard>);

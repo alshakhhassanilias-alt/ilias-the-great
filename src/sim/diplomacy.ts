@@ -158,6 +158,7 @@ export function imposeSanction(s: GameState, from: CountryId, to: CountryId, lev
   addGrudge(s, to, from, level === 2 ? 'embargoed it' : 'imposed sanctions on it', level === 2 ? 14 : 8);
   addRec(s, from, 'sanction', level === 2 ? 0.45 : 0.3);
   setSanction(s, from, to, level);
+  s.stats[`sanc:${from}>${to}`] ??= s.tick; // when (coalitions.ts reviews sanctions imposed in play once their reason has passed)
   const t = getTreaty(s, from, to);
   if (t) t.trade = false;
   addRelation(s, from, to, level === 2 ? -25 : -12);
@@ -168,6 +169,7 @@ export function imposeSanction(s: GameState, from: CountryId, to: CountryId, lev
 export function liftSanction(s: GameState, from: CountryId, to: CountryId) {
   if (sanctionLevel(s, from, to) === 0) return;
   setSanction(s, from, to, 0);
+  delete s.stats[`sanc:${from}>${to}`];
   addRelation(s, from, to, 8);
   logEvent(s, `${s.countries[from].name} lifted its sanctions on ${s.countries[to].name}.`, 'diplo', [from, to], from === s.player || to === s.player);
 }

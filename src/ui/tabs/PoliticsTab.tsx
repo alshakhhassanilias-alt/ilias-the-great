@@ -5,6 +5,7 @@ import { Section } from '../widgets';
 import { Portrait, faceFor } from '../art/Portrait';
 import { FACTIONS, LAWS, PERK, REVOLT, actPassLaw, actRepealLaw, clout, factionMeta, factionTarget, forecast, hasLaw, lawById, moodColor, moodLabel, pcIncome, type Law } from '../../sim/domestic';
 import { arcById } from '../../sim/arcs';
+import { actIntroduceBill, activeBill, billCost, chamberName, headcount } from '../../sim/bill';
 import { approval } from '../../sim/approval';
 import { CoalitionSection } from './Coalition';
 import { LeverList } from './Levers';
@@ -43,17 +44,18 @@ export function PoliticsTab() {
   const c = s.countries[s.player];
   const P = c.politics;
   const [sel, setSel] = useState<string | null>(null);
-  const [whip, setWhip] = useState(0);
   const [cat, setCat] = useState<string>('all');
   if (!P) return null;
   const appr = approval(s, c);
   const inc = pcIncome(s, c, appr);
   const mode = c.gov === 'D' ? 'Parliamentary democracy: laws need a majority' : c.gov === 'F' ? 'Hybrid regime: parliament usually does what it is told' : 'Rule by decree: no vote, but decrees cost more and anger liberals';
   const law = sel ? lawById(sel) : undefined;
-  const fc = law ? forecast(c, law, whip) : null;
+  const fc = law ? forecast(c, law, 0) : null;
+  const bill = activeBill(s);
+  const introduce = (id: string) => { const r = store.act((g) => actIntroduceBill(g, id)); if (r.ok) { setSel(null); store.openDrawer('bill'); } };
   const arc = P.arc ? arcById(P.arc.id) : undefined;
   const cats = ['all', ...new Set(LAWS.map((l) => l.cat))];
-  const open = (l: Law) => { setSel(sel === l.id ? null : l.id); setWhip(0); };
+  const open = (l: Law) => { setSel(sel === l.id ? null : l.id); };
   return (
     <>
       <CoalitionSection />
@@ -113,6 +115,14 @@ export function PoliticsTab() {
       </Section>
 
       <Section fold="laws" title="Laws" hint={`${P.laws.length} in force`}>
+        {bill && (() => { const h = headcount(s, bill); const L = lawById(bill.law)!; return (
+          <button className={`card bill-card ${h.yes >= h.need ? 'ahead' : 'behind'}`} onClick={() => store.openDrawer('bill')}>
+            <b>{L.icon} The {L.title} is before {chamberName(bill)}</b>
+            <span className="faint">{Math.round(h.yes)} for, {h.need} needed · vote in {Math.max(0, bill.vote - s.tick)} weeks · {bill.moves} move{bill.moves === 1 ? '' : 's'} in hand · {bill.foe} leads the fight against it</span>
+            <span className="cb-go">Open the whip's room ›</span>
+          </button>); })()}
+        {(P.ious?.length ?? 0) > 0 && <div className="card iou-card"><b>🤝 Favours owed</b>{P.ious!.map((i) => <div key={i.f} className="faint">{factionMeta(i.f).name}: for their votes on the {lawById(i.law)?.title}. Pass a law they want by {dateLabel(i.due)}{i.want ? ` (the ${lawById(i.want)?.title}, say)` : ''}, or they will call it a betrayal.</div>)}</div>}
+        {(P.bills?.length ?? 0) > 0 && <div className="bills-past">{[...P.bills!].reverse().slice(0, 5).map((r, i) => <span key={i} className={`chip-mini ${r.passed ? 'good' : 'bad'}`} title={dateLabel(r.tick)}>{r.passed ? '✓' : '✗'} {lawById(r.law)?.title} {r.yes}–{r.no}{r.passed && r.odds0 < 0.5 ? ' ★' : ''}</span>)}</div>}
         {P.laws.length > 0 && (
           <div className="laws-in">
             {P.laws.map((l) => { const L = lawById(l.id)!; return (
@@ -126,13 +136,13 @@ export function PoliticsTab() {
             const blocked = l.excl && hasLaw(c, l.excl) ? `Repeal the ${lawById(l.excl)!.title} first` : l.req?.(c) ?? null;
             const isSel = sel === l.id;
             const f = isSel ? fc! : forecast(c, l, 0);
-            const total = f.cost + (isSel ? whip : 0);
+            const total = f.mode === 'decree' ? f.cost : billCost(c, l);
             return (
               <div className={`law ${isSel ? 'open' : ''}`} key={l.id}>
                 <button className="law-head" onClick={() => open(l)} aria-expanded={isSel}>
                   <span className="law-ic">{l.icon}</span>
                   <span className="grow"><b>{l.title}</b><small>{l.desc}</small></span>
-                  <span className="law-cost">{f.cost} PC<small>{f.mode === 'decree' ? 'decree' : `${Math.round(f.yes * 100)}% yes`}</small></span>
+                  <span className="law-cost">{total} PC<small>{f.mode === 'decree' ? 'decree' : `${Math.round(f.yes * 100)}% yes`}</small></span>
                 </button>
                 {isSel && (
                   <div className="law-body">
@@ -141,14 +151,19 @@ export function PoliticsTab() {
                     {f.mode !== 'decree' && (
                       <>
                         <div className="vote-bar"><i style={{ width: `${f.yes * 100}%` }} /><span style={{ left: '50%' }} /></div>
-                        <div className="faint" style={{ fontSize: 12 }}>Expected: <b className={f.yes >= 0.55 ? 'good' : f.yes >= 0.5 ? '' : 'bad'}>{Math.round(f.yes * 100)}% yes</b> (a majority needs 50%; votes can swing by ±3%). Factions: {f.by.map((b) => `${factionMeta(b.id).short} ${Math.round(b.p * 100)}%`).join(' · ')}</div>
-                        <label className="whip">Whip the vote: <b>+{whip} PC</b> (+{(whip * 0.8).toFixed(0)}% yes)<input type="range" min={0} max={30} step={2} value={whip} onChange={(e) => setWhip(Number(e.target.value))} /></label>
+                        <div className="faint" style={{ fontSize: 12 }}>First count: <b className={f.yes >= 0.55 ? 'good' : f.yes >= 0.5 ? '' : 'bad'}>{Math.round(f.yes * 100)}% for</b>. Factions: {f.by.map((b) => `${factionMeta(b.id).short} ${Math.round(b.p * 100)}%`).join(' · ')}. Then it is a fight: {c.gov === 'D' ? 'four' : 'three'} weeks of whipping, deals and pressure while the opposition works against you.</div>
                       </>
                     )}
+                    {f.mode === 'decree' && <div className="faint" style={{ fontSize: 12 }}>Decree it now (no vote, {f.cost} capital, the liberals hate it), or win over the inner circle first: cheaper, no backlash, but they can say no.</div>}
                     <div className="btnrow">
-                      <button className="btn primary" disabled={!!blocked || P.pc < total} onClick={() => { store.act((g) => actPassLaw(g, l.id, whip)); setSel(null); setWhip(0); }}>
-                        {blocked ?? (P.pc < total ? `Needs ${total} PC (you have ${Math.floor(P.pc)})` : f.mode === 'decree' ? `Sign the decree (${total} PC)` : `Put it to a vote (${total} PC)`)}
-                      </button>
+                      {blocked || bill ? (
+                        <button className="btn" disabled>{blocked ?? `The ${lawById(bill!.law)!.title} is before ${chamberName(bill!)}: one bill at a time`}</button>
+                      ) : (
+                        <>
+                          <button className="btn primary" disabled={P.pc < billCost(c, l)} onClick={() => introduce(l.id)}>{P.pc < billCost(c, l) ? `Needs ${billCost(c, l)} PC (you have ${Math.floor(P.pc)})` : f.mode === 'decree' ? `Put it to the inner circle (${billCost(c, l)} PC)` : `Introduce the bill (${billCost(c, l)} PC)`}</button>
+                          {f.mode === 'decree' && <button className="btn" disabled={P.pc < f.cost} onClick={() => { store.act((g) => actPassLaw(g, l.id)); setSel(null); }}>Sign the decree ({f.cost} PC)</button>}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

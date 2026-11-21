@@ -286,7 +286,14 @@ export interface ArcState { id: string; stage: number; started: number; next?: {
 export interface Politics {
   /** political capital: earned weekly, spent on laws, decrees and crisis responses */
   pc: number;
-  laws: { id: string; since: number }[];
+  /** laws in force; a law passed with amendments carries them: `em` its effects scaled (watered down), `pm`/`nm` how
+   *  strongly its supporters / opponents feel, `until` a sunset clause (bill.ts) */
+  laws: { id: string; since: number; em?: number; pm?: number; nm?: number; until?: number }[];
+  /** the bill being fought through parliament (or the inner circle) right now, and the last ones decided (bill.ts) */
+  bill?: import('./bill').Bill;
+  bills?: import('./bill').BillRec[];
+  /** favours owed: a back-room deal to be repaid with a law that faction wants (bill.ts) */
+  ious?: import('./bill').Iou[];
   factions: Faction[];
   /** the budget and position when politics began: factions judge changes against it */
   base: { social: number; infra: number; military: number; taxVat: number; taxIncome: number; taxCorporate: number; education: number; provinces: number };

@@ -62,6 +62,70 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 47b: the audit, and what it found
+
+To check that nothing is broken and the balance holds, two audits now ship with the game:
+
+* `npm run audit` (`scripts/audit.ts`): a busy bot plays full 20-year games for sixteen countries in Legacy mode and
+  eight in Sandbox, every system touched (decisions, agenda, bills, development, campaigns, summits, wars and
+  operations). Every week every country is checked: no NaN, no value out of range, no province owned by a dead
+  country, no war with a dead side, no event text with "undefined" in it, no broken bill or second operation. Every game
+  is saved, loaded and played on; one game is played twice and must come out identical.
+* `npm run audit:ui` (`scripts/ui-audit.mjs`): three years into a Legacy game on a desktop, a laptop and a phone screen,
+  every tab (yours and a foreign country's), every view switch, every screen and every map mode is opened: no console
+  errors, no broken text, no empty panels, no sideways scrolling on the phone.
+
+Final result: 0 errors in 24 twenty-year games, saves round-trip exactly, the game is deterministic, and 0 problems in
+the browser sweep. What the audit found on the way, and what changed:
+
+* **An opposition poll said "you at undefined%"** when read after you were back in office. Fixed.
+* **You were ousted by your own party the week you won power back.** The rival kept the strength it had built up before
+  you fell. A comeback now silences the rival, and a challenge pending when you lose power is dropped.
+* **Autocrats were judged by a democracy's polls.** The party rival grew whenever approval was under 45%, so a regime
+  starting with high inflation faced a coup every year and a half and almost always lost it. In a regime the bar is now
+  34%, and the challenge odds count the inner circle, not the polls. Leaders of Turkey, Egypt and Saudi Arabia went
+  from 12-25% of the game in office to about 55%.
+* **88% landslides in free elections.** A free vote now flattens out around 70% in a region (a party congress or a
+  regime's loyalty count still can be lopsided).
+* **Grades were too easy**: the bot earned S in 9 of 16 careers. The bands are now S 1600+, A 1050+, B 650+, C 300+;
+  the same bot now earns 2 S, 10 A, 4 B.
+* **Sanctions lasted for ever.** An AI only reconsiders the few countries it looks at each month, and sanctions keep
+  relations down, so a war's sanctions never lifted (62% of a country's trade for fifteen years). Sanctions imposed in
+  play are now reviewed: once the target is no longer an aggressor, no coalition stands against it and its record has
+  faded, they lapse in about a year and a half. Sanctions the world starts with are left alone.
+* **Wars outlived your government.** Out of office, nobody ran your country's wars, so a popular war went on for eight
+  years and wrecked the economy. The government that replaced you now makes peace once the public tires of the war,
+  and within about a year in any case.
+* **Back-room deals could not be repaid late in a game** (every law a faction wanted was already in force), so every
+  deal became a betrayal. A deal now needs a law they still want.
+
+## Round 47: the bill, politics as a fight
+
+Passing a law used to be a button and a percentage. Now a law is a bill (`src/sim/bill.ts`, `src/ui/Bill.tsx`), and a bill
+is a fight:
+
+* **A real chamber.** 400 seats split between the six factions in a democracy or a managed parliament; in an autocracy
+  the sixty members of the inner circle, weighted by clout. Every faction's members lean yes or no from their mood, what
+  the law does to them and whether they are in your government. You see the headcount and the number you need.
+* **Moves.** Two to start and one a week (two at most in hand), so every move is a choice. Whip your own (strong with
+  partners, weak with anyone else, weaker each time). A sweetener (money for one faction's people, the rest call it
+  pork). A back-room deal with a faction's leader (votes that do not fade, and a favour owed: pass a law they want
+  within a year or they call it a betrayal). Twisting arms (works, and the more you do it the likelier it leaks into a
+  scandal). Water it down (the law does 30% less, its opponents relax, its supporters cool). A sunset clause (it
+  expires in four years). Go public (worth as much as your approval, or worse than nothing). Delay the vote. Every
+  button shows how many votes it would win before you press it.
+* **The opposition.** A named leader (the one you will face at the next election) goes after the faction that is
+  easiest to turn, harder when you are unpopular, and may filibuster once. What you won fades a little every week.
+* **Vote night.** The clock stops the week before. Then the roll call, faction by faction, with a little uncertainty
+  left in it, and the verdict. A law passed from behind is a landmark (capital and approval back); a defeat costs
+  approval and stability, and the law cannot come back for half a year.
+* **Autocrats** can still decree a law at once (dearer, and the liberals hate it), or win the inner circle first.
+
+Balance, measured with a bot over eight countries: at the start of a game most bills begin above 55% of the seats and
+mostly pass on their own; between 48% and 55% doing nothing passes 15-34% of the time and good play 86-100%; between
+40% and 48% doing nothing never passes and good play passes about half to nine times in ten, depending on how
+popular you are; below 40% even good play passes about one in five.
+
 ## Round 46: operations, the war planned
 
 War had fronts, army groups, generals, supply, campaigns (bombing, blockades, offensives) and a war council, but almost

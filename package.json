@@ -11,6 +11,8 @@
     "build:map": "tsx scripts/build-map.ts",
     "simulate": "tsx scripts/headless-sim.ts",
     "e2e": "node scripts/e2e-smoke.mjs",
+    "audit": "tsx scripts/audit.ts",
+    "audit:ui": "npm run build && node scripts/ui-audit.mjs",
     "typecheck": "tsc --noEmit",
     "desktop:web": "vite build --outDir desktop/web --emptyOutDir",
     "desktop": "npm run desktop:web && cd desktop && npm run start",

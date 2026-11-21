@@ -18,6 +18,7 @@ import { stepProgrammes } from './wargoals';
 import { stepWarEvents } from './events6';
 import { stepNations } from './nations';
 import { stepPolitics as stepDomestic } from './domestic';
+import { stepBill } from './bill';
 import { stepArcs } from './arcs';
 import { approval } from './approval';
 import { stepResearch } from './research';
@@ -157,6 +158,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   stepAutopilot(s, geo);
   stepCabinet(s);
   stepDomestic(s, approval(s, s.countries[s.player]));
+  stepBill(s);
   if (s.stats.apprBoost) s.stats.apprBoost = Math.abs(s.stats.apprBoost) < 0.05 ? 0 : s.stats.apprBoost * 0.96;
   stepFiscalRule(s);
   stepTracks(s);

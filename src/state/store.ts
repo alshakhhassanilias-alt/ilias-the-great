@@ -36,7 +36,7 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 2;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'summit' | 'operation' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'summit' | 'operation' | 'bill' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
 
 const QUICK = 'Quicksave';
 
@@ -383,6 +383,9 @@ class Store {
         const th = thrillOf(e, s.player, e.big ? this.relevant(e) : false);
         if (th.jolt) this.shake(th.jolt.kind, th.jolt.power);
         if (th.cine && !this.splash) this.showCine(th.cine);
+        // the bill (bill.ts): the clock stops the week before the vote, and on vote night the roll call takes the screen
+        if (mine && /^⏳ THE VOTE IS NEXT WEEK/.test(e.text) && this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; this.toast('📜 The vote is next week: last moves in the whip\'s room.', 'info'); }
+        if (mine && /^🗳 THE VOTE:/.test(e.text)) { if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; } this.drawer = { ...this.drawer, open: 'bill' }; }
         if (mine && /THE CAMPAIGN BEGINS/.test(e.text)) { if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; } this.drawer = { ...this.drawer, open: 'campaign' }; }
         if (th.strike !== undefined) { this.strikes.push(th.strike); if (this.strikes.length > 6) this.strikes.shift(); }
         if (vote) {

@@ -157,7 +157,7 @@ export const OPP_SITUATIONS: Situation[] = [
       ] }] },
   { id: 'o_poll', icon: '📊', title: 'The poll', weight: 2,
     pick: (s) => ((s.legacy?.opposition?.support ?? 0) > 44 ? k0(s) : null),
-    stages: [{ text: (s, c) => `A poll nobody expected: you at ${s.legacy?.opposition?.support.toFixed(0)}%, ${govName(s)} sinking. Your advisers say this is the moment to ${free(c) ? 'force a vote of no confidence' : 'call the country into the streets'}. Others say wait: a failed attempt would be the end.`,
+    stages: [{ text: (s, c) => `A poll nobody expected: you at ${Math.round(s.legacy?.opposition?.support ?? 45)}%, ${govName(s)} sinking. Your advisers say this is the moment to ${free(c) ? 'force a vote of no confidence' : 'call the country into the streets'}. Others say wait: a failed attempt would be the end.`,
       options: [
         { label: 'Strike now', hint: 'A gamble on the moment: support +6 and the vote brought forward (1 in 2), else support −5', apply: (s, c) => { const L = s.legacy!; if (nextRand(s) < 0.5) { sup(s, 6); L.nextVote = Math.min(L.nextVote, s.tick + 8); news(s, c, `⚡ ${free(c) ? 'The government loses a confidence vote: elections in eight weeks!' : 'The streets fill: the regime agrees to a vote in eight weeks.'}`); return 'It works. In eight weeks the country decides.'; } sup(s, -5); return 'The government survives by three votes, and laughs at you across the chamber.'; } },
         { label: 'Bank it: build for the real vote', hint: 'The next vote +4', apply: (s) => { vote(s, 4); return 'You do not gloat. You hire organisers.'; } },
