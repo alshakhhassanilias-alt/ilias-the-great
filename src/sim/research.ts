@@ -13,6 +13,7 @@
  * against the world: a country that out-researches the rest earns a growing productivity edge (and loses it again if it
  * falls behind); in defence, each level makes your forces hit harder and hold better than an enemy a level below.
  */
+import { devResearch, hasDev } from './develop';
 import { clamp } from './util';
 import { focusById, focusMult } from './focus';
 import { hash01 } from './rng';
@@ -208,6 +209,8 @@ export function researchPoints(s: GameState, c: Country): { v: number; parts: Rp
   const laws = c.politics?.laws ?? [];
   if (laws.some((l) => l.id === 'tech_fund')) { mult += 0.15; named.push('National Technology Fund'); }
   if (laws.some((l) => l.id === 'migration')) { mult += 0.06; named.push('open labour migration'); }
+  const dv = devResearch(c);
+  if (dv > 1) { mult += dv - 1; named.push(hasDev(c, 'sci6') ? 'national laboratories and quantum computing' : 'national laboratories'); }
   const friends = alliesOf(s, c.id).filter((a) => (s.countries[a].rs?.lv[2] ?? 0) > (c.rs?.lv[2] ?? 0)).length;
   if (friends) { mult += Math.min(0.2, 0.025 * friends); named.push(`${friends} more advanced all${friends > 1 ? 'ies' : 'y'}`); }
   const fm = focusMult(c, 'rp');

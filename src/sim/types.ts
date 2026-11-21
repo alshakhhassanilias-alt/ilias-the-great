@@ -271,6 +271,8 @@ export interface Country {
   rs?: import('./research').Research;
   /** industries: capacity in each of the eight sectors (see industry.ts) */
   ind?: import('./industry').Industry;
+  /** national development: ladders built, projects under way, the power mix you added (develop.ts) */
+  dev?: import('./develop').Dev;
   /** this year's national focus (see focus.ts and plan.ts) */
   focus?: import('./focus').FocusId;
   /** mobilisation level and war strategy (see mobdata.ts, warmode.ts) */

@@ -62,6 +62,27 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 43: development with depth, and no dead end at 100
+
+* **The chips and services dead end is gone.** Expanding them needed technology of 30 + 6 per level, which passes 100
+  (where technology stops) at level 12: from there they could never grow again. The requirement now climbs towards 95
+  and never reaches it (`workforceNeed` in `src/sim/industry.ts`); higher levels get dearer through their cost instead.
+* **Quick investments became Development** (`src/sim/develop.ts`, Economy tab → Build → Development):
+  * **Four ladders of named projects**: infrastructure (highways, freight rail, deep-water ports, national fibre,
+    high-speed rail, smart grid, smart cities), science (universities, national laboratories, science parks, a defence
+    research agency, a biotech cluster, quantum computing, fusion), farms & water (irrigation, cold chain, desalination,
+    precision farming, food exporters, vertical farms) and industry (industrial parks, special economic zones,
+    vocational training, automation, export credit, robotics). Each rung takes months, costs more than the last and
+    does something of its own: ports open trade, fibre makes chips and services cheaper to expand, the laboratories
+    speed up research and unlock nuclear power, automation raises output but costs jobs and angers the unions,
+    desalination eases water stress but uses power. Some rungs need a rung of another ladder.
+  * **The energy mix**: coal (cheap and quick, dirty, reputation −0.8), gas (cheap to build, burns fuel every week at
+    the world gas price), nuclear (needs the laboratories; dear and slow, then nearly free; very rarely an incident),
+    wind & solar (clean, 70% of rated power until the smart grid) and fusion (the end of the science ladder). A bar
+    shows what you make against what you use, by kind, and the yearly fuel bill.
+  * **Building capacity**: two projects at a time, a third with freight rail, a fourth with industrial parks.
+  * The old instant top-ups stay at the bottom; past 95 they turn into research progress and productivity.
+
 ## Round 42: something to do, every year
 
 A bot played 15 and 20-year games and counted the decisions that reached the desk each year. Two dry spells showed up.

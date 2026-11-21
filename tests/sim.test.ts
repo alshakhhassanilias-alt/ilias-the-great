@@ -3739,3 +3739,69 @@ describe('there is always something to do (round 41)', () => {
     expect(Number.isFinite(s.stats.campaign ?? 0)).toBe(true);
   });
 });
+
+import { actBuildRung as actBuildRung43, actBuildStation as actBuildStation43, devSlots as devSlots43, ensureDev as ensureDev43, nextRung as nextRung43, stationOf as stationOf43, RUNGS as RUNGS43, fuelBill as fuelBill43 } from '../src/sim/develop';
+import { expansionOf as expansionOf43, ensureIndustry as ensureIndustry43, workforceNeed as workforceNeed43 } from '../src/sim/industry';
+import { ensureResearch as ensureResearch43 } from '../src/sim/research';
+describe('development has depth, and no dead ends (round 43)', () => {
+  it('chips and services can always grow: the workforce they need never passes what technology can reach', () => {
+    for (let lv = 0; lv <= 60; lv += 0.5) expect(workforceNeed43(lv)).toBeLessThan(95);
+    const s = fresh('Taiwan');
+    const c = s.countries[s.player];
+    c.eco.tech = 100;
+    const ind = ensureIndustry43(c);
+    ind.lv.tech = 14; ind.lv.services = 14; // where the old rule (30 + 6 per level = 114) shut the door for good
+    ensureResearch43(c).lv = [20, 20, 20, 20, 20];
+    c.eco.energyCap = c.eco.energyDemand * 2;
+    expect(expansionOf43(s, c, 'tech').why ?? '').not.toMatch(/workforce/);
+    expect(expansionOf43(s, c, 'services').why ?? '').not.toMatch(/workforce/);
+  });
+  it('the ladders build in order, take time, need their prerequisites and respect building slots', () => {
+    const s = fresh('Poland', { randomEvents: false });
+    const c = s.countries[s.player];
+    c.eco.cash = c.eco.gdp; // rich enough
+    const infra0 = c.eco.infra;
+    expect(devSlots43(c)).toBe(2);
+    expect(actBuildRung43(s, 'inf').ok).toBe(true);
+    expect(actBuildRung43(s, 'sci').ok).toBe(true);
+    expect(actBuildRung43(s, 'agr').message).toMatch(/capacity full/); // two at a time
+    const D = ensureDev43(c);
+    const wk = D.prog[0].until - s.tick;
+    expect(wk).toBeGreaterThan(20);
+    run(s, wk + 1);
+    expect(D.done).toContain('inf1');
+    expect(c.eco.infra).toBeGreaterThan(infra0 + 5);
+    // cross-track needs: the smart grid needs science parks
+    D.done.push('inf2', 'inf3', 'inf4', 'inf5');
+    D.prog = [];
+    expect(nextRung43(c, 'inf').why).toMatch(/Science parks/);
+    expect(devSlots43(c)).toBe(3); // freight rail adds a slot
+    // every rung's effect runs without breaking the economy
+    for (const r of RUNGS43) r.apply(s, c);
+    for (const v of [c.eco.tfp, c.eco.capital, c.eco.foodCap, c.eco.energyDemand, c.eco.tradeIndex, c.eco.uNat, c.eco.tech, c.eco.infra]) expect(Number.isFinite(v)).toBe(true);
+    expect(c.eco.tech).toBeLessThanOrEqual(100);
+  });
+  it('power stations come on line, gas burns fuel, nuclear waits for the laboratories', () => {
+    const s = fresh('Germany', { randomEvents: false });
+    const c = s.countries[s.player];
+    c.eco.cash = c.eco.gdp;
+    expect(stationOf43(c, 'nuclear').why).toMatch(/National laboratories/);
+    const cap0 = c.eco.energyCap;
+    expect(actBuildStation43(s, 'gas').ok).toBe(true);
+    run(s, 25);
+    expect(c.eco.energyCap).toBeGreaterThan(cap0 * 1.02);
+    expect(ensureDev43(c).fuel ?? 0).toBeGreaterThan(0);
+    expect(fuelBill43(s, c)).toBeGreaterThan(0); // a yearly bill at the world gas price
+    expect(fuelBill43(s, c)).toBeLessThan(0.01 * c.eco.gdp);
+  });
+  it('past the frontier, research money becomes research progress', () => {
+    const s = fresh('Japan', { randomEvents: false });
+    const c = s.countries[s.player];
+    c.eco.tech = 99; c.eco.cash = c.eco.gdp;
+    const rs = ensureResearch43(c); rs.cur = 2;
+    const acc0 = rs.acc[2];
+    const r = buildProject(s, s.player, 'research', 0.01);
+    expect(r.message).toMatch(/frontier/);
+    expect(rs.acc[2]).toBeGreaterThan(acc0);
+  });
+});

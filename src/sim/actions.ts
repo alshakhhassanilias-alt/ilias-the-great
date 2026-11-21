@@ -2,6 +2,7 @@
  * Actions available to both the player and AI. Every action takes effect IMMEDIATELY (no timers):
  * money moves now, capacity / forces / stats change now, and the next tick reflects the new state.
  */
+import { ensureResearch, rungCost } from './research';
 import { addRec } from './minds';
 import { cable } from './cables';
 import { addGrudge } from './leaders';
@@ -70,6 +71,8 @@ export function buildProject(s: GameState, cid: number, kind: Project, pctGdp: n
       e.capital += real * 0.85;
       return ok(`Factories built: industrial capital +${((real * 0.85) / (e.capital - real * 0.85) * 100).toFixed(1)}%. ${f.message}`);
     case 'infra': {
+      // at the frontier there is little left to pave: the money goes into running what exists better (productivity)
+      if (e.infra >= 95) { const t0 = e.tfp; e.tfp *= 1 + 0.003 * (pctGdp / 0.01); return ok(`Infrastructure is at the frontier: the money modernises what exists. Productivity +${((e.tfp / t0 - 1) * 100).toFixed(2)}%. ${f.message}`); }
       const gain = 3 * (pctGdp / 0.01) * (1 - e.infra / 110);
       e.infra = clamp(e.infra + gain, 5, 100);
       return ok(`Infrastructure +${gain.toFixed(1)} points. ${f.message}`);
@@ -85,6 +88,15 @@ export function buildProject(s: GameState, cid: number, kind: Project, pctGdp: n
       return ok(`Farmland & logistics: food output +${((add / (e.foodCap - add)) * 100).toFixed(1)}%. ${f.message}`);
     }
     case 'research': {
+      // at the frontier the workforce cannot get much more skilled: the money buys research progress instead
+      if (e.tech >= 95) {
+        const rs = ensureResearch(c);
+        const b = rs.cur >= 0 ? rs.cur : 2;
+        const add = 0.18 * (pctGdp / 0.01) * rungCost(s, c, b);
+        rs.acc[b] += add;
+        e.tfp *= 1 + 0.001 * (pctGdp / 0.01);
+        return ok(`Technology is at the frontier: the money goes into research. ${['Industry', 'Energy', 'Digital', 'Society', 'Defence'][b]} research +${Math.round((add / rungCost(s, c, b)) * 100)}% of a rung. ${f.message}`);
+      }
       const gain = 1.5 * (pctGdp / 0.01) * (1 - e.tech / 110);
       e.tech = clamp(e.tech + gain, 5, 100);
       e.tfp *= 1 + 0.002 * (pctGdp / 0.01);

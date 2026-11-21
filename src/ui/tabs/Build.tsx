@@ -1,10 +1,12 @@
 /**
  * Build: everything the country can build, in one place, one view at a time: industries (months, lasting capacity
- * on world markets), megaprojects (years, a national transformation) and quick investments (paid and built at once).
+ * on world markets), megaprojects (years, a national transformation) and development (ladders of named projects, the
+ * energy mix, and instant top-ups).
  */
 import { useState, type ReactNode } from 'react';
 import { IndustrySection } from './Industry';
 import { ProjectsSection } from './Projects';
+import { DevelopmentSection } from './Develop';
 import { Glyph } from '../art/Glyphs';
 import { sfx } from '../../audio';
 
@@ -12,7 +14,7 @@ type View = 'ind' | 'mega' | 'quick';
 const VIEWS: { id: View; label: string; icon: string; sub: string }[] = [
   { id: 'ind', label: 'Industries', icon: 'factory', sub: 'months · lasting' },
   { id: 'mega', label: 'Megaprojects', icon: 'crown', sub: 'years · transformative' },
-  { id: 'quick', label: 'Quick investments', icon: 'coin', sub: 'at once' },
+  { id: 'quick', label: 'Development', icon: 'coin', sub: 'ladders · power' },
 ];
 const read = (): View => { try { const v = localStorage.getItem('wo-build') as View | null; return v && VIEWS.some((x) => x.id === v) ? v : 'ind'; } catch { return 'ind'; } };
 
@@ -30,7 +32,7 @@ export function BuildHub({ id, quick }: { id: number; quick: ReactNode }) {
       </div>
       {view === 'ind' && <IndustrySection id={id} />}
       {view === 'mega' && <ProjectsSection />}
-      {view === 'quick' && quick}
+      {view === 'quick' && <DevelopmentSection quick={quick} />}
     </>
   );
 }

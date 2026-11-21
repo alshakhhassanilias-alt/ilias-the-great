@@ -43,7 +43,7 @@ export function EconomyTab({ id }: { id: number }) {
 
   const delegated = mine && ctl(s, 'economy') === 'auto';
   const quick = (
-          <Section title="Quick investments" hint="built at once">
+          <Section title="Top-ups" hint="paid and built at once · past 95 they turn into research and productivity">
             <div style={{ marginBottom: 8 }}>
               <Segmented value={preset} onChange={setPreset} label="Project size"
                 options={PRESETS.map((p) => ({ v: p, label: `${(p * 100).toFixed(p < 0.01 ? 2 : 1)}% GDP` }))} />

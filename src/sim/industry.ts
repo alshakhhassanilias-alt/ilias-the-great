@@ -13,6 +13,7 @@
  * advanced sectors need the research (and the energy) to back them. Each level adds to output (more in a dear market)
  * and has its own payoff: food, energy, cheaper weapons, technology, tax revenue.
  */
+import { devSectorDiscount } from './develop';
 import { focusMult } from './focus';
 import { clamp, fmtMoney, keyOf } from './util';
 import { hash01, nextRand } from './rng';
@@ -183,18 +184,24 @@ function levelUp(s: GameState, c: Country, id: SectorId, amount: number) {
 
 // ------------------------------------------------------------------ expansion
 export const MAX_PROGS = 2;
+/**
+ * The technology a chips or services level needs. It used to be 30 + 6 per level, which passed 100 (where technology
+ * stops) at level 12: a dead end. Now it climbs towards 95 and never reaches it, so the higher levels stay open (they
+ * get dearer instead, through the cost).
+ */
+export const workforceNeed = (lv: number) => 30 + 65 * (1 - Math.exp(-lv / 9));
 /** What it takes to add the next level to a sector: cost, weeks, and anything that stands in the way. */
 export function expansionOf(s: GameState, c: Country, id: SectorId): { cost: number; weeks: number; why: string | null } {
   const ind = ensureIndustry(c), sec = sectorById(id);
   const built = ind.lv[id] - ind.lv0[id];
-  const cost = 0.005 * sec.costK * c.eco.gdp * Math.pow(1.22, Math.max(0, built)) * focusMult(c, 'indCost');
+  const cost = 0.005 * sec.costK * c.eco.gdp * Math.pow(1.22, Math.max(0, built)) * focusMult(c, 'indCost') * devSectorDiscount(c, id);
   const weeks = Math.round((26 + 6 * Math.max(0, built)) * focusMult(c, 'indWeeks'));
   const rs = ensureResearch(c);
   const need = Math.floor(ind.lv[id] / 2) - 1; // the research rung this level needs
   let why: string | null = null;
   if (rs.lv[sec.branch] < need) why = `Needs rung ${need} in ${['Industry', 'Energy', 'Digital', 'Society', 'Defence'][sec.branch]} research (you have ${rs.lv[sec.branch]})`;
   else if ((id === 'heavy' || id === 'manuf' || id === 'tech') && built >= 2 && c.eco.energyCap < 0.85 * c.eco.energyDemand) why = 'Your energy supply cannot power more industry: build energy first (you make less than 85% of what you use)';
-  else if ((id === 'tech' || id === 'services') && c.eco.tech < 30 + 6 * ind.lv[id]) why = `Needs a more advanced workforce (technology ${(30 + 6 * ind.lv[id]).toFixed(0)}; you have ${c.eco.tech.toFixed(0)})`;
+  else if ((id === 'tech' || id === 'services') && c.eco.tech < workforceNeed(ind.lv[id])) why = `Needs a more advanced workforce (technology ${workforceNeed(ind.lv[id]).toFixed(0)}; you have ${c.eco.tech.toFixed(0)})`;
   else if (ind.prog?.some((p) => p.id === id)) why = 'Already expanding';
   else if ((ind.prog?.length ?? 0) >= MAX_PROGS) why = `At most ${MAX_PROGS} programmes at a time`;
   return { cost, weeks, why };

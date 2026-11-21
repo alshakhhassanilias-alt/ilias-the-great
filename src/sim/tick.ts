@@ -23,6 +23,7 @@ import { approval } from './approval';
 import { stepResearch } from './research';
 import { stepIndustry } from './industry';
 import { stepInfluenceGen } from './influence';
+import { stepDevelop } from './develop';
 import { stepCables } from './cables';
 import { setInTick } from './relations';
 import type { Geo } from './geo';
@@ -208,6 +209,7 @@ export function* tickSlices(s: GameState, geo: Geo): Generator<void> {
   yield;
   mark('stepIndustry');
   stepIndustry(s);
+  stepDevelop(s);
   yield;
   mark('stepInfluence');
   yield* stepInfluenceGen(s);
