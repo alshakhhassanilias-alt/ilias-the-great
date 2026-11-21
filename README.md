@@ -62,6 +62,31 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 45: summits, diplomacy face to face
+
+Diplomacy had a negotiating table (styles, interests, red lines, terms), but nothing personal: no one remembered you,
+you never met anyone, and a "summit" was one button (pay, relations +9). Now (`src/sim/summit.ts`, `src/ui/Summit.tsx`):
+
+* **Ties with every leader**: rapport (do they like you) and trust (do you keep your word), for as long as you both hold
+  office. They count at the negotiating table (a factor of their own), pull relations along week by week, and fade a
+  little without meetings. A new leader starts from nothing; the history of the old one is kept on the leader card.
+* **The leader card** (Diplomacy tab): face, traits, how they negotiate, rapport and trust, promises you made them, and
+  the history of your meetings.
+* **A summit**: choose where (their capital honours them; a neutral city reassures the cautious; your capital may offend
+  the proud) and one or two things to ask for, then three rounds face to face. Each round you choose how to talk:
+  personal charm, shared interests, money on the table, plain talk from strength, honouring their nation (an apology
+  if you wronged them), or giving your word. How it lands depends on who they are (a merchant wants a price, a proud
+  nationalist cannot be bought, a strongman respects strength only from the stronger, a wounded nation needs an
+  apology), and the screen tells you before you choose ("likely to land well", "likely to backfire"). The same move twice
+  reads as a script. They answer you, in character, never with the same words twice; a mood bar shows the room.
+* **The close**: what they sign follows the table's own odds moved by how the room felt; then the press conference
+  ("a historic friendship", "frank talks", "we gave nothing away"), each with its own consequences, and the headline.
+* **Your word**: promises made at a summit (never to go to war with them, no sanctions, no deals with their rival) are
+  watched every week. Kept to the end: trust +20. Broken: trust −45, rapport −30, a grudge, and their allies trust you
+  less too.
+* **Invitations**: now and then a leader who likes you, or a great power, invites you: within three months the summit
+  costs no political capital and starts in a good mood.
+
 ## Round 44: an election is a campaign
 
 Before, an election was three pop-up decisions adding points to one number, then a dice roll; even the regions on

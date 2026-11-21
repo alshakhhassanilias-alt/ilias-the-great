@@ -83,6 +83,8 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await clearSotn(pg); await pg.click('button[aria-label="Very fast"]'); await sleep(2800); await clearSotn(pg); await pg.click('button[aria-label="Pause"]');
   const s1 = await S(pg);
   check('time advances at very fast speed and pauses', s1.tick > 10 && (await S(pg)).tick === s1.tick, `(tick ${s1.tick})`);
+  // (the 1 January State of the Nation can open just as the clock crosses the year: put it away so it cannot cover the tabs)
+  await pg.evaluate(() => { const s = window.__store.state; if (s.plan?.pending) { s.plan.pending = false; window.__store.notify(); } });
   await pg.click('.tabs button:has-text("Economy")');
   {
     const fin = await pg.locator('.fin-grid').innerText();
@@ -269,6 +271,18 @@ const S = (pg) => pg.evaluate(() => { const st = window.__store, s = st.state, c
   await pg.click('.camp-modal .iconbtn');
   check('Campaign: the race stays on the map', (await pg.locator('.camp-banner').count()) === 1);
   await pg.evaluate(() => { const st = window.__store, s = st.state; delete s.campaign; s.legacy.nextVote = s.tick + 200; st.notify(); });
+  // summits: a foreign leader has a face and a memory; a summit runs three rounds and ends at the press conference
+  await pg.evaluate(() => { const st = window.__store, s = st.state; s.countries[s.player].politics.pc = 60; st.select(s.countries.findIndex((c) => c.name === 'Germany'), null, false); st.setTab('diplomacy'); });
+  await pg.waitForSelector('.leader-card');
+  await pg.click('.leader-card .btn'); await pg.waitForSelector('.sm-modal');
+  await pg.click('.sm-agenda .sm-opt:not([disabled]) >> nth=0'); await pg.click('.sm-go');
+  for (const a of ['Shared interests', 'Personal charm', 'Honour their nation']) await pg.click(`.sm-card:has-text("${a}")`);
+  check('Summit: the leader answers each approach in character', (await pg.locator('.sm-line.them').count()) >= 4);
+  await pg.click('.sm-press .sm-opt >> nth=1');
+  await pg.waitForSelector('.sm-headline');
+  check('Summit: it ends in a headline and is remembered', /SUMMIT IN|summit in/i.test(await pg.locator('.sm-headline').innerText()) && (await pg.evaluate(() => Object.values(window.__store.state.ties ?? {}).some((t) => t.met === 1))));
+  await pg.click('.sm-modal .btn.primary');
+  await pg.evaluate(() => { const st = window.__store; st.select(st.state.player, null, false); st.setTab('overview'); });
   // the pulse of the game: a big moment takes the screen without taking a click; an election is a night of counting
   await pg.evaluate(() => { const st = window.__store; st.showCine({ kicker: 'A test', title: 'TEST MOMENT', sub: 'It lands.', tone: 'gold' }); st.shake('hit', 1); st.notify(); });
   check('Pulse: a big moment takes the screen', (await pg.locator('.cine-title').innerText()) === 'TEST MOMENT');

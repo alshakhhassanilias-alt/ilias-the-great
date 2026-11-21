@@ -1,0 +1,63 @@
+/* Summits: the leader card in the Diplomacy tab, and the summit itself (ui/Summit.tsx). */
+.leader-card .lc-row { display: flex; gap: 12px; align-items: center; }
+.lc-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.lc-body b { font-size: 15px; }
+.lc-body small { font-size: 12px; color: var(--muted); }
+.lc-body small em { font-style: normal; color: var(--text); font-weight: 600; }
+.lc-meters { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+.lc-meters > span { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; align-items: center; }
+.lc-meters em { font-style: normal; color: var(--text); font-weight: 600; white-space: nowrap; }
+.lc-m { position: relative; display: block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #c2412c, #4a4a4a 50%, #3fb37f); }
+.lc-m i { position: absolute; top: -3px; width: 4px; height: 12px; margin-left: -2px; border-radius: 2px; background: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.8); }
+.lc-promises, .lc-history { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.lc-promises li { color: #ffd86b; }
+.lc-history li { color: var(--muted); }
+.lc-history small { color: var(--faint); margin-right: 6px; }
+.leader-card .btn { width: 100%; margin-top: 10px; }
+.lc-note { font-size: 11.5px; margin: 6px 0 0; }
+
+.sm-scrim { z-index: 86; }
+.sm-modal { width: min(880px, 100%); max-height: min(94vh, 980px); }
+.sm-modal .modal-body { display: flex; flex-direction: column; gap: 10px; }
+.sm-modal h4 { margin: 4px 0 2px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.sm-modal h4 small { letter-spacing: 0.02em; text-transform: none; color: var(--faint); margin-left: 6px; }
+.sm-stage { display: grid; grid-template-columns: 1fr minmax(120px, 1.2fr) 1fr; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, rgba(255, 220, 150, 0.12), rgba(0, 0, 0, 0.35)), linear-gradient(180deg, #1a1510, #0d0b08); border: 1px solid rgba(214, 171, 82, 0.3); }
+.sm-who { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+.sm-who b { font-size: 13px; }
+.sm-mid { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.sm-city { font: 600 12px/1 'Barlow Condensed', var(--font); letter-spacing: 0.2em; text-transform: uppercase; color: #e8d7a8; text-align: center; }
+.sm-mood { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; width: 100%; font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.1em; }
+.sm-bar { position: relative; display: block; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #5aa0e0, #3a3a3a 50%, #e8a040); }
+.sm-bar i { position: absolute; top: -4px; width: 6px; height: 18px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 8px #fff; transition: left 0.5s cubic-bezier(0.2, 1.3, 0.3, 1); }
+.sm-shake { font-size: 46px; animation: wo-slam 0.5s cubic-bezier(0.2, 1.4, 0.3, 1) both; }
+.sm-brief { font-size: 13px; line-height: 1.5; margin: 0; color: var(--text); }
+.sm-venues, .sm-agenda { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.sm-opt { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 8px; text-align: left; font: inherit; color: var(--text); cursor: pointer; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); }
+.sm-opt:hover:not(:disabled) { border-color: rgba(255, 216, 107, 0.6); }
+.sm-opt.on { border-color: #ffd86b; background: rgba(255, 216, 107, 0.08); }
+.sm-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+.sm-opt b { font-size: 13px; } .sm-opt small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.sm-go { align-self: flex-start; margin-top: 4px; }
+.sm-talk { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; padding: 4px 2px; }
+.sm-line { margin: 0; padding: 7px 11px; border-radius: 10px; font-size: 13.5px; line-height: 1.45; max-width: 86%; animation: wo-rise 0.35s ease-out both; }
+.sm-line.me { align-self: flex-start; background: rgba(61, 155, 224, 0.14); border: 1px solid rgba(110, 180, 255, 0.25); }
+.sm-line.them { align-self: flex-end; background: rgba(255, 216, 107, 0.1); border: 1px solid rgba(255, 216, 107, 0.25); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; }
+.sm-line.note { align-self: center; max-width: 100%; font-style: italic; color: var(--muted); background: none; border: 0; font-size: 12.5px; }
+.sm-odds { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); }
+.sm-modal .up { color: var(--green); } .sm-modal .down { color: var(--red); }
+.sm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; }
+.sm-card { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 9px; text-align: left; font: inherit; color: var(--text); cursor: pointer; background: linear-gradient(180deg, rgba(255, 216, 107, 0.08), rgba(0, 0, 0, 0.25)); border: 1px solid rgba(255, 216, 107, 0.3); }
+.sm-card:hover { border-color: #ffd86b; }
+.sm-card.used { opacity: 0.6; }
+.smc-top { display: flex; align-items: center; gap: 6px; }
+.smc-top b { flex: 1; font-size: 13.5px; }
+.smc-top em { font-style: normal; font-size: 11px; font-weight: 700; color: #e8d7a8; }
+.sm-card small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.smc-cost { color: #e8a040 !important; }
+.sm-pledges, .sm-press { display: flex; flex-direction: column; gap: 6px; }
+.sm-headline { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.3; margin: 0; text-align: center; color: #f3e6c4; }
+.sm-outcome { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.sm-outcome span { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.sm-outcome .ok { background: rgba(91, 212, 140, 0.15); color: var(--green); border: 1px solid rgba(91, 212, 140, 0.4); }
+.sm-outcome .no { background: rgba(226, 86, 63, 0.12); color: #ff8a70; border: 1px solid rgba(226, 86, 63, 0.4); }
+@media (max-width: 700px) { .sm-stage { grid-template-columns: 1fr 1fr; } .sm-mid { grid-column: span 2; order: 3; } .sm-line { max-width: 100%; } }

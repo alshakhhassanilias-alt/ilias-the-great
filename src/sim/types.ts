@@ -437,6 +437,10 @@ export interface LogEntry { seq: number; tick: number; text: string; kind: LogKi
 export interface Market { priceE: number; priceF: number; scarcityE: number; scarcityF: number; /** chips and critical minerals (1 = normal; see trade.ts) */ priceC?: number; priceM?: number }
 
 export interface GameState {
+  /** summits (summit.ts): your personal ties with foreign leaders, promises made face to face, a summit under way */
+  ties?: Record<number, import('./summit').Tie>;
+  pledges?: import('./summit').Pledge[];
+  summit?: import('./summit').Summit;
   /** the election campaign under way (campaign.ts), and the last vote's regional result */
   campaign?: import('./campaign').Campaign;
   campaignResult?: import('./campaign').CampaignResult;

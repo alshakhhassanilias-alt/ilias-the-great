@@ -18,7 +18,8 @@ import { OPS as OPDEFS, opChance, type OpKind } from '../../sim/ops';
 import { actOp } from '../../sim/actions';
 import { fmtMoney } from '../format';
 import { previewReactions } from '../../sim/politics';
-import { actAid, actGuarantee, actMediate, actSummit, actUltimatum } from '../../sim/actions';
+import { actAid, actGuarantee, actMediate, actUltimatum } from '../../sim/actions';
+import { LeaderCard } from '../Summit';
 import { hasGuarantee, guarantorsOf } from '../../sim/relations';
 import { actCancel, actDeclareWar, actSanction, actAcceptOffer, actDeclineOffer } from '../../sim/actions';
 import { PROPOSAL_LABEL, type Proposal } from '../../sim/diplomacy';
@@ -58,6 +59,7 @@ export function DiplomacyTab({ id }: { id: number }) {
 
   return (
     <>
+      {!atWar && <LeaderCard id={id} />}
       <Section title="Relations" hint={rl.text}>
         <div className="card">
           <div className="row" style={{ border: 'none' }}><div className="grow"><b className="num" style={{ fontSize: 22 }}>{rel >= 0 ? '+' : ''}{rel.toFixed(0)}</b></div><span className={`pill ${rl.cls}`}>{rl.text}</span></div>
@@ -144,7 +146,6 @@ export function DiplomacyTab({ id }: { id: number }) {
             {hasGuarantee(s, s.player, id) ? 'Withdraw guarantee' : 'Guarantee their security'}<small>if attacked you must decide to defend</small>
           </button>
           <button className="btn" onClick={() => store.act((g) => actAid(g, g.player, id, 0.003))}>Send aid<small>{fmtMoney(0.003 * me.eco.gdp)} · relations up</small></button>
-          <button className="btn" onClick={() => store.act((g) => actSummit(g, g.player, id))}>Hold a summit<small>{fmtMoney(0.001 * me.eco.gdp)} · relations +9</small></button>
         </div>
         {!atWar && (() => {
           const odds = Math.max(0.02, Math.min(0.9, (as.ratio - 1.4) / 2.2));

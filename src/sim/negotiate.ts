@@ -9,6 +9,7 @@
  * - the answer is a roll against those odds. A near miss brings a counteroffer naming the term that would close
  *   the deal; a hopeless offer is refused with its reasons; patience runs out if you keep pushing.
  */
+import { rapportWord, tieOf, tiePoints, trustWord } from './summit';
 import type { Geo } from './geo';
 import { nextRand } from './rng';
 import { clamp, fmtMoney, lowerFirst } from './util';
@@ -315,6 +316,9 @@ export function stanceOf(s: GameState, geo: Geo, them: CountryId, t: Terms): Sta
     if (CASH[k]) { if (cashSeen) continue; cashSeen = true; }
     factors.push({ label: TERM_LABEL[k], pts: termValue[k] ?? 0 });
   }
+  // the person across the table: rapport and trust built (or lost) face to face at summits
+  const tp = tiePoints(s, them);
+  if (tp) { const ti = tieOf(s, them); factors.push({ label: `Your personal relationship with ${ti?.leader ?? T.name} (${rapportWord(ti?.rapport ?? 0)}; ${trustWord(ti?.trust ?? 0)})`, pts: tp }); }
   const total = factors.reduce((a, x) => a + x.pts, 0);
   // a logistic curve: 0 points ≈ 50%; every 10 points roughly doubles the odds
   const p = blocked ? 0 : clamp(1 / (1 + Math.exp(-total / 14)), 0.02, 0.97);

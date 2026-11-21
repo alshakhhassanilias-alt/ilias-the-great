@@ -36,7 +36,7 @@ export const SPEEDS = [
 export const DEFAULT_SPEED = 2;
 
 export interface Toast { id: number; text: string; kind: LogEntry['kind']; ok?: boolean }
-export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
+export interface Drawer { open: 'none' | 'world' | 'settings' | 'menu' | 'peace' | 'help' | 'legacy' | 'record' | 'campaign' | 'summit' | 'save' | 'load'; worldTab: 'rankings' | 'blocs' | 'assembly' | 'wars' | 'news' | 'trophies' | 'history' }
 
 const QUICK = 'Quicksave';
 
@@ -169,6 +169,9 @@ class Store {
   warRoom: { id: number; past?: boolean } | null = null;
   openWarRoom(id: number, past = false) { this.warRoom = { id, past }; this.notify(); }
   openNego(them: number, goal: Goal) { this.nego = { them, goal }; this.notify(); }
+  /** the leader a summit is being prepared with (summit.ts; the summit itself lives in the game state) */
+  summitWith: number | null = null;
+  openSummit(them: number) { this.summitWith = them; if (this.speed !== 0) { this.lastSpeed = this.speed; this.speed = 0; } this.drawer = { ...this.drawer, open: 'summit' }; this.notify(); }
   private lastInboxUid = 0;
   rippleSeen = '';
   helpStep = 0;

@@ -3874,3 +3874,71 @@ describe('an election is a campaign, region by region (round 44)', () => {
     expect(s.campaign?.kind).toBe('comeback');
   });
 });
+
+import { actSummitBegin as begin45, actSummitApproach as approach45, actSummitClose as close45, approachValue as value45, tieOf as tieOf45, stepSummits as stepSummits45, summitWhy as why45 } from '../src/sim/summit';
+import { stanceOf as stanceOf45, styleOf as styleOf45 } from '../src/sim/negotiate';
+describe('summits: diplomacy face to face (round 45)', () => {
+  const setup = (me = 'Poland', them = 'Germany') => {
+    const s = fresh(me, { randomEvents: false });
+    s.countries[s.player].politics!.pc = 80;
+    s.countries[s.player].eco.cash = s.countries[s.player].eco.gdp;
+    return { s, T: s.countries[id(them)] };
+  };
+  it('a summit costs capital, runs three rounds, and the room decides how they remember you', () => {
+    const { s, T } = setup();
+    const pc0 = s.countries[s.player].politics!.pc;
+    expect(begin45(s, T.id, 'neutral', ['trade']).ok).toBe(true);
+    expect(s.countries[s.player].politics!.pc).toBe(pc0 - 6);
+    expect(why45(s, T.id)).toMatch(/already at a summit/);
+    for (const a of ['charm', 'common', 'respect'] as const) expect(approach45(s, a).ok).toBe(true);
+    expect(approach45(s, 'firm').ok).toBe(false); // three rounds only
+    const w = s.summit!.warmth;
+    const r = close45(s, geo, 'frank');
+    expect(r.ok).toBe(true);
+    expect(s.summit).toBeUndefined();
+    const t = tieOf45(s, T.id)!;
+    expect(t.met).toBe(1);
+    expect(Math.sign(t.rapport)).toBe(Math.sign(w * 3 + (r.result!.signed.length ? 4 : 0)) || 0);
+    expect(why45(s, T.id)).toMatch(/weeks ago/); // not again for half a year
+  });
+  it('how an approach lands depends on who sits across the table', () => {
+    const { s } = setup();
+    const byStyle: Record<string, { money: number; respect: number; firm: number }> = {};
+    for (const T of s.countries.filter((x) => x.alive && x.leader && x.id !== s.player).slice(0, 120)) {
+      const st = styleOf45(T, s).id;
+      if (byStyle[st]) continue;
+      if (begin45(s, T.id, 'neutral', ['trade']).ok) { byStyle[st] = { money: value45(s, 'money').v, respect: value45(s, 'respect').v, firm: value45(s, 'firm').v }; delete s.summit; s.countries[s.player].politics!.pc = 80; }
+    }
+    if (byStyle.merchant && byStyle.proud) expect(byStyle.merchant.money).toBeGreaterThan(byStyle.proud.money + 3);
+    if (byStyle.proud) expect(byStyle.proud.respect).toBeGreaterThan(byStyle.proud.money);
+    expect(Object.keys(byStyle).length).toBeGreaterThanOrEqual(4);
+  });
+  it('your word is watched: kept, it builds trust; broken, it collapses', () => {
+    const { s, T } = setup('Poland', 'Belarus');
+    begin45(s, T.id, 'theirs', ['trade']);
+    approach45(s, 'pledge', 'nosanc'); approach45(s, 'charm'); approach45(s, 'common');
+    close45(s, geo, 'frank');
+    expect(s.pledges!.length).toBe(1);
+    const t = tieOf45(s, T.id)!;
+    const trust0 = t.trust;
+    actSanction(s, s.player, T.id, 1);
+    stepSummits45(s);
+    expect(s.ties![T.id].trust).toBeLessThan(trust0 - 40);
+    expect(s.pledges!.length).toBe(0);
+    // a second leader, a promise kept to the end
+    const { s: s2, T: T2 } = setup('Poland', 'Germany');
+    begin45(s2, T2.id, 'neutral', ['trade']); approach45(s2, 'pledge', 'peace'); approach45(s2, 'charm'); approach45(s2, 'common'); close45(s2, geo, 'friendship');
+    s2.tick = s2.pledges![0].until;
+    const tr0 = s2.ties![T2.id].trust;
+    stepSummits45(s2);
+    expect(s2.ties![T2.id].trust).toBe(tr0 + 20);
+  });
+  it('the tie counts at the negotiating table, and a new leader starts from nothing', () => {
+    const { s, T } = setup();
+    s.ties = { [T.id]: { leader: T.leader!.name, since: 0, rapport: 60, trust: 40, met: 2, history: [] } };
+    const st = stanceOf45(s, geo, T.id, { goal: 'trade', give: [] });
+    expect(st.factors.some((f) => /personal relationship/.test(f.label) && f.pts > 10)).toBe(true);
+    T.leader!.name = 'Somebody New';
+    expect(tieOf45(s, T.id)!.rapport).toBe(0);
+  });
+});
