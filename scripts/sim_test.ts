@@ -18,7 +18,7 @@ import { buildGeo, type RawWorld } from '../src/sim/geo';
 import { createGame } from '../src/sim/init';
 import { tick } from '../src/sim/tick';
 import { DEFAULT_SETTINGS, type GameState, type War } from '../src/sim/types';
-import { NAME_TO_ID, warBetween } from '../src/sim/relations';
+import { NAME_TO_ID, warBetween, warSideOf } from '../src/sim/relations';
 import { declareWar, warScore } from '../src/sim/war';
 import { supplyNet } from '../src/sim/supply';
 import { setGeoRef } from '../src/sim/geoRef';
@@ -113,10 +113,13 @@ function run(aName: string, bName: string): Report {
     const fsA = mine(A), fsB = mine(B);
     const supAvg = (fs: War['fronts']) => (fs.length ? fs.reduce((t, f) => t + (f.sup ?? 1), 0) / fs.length : 1);
     let stalled = 0;
-    for (const f of w.fronts) {
-      const k = `${f.prov}:${f.by}`;
+    // a front is judged by the best progress any attacker makes on that region and side (allies in a joint attack split
+    // the credit, so one of them can sit near 0 while the region is falling)
+    const best = new Map<string, number>();
+    for (const f of w.fronts) { const k = `${f.prov}:${warSideOf(w, f.by)}`; best.set(k, Math.max(best.get(k) ?? 0, f.progress)); }
+    for (const [k, prog] of best) {
       const st = frontAge.get(k);
-      if (!st || Math.abs(f.progress - st.prog) > 0.03) frontAge.set(k, { since: i, prog: f.progress, last: i });
+      if (!st || Math.abs(prog - st.prog) > 0.03) frontAge.set(k, { since: i, prog, last: i });
       else { st.last = i; if (i - st.since >= 8) stalled++; }
     }
     for (const [k, st] of frontAge) if (st.last < i - 1) frontAge.delete(k);
@@ -126,7 +129,7 @@ function run(aName: string, bName: string): Report {
       gdp: [+(cA.eco.gdp / gdp0[0]).toFixed(3), +(cB.eco.gdp / gdp0[1]).toFixed(3)], stab: [Math.round(cA.eco.stability), Math.round(cB.eco.stability)] });
     // (a big region changing hands takes its economy with it: only a drop in a week without a capture is suspicious)
     if (!moved) for (const k of [0, 1]) worstDrop = Math.max(worstDrop, 1 - [cA, cB][k].eco.gdp / gPrev[k]);
-    if (i === nWeeks - 1) for (const f of w.fronts) { const st = frontAge.get(`${f.prov}:${f.by}`); if (st && i - st.since >= 8) stalls.push({ prov: geo.provinces[f.prov].name || String(f.prov), by: name(f.by), weeks: i - st.since, progress: +f.progress.toFixed(3), atk: Math.round(f.atk ?? 0), def: Math.round(f.def ?? 0), sup: +(f.sup ?? 1).toFixed(2) }); }
+    if (i === nWeeks - 1) for (const f of w.fronts) { const st = frontAge.get(`${f.prov}:${warSideOf(w, f.by)}`); if (st && i - st.since >= 8 && !stalls.some((x) => x.prov === (geo.provinces[f.prov].name || String(f.prov)))) stalls.push({ prov: geo.provinces[f.prov].name || String(f.prov), by: name(f.by), weeks: i - st.since, progress: +f.progress.toFixed(3), atk: Math.round(f.atk ?? 0), def: Math.round(f.def ?? 0), sup: +(f.sup ?? 1).toFixed(2) }); }
   }
   const ms = performance.now() - t1;
   const cA = s.countries[A], cB = s.countries[B];

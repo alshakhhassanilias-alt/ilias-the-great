@@ -13,7 +13,7 @@
  */
 import { clamp } from './util';
 import { logEvent } from './log';
-import { strength } from './military';
+import { manpower, strength } from './military';
 import { powerRank } from './power';
 import { protectorsOf } from './redlines';
 import { setRegisterPlayerWar, warScore } from './war';
@@ -203,15 +203,18 @@ export function stepWarMode(s: GameState) {
   if (M.level > 0) {
     const atWar = mine.length > 0;
     if (atWar) {
-      const target = c.mil.troops * (1 + M.callUp);
-      const n = Math.max(0, (target - c.mil.troops) / 52);
+      // the call-up is measured against the army when mobilisation began, and the reserves are finite (it used to be
+      // recomputed every week from the current army, so it compounded for as long as the war lasted)
+      const base = (s.stats[`mobBase:${c.id}`] ??= Math.round(c.mil.troops));
+      const target = base * (1 + M.callUp);
+      const n = Math.max(0, Math.min((target - c.mil.troops) / 30, manpower(c))); // most of the call-up within a year
       const cost = n * c.mil.unitCost * c.eco.price * 0.25; // reservists are cheaper than recruits
       if (n > 0 && c.eco.cash + 0.02 * c.eco.gdp > cost) { c.eco.cash -= cost; c.mil.troops += n; }
       c.eco.stability = clamp(c.eco.stability + M.stab / 52, 0, 100);
       if (M.level === 3) c.eco.monetary += 0.0003;
     } else {
       // the war is over: demobilise
-      c.mob = 0; c.mil.warEconomy = false;
+      c.mob = 0; c.mil.warEconomy = false; delete s.stats[`mobBase:${c.id}`];
       logEvent(s, '🕊 The war is over: the reservists go home and the factories return to peacetime work.', 'info', [c.id], true);
     }
   }

@@ -20,7 +20,7 @@ export function WorldEconomy({ c }: { c: Country }) {
   const price = (g: Good) => (g === 'chips' ? s.market.priceC ?? 1 : g === 'minerals' ? s.market.priceM ?? 1 : g === 'energy' ? s.market.priceE : s.market.priceF);
   const status = (g: Good): { text: string; tone: string } => {
     if (g === 'chips' || g === 'minerals') {
-      const sh = supplyShare(c, g);
+      const sh = supplyShare(c, g, s);
       const short = g === 'chips' ? pv.shC ?? 0 : pv.shM ?? 0;
       if (sh > 0) return { text: `You make ${pct(sh)} of the world's supply`, tone: 'good' };
       return short > 0.01 ? { text: `${pct(short)} short: ${g === 'chips' ? 'productivity and arms technology suffer' : 'industry suffers'}`, tone: 'bad' } : { text: 'Supplied in full', tone: '' };
@@ -52,7 +52,7 @@ export function WorldEconomy({ c }: { c: Country }) {
             <div className="we-good" key={g} title={GOODS[g].desc}>
               <div className="we-good-h"><span aria-hidden>{GOODS[g].icon}</span><b>{GOODS[g].label}</b><em className={p > 1.25 ? 'bad' : p < 0.9 ? 'good' : ''}>{pct(p)}</em></div>
               <small className={st.tone}>{st.text}</small>
-              {(g === 'chips' || g === 'minerals') && <small className="faint">Main makers: {producers(g).slice(0, 4).map(([id]) => s.countries[id]?.name).join(', ')}</small>}
+              {(g === 'chips' || g === 'minerals') && <small className="faint">Main makers: {producers(g, s).slice(0, 4).map(([id]) => s.countries[id]?.name).join(', ')}</small>}
             </div>
           );
         })}

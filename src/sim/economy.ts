@@ -64,7 +64,9 @@ export function factors(c: Country, priceE: number): Factors {
     stab: stabilityFactor(e.prev.stabOut ?? e.stability),
     tax: taxFactor(c.budget, e.collection),
     // (and the workers a mobilisation takes out of the factories and offices: mobdata.ts)
-    war: (1 - 0.5 * e.damage) * (c.mob ? mobOf(c).output : 1),
+    // (a partial or general mobilisation costs output through the workers it calls up: laborUsed; only a total war's
+    // conversion of civilian industry costs output on top of that, or it was counted twice)
+    war: (1 - 0.5 * e.damage) * (c.mob === 3 ? mobOf(c).output : 1),
     // the research race: an edge for out-researching the world since the start, a lag for trailing it (research.ts)
     research: e.prev.rsF ?? 1,
     // industries built (and what they fetch on world markets) against the world's average build-up (industry.ts)
@@ -145,8 +147,12 @@ export function revenueAnnual(c: Country): number {
 export const diffTaxMult = (s: GameState, c: Country) => (c.isPlayer ? (s.settings.difficulty === 'hard' ? 0.95 : s.settings.difficulty === 'easy' ? 1.05 : 1) : 1);
 /** Fiscal position implied by the *current* policy settings (updates the instant a lever moves). */
 export function fiscalNow(c: Country, s: GameState) {
-  const revenue = revenueAnnual(c) * diffTaxMult(s, c);
-  const spending = plannedSpendingAnnual(c);
+  // export earnings, a sphere's tribute and tariff income are real revenue, and a gas fleet's fuel a real cost: the
+  // treasury report used to leave them out, so the balance it showed (and the fiscal rule acted on) was wrong
+  const pv = c.eco.prev;
+  const revenue = revenueAnnual(c) * diffTaxMult(s, c) + (pv.exportInc ?? 0) + (pv.sphereInc ?? 0) + (pv.tarRev ?? 0);
+  const fuel = (c.dev?.fuel ?? 0) * s.market.priceE * 0.35 * c.eco.price;
+  const spending = plannedSpendingAnnual(c) + fuel;
   return { revenue, spending, balance: revenue - spending };
 }
 export function plannedSpendingAnnual(c: Country): number {
@@ -158,7 +164,7 @@ export function plannedSpendingAnnual(c: Country): number {
 /** Each province's people (millions): its share of its original country times that country's population. Province
  * weights only compare regions inside one country, so a desert from a small neighbour must not count like a city. */
 const PEOPLE = new WeakMap<Geo, Float64Array>();
-function peopleW(geo: Geo): Float64Array {
+export function peopleW(geo: Geo): Float64Array {
   let a = PEOPLE.get(geo);
   if (a) return a;
   a = new Float64Array(geo.provinces.length);
@@ -248,7 +254,7 @@ export function updateTradeAndResources(c: Country, s: GameState, w: WorldAgg) {
   const e = c.eco;
   e.sanctionShare = Math.min(0.95, w.sanctionedBy[c.id]);
   const warLoad = Math.min(3, warsOf(s, c.id).length);
-  const raw = 1 + 0.01 * c.mil.bld.port + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad * (1 + charLocked(c)) - (e.prev.tariff ?? 0);
+  const raw = 1 + Math.min(0.08, 0.01 * c.mil.bld.port) + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad * (1 + charLocked(c)) - (e.prev.tariff ?? 0);
   const dk = c.dev?.k;
   e.tradeIndex = clamp((raw / e.tradeBase) * (dk?.trade ?? 1), 0.15, 1.5);
   // energy & food balances
@@ -282,7 +288,10 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
   // national traits and challenges, measured against where the country started (the baseline is real 2024 data)
   if (e.prev.chT0 === undefined) { e.prev.chT0 = charTfp(c) + (1 - ALPHA) * charLabour(c); e.prev.chS0 = charStab(c); e.prev.chR0 = charRate(c); e.prev.chV0 = charRevenue(c, 1); }
   e.prev.revMult = charRevenue(c, priceE) / Math.max(0.5, e.prev.chV0 ?? 1);
+  const lf0 = e.lfShare;
   e.lfShare = clamp(e.lfShare * (1 + charLabour(c) * DT), 0.25, 0.75);
+  // (once the labour share hits its bounds it stops growing or shrinking: the offset fixed at the start must stop too)
+  e.prev.lfStuck = charLabour(c) - (e.lfShare / lf0 - 1) / DT;
 
   // ---- labour ----
   e.pop *= 1 + popGrowthRate(c, s) * DT;
@@ -343,7 +352,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
     e.tfpTrend += (target - e.tfpTrend) * (e.tfpTrend > target + 0.02 ? 1 / 8 : 1 / 20);
     e.baseGrowth = e.tfpTrend / (1 - ALPHA) + demographicTrend(s, c);
   }
-  const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage - aiAnchor(c);
+  const gTfp = e.tfpTrend + mods(c).tfp + policyTfp(c) + charTfp(c) - (e.prev.chT0 ?? 0) + (1 - ALPHA) * (e.prev.lfStuck ?? 0) - charFragile(s, c) + 0.4 * (b.education - e.baseEdu) + 0.01 * (e.tradeIndex - 1) - 0.02 * slump - 0.02 * e.damage - aiAnchor(c);
   // productivity knocked far below its normal path (war, collapse, years of turmoil) slowly recovers toward it,
   // as post-conflict economies do; ordinary policy differences (within 10%) are left alone
   const path = (e.prev.tfpPath ?? e.tfp) * (1 + e.tfpTrend * DT);

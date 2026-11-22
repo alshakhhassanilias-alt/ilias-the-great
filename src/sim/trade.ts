@@ -29,6 +29,7 @@ import { logEvent } from './log';
 import { hash01 } from './rng';
 import { clamp, fmtMoney, keyOf } from './util';
 import { DT } from './types';
+import { geoRefGet } from './geoRef';
 
 export type Good = 'chips' | 'minerals' | 'energy' | 'food';
 export const GOODS: Record<Good, { icon: string; label: string; short: string; desc: string }> = {
@@ -47,8 +48,37 @@ const SUP_ID: Record<'chips' | 'minerals', [number, number][]> = {
   chips: Object.entries(SUPPLY.chips).map(([n, v]) => [NAME_TO_ID[n], v] as [number, number]).filter(([i]) => i !== undefined),
   minerals: Object.entries(SUPPLY.minerals).map(([n, v]) => [NAME_TO_ID[n], v] as [number, number]).filter(([i]) => i !== undefined),
 };
-export const supplyShare = (c: Country, g: 'chips' | 'minerals') => SUPPLY[g][keyOf(c)] ?? 0;
-export const producers = (g: 'chips' | 'minerals') => SUP_ID[g];
+/**
+ * Who makes the world's chips and minerals now: each maker's share belongs to its land, so a region conquered (or lost)
+ * takes its part of the output with it (it used to stay with the country's name: annex Taiwan and 40% of the world's
+ * chips simply vanished). Without a map (some tests) the starting shares are used.
+ */
+const prodCache = new WeakMap<GameState, { key: string; v: Record<'chips' | 'minerals', [CountryId, number][]> }>();
+export function producersNow(s: GameState, g: 'chips' | 'minerals'): [CountryId, number][] {
+  const geo = geoRefGet();
+  if (!geo) return SUP_ID[g];
+  let sig = s.tick;
+  for (const [o] of SUP_ID.chips.concat(SUP_ID.minerals)) sig = (sig * 31 + s.countries[o].provinces.length) | 0;
+  const key = String(sig);
+  const hit = prodCache.get(s);
+  if (hit && hit.key === key) return hit.v[g];
+  const v = { chips: [], minerals: [] } as Record<'chips' | 'minerals', [CountryId, number][]>;
+  for (const gg of ['chips', 'minerals'] as const) {
+    const by = new Map<CountryId, number>();
+    for (const [o, sh] of SUP_ID[gg]) {
+      const ids = geo.provs0[o] ?? [];
+      const tot = ids.reduce((t, p) => t + geo.provinces[p].w, 0);
+      if (!tot) { by.set(o, (by.get(o) ?? 0) + sh); continue; }
+      for (const p of ids) { const h = s.owner[p]; by.set(h, (by.get(h) ?? 0) + sh * geo.provinces[p].w / tot); }
+    }
+    v[gg] = [...by].filter(([id, x]) => x > 1e-4 && s.countries[id]?.alive).sort((a, b) => b[1] - a[1]);
+  }
+  prodCache.set(s, { key, v });
+  return v[g];
+}
+/** c's share of world supply now (with `s`), or at the start (without). */
+export const supplyShare = (c: Country, g: 'chips' | 'minerals', s?: GameState) => (s ? producersNow(s, g).find(([id]) => id === c.id)?.[1] ?? 0 : SUPPLY[g][keyOf(c)] ?? 0);
+export const producers = (g: 'chips' | 'minerals', s?: GameState) => (s ? producersNow(s, g) : SUP_ID[g]);
 
 export interface Ban { from: CountryId; to: CountryId; good: Good; since: number }
 export const bansOf = (s: GameState) => s.bans ?? [];
@@ -76,7 +106,7 @@ export function stepTrade(s: GameState) {
   const M = s.market;
   const tIdx = tariffIndex(s);
   for (const g of ['chips', 'minerals'] as const) {
-    const lost = SUP_ID[g].reduce((t, [p, sh]) => t + sh * (1 - capacity(s, s.countries[p])), 0);
+    const lost = producersNow(s, g).reduce((t, [p, sh]) => t + sh * (1 - capacity(s, s.countries[p])), 0);
     const key = g === 'chips' ? 'priceC' : 'priceM';
     const target = clamp(1 + 2.2 * lost + (g === 'chips' && s.crisis?.id === 'boom' ? 0.15 : 0), 0.8, 4);
     M[key] = (M[key] ?? 1) + (target - (M[key] ?? 1)) * 0.35;
@@ -93,7 +123,8 @@ export function stepTrade(s: GameState) {
   }
   const fighting = new Set<number>();
   for (const w of s.wars) { for (const x of w.attackers) fighting.add(x); for (const x of w.defenders) fighting.add(x); }
-  const cap = { chips: SUP_ID.chips.map(([p]) => capacity(s, s.countries[p])), minerals: SUP_ID.minerals.map(([p]) => capacity(s, s.countries[p])) };
+  const prod = { chips: producersNow(s, 'chips'), minerals: producersNow(s, 'minerals') };
+  const cap = { chips: prod.chips.map(([p]) => capacity(s, s.countries[p])), minerals: prod.minerals.map(([p]) => capacity(s, s.countries[p])) };
   for (const c of s.countries) {
     if (!c.alive) continue;
     const pv = c.eco.prev;
@@ -101,7 +132,7 @@ export function stepTrade(s: GameState) {
     pv.banF = Math.min(0.9, banF.get(c.id) ?? 0);
     for (const g of ['chips', 'minerals'] as const) {
       let avail = 0;
-      SUP_ID[g].forEach(([p, sh], k) => { avail += sh * openTo(s, p, c.id, g, fighting) * cap[g][k]; });
+      prod[g].forEach(([p, sh], k) => { avail += sh * openTo(s, p, c.id, g, fighting) * cap[g][k]; });
       // other suppliers make up some of the gap over time; what is left is the shortfall
       const short = clamp((1 - avail) * 0.7 - 0.15, 0, 1);
       pv[g === 'chips' ? 'shC' : 'shM'] = Math.round(short * 1000) / 1000;
@@ -152,7 +183,7 @@ export function stepTradeEffects(s: GameState) {
     if (drag > 0) e.tfp *= 1 - drag * DT;
     if (shC > 0.05) c.mil.milTech = Math.max(0, c.mil.milTech - 0.8 * shC * DT);
     // producers earn from high prices
-    const w = supplyShare(c, 'chips') * Math.max(0, pc - 1) + supplyShare(c, 'minerals') * Math.max(0, pm - 1) * 0.6;
+    const w = supplyShare(c, 'chips', s) * Math.max(0, pc - 1) + supplyShare(c, 'minerals', s) * Math.max(0, pm - 1) * 0.6;
     if (w > 0) e.cash += w * 0.0015 * worldGdp * DT * capacity(s, c);
     // tariff revenue for the imposer: a small share of what it still imports from the target
     if (pv.tarRev) e.cash += pv.tarRev * DT;
@@ -164,14 +195,14 @@ export function banBlocked(s: GameState, from: CountryId, to: CountryId, good: G
   const F = s.countries[from];
   if (from === to || !s.countries[to]?.alive) return 'Pick another country';
   if (hasBan(s, from, to, good)) return null;
-  if (good === 'chips' || good === 'minerals') { if (supplyShare(F, good) < 0.01) return `You do not produce ${GOODS[good].short}`; }
+  if (good === 'chips' || good === 'minerals') { if (supplyShare(F, good, s) < 0.01) return `You do not produce ${GOODS[good].short}`; }
   else if (good === 'energy' ? F.eco.energyCap <= F.eco.energyDemand : F.eco.foodCap <= F.eco.foodDemand) return `You do not export ${GOODS[good].short}`;
   return null;
 }
 /** What a ban would do to the target: the share of its supply that is yours. */
 export function banBite(s: GameState, from: CountryId, to: CountryId, good: Good): number {
   const F = s.countries[from];
-  if (good === 'chips' || good === 'minerals') return clamp(supplyShare(F, good) * 0.7, 0, 1);
+  if (good === 'chips' || good === 'minerals') return clamp(supplyShare(F, good, s) * 0.7, 0, 1);
   let exp = 0;
   for (const c of s.countries) if (c.alive) exp += good === 'energy' ? Math.max(0, c.eco.energyCap - c.eco.energyDemand) : Math.max(0, c.eco.foodCap - c.eco.foodDemand);
   const mine = good === 'energy' ? Math.max(0, F.eco.energyCap - F.eco.energyDemand) : Math.max(0, F.eco.foodCap - F.eco.foodDemand);

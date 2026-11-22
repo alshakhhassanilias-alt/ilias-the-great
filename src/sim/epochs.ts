@@ -54,7 +54,7 @@ function assimilate(s: GameState) {
     const o = s.owner[p], k = s.core[p];
     if (o === k || o < 0 || s.integ[p] < 0.98) continue;
     if (s.tick - (s.stats[`held:${p}`] ?? 0) < ASSIMILATION_YEARS * YEAR) continue;
-    s.core[p] = o;
+    s.core[p] = o; s.stats.coreVer = (s.stats.coreVer ?? 0) + 1;
   }
 }
 
@@ -231,6 +231,9 @@ export function breakAway(s: GameState, geo: Geo, P: Country, provs: number[], o
     const K = s.countries[k0];
     if (k0 !== P.id && K && !K.alive && wk > 0.6 * weightOf(geo, provs) && !s.countries.some((c) => c.alive && c.name === (K.baseName ?? K.name))) o = { ...o, revive: k0 };
   }
+  // a nation can only be revived if it is still gone: an independence bid that waited 30 weeks may find it already back
+  // (it used to overwrite the living country, orphaning its regions)
+  if (o.revive !== undefined && (s.countries[o.revive]?.alive || o.revive === P.id)) o = { ...o, revive: undefined };
   const share = weightOf(geo, provs) / Math.max(1e-9, weightOf(geo, P.provinces));
   const X = makeNation(s, geo, P, provs, share, o.revive, o.name);
   const how = o.how ?? (o.revive !== undefined ? 'revival' : 'independence');
@@ -282,6 +285,7 @@ function makeNation(s: GameState, geo: Geo, P: Country, provs: number[], share: 
   s.countries[id] = X;
   for (const p of provs) transferProvince(s, geo, p, id, true);
   for (const p of provs) { s.core[p] = id; s.integ[p] = 1; s.stats[`held:${p}`] = s.tick; }
+  s.stats.coreVer = (s.stats.coreVer ?? 0) + 1;
   // the new state's share of the national debt, and a modest treasury
   const debt = P.eco.debt * share;
   P.eco.debt -= debt; X.eco.debt = debt;
@@ -350,6 +354,7 @@ export function unite(s: GameState, geo: Geo, keep: Country, join: Country, forc
   const provs = [...join.provinces];
   for (const p of provs) transferProvince(s, geo, p, keep.id, true);
   for (const p of provs) { s.core[p] = keep.id; s.integ[p] = 1; s.stats[`held:${p}`] = s.tick; }
+  s.stats.coreVer = (s.stats.coreVer ?? 0) + 1;
   s.stats[`fallen:${join.id}`] = s.tick;
   s.stats[`united:${keep.id}`] = s.tick;
   if (name !== keep.name) { keep.key ??= keep.name; keep.baseName = name; keep.name = name; }

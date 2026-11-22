@@ -25,9 +25,9 @@ import { hash01, nextRand } from './rng';
 import { clamp } from './util';
 import { CLAIMS } from '../data/countryData';
 import {
-  addRelation, alliesOf, areAtWar, getRelation, guarantorsOf, hasAlliance, NAME_TO_ID, touchTreaties, pairKey, warBetween, warSideOf, warsOf,
+  addRelation, alliesOf, areAtWar, capitalLost as capitalLostOf, getRelation, guarantorsOf, hasAlliance, NAME_TO_ID, touchTreaties, pairKey, warBetween, warSideOf, warsOf,
 } from './relations';
-import { potentialOutput } from './economy';
+import { peopleW } from './economy';
 import { airPower, landPower, navalPower, strength } from './military';
 import type { ArmyOrder, CountryId, Country, GameState, LogKind, ProvId, War } from './types';
 
@@ -35,7 +35,7 @@ import { logEvent } from './log';
 import { fortBonus, transferBuildings } from './buildings';
 import { addGrudge } from './leaders';
 import { fmtCas, isBigNews, MILESTONES } from './drama';
-import { bumpSupply, landSupply, neighbours, supplyNet, supplyReach } from './supply';
+import { bumpSupply, isPocket, landSupply, neighbours, supplyNet, supplyReach } from './supply';
 import { opsOf } from './specops';
 import { armiesActive, armyStrikes, holdBonus } from './armies';
 import { bumpSupport, morale, onEnterWar, stepWarSupport, warSupport } from './warsupport';
@@ -63,8 +63,11 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   const from = s.owner[p];
   if (from === to) return 0;
   const A = s.countries[from], B = s.countries[to];
-  const totalW = A.provinces.reduce((t, q) => t + geo.provinces[q].w, 0) || 1;
-  const f = Math.min(1, geo.provinces[p].w / totalW);
+  // the region's share of the country, in people: map weights only compare regions inside their original country, so a
+  // small neighbour's capital must not carry a big conqueror's population when it changes hands again
+  const pw = peopleW(geo);
+  const totalW = A.provinces.reduce((t, q) => t + pw[q], 0) || 1;
+  const f = Math.min(1, pw[p] / totalW);
   // fighting over a region sends part of its people fleeing
   const fw = quiet ? undefined : warBetween(s, from, to);
   if (fw) fw.displaced = (fw.displaced ?? 0) + A.eco.pop * f * 0.08;
@@ -73,13 +76,10 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
     (A.eco[k] as number) -= amt;
     (B.eco[k] as number) += amt * (k === 'capital' ? 0.8 : 1);
   }
-  // keep output continuous across the transfer: recalibrate each side's productivity coefficient
-  for (const X of [A, B]) {
-    if (X.provinces.length === 0 && X === A) continue;
-    const pot = potentialOutput(X, s.market.priceE);
-    if (pot > 0 && X.eco.realGdp > 0) X.eco.tfp *= X.eco.realGdp / pot;
-    X.eco.gdp = X.eco.realGdp * X.eco.price;
-  }
+  // output moves with the region (above); productivity is a property of the country and stays as it is. (It used to be
+  // rescaled so that output matched capacity at once, which turned the army's share of a shrunken labour force, war
+  // damage and other passing penalties into permanent productivity, and could explode the loser's later.)
+  for (const X of [A, B]) X.eco.gdp = X.eco.realGdp * X.eco.price;
   A.provinces = A.provinces.filter((q) => q !== p);
   B.provinces.push(p);
   s.owner[p] = to;
@@ -87,13 +87,24 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   s.stats[`flips:${p}`] = (s.stats[`flips:${p}`] ?? 0) + 1;
   s.stats[`held:${p}`] = s.tick;
   bumpSupply();
-  transferBuildings(s, p, from, to);
+  transferBuildings(s, p, from, to, quiet);
   for (const w of s.wars) w.fronts = w.fronts.filter((fr) => fr.prov !== p);
   for (const c of [A, B]) c.mil.focus = c.mil.focus.filter((q) => s.owner[q] !== c.id);
+  // a nation that retakes its historic capital moves its government back
+  if (s.stats[`seat:${B.id}`] === p) {
+    delete s.stats[`seat:${B.id}`];
+    if (B.capital !== p) {
+      B.capital = p;
+      if (!quiet) logEvent(s, `🏛 THE CAPITAL IS RETAKEN: ${B.name} is back in ${geo.provinces[p].name || 'its capital'}.`, 'war', [B.id, from], true, { big: true, prov: p });
+      B.eco.stability = Math.min(100, B.eco.stability + 6);
+      if (warsOf(s, B.id).length) bumpSupport(B, 0.06);
+    }
+  }
   if (A.provinces.length === 0) eliminateCountry(s, A, to, quiet);
   else if (p === A.capital && quiet) A.capital = A.provinces.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), A.provinces[0]);
   else if (p === A.capital) {
-    A.capital = A.provinces.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), A.provinces[0]);
+    s.stats[`seat:${A.id}`] ??= p; // the historic capital, to return to (relations.ts capitalLost)
+    A.capital = newSeat(geo, A.provinces, pw);
     A.eco.stability = Math.max(0, A.eco.stability - 12);
     A.mil.exhaustion = Math.min(1, A.mil.exhaustion + 0.2);
     if (warsOf(s, A.id).length) bumpSupport(A, -0.08);
@@ -104,9 +115,25 @@ export function transferProvince(s: GameState, geo: Geo, p: ProvId, to: CountryI
   return f;
 }
 
+/** Where a government goes when its capital falls: the biggest city of the largest connected part of what is left (not a
+ *  big city cut off behind the lines, which left the rest of the country without a supply hub). */
+function newSeat(geo: Geo, provs: ProvId[], pw: Float64Array): ProvId {
+  const left = new Set(provs), seen = new Set<ProvId>();
+  let best: ProvId[] = [], bestW = -1;
+  for (const p0 of provs) {
+    if (seen.has(p0)) continue;
+    const comp = [p0]; seen.add(p0);
+    for (let i = 0; i < comp.length; i++) for (const q of geo.adj[comp[i]]) if (left.has(q) && !seen.has(q)) { seen.add(q); comp.push(q); }
+    const w = comp.reduce((t, q) => t + pw[q], 0);
+    if (w > bestW) { bestW = w; best = comp; }
+  }
+  return best.reduce((a, q) => (pw[q] > pw[a] ? q : a), best[0]);
+}
+
 function eliminateCountry(s: GameState, c: Country, by: CountryId, quiet = false) {
   c.alive = false;
   c.eco.pop = 0;
+  delete s.stats[`seat:${c.id}`];
   s.stats[`fallen:${c.id}`] = s.tick;
   // a fallen nation keeps its name and colours for the history books, not its charts (saves stay small over centuries)
   c.hist = { gdp: [], gdppc: [], debt: [], mil: [], stab: [], infl: [], unemp: [], pop: [], trade: [] };
@@ -117,8 +144,22 @@ function eliminateCountry(s: GameState, c: Country, by: CountryId, quiet = false
     chronicle(s, 'fell', `${c.name} was conquered by ${s.countries[by].name}.`, [c.id, by]);
   }
   for (const w of [...s.wars]) {
+    const side = warSideOf(w, c.id);
     w.attackers = w.attackers.filter((x) => x !== c.id);
     w.defenders = w.defenders.filter((x) => x !== c.id);
+    if (side >= 0 && (!w.attackers.length || !w.defenders.length)) {
+      // the war ends with the nation: it goes into the history books like any other (it used to vanish without a record)
+      const wonBy = side === 0 ? w.defenders[0] : w.attackers[0];
+      if (wonBy !== undefined) {
+        const a = wonBy, b = c.id;
+        const hist = s.warHistory ?? (s.warHistory = []);
+        hist.push({ id: w.id, name: w.name, a, b, start: w.start, end: s.tick, casA: Math.round(w.casualties[a] ?? 0), casB: Math.round(w.casualties[b] ?? 0), provsA: w.taken?.[a] ?? 0, provsB: w.taken?.[b] ?? 0, winner: 'a', terms: 'surrender', civ: Math.round(Object.values(w.civ ?? {}).reduce((x, y) => x + y, 0)), displaced: Math.round(w.displaced ?? 0), hist: w.hist?.slice(-60), atk: [...w.attackers], def: [...w.defenders] });
+        s.stats[`lostWar:${b}`] = s.tick;
+        legacyWarEnded(s, hist[hist.length - 1]);
+        settleGoal(s, hist[hist.length - 1]);
+        if (hist.length > 40) hist.splice(0, hist.length - 40);
+      }
+    }
     if (!w.attackers.length || !w.defenders.length) endWar(s, w);
   }
   for (const k of Object.keys(s.treaties)) {
@@ -308,7 +349,7 @@ export function evaluatePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId
   if (!w) return { accept: false, willingness: 0, required: 1, reasons: ['Not at war'] };
   const score = warScore(s, w, b);
   const years = (s.tick - w.start) / 52;
-  const capitalLost = B.provinces.length > 0 && !B.provinces.includes(B.capital);
+  const capitalLost = capitalLostOf(s, B);
   const reasons: string[] = [];
   let will = 0.9 * B.mil.exhaustion; reasons.push(`War exhaustion ${(B.mil.exhaustion * 100).toFixed(0)}%`);
   will += 0.5 * -score; if (score < 0) reasons.push('Losing the war'); else if (score > 0.2) reasons.push('Winning the war');
@@ -374,16 +415,19 @@ export function makePeace(s: GameState, geo: Geo, a: CountryId, b: CountryId, t:
   const lbl = ({ status_quo: 'ceasefire on current lines', restore: 'a return to pre-war borders', demand: 'territorial concessions', concede: 'concessions by the sender', surrender: 'total surrender' } as const)[t.kind];
   logEvent(s, `${A.name} and ${B.name} signed peace (${lbl}).`, 'peace', [a, b], a === s.player || b === s.player);
   if (a === s.player || b === s.player) voicesOn(s, 'peace', a === s.player ? b : a);
-  w.attackers = w.attackers.filter((x) => x !== a && x !== b);
-  w.defenders = w.defenders.filter((x) => x !== a && x !== b);
+  // who leaves the war: a peace between the two leaders ends it for everyone; otherwise a separate peace takes out only
+  // the signers who do not lead their side (it used to take out both, so an ally's separate peace with the main
+  // attacker ended the war for the victim too, without its consent)
+  const leaders = [w.attackers[0], w.defenders[0]];
+  if (leaders.includes(a) && leaders.includes(b)) { w.attackers = []; w.defenders = []; }
+  else for (const x of [a, b]) if (!leaders.includes(x)) { w.attackers = w.attackers.filter((y) => y !== x); w.defenders = w.defenders.filter((y) => y !== x); }
+  w.fronts = w.fronts.filter((f) => warSideOf(w, f.by) >= 0 && warSideOf(w, s.owner[f.prov]) >= 0);
   if (!w.attackers.length || !w.defenders.length) {
     logEvent(s, `The ${w.name} has ended.`, 'peace', [a, b]);
     endWar(s, w);
   }
   A.mil.exhaustion *= 0.8; B.mil.exhaustion *= 0.8;
   addRelation(s, a, b, 10);
-  const tr = s.treaties[pairKey(a, b)];
-  if (tr && !tr.nap) tr.nap = false;
   A.mil.focus = []; B.mil.focus = [];
 }
 
@@ -410,7 +454,8 @@ export function forcePeaceAll(s: GameState, geo: Geo, c: CountryId, why = 'a new
 // ---------------------------------------------------------------------------------------------
 // Combat
 // ---------------------------------------------------------------------------------------------
-const wr = (s: GameState, c: CountryId) => Math.pow(Math.max(1, warsOf(s, c).length), 0.7);
+/** A country in several wars splits its field army between them (it used to divide by N^0.7, fielding N^0.3 armies). */
+const wr = (s: GameState, c: CountryId) => Math.max(1, warsOf(s, c).length);
 
 function competence(s: GameState, c: Country): number {
   if (c.isPlayer) return 1;
@@ -441,22 +486,18 @@ export function attackCandidates(s: GameState, geo: Geo, c: Country, w: War): Ca
   for (const f of friends) for (const p of s.countries[f].provinces) mineProvs.push(p);
   const out = new Map<ProvId, Candidate>();
   const net = supplyNet(s, geo, c.id);
-  const theirNets = new Map<CountryId, ReturnType<typeof supplyNet>>();
-  const pocketOf = (q: ProvId) => {
-    const o = s.owner[q];
-    let n = theirNets.get(o);
-    if (!n) { n = supplyNet(s, geo, o); theirNets.set(o, n); }
-    return n.dist[q] === Infinity;
-  };
+  const pocketOf = (q: ProvId) => isPocket(s, geo, q);
+  // (the same neighbours as supply uses: adj misses a few borders, so land could be cut off by an enemy that could not attack it)
+  const nbs = neighbours(geo);
   for (const p of mineProvs) {
-    for (const q of geo.adj[p]) {
+    for (const q of nbs[p]) {
       if (!enemies.has(s.owner[q]) || out.has(q)) continue;
       const ls = landSupply(s, geo, net, q);
       const supply = ls.supply;
       const imp = geo.provinces[q].w * (q === s.countries[s.owner[q]].capital ? 3 : 1) + 0.3;
       // pincers: provinces we already touch from several sides are easier to cut off; encircled ones are easy prey
       let sides = 0;
-      for (const n2 of geo.adj[q]) if (friends.has(s.owner[n2])) sides++;
+      for (const n2 of nbs[q]) if (friends.has(s.owner[n2])) sides++;
       const prey = pocketOf(q) ? 1.6 : 1;
       out.set(q, { prov: q, amphibious: false, supply, from: ls.from, score: ((imp * supply) / (1 + 0.6 * geo.provinces[q].terrain)) * prey * (1 + 0.18 * Math.max(0, sides - 1)) });
     }
@@ -509,6 +550,8 @@ export function stepWars(s: GameState, geo: Geo) {
   // this week's blockades are built up off to the side and swapped in at the end: zeroing them here let supply networks
   // rebuilt in the middle of the week (after a capture) see no blockade at all
   const blockade = new Map<CountryId, number>();
+  const tired = new Set<CountryId>(); // the economic cost of war wears a country once a week, however many wars it is in
+  let generalsFreed = false; // the player's unpinned generals are reassigned once a week, not once per war
   for (const w of [...s.wars]) {
     if (!s.wars.includes(w)) continue;
     const sides: CountryId[][] = [w.attackers, w.defenders];
@@ -524,7 +567,7 @@ export function stepWars(s: GameState, geo: Geo) {
         if (c.isPlayer && armiesActive(s)) {
           // the player's army groups choose their own targets
           const scoreMap = new Map(cands.map((x) => [x.prov, x.score]));
-          for (const g of c.generals ?? []) if (!g.pinned) g.front = -1;
+          if (!generalsFreed) { generalsFreed = true; for (const g of c.generals ?? []) if (!g.pinned) g.front = -1; }
           for (const st of armyStrikes(s, geo, c, cands, off, (p) => scoreMap.get(p) ?? 0)) {
             const list = strikes.get(st.prov) ?? [];
             const same = list.find((x) => x.c === c && x.order === st.army.order);
@@ -536,7 +579,11 @@ export function stepWars(s: GameState, geo: Geo) {
           }
           continue;
         }
-        const nTargets = clamp(Math.floor(Math.sqrt(off / 40000)), 1, 6);
+        // concentrate against an equal; only an army that clearly outnumbers the enemy's field army can push on more sectors
+        // at once (from about 90k men on the offensive)
+        let foeField = 0;
+        for (const e of sides[1 - si]) { const E = s.countries[e]; if (E.alive) foeField = Math.max(foeField, E.mil.troops * E.mil.readiness / wr(s, e)); }
+        const nTargets = clamp((off > 1.2 * foeField ? Math.round : Math.floor)(Math.sqrt(off / 40000)), 1, 6);
         let chosen: Candidate[];
         if (c.isPlayer && !c.mil.autoAdvance) {
           const focus = new Set(c.mil.focus);
@@ -546,11 +593,17 @@ export function stepWars(s: GameState, geo: Geo) {
           // (it used to stick to an existing front whatever happened there, 7k men against 78k for a whole war)
           const mine = new Map(w.fronts.filter((f) => f.by === cid).map((f) => [f.prov, f]));
           const gar = w.gar ?? {};
-          chosen = cands.map((x) => {
+          // hopeless attacks are not made at all: a front that has gone nowhere for eight weeks while outmatched, or an
+          // attack at the end of a supply line that barely reaches (the army stays on the defensive instead of bleeding)
+          const viable = cands.filter((x) => { const f = mine.get(x.prov); return x.supply >= 0.2 && !(f && (f.stall ?? 0) >= 8 && (f.r ?? 1) < 0.7); }); // (0.7: about where an attack stops gaining ground)
+          chosen = viable.map((x) => {
             const f = mine.get(x.prov), stuck = (f?.stall ?? 0) >= 6;
             const thin = 1 / (1 + 2.5 * (gar[`${s.owner[x.prov]}:${x.prov}`] ?? 0));
             // (a stuck front loses even a capital's lure; an attack at the end of a hopeless supply line is a last resort)
-            return { ...x, score: x.score * (stuck ? 0.12 : 1) * (x.supply < 0.3 ? 0.3 : 1) * (0.6 + 0.4 * thin) + (f && !stuck ? 1.2 : 0) + (c.isPlayer && c.mil.focus.includes(x.prov) ? 2 : 0) };
+            // an offensive under way is finished before a new one is opened: the closer it is to taking the region, the
+            // stronger the pull (looking for thin sectors only applies to opening a new front; applied to fronts under
+            // way it made a one-target army alternate between two of them, each losing what the other gained)
+            return { ...x, score: x.score * (stuck ? 0.12 : 1) * (x.supply < 0.3 ? 0.3 : 1) * (f ? 1 : 0.6 + 0.4 * thin) + (f && !stuck ? 1.2 + 4 * f.progress : 0) + (c.isPlayer && c.mil.focus.includes(x.prov) ? 2 : 0) };
           }).sort((a, b) => b.score - a.score).slice(0, nTargets);
         }
         for (const ch of chosen) {
@@ -634,7 +687,7 @@ export function stepWars(s: GameState, geo: Geo) {
       const defTroops = (E.mil.troops * (1 - 0.6 * E.mil.commit) * E.mil.readiness / wr(s, e)) * (0.35 / frontage.get(e)! + 0.65 * (garShare.get(p) ?? defW(p, e) / sumDef)) * (1 + 0.25 * E.eco.infra / 100);
       const terrain = geo.provinces[p].terrain;
       const fort = 1.15 + 0.2 * (E.eco.infra / 100) + (p === E.capital ? 0.8 : 0);
-      const pocket = supplyNet(s, geo, e).dist[p] === Infinity;
+      const pocket = isPocket(s, geo, p);
       const Pd = Math.max(1, landPower(E.mil, defTroops) * fort * fortBonus(s, p) * (1 + 0.9 * terrain) * competence(s, E) * mods(E).def * morale(E) * (pocket ? 0.55 : 1) * defenceBonus(homeCommander(E)) * (E.isPlayer ? holdBonus(s, geo, p) * opDefenceMult(s, p) : 1) * campDef(s, E) * charDef(E));
       let Pa = 0;
       const contrib: { st: Strike; pa: number; air: number }[] = [];
@@ -654,12 +707,14 @@ export function stepWars(s: GameState, geo: Geo) {
       const sizeScale = Math.pow(140 / Math.max(22, geo.provinces[p].area), 0.35);
       const nuclearBrake = E.mil.nuclear ? contrib.reduce((t, x) => t + (x.st.c.mil.nuclear ? 0.85 : 0.45) * x.pa, 0) / Pa : 1; // fear of escalation limits advances on nuclear powers
       const amph = contrib.every((x) => x.st.amphibious) ? 0.7 : 1;
-      const raw = 0.08 * clamp(Math.log(ratio) + 0.35, -1.2, 1.6) * sizeScale; // breaks even at about 0.7: defenders' bonuses are already in Pd
+      const raw = 0.08 * clamp(Math.log(ratio) + 0.4, -1.2, 1.6) * sizeScale; // breaks even at about 0.67: the defenders' bonuses are already in Pd
       // red lines and nuclear warnings hold back an advance into the defender's own homeland (redlines.ts)
       const redLine = s.core[p] === e ? advanceBrake(s, w, e) : 1;
       // a planned operation on this sector moves at an operation's tempo (operations.ts)
       const tempo = contrib.some((x) => x.st.c.isPlayer) ? opTempo(s, p) : 1;
-      const delta = (raw > 0 ? Math.min(raw * tempo, (pocket ? 0.1 : 0.065) * tempo) * nuclearBrake * redLine : raw) * (raw > 0 ? amph : 1);
+      // an overwhelming edge breaks through faster than a narrow one (the weekly cap rises above 2:1, up to +70%)
+      const rush = 1 + 0.6 * clamp(Math.log(ratio / 2), 0, 1.2);
+      const delta = (raw > 0 ? Math.min(raw * tempo, (pocket ? 0.1 : 0.065) * tempo * rush) * nuclearBrake * redLine : raw) * (raw > 0 ? amph : 1);
       // casualties
       const defShare = defTroops;
       const gunner = contrib.some((x) => generalAt(x.st.c, p)?.trait === 'artillery');
@@ -684,7 +739,7 @@ export function stepWars(s: GameState, geo: Geo) {
         if (!front) { front = { prov: p, by: st.c.id, progress: 0, amphibious: st.amphibious }; w.fronts.push(front); }
         const inc = delta * (contrib.length > 1 ? 1.1 : 1) * ((contrib.find((x) => x.st === st)!.pa) / Pa) * contrib.length * (st.order === 'raid' && delta > 0 ? 0.6 : 1);
         front.rate = front.rate === undefined ? inc : front.rate * 0.7 + inc * 0.3;
-        front.stall = inc < 0.004 ? (front.stall ?? 0) + 1 : 0;
+        front.stall = delta < 0.004 ? (front.stall ?? 0) + 1 : 0; // (the battle's progress: a small ally in a joint push is not stuck)
         front.progress = clamp(front.progress + inc, 0, 1.2);
       }
       const best = w.fronts.filter((f) => f.prov === p).sort((a, b) => b.progress - a.progress)[0];
@@ -785,7 +840,8 @@ export function stepWars(s: GameState, geo: Geo) {
     // --- 6. exhaustion from the economic cost of fighting
     for (const cid of [...w.attackers, ...w.defenders]) {
       const c = s.countries[cid];
-      if (!c.alive) continue;
+      if (!c.alive || tired.has(cid)) continue;
+      tired.add(cid);
       const tol = ({ D: 1.5, F: 1.1, A: 0.8, C: 0.7, M: 0.9 } as Record<string, number>)[c.gov] ?? 1;
       c.mil.exhaustion = clamp(c.mil.exhaustion + (0.0007 + 0.04 * c.eco.damage / 52 + 0.002 * c.eco.occupation) * tol, 0, 1);
     }

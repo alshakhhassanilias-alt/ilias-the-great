@@ -50,7 +50,21 @@ export function deserialize(text: string, nProvinces: number): GameState {
   if (!s || (s.countries?.length ?? 0) < COUNTRY_BASE.length || s.owner?.length !== nProvinces)
     throw new Error('Save file does not match this version of the world map');
   migrate(s);
+  repairTerritory(s);
   return s;
+}
+
+/** A save whose region lists disagree with the ownership map (an old save, a hand-edited file) is put right on load:
+ *  `s.owner` is the truth. A consistent save is left exactly as it is. */
+function repairTerritory(s: GameState) {
+  const lists = new Map<number, number[]>();
+  s.owner.forEach((o, p) => { if (!lists.has(o)) lists.set(o, []); lists.get(o)!.push(p); });
+  for (const c of s.countries) {
+    const want = lists.get(c.id) ?? [];
+    const same = want.length === c.provinces.length && c.provinces.every((p) => s.owner[p] === c.id);
+    if (!same) c.provinces = want;
+    if (c.alive && c.provinces.length && s.owner[c.capital] !== c.id) c.capital = c.provinces[0];
+  }
 }
 
 /**

@@ -127,7 +127,7 @@ export function stepOccupation(s: GameState, geo: Geo) {
       if (w) (w.civ ??= {})[k] = (w.civ[k] ?? 0) + 60 + 300 * r;
     }
     // an uprising: the region rises against the occupier
-    if (r > 0.62 && hash01('rising', p, s.tick) < 0.1 * (r - 0.55)) uprising(s, geo, p, O);
+    if (r > 0.62 && hash01('rising', p, s.tick, s.settings.seed) < 0.1 * (r - 0.55)) uprising(s, geo, p, O);
   }
   for (const [cid, l] of losses) {
     const c = s.countries[cid];
@@ -150,9 +150,9 @@ function uprising(s: GameState, geo: Geo, p: ProvId, O: Country) {
   const name = geo.provinces[p].name || `a region of ${K?.name ?? 'the old country'}`;
   const R = s.resist!;
   const linked = K?.alive && geo.adj[p].some((q) => s.owner[q] === k);
-  const strong = O.mil.troops > 40000 && hash01('crush', p, s.tick) < 0.55;
-  if (linked && !strong) {
-    transfer(s, geo, p, k);
+  const strong = O.mil.troops > 40000 && hash01('crush', p, s.tick, s.settings.seed) < 0.55;
+  // (the seat of the occupier's government is not lost to a rising: it is defended to the last)
+  if (linked && !strong && p !== O.capital && transfer(s, geo, p, k)) {
     delete R[p];
     O.eco.stability = Math.max(0, O.eco.stability - 3);
     logEvent(s, `✊ UPRISING in ${name}: the people drive out ${O.name}'s garrison and the region returns to ${K.name}.`, 'territory', [k, O.id], true, { big: O.isPlayer || K.isPlayer, prov: p });
@@ -173,7 +173,8 @@ type TransferFn = (s: GameState, geo: Geo, p: ProvId, to: CountryId) => void;
 // (a `var` without initialiser: war.ts may register before this module has finished loading, and it must not be reset)
 // eslint-disable-next-line no-var
 var transferFn: TransferFn | undefined;
-const transfer: TransferFn = (s, geo, p, to) => transferFn?.(s, geo, p, to);
+/** (false if war.ts has not registered the transfer yet: then nothing changes hands, and nothing may be reported) */
+const transfer = (s: GameState, geo: Geo, p: ProvId, to: CountryId): boolean => { if (!transferFn) return false; transferFn(s, geo, p, to); return true; };
 /** war.ts registers its province transfer here (keeps the import graph acyclic) */
 export function setTransfer(fn: TransferFn) { transferFn = fn; }
 

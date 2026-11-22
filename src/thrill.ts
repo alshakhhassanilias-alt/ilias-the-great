@@ -6,7 +6,7 @@
 import type { GameState, LogEntry } from './sim/types';
 import { warScore } from './sim/war';
 import { isFree, voteShare } from './sim/legacy';
-import { warSideOf } from './sim/relations';
+import { capitalLost, warSideOf } from './sim/relations';
 
 /** a physical reaction of the screen: `hit` (you were struck), `boom` (an explosion), `glory` (you won something), `alarm` */
 export interface Jolt { kind: 'hit' | 'boom' | 'glory' | 'alarm'; power: number }
@@ -81,7 +81,7 @@ export function dangerOf(s: GameState): Danger {
     if (sc < -0.05) up(0.3 + Math.min(0.55, -sc * 1.4), 'The war is going against you');
     const lost = w.lost[c.id] ?? 0;
     if (lost > 0.04) up(0.4 + Math.min(0.5, lost * 2.2), 'The enemy is on your soil');
-    if (s.owner[c.capital] !== c.id) up(0.95, 'Your capital is in enemy hands');
+    if (capitalLost(s, c)) up(0.95, 'Your capital is in enemy hands');
   }
   // the street
   const st = c.eco.stability;

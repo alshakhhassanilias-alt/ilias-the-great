@@ -21,6 +21,7 @@ import { logEvent } from './log';
 import { addRelation, alliesOf, getRelation } from './relations';
 import { fund } from './actions';
 import type { Country, GameState } from './types';
+import { raiseMilTech } from './military';
 
 export type Branch = 0 | 1 | 2 | 3 | 4;
 export const BRANCHES: { key: string; icon: string; name: string; short: string; frontier: string; color: string }[] = [
@@ -256,7 +257,7 @@ function applyOneOff(c: Country, fx: TechFx) {
   if (fx.infra) e.infra = clamp(e.infra + fx.infra, 5, 100);
   if (fx.rep) c.reputation = clamp(c.reputation + fx.rep, 0, 100);
   if (fx.collection) e.collection = clamp(e.collection + fx.collection, 0.3, 1);
-  if (fx.milTech) c.mil.milTech = clamp(c.mil.milTech + fx.milTech, 0, 140);
+  if (fx.milTech) raiseMilTech(c, fx.milTech);
   if (fx.tech) e.tech = clamp(e.tech + fx.tech, 5, 100);
   if (fx.pop) e.popGrowthMod += fx.pop;
 }

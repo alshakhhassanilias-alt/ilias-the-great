@@ -64,9 +64,15 @@ reinforcements every 4) → `stepArcs` (cabinet, domestic politics, bills, legac
 rivals, doctrines, `stepIndustry`, influence → trophies → `stepUnrest` → `weekEnd`.
 
 ### Provinces and territory
-- `s.owner[p]` and `c.provinces` must always agree; only `transferProvince` (`war.ts`) changes them. It moves a share of
-  population, labour, capital and GDP with the region, re-picks the capital if it fell, moves buildings
-  (`buildings.ts`) and invalidates supply caches.
+- `s.owner[p]` and `c.provinces` must always agree; only `transferProvince` (`war.ts`) changes them (and `deserialize`
+  repairs a save where they disagree). It moves the region's share of population, labour, capital and GDP, measured in
+  people (`peopleW`), and leaves productivity (`tfp`) alone. It moves buildings (damaged unless the hand-over is
+  peaceful) and invalidates supply caches.
+- A fallen capital: the government moves to the biggest city of the largest *connected* part of what is left, and the
+  historic seat is remembered in `s.stats['seat:<id>']`. Use `capitalLost(s, c)` (`relations.ts`) to ask whether a
+  country has lost its capital; `c.provinces.includes(c.capital)` is always true. Retaking the seat moves the
+  government back.
+- When home regions change (`s.core`), bump `s.stats.coreVer` so the exclave-depot cache in `supply.ts` is rebuilt.
 - `s.core[p]` is the nation a region belongs to; integration and resistance of conquered land are in `occupation.ts`.
 - Map geometry is `Geo` (`geo.ts`, loaded once by `load.ts`): `adj` (attack adjacency), `dist`, terrain, weights.
   Supply uses `neighbours()` in `supply.ts`, which adds a few borders missing from `adj`.
@@ -81,7 +87,10 @@ recomputes each week (trade, energy demand, labour force) store lasting multipli
 
 ### Supply (`supply.ts`)
 `supplyNet(s, geo, c)` is a Dijkstra from hubs (capital, big home cities, exclave hubs, depots, ports unless
-blockaded) over the country's, its allies' and co-belligerents' land. `capacity` comes from `mil.supply` and
+blockaded) over the country's, its allies' and co-belligerents' land (never through the land of anyone it is fighting).
+Its cache key covers the week, ownership, who fights on which side and treaties; building a depot or port calls
+`bumpSupply()`. "Encircled" has one meaning everywhere: `isPocket(s, geo, p)` (cut off *and* touching the enemy). Attacks and supply use the same
+neighbour lists (`neighbours(geo)`). `capacity` comes from `mil.supply` and
 blockade; `landSupply` turns path cost into an attack's supply (0.15 if cut off). Pockets are own regions with no path.
 Blockades are built during `stepWars` and swapped in at its end, so supply stays consistent within a week.
 
@@ -101,9 +110,28 @@ For each war:
 5. **Decay.** A front its attacker abandons loses 0.06 progress a week.
 
 War support, exhaustion and peace: `warsupport.ts`, `ai.ts` `managePeace`; AI wartime recruitment: `ai.ts` `warRecruit`.
+A country in several wars splits its army between them (`wr`), and war exhaustion is charged once a week, however
+many wars it is in.
+
+Peace (`makePeace`): a peace between the two side leaders ends the war for everyone. A separate peace takes out only
+the signers who do not lead their side. A war that ends because a nation is destroyed is recorded in `warHistory`
+too.
+
+Red lines (`redlines.ts`) slow an advance into the defender's homeland (`advanceBrake`). A warning nobody acts on fades
+within a year. While a protector is fighting and the danger lasts, the brake is renewed. An intervener may make its
+own peace two years after intervening.
+
+The AI finishes offensives already under way (the pull grows with progress) before opening new ones. It looks for thin
+sectors only when opening new fronts. It drops attacks stuck for 8+ weeks at a losing ratio (below about 0.7) or with
+supply under 0.2. It opens a second sector only when it clearly outnumbers the enemy's field army.
 
 The player gets extra layers on top: army groups (`armies.ts`), named operations (`operations.ts`), campaigns
 (`campaigns.ts`), war councils (`warmode.ts`). The same `stepWars` resolves everyone's battles.
+
+Chip and mineral output belongs to the land (`producersNow` in `trade.ts`). Lasting military-technology gains go
+through `raiseMilTech` (`military.ts`), or they fade. A partial or general mobilisation costs output through the
+workers it calls up; only total war also converts industry. Player mobilisation calls up against the army at its start,
+within the manpower available.
 
 ### Domestic politics and legacy
 Factions, laws and political capital are in `domestic.ts`; bills are fought seat by seat in `bill.ts`; coalitions are in

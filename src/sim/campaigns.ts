@@ -189,7 +189,7 @@ function aiCampaigns(s: GameState, geo: Geo, c: Country) {
   const w = warBetween(s, c.id, T.id);
   if (!w) return;
   const score = warScore(s, w, c.id);
-  const r = hash01('aicamp', c.id, s.tick);
+  const r = hash01('aicamp', c.id, s.tick, s.settings.seed);
   if (score < -0.25 && !campBlocked(s, geo, c.id, 'dig_in', T.id) && r < 0.5) { launchCampaign(s, geo, c.id, 'dig_in', T.id); return; }
   if (airSuperiority(c, T) > 0.35 && c.ai.aggression > 0.45 && !campBlocked(s, geo, c.id, 'bombing', T.id) && r < 0.6) {
     const aim: BombAim = (c.gov === 'A' || c.gov === 'C') && c.ai.aggression > 0.9 ? 'cities' : r < 0.3 ? 'energy' : 'industry';

@@ -1,7 +1,7 @@
 import { store } from '../../state/store';
 import { Section } from '../widgets';
 import { fmtMoney, fmtNum } from '../format';
-import { supplyFromCost, supplyNet } from '../../sim/supply';
+import { isPocket, supplyFromCost, supplyNet } from '../../sim/supply';
 import { isAtWar } from '../../sim/relations';
 import { dateLabel } from '../../sim/tick';
 import { BDEF, BTYPES, MAX_LEVEL, canBuild, costOfBuilding, levelOf, type BType } from '../../sim/buildings';
@@ -23,7 +23,7 @@ export function ProvincePanel({ p }: { p: number }) {
   const lvl = (t: BType) => levelOf(s, p, t);
   const dots = (n: number) => '●'.repeat(n) + '○'.repeat(MAX_LEVEL - n);
   // how well supplied this region is for its owner (only meaningful in wartime)
-  const sup = isAtWar(s, owner.id) ? (() => { const net = supplyNet(s, geo, owner.id); return { pocket: net.dist[p] === Infinity, v: supplyFromCost(net.dist[p], net.reach) * (0.72 + 0.28 * net.capacity) }; })() : null;
+  const sup = isAtWar(s, owner.id) ? (() => { const net = supplyNet(s, geo, owner.id); return { pocket: isPocket(s, geo, p), v: supplyFromCost(net.dist[p], net.reach) * (0.72 + 0.28 * net.capacity) }; })() : null;
   return (
     <Section title="Selected region" hint={owner.name}>
       <div className="card" style={{ fontSize: 13 }}>

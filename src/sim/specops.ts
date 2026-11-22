@@ -102,8 +102,9 @@ export function stepPartisans(s: GameState) {
   for (let p = 0; p < s.core.length; p++) {
     const core = s.core[p], o = s.owner[p];
     if (core === o || !partisansActive(s, core)) continue;
-    s.integ[p] = Math.max(0, s.integ[p] - 0.004);
     const O = s.countries[o];
-    if (O?.alive) { const loss = Math.min(O.mil.troops * 0.0008, 400); O.mil.troops -= loss; O.mil.casualties += loss; }
+    if (!O?.alive || !areAtWar(s, core, o)) continue; // (partisans fight the enemy, not an ally or a neutral holding the land)
+    s.integ[p] = Math.max(0, s.integ[p] - 0.004);
+    const loss = Math.min(O.mil.troops * 0.0008, 400); O.mil.troops -= loss; O.mil.casualties += loss;
   }
 }

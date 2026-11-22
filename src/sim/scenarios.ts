@@ -8,7 +8,7 @@ import { clamp } from './util';
 import { logEvent } from './log';
 import { powerRank } from './power';
 import { clientsOf } from './influence';
-import { alliesOf, isAtWar, NAME_TO_ID } from './relations';
+import { alliesOf, capitalLost, isAtWar, NAME_TO_ID } from './relations';
 import type { Country, GameState } from './types';
 
 export interface ScenGoal {
@@ -86,7 +86,7 @@ export const SCENARIOS: Scenario[] = [
     pitch: 'At war with a far larger neighbour. Endure, then rebuild.',
     brief: 'It is 2024 and the war is in its third year. Hold the capital and the heart of the country, find allies who will stand with you, and when the guns fall silent, rebuild an economy that outgrows what you lost.',
     goals: [
-      { label: 'Still hold Kyiv and at least 18 regions at the end', kind: 'end', value: (_s, c) => ({ v: c.provinces.includes(c.capital) ? clamp(c.provinces.length / 18, 0, 1) : 0, text: `${c.provinces.length} regions${c.provinces.includes(c.capital) ? '' : ', capital lost'}` }) },
+      { label: 'Still hold Kyiv and at least 18 regions at the end', kind: 'end', value: (s, c) => ({ v: !capitalLost(s, c) ? clamp(c.provinces.length / 18, 0, 1) : 0, text: `${c.provinces.length} regions${c.provinces.includes(c.capital) ? '' : ', capital lost'}` }) },
       { label: 'Grow the economy by 60%', kind: 'reach', value: realGoal(1.6) },
       { label: 'Have 2 allies and be at peace', kind: 'end', value: (s, c) => { const a = alliesOf(s, c.id).length; const w = isAtWar(s, c.id); return { v: w ? Math.min(0.5, a / 4) : clamp(a / 2, 0, 1), text: `${a} allies${w ? ', still at war' : ', at peace'}` }; } },
     ] },

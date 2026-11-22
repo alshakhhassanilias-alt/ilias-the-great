@@ -12,7 +12,7 @@ import type { Geo } from './geo';
 import { hash01, nextRand } from './rng';
 import { clamp, lowerFirst } from './util';
 import {
-  alliesOf, areAtWar, enemiesOf, getRelation, guarantorsOf, hasAlliance, hasNap, hasTrade, isAtWar, partnersOf, sanctionLevel, warBetween, warsOf,
+  alliesOf, areAtWar, capitalLost, enemiesOf, getRelation, guarantorsOf, hasAlliance, hasNap, hasTrade, isAtWar, partnersOf, sanctionLevel, warBetween, warsOf,
 } from './relations';
 import { manpower, strength } from './military';
 import {
@@ -320,13 +320,13 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     let terms: PeaceTerms | null = null;
     const myWill = evaluatePeace(s, geo, e, c.id, { kind: 'status_quo' }).willingness; // how much *I* want peace
     const support = warSupport(c);
-    if (c.mil.exhaustion > 0.95 || c.provinces.length === 1 && !c.provinces.includes(c.capital)) terms = { kind: 'concede', share: 0.3 };
+    if (c.mil.exhaustion > 0.95 || c.provinces.length === 1 && capitalLost(s, c)) terms = { kind: 'concede', share: 0.3 };
     else if (score < -0.35 && years > 1 && support < 0.45) terms = { kind: 'concede', share: 0.15 }; // losing and the public knows it
     else if (score > 0.35 && years > 0.3) terms = { kind: 'demand', share: clamp(score * 0.5, 0.05, 0.6), extras: aiExtras(s, c.id, e, score, w.defenders.includes(c.id)) };
     else if (myWill > 0.45 || support < 0.25) terms = { kind: 'status_quo' };
     else if (Math.abs(score) < 0.12 && years > 2.5 && rand(s) < 0.3) terms = { kind: 'status_quo' }; // a long stalemate
     // a nation fighting for its survival does not give up land while it can still fight (ongoing.ts)
-    if (terms && (terms.kind === 'concede' || terms.kind === 'surrender') && (w.resolve?.[c.id] ?? 0) > 0 && c.mil.exhaustion < 0.85 && c.provinces.includes(c.capital)) terms = null;
+    if (terms && (terms.kind === 'concede' || terms.kind === 'surrender') && (w.resolve?.[c.id] ?? 0) > 0 && c.mil.exhaustion < 0.85 && !capitalLost(s, c)) terms = null;
     if (!terms) continue;
     if (e === s.player) {
       if (!s.offers.some((o) => o.from === c.id && o.kind === 'peace') && (s.tick - (s.stats[`peaceAsk:${c.id}`] ?? -99)) >= 12 && (s.stats[`peaceAsk:${c.id}`] = s.tick) >= 0) s.offers.push({ id: s.nextOfferId++, from: c.id, kind: 'peace', terms, tick: s.tick });
@@ -359,7 +359,10 @@ export function* stepAIGen(s: GameState, geo: Geo): Generator<void> {
     if (phase !== 0) continue;
     if (++n % 3 === 0) yield;
     if ((s.tick + c.id) % 8 === 0) manageEconomy(s, geo, c);
-    if ((s.tick + c.id * 3) % 8 === 4) manageDiplomacy(s, geo, c);
+    // (the economy on one 8-week phase, diplomacy on the other: it used to be (tick+3·id)%8, which odd ids never hit)
+    if ((s.tick + c.id) % 8 === 4) manageDiplomacy(s, geo, c);
+    // an AI at peace stands down its mobilisation and wartime strategy (only the player's used to be reset)
+    if (!isAtWar(s, c.id) && (c.mob || c.strat || c.mil.warEconomy)) { c.mob = 0; delete c.strat; c.mil.warEconomy = false; }
     if ((s.tick + c.id) % 12 === 0) considerWar(s, geo, c);
     if (isAtWar(s, c.id)) { warRecruit(s, c); managePeace(s, geo, c); }
   }

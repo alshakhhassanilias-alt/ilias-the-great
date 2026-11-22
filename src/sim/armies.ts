@@ -142,6 +142,9 @@ export function stepArmies(s: GameState, geo: Geo) {
     if (a.target >= 0 && ORDERS[a.order].attack && s.owner[a.target] === c.id) {
       logEvent(s, `🎯 ${a.name} has taken its objective, ${geo.provinces[a.target].name}.`, 'territory', [c.id], true, { prov: a.target });
       a.at = a.target; a.target = -1;
+    } else if (a.target >= 0 && ORDERS[a.order].attack && !areAtWar(s, c.id, s.owner[a.target])) {
+      // an ally took it, or it changed hands to someone we are not fighting: the army stops marching at it
+      a.at = a.target; a.target = -1;
     }
     if (!ORDERS[a.order].attack) a.at = a.order === 'defend' ? c.capital : a.target >= 0 ? a.target : a.at;
     if (s.owner[a.at] !== c.id) a.at = c.capital;

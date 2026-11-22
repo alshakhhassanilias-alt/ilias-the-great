@@ -62,6 +62,67 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 49: polishing the war engine and the economy
+
+Everything left over from the four audits, plus what `sim_test` turned up along the way:
+
+* **A separate peace no longer ends the war for everyone.** A peace between the two side leaders ends it. Any other
+  peace takes out only the signers who do not lead their side, and their fronts are cleared.
+* **A fallen capital is really lost.** The game remembers the historic seat. Peace willingness, the AI's decision to
+  concede, red lines, the "friendly government" peace term, the Kyiv scenario goal and the danger glow all now see a
+  capital in enemy hands; before, every such check was always false. Retaking the seat moves the government back
+  (**THE CAPITAL IS RETAKEN**). A fallen government moves to the biggest city of the largest connected part of what is
+  left, not a big city cut off behind the lines.
+* **Captures no longer distort productivity.** A region carries its share of people and output, measured in people
+  (so a small country's capital changing hands twice no longer creates or destroys population). Productivity stays
+  with the country. It used to be rescaled on every capture, turning the army's share of a shrunken workforce and
+  passing war damage into permanent changes.
+* **Red lines no longer freeze fronts for years.** A warning nobody acts on fades within a year. While a protector is
+  in the fight and the danger lasts, the brake holds. An intervener can make its own peace after two years.
+* **War and AI:**
+  * Half the AI nations never conducted diplomacy (a scheduling bug); they do now.
+  * A country in several wars no longer fields extra armies in each, or tires twice.
+  * Player mobilisation now calls up reservists once, over about a year and within the manpower available. It used
+    to compound for as long as the war lasted.
+  * AI countries stand down mobilisation at peace.
+  * The Russo-Ukrainian war can end: aid eases exhaustion but no longer erases it.
+  * Operation captures count in the war score, and operation kills in the casualty count.
+  * Allies in a joint push are no longer marked "stuck".
+  * Your generals are no longer reshuffled once per war each week.
+  * Two more random draws now vary between games.
+  * A war that ends with a nation's destruction is recorded in the history books.
+* **The AI fights smarter.** It finishes the offensive closest to success instead of alternating between two and
+  losing both (a 9:1 Nigerian army had taken only one region in 300 days). It stops attacks that have gone nowhere for
+  eight weeks while outmatched, and attacks at the end of a supply line that barely reaches. It opens a second sector
+  only with a clear superiority in numbers. An overwhelming edge breaks through faster.
+* **Territory and supply:**
+  * A revived nation can no longer overwrite one that already came back.
+  * Partisans fight the enemy, not an ally holding their land.
+  * Uprisings cannot take the occupier's seat of government.
+  * An army's objective taken by an ally is cleared.
+  * Peaceful hand-overs keep their buildings intact.
+  * Loaded saves are checked for territory consistency.
+  * The exclave-depot cache is rebuilt when borders of nations change, and depots go to every landmass except the
+    capital's.
+  * Supply never runs through an enemy's land.
+  * The supply cache notices allies joining a war and new treaties.
+  * A new depot lifts an encirclement the same week.
+  * "Encircled" means the same thing in combat, the AI, operations and the region panel.
+  * Attacks and supply use the same map neighbours.
+* **Economy:**
+  * Chip and mineral output belongs to the land: conquer Taiwan's regions and you make its chips.
+  * Mobilisation is no longer charged twice.
+  * Total war's extra arms are paid for, and its costs are not charged twice.
+  * Military-technology gains from research, industry and development now last.
+  * The treasury report counts export earnings, a sphere's tribute, tariff income and the fuel bill.
+  * Lost gas plants burn no fuel.
+  * The long-run labour-share bias is removed.
+  * Port and barracks bonuses are capped.
+
+`sim_test` now judges a front by the best progress on that region, since allies in a joint attack split the credit.
+Four seeds × six matchups: no crash, no broken invariant, no freeze. Only the war between near-equals
+(Germany–France) shows long pauses between captures.
+
 ## Round 48: the war engine, stress-tested
 
 `npm run sim_test` (`scripts/sim_test.ts`) runs 300 days of AI-vs-AI war headless in about a second per war (six

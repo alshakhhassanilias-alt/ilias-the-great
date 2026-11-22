@@ -24,7 +24,7 @@ import type { Country, CountryId, GameState, War } from './types';
 import { clamp } from './util';
 import { nextRand } from './rng';
 import { logEvent } from './log';
-import { addRelation, getRelation, hasAlliance, sanctionLevel, warSideOf, warsOf } from './relations';
+import { addRelation, capitalLost, getRelation, hasAlliance, sanctionLevel, warSideOf, warsOf } from './relations';
 import { imposeSanction } from './diplomacy';
 import { strength } from './military';
 import { isMajor } from './drama';
@@ -82,7 +82,7 @@ export function threatOf(s: GameState, w: War, x: CountryId, home?: Map<CountryI
   const base = s.stats[`hl0:${w.id}:${x}`] ?? held;
   if (record && s.stats[`hl0:${w.id}:${x}`] === undefined) s.stats[`hl0:${w.id}:${x}`] = held;
   const lost = Math.max(0, base - held);
-  const capital = (s.stats[`capfall:${x}`] ?? -1e9) >= w.start || !X.provinces.includes(X.capital);
+  const capital = (s.stats[`capfall:${x}`] ?? -1e9) >= w.start || capitalLost(s, X);
   const mine = warSideOf(w, x);
   const foes = mine === 0 ? w.defenders : w.attackers;
   const friends = mine === 0 ? w.attackers : w.defenders;
@@ -148,11 +148,18 @@ export function protectorsOf(s: GameState, w: War, x: CountryId): { f: CountryId
 }
 
 /** How strongly the advance on `x` is held back by red lines and nuclear warnings in war `w` (1 = not at all). */
-export const advanceBrake = (s: GameState, w: War, x: CountryId) => s.stats[`rlb:${w.id}:${x}`] ?? 1;
+export const advanceBrake = (s: GameState, w: War, x: CountryId) => {
+  const v = s.stats[`rlb:${w.id}:${x}`];
+  if (v === undefined) return 1;
+  // a warning loses its force as the months pass without anyone acting on it: back to no brake within a year of the
+  // last time it was drawn or acted on (it used to hold for the whole war, freezing fronts for years)
+  const age = s.tick - (s.stats[`rlbT:${w.id}:${x}`] ?? s.tick);
+  return v + (1 - v) * clamp(age / 52, 0, 1);
+};
 /** Extra willingness for peace on `b` in war `w`: the red lines drawn against it. */
 export const peacePressure = (s: GameState, w: War, b: CountryId) => s.stats[`rlp:${w.id}:${b}`] ?? 0;
 
-function setBrake(s: GameState, w: War, x: CountryId, v: number) { s.stats[`rlb:${w.id}:${x}`] = Math.min(advanceBrake(s, w, x), v); }
+function setBrake(s: GameState, w: War, x: CountryId, v: number) { s.stats[`rlb:${w.id}:${x}`] = Math.min(advanceBrake(s, w, x), v); s.stats[`rlbT:${w.id}:${x}`] = s.tick; }
 function pressure(s: GameState, w: War, x: CountryId, v: number) {
   const side = warSideOf(w, x);
   for (const e of side === 0 ? w.defenders : w.attackers) s.stats[`rlp:${w.id}:${e}`] = Math.max(peacePressure(s, w, e), v);
@@ -163,12 +170,19 @@ export function stepRedLines(s: GameState) {
   // forget the wars that are over (once a year)
   if (s.tick % 52 === 1) {
     const live = new Set(s.wars.map((w) => w.id));
-    for (const k of Object.keys(s.stats)) { const m = /^(hl0|rlb|rlp|nuke|nukeq|aa|blf):(\d+)/.exec(k); if (m && !live.has(Number(m[2]))) delete s.stats[k]; }
+    for (const k of Object.keys(s.stats)) { const m = /^(hl0|rlb|rlbT|rlp|nuke|nukeq|aa|blf):(\d+)/.exec(k); if (m && !live.has(Number(m[2]))) delete s.stats[k]; }
     if (s.react) for (const k of Object.keys(s.react)) if (!live.has(s.react[k].war)) delete s.react[k];
   }
   if (!s.wars.length) return;
   s.react ??= {};
   const home = homeland(s);
+  // a red line backed by a protector who is in the fight keeps its force while the danger lasts (only a warning nobody
+  // acts on fades: advanceBrake)
+  for (const r of Object.values(s.react)) {
+    if (r.rung !== 3 || s.stats[`rlb:${r.war}:${r.x}`] === undefined) continue;
+    const w = s.wars.find((x) => x.id === r.war);
+    if (w && warSideOf(w, r.f) >= 0 && threatOf(s, w, r.x).v >= 0.1) s.stats[`rlbT:${r.war}:${r.x}`] = s.tick;
+  }
   for (const w of [...s.wars]) {
     for (const side of [w.attackers, w.defenders]) {
       for (const x of [...side]) {
@@ -220,7 +234,7 @@ function climb(s: GameState, w: War, x: CountryId, f: CountryId, commit: number,
     setBrake(s, w, x, fs > 2 * es ? 0.45 : fs > es ? 0.65 : 0.85);
     pressure(s, w, x, 0.15 + 0.25 * commit);
     addRelation(s, f, lead, -10);
-    const where = X.provinces.includes(X.capital) ? `${X.name}'s heartland` : `what is left of ${X.name}`;
+    const where = !capitalLost(s, X) ? `${X.name}'s heartland` : `what is left of ${X.name}`;
     logEvent(s, `⚠ RED LINE: ${F.name} warns ${E.name}: one step further into ${where} and it will enter the war.`, 'danger', [f, x, lead], true, { big: big || isMajor(s, f), prov: X.capital });
     if (mineX) cable(s, f, 'warm');
     // one decision per war, naming everyone who has drawn a line (answered for all of them)
@@ -299,6 +313,7 @@ export function boundTo(s: GameState, w: War, f: CountryId): boolean {
   for (const r of Object.values(s.react ?? {})) {
     if (r.war !== w.id || r.f !== f || r.rung !== 3) continue;
     if (warSideOf(w, r.x) < 0 || !s.countries[r.x]?.alive) continue;
+    if (s.tick - r.tick > 104) continue; // two years on, the intervener may make its own peace
     if (threatOf(s, w, r.x).v >= 0.1) return true;
   }
   return false;

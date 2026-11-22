@@ -11,7 +11,7 @@ import { warScore } from './war';
 import { actPeace, setBudget } from './actions';
 import { actMobilise } from './warmode';
 import { linesAgainst, nuclearWarning, protectorsOf } from './redlines';
-import { addRelation } from './relations';
+import { addRelation, capitalLost } from './relations';
 import { strength } from './military';
 import { isMajor } from './drama';
 import type { Country, GameState, War } from './types';
@@ -134,7 +134,7 @@ export const EVENTS12: EventDef[] = [
       const w = s.wars.find((x) => x.id === d.war);
       const foes = w ? (w.attackers.includes(c.id) ? w.defenders : w.attackers) : [];
       const friends = w ? protectorsOf(s, w, c.id).filter((p) => p.rung < 3).map((p) => nm(s, p.f)) : [];
-      return `${foes.map((e) => nm(s, e)).slice(0, 3).join(', ')} ${foes.length > 1 ? 'are' : 'is'} deep in our homeland${c.provinces.includes(c.capital) ? '' : ' and the capital has fallen'}. We are a nuclear power. Our generals ask what you are prepared to do.${friends.length ? ` ${friends.join(' and ')} could still come to our side.` : ' No one else is coming.'}`;
+      return `${foes.map((e) => nm(s, e)).slice(0, 3).join(', ')} ${foes.length > 1 ? 'are' : 'is'} deep in our homeland${!capitalLost(s, c) ? '' : ' and the capital has fallen'}. We are a nuclear power. Our generals ask what you are prepared to do.${friends.length ? ` ${friends.join(' and ')} could still come to our side.` : ' No one else is coming.'}`;
     },
     options: [
       { label: 'Warn the world: every weapon we have', hint: 'Their advance on our homeland all but stops and they will want peace · reputation −4 · relations with every great power −5', apply: (s, c, d) => {

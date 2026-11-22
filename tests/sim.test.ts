@@ -4173,3 +4173,146 @@ describe('round 48: political capital is never wasted', () => {
     expect(s.stats.apprBoost).toBeLessThanOrEqual(GW48);
   });
 });
+
+// ------------------------------------------------------------------ round 49: the war engine, polished
+import { makePeace as makePeace49, transferProvince as transfer49, declareWar as declare49 } from '../src/sim/war';
+import { capitalLost as capLost49, warBetween as warBetween49 } from '../src/sim/relations';
+import { advanceBrake as brake49 } from '../src/sim/redlines';
+describe('round 49: separate peace, fallen capitals, captures, red lines', () => {
+  it('an ally that signs a separate peace leaves; the war goes on for the others', () => {
+    const s = fresh('Iceland', { defensiveAlliances: false, randomEvents: false });
+    const a = id('Poland'), d = id('Belarus'), ally = id('Kazakhstan');
+    declare49(s, geo, a, d);
+    const w = warBetween49(s, a, d)!;
+    w.defenders.push(ally);
+    makePeace49(s, geo, ally, a, { kind: 'status_quo' });
+    expect(warBetween49(s, a, d)).toBeDefined();
+    expect(warBetween49(s, a, ally)).toBeUndefined();
+    makePeace49(s, geo, a, d, { kind: 'status_quo' });
+    expect(warBetween49(s, a, d)).toBeUndefined();
+  });
+  it('a fallen capital counts as lost until it is retaken, and the government moves back', () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    const a = s.countries[id('Poland')], d = s.countries[id('Belarus')];
+    declare49(s, geo, a.id, d.id);
+    const cap = d.capital;
+    expect(capLost49(s, d)).toBe(false);
+    transfer49(s, geo, cap, a.id);
+    expect(d.capital).not.toBe(cap);
+    expect(capLost49(s, d)).toBe(true);
+    transfer49(s, geo, cap, d.id);
+    expect(d.capital).toBe(cap);
+    expect(capLost49(s, d)).toBe(false);
+    expect(s.log.some((e) => /CAPITAL IS RETAKEN/.test(e.text))).toBe(true);
+  });
+  it('a capture moves output, not productivity, and keeps people where they are counted', () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    const a = s.countries[id('Poland')], d = s.countries[id('Belarus')];
+    const tfpA = a.eco.tfp, tfpD = d.eco.tfp, pop = a.eco.pop + d.eco.pop;
+    transfer49(s, geo, d.provinces.find((p) => p !== d.capital)!, a.id);
+    expect(a.eco.tfp).toBe(tfpA);
+    expect(d.eco.tfp).toBe(tfpD);
+    expect(a.eco.pop + d.eco.pop).toBeCloseTo(pop, -3);
+  });
+  it('a red line slows an advance for months, not for the whole war', () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    declare49(s, geo, id('Poland'), id('Belarus'));
+    const w = warBetween49(s, id('Poland'), id('Belarus'))!;
+    s.stats[`rlb:${w.id}:${id('Belarus')}`] = 0.45; s.stats[`rlbT:${w.id}:${id('Belarus')}`] = s.tick;
+    expect(brake49(s, w, id('Belarus'))).toBeCloseTo(0.45, 5);
+    s.tick += 26;
+    expect(brake49(s, w, id('Belarus'))).toBeGreaterThan(0.7);
+    s.tick += 30;
+    expect(brake49(s, w, id('Belarus'))).toBe(1);
+  });
+});
+describe('round 49: armies and the history books', () => {
+  it('mobilisation calls up the reserves once, within the manpower there is (it used to compound for ever)', () => {
+    const s = fresh('Poland', { randomEvents: false, defensiveAlliances: false });
+    const c = s.countries[s.player];
+    declare49(s, geo, c.id, id('Belarus'));
+    c.mob = 3;
+    const t0 = c.mil.troops;
+    c.eco.cash = 1e15;
+    for (let i = 0; i < 104 && warBetween49(s, c.id, id('Belarus')); i++) { s.inbox = []; c.mob = 3; tick(s, geo); }
+    expect(c.mil.troops).toBeLessThan(t0 * 3);
+  });
+  it('a war that ends because a nation is destroyed goes into the history books', () => {
+    const s = fresh('Iceland', { randomEvents: false, defensiveAlliances: false });
+    const a = id('Russia'), d = id('Georgia');
+    declare49(s, geo, a, d);
+    for (const p of [...s.countries[d].provinces]) transfer49(s, geo, p, a);
+    expect(s.countries[d].alive).toBe(false);
+    const rec = s.warHistory?.at(-1);
+    expect(rec?.b).toBe(d);
+    expect(rec?.terms).toBe('surrender');
+  });
+});
+import { serialize as ser49, deserialize as deser49 } from '../src/sim/save';
+import { levelOf as levelOf49 } from '../src/sim/buildings';
+import { stepPartisans as stepPartisans49 } from '../src/sim/specops';
+describe('round 49: territory stays consistent', () => {
+  it('a save whose region lists disagree with the map is put right on load', () => {
+    const s = fresh('Poland', { randomEvents: false });
+    const pl = s.countries[id('Poland')], by = s.countries[id('Belarus')];
+    const p = pl.provinces.find((q) => q !== pl.capital)!;
+    s.owner[p] = by.id; // a broken file: the map says Belarus, the list says Poland
+    const t = deser49(ser49(s), geo.provinces.length);
+    expect(t.countries[pl.id].provinces).not.toContain(p);
+    expect(t.countries[by.id].provinces).toContain(p);
+  });
+  it('a peaceful hand-over keeps the buildings intact; a conquest damages them', () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    const pl = s.countries[id('Poland')];
+    const [p, q] = pl.provinces.filter((x) => x !== pl.capital);
+    s.bld[`${p}:factory`] = 2; s.bld[`${q}:factory`] = 2;
+    transfer49(s, geo, p, id('Belarus'), true);
+    transfer49(s, geo, q, id('Belarus'));
+    expect(levelOf49(s, p, 'factory')).toBe(2);
+    expect(levelOf49(s, q, 'factory')).toBe(1);
+  });
+  it('partisans fight the enemy, not an ally that holds their land', () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    const pl = s.countries[id('Poland')], ge = s.countries[id('Germany')];
+    const p = pl.provinces.find((x) => x !== pl.capital)!;
+    transfer49(s, geo, p, ge.id, true);
+    s.core[p] = pl.id; s.integ[p] = 0.5;
+    s.stats[`partisans:${pl.id}`] = s.tick + 20;
+    const t0 = ge.mil.troops;
+    stepPartisans49(s);
+    expect(ge.mil.troops).toBe(t0);
+    expect(s.integ[p]).toBe(0.5);
+  });
+});
+import { producersNow as prod49, supplyShare as share49 } from '../src/sim/trade';
+import { raiseMilTech as raise49 } from '../src/sim/military';
+import { fiscalNow as fiscal49 } from '../src/sim/economy';
+describe('round 49: the economy counts what is real', () => {
+  it("chip output belongs to the land: conquer a maker's regions and you make its chips", () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    const tw = s.countries[id('Taiwan')], cn = s.countries[id('China')];
+    const before = share49(cn, 'chips', s), tw0 = share49(tw, 'chips', s);
+    expect(tw0).toBeGreaterThan(0.3);
+    const half = tw.provinces.filter((p) => p !== tw.capital).slice(0, Math.ceil(tw.provinces.length / 2));
+    for (const p of half) transfer49(s, geo, p, cn.id);
+    expect(share49(cn, 'chips', s)).toBeGreaterThan(before);
+    expect(share49(tw, 'chips', s)).toBeLessThan(tw0);
+    expect(prod49(s, 'chips').reduce((t, [, x]) => t + x, 0)).toBeCloseTo(prod49({ ...s, tick: s.tick + 1 } as GameState, 'chips').reduce((t, [, x]) => t + x, 0), 6); // nothing vanishes
+  });
+  it('a lasting gain in arms technology lasts', () => {
+    const s = fresh('Poland', { randomEvents: false });
+    const c = s.countries[s.player];
+    run(s, 4);
+    const m0 = c.mil.milTech;
+    raise49(c, 6);
+    run(s, 104);
+    expect(c.mil.milTech).toBeGreaterThan(m0 + 3);
+  });
+  it("the treasury report counts export earnings and a sphere's tribute", () => {
+    const s = fresh('Poland', { randomEvents: false });
+    const c = s.countries[s.player];
+    const r0 = fiscal49(c, s).revenue;
+    c.eco.prev.exportInc = 1e9; c.eco.prev.sphereInc = 5e8;
+    expect(fiscal49(c, s).revenue).toBeCloseTo(r0 + 1.5e9, -3);
+  });
+});

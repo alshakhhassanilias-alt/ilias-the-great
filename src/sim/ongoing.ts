@@ -54,7 +54,10 @@ export function stepOngoing(s: GameState) {
     if (gdp <= 0) continue;
     const aid = 0.0015 * gdp / 52; // about 0.15% of the sponsors' GDP a year
     T.mil.equipArmy += aid * 0.7; T.mil.equipAir += aid * 0.3;
-    T.mil.exhaustion = Math.max(0, T.mil.exhaustion - (0.25 / 52) * Math.min(1, gdp / 2e13));
+    // aid eases the strain, but cannot erase years of war: it takes less off than the war adds, and never below a floor
+    // that rises with the war's length (it used to take more off than the war added, so the war could never end)
+    const years = (s.tick - w.start) / 52;
+    T.mil.exhaustion = Math.max(Math.min(0.6, 0.12 * years), T.mil.exhaustion - (0.12 / 52) * Math.min(1, gdp / 2e13));
     if (s.tick % 52 === 26) logEvent(s, `📦 ${T.name}'s partners deliver another year of weapons and ammunition (about $${((aid * 52) / 1e9).toFixed(0)}B).`, 'war', [sp.to], sp.to === s.player || sp.by.includes(s.player));
   }
 }

@@ -5,6 +5,7 @@
 import type { Geo } from './geo';
 import { clamp, fmtMoney } from './util';
 import { fund } from './actions';
+import { bumpSupply } from './supply';
 import type { Country, GameState, ProvId } from './types';
 
 export type BType = 'fort' | 'airbase' | 'port' | 'factory' | 'barracks' | 'depot';
@@ -50,17 +51,18 @@ export function build(s: GameState, geo: Geo, cid: number, p: ProvId, t: BType):
   const f = fund(s, cid, cost, 'Construction');
   if (!f.ok) return f;
   s.bld[key(p, t)] = lvl + 1;
+  if (t === 'depot' || t === 'port') bumpSupply(); // (a new depot used to lift an encirclement only the next week)
   if (t === 'factory') c.eco.capital += (0.005 * c.eco.realGdp);
   recount(s, [cid]);
   return { ok: true, message: `${BDEF[t].label} level ${lvl + 1} built in ${geo.provinces[p].name} for ${fmtMoney(cost)}. ${f.message}` };
 }
 
 /** Called when a province changes hands: buildings are captured damaged; factories carry their capital with them. */
-export function transferBuildings(s: GameState, p: ProvId, from: number, to: number) {
+export function transferBuildings(s: GameState, p: ProvId, from: number, to: number, peaceful = false) {
   for (const t of BTYPES) {
     const lvl = levelOf(s, p, t);
     if (!lvl) continue;
-    const next = Math.max(0, lvl - 1); // war damage
+    const next = peaceful ? lvl : Math.max(0, lvl - 1); // war damage (a union or an independence hands them over intact)
     s.bld[key(p, t)] = next;
     // (the factory's capital moves with the region's share of capital in transferProvince: moving it here too counted it twice)
   }

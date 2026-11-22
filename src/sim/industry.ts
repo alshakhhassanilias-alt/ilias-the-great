@@ -21,6 +21,7 @@ import { logEvent } from './log';
 import { fund } from './actions';
 import { ensureResearch } from './research';
 import type { Country, GameState } from './types';
+import { raiseMilTech } from './military';
 
 export type SectorId = 'agri' | 'energy' | 'mining' | 'heavy' | 'manuf' | 'tech' | 'arms' | 'services';
 export const SECTORS: { id: SectorId; icon: string; name: string; maker: string; w: number; desc: string; payoff: string; branch: number; costK: number }[] = [
@@ -176,7 +177,7 @@ function levelUp(s: GameState, c: Country, id: SectorId, amount: number) {
     case 'agri': e.foodCap *= 1 + 0.06 * amount; break;
     case 'energy': e.energyCap *= 1 + 0.06 * amount; break;
     case 'heavy': e.infra = clamp(e.infra + 1 * amount, 5, 100); e.capital *= 1 + 0.01 * amount; break;
-    case 'tech': e.tech = clamp(e.tech + 1 * amount, 5, 100); c.mil.milTech = clamp(c.mil.milTech + 0.5 * amount, 0, 140); break;
+    case 'tech': e.tech = clamp(e.tech + 1 * amount, 5, 100); raiseMilTech(c, 0.5 * amount); break;
     case 'services': e.collection = clamp(e.collection + 0.005 * amount, 0.3, 1); break;
     default: break;
   }

@@ -23,7 +23,7 @@ import { logEvent } from './log';
 import { fund } from './actions';
 import { strength } from './military';
 import { airSuperiority, attackCandidates, transferProvince } from './war';
-import { supplyNet } from './supply';
+import { isPocket } from './supply';
 import { bumpSupport } from './warsupport';
 import { gtrait, stars } from './generals';
 import { warSideOf } from './relations';
@@ -74,7 +74,7 @@ export function opTargets(s: GameState, geo: Geo): { prov: number; name: string;
       if (seen.has(cd.prov)) continue;
       seen.add(cd.prov);
       const e = s.owner[cd.prov], E = s.countries[e];
-      const pocket = supplyNet(s, geo, e).dist[cd.prov] === Infinity;
+      const pocket = isPocket(s, geo, cd.prov);
       const kind: OpKind = cd.prov === E.capital ? 'capital' : cd.amphibious ? 'landing' : pocket ? 'encircle' : 'seize';
       const f = w.fronts.find((x) => x.prov === cd.prov && x.by === P.id);
       out.push({ prov: cd.prov, name: provName(cd.prov), kind, war: w, enemy: e, progress: f?.progress ?? 0 });
@@ -231,7 +231,11 @@ export function stepOperations(s: GameState, geo: Geo) {
   const prog = f?.progress ?? 0;
   const p = o.kind === 'hold' ? clamp(1 - prog * 0.9, 0.1, 0.95) : clamp(o.est * 0.55 + prog * 0.6, 0.03, 0.92);
   const won = nextRand(s) < p;
-  if (won && o.kind !== 'hold' && w.attackers.concat(w.defenders).includes(s.owner[o.target]) && warSideOf(w, s.owner[o.target]) !== warSideOf(w, P.id) && warSideOf(w, P.id) >= 0) transferProvince(s, geo, o.target, P.id);
+  if (won && o.kind !== 'hold' && w.attackers.concat(w.defenders).includes(s.owner[o.target]) && warSideOf(w, s.owner[o.target]) !== warSideOf(w, P.id) && warSideOf(w, P.id) >= 0) {
+    const from = s.owner[o.target];
+    const f = transferProvince(s, geo, o.target, P.id);
+    w.gained[P.id] = (w.gained[P.id] ?? 0) + f; w.lost[from] = (w.lost[from] ?? 0) + f; (w.taken ??= {})[P.id] = (w.taken[P.id] ?? 0) + 1;
+  }
   finish(s, o, won);
 }
 
@@ -243,8 +247,8 @@ function finish(s: GameState, o: Operation, won: boolean) {
   const place = provName(o.target);
   if (won) {
     bumpSupport(P, o.kind === 'capital' ? 0.08 : o.kind === 'landing' ? 0.05 : 0.04);
-    if (o.kind === 'encircle') { const kill = E.mil.troops * 0.08; E.mil.troops -= kill; E.mil.casualties += kill; }
-    if (o.kind === 'hold') { const kill = E.mil.troops * 0.04; E.mil.troops -= kill; E.mil.casualties += kill; const w = warOf(s, o); if (w) for (const f of w.fronts) if (f.prov === o.target && f.by !== P.id) f.progress = 0; }
+    if (o.kind === 'encircle') { const kill = E.mil.troops * 0.08; E.mil.troops -= kill; E.mil.casualties += kill; const w = warOf(s, o); if (w) w.casualties[E.id] = (w.casualties[E.id] ?? 0) + kill; }
+    if (o.kind === 'hold') { const kill = E.mil.troops * 0.04; E.mil.troops -= kill; E.mil.casualties += kill; const w = warOf(s, o); if (w) w.casualties[E.id] = (w.casualties[E.id] ?? 0) + kill; if (w) for (const f of w.fronts) if (f.prov === o.target && f.by !== P.id) f.progress = 0; }
     if (g) { g.xp += 20; g.wins++; }
     const what = o.kind === 'encircle' ? `the pocket at ${place} is destroyed` : o.kind === 'hold' ? `the line at ${place} held, and the enemy bled for it` : o.kind === 'landing' ? `a beachhead at ${place}` : o.kind === 'capital' ? `${place} has fallen` : `${place} is taken`;
     o.beats.push({ tick: s.tick, text: `Success: ${what}.`, tone: 'good' });

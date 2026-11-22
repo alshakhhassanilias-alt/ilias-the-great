@@ -9,7 +9,7 @@
  * Every demand makes the deal harder to accept (it adds to what the other side needs before saying yes).
  */
 import type { CountryId, GameState } from './types';
-import { addRelation, alliesOf, ensureTreaty, getRelation, touchTreaties } from './relations';
+import { addRelation, alliesOf, capitalLost, ensureTreaty, getRelation, touchTreaties } from './relations';
 import { leaveOrg } from './alignment';
 import { crownLeader } from './leaders';
 import { record } from './treasury';
@@ -39,7 +39,7 @@ export function extraBlocked(s: GameState, x: PeaceExtra, a: CountryId, b: Count
   if (x === 'leave_alliances' && !alliesOf(s, b).length && !(s.orgs ?? []).some((o) => o.kind === 'defence' && o.members.includes(b))) return 'They have no allies';
   if (x === 'friendly_gov' && b === s.player) return 'Not possible against you';
   if (x === 'apology' && s.wars.some((w) => w.attackers[0] === a && w.defenders.includes(b))) return 'You started this war';
-  if (x === 'friendly_gov' && B.provinces.includes(B.capital) && B.mil.exhaustion < 0.6) return 'Only when their capital has fallen or they are exhausted';
+  if (x === 'friendly_gov' && !capitalLost(s, B) && B.mil.exhaustion < 0.6) return 'Only when their capital has fallen or they are exhausted';
   if (x === 'demilitarise' && s.peaceDeals?.some((d) => d.kind === 'demil' && d.b === b && d.until > s.tick)) return 'Already demilitarised';
   void a;
   return null;

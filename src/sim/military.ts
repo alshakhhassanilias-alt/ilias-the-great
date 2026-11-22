@@ -19,7 +19,14 @@ export const techMult = (m: Country['mil']) => 0.6 + 0.8 * (m.milTech / 100);
 export const landPower = (m: Country['mil'], troops = m.troops) => troops * quality(m) * techMult(m);
 export const airPower = (m: Country['mil']) => m.equipAir * techMult(m);
 export const navalPower = (m: Country['mil']) => m.equipNavy * techMult(m);
-export const manpower = (c: Country) => Math.max(0, c.eco.laborForce * (0.22 + 0.005 * c.mil.bld.barracks) * mods(c).manpower - c.mil.troops);
+export const manpower = (c: Country) => Math.max(0, c.eco.laborForce * (0.22 + Math.min(0.04, 0.005 * c.mil.bld.barracks)) * mods(c).manpower - c.mil.troops);
+
+/** A lasting gain in military technology (research, industry, development): it raises the level the forces are pulled
+ *  toward, not only today's (one-off gains used to fade back within about two years). */
+export function raiseMilTech(c: Country, x: number) {
+  c.mil.milTech = clamp(c.mil.milTech + x, 0, 140);
+  c.eco.prev.milEdge = (c.eco.prev.milEdge ?? 0) + x;
+}
 
 /** Single comparable strength number ("troop equivalents"). */
 export function strength(c: Country): number {
@@ -59,7 +66,12 @@ export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: numb
 
   let proc = Math.max(0, avail - paid);
   if (m.warEconomy) {
-    if (isAtWar(s, c.id)) { proc *= 1.6; e.stability = Math.max(0, e.stability - 0.03); e.monetary += 0.0004; }
+    if (isAtWar(s, c.id)) {
+      // the factories turn to arms: 60% more equipment, paid for from the treasury (it used to come free)
+      const extra = proc * 0.6;
+      proc += extra; e.cash -= extra * e.price;
+      if (!c.mob) { e.stability = Math.max(0, e.stability - 0.03); e.monetary += 0.0004; } // (a mobilised country pays these in warmode.ts)
+    }
     else m.warEconomy = false; // war footing ends with the war
   }
   const mix = b.milArmy + b.milAir + b.milNavy || 1;
@@ -76,7 +88,7 @@ export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: numb
   const intelTarget = clamp(0.1 + e.tech / 200 + 90 * b.intel, 0.05, 0.95);
   m.intel += (intelTarget - m.intel) * 0.05;
   m.milTech += (e.tech + (e.prev.milEdge ?? 0) - m.milTech) * 0.01 + 0.5 * DT * (proc / Math.max(equipTotal(m), 1));
-  m.milTech = clamp(m.milTech, 5, 110);
+  m.milTech = clamp(m.milTech, 5, 140); // (the same ceiling as research and industry boosts: it used to clip them to 110)
   m.supply = clamp(0.3 + 0.5 * (e.infra / 100) + 0.2 * (e.tech / 100), 0.2, 1);
   if (!isAtWar(s, c.id)) m.exhaustion = Math.max(0, m.exhaustion - 0.004);
   return { total: b.military * e.gdp };

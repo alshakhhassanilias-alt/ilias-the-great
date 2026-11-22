@@ -10,7 +10,7 @@
  */
 import type { Geo } from './geo';
 import type { CountryId, Country, GameState, ProvId } from './types';
-import { alliesOf, warsOf, warSideOf } from './relations';
+import { alliesOf, treatyVersion, warsOf, warSideOf } from './relations';
 import { levelOf } from './buildings';
 import { clamp } from './util';
 
@@ -27,6 +27,8 @@ export interface SupplyNet {
   reach: number;
   /** logistics capacity 0..1 (infrastructure, tech, blockade, war footing) */
   capacity: number;
+  /** (built on first use) */
+  pocketSet?: Set<ProvId>;
 }
 
 let ownVer = 0;
@@ -47,10 +49,14 @@ export function neighbours(geo: Geo): number[][] {
 
 /** Home regions that are not connected by land to the main body of the country (islands without a
  *  coastline flag, exclaves, regions joined only through a neighbour): each gets its own local depot. */
-const exclaveCache = new WeakMap<Geo, Map<CountryId, ProvId[]>>();
+// per game, and rebuilt whenever a nation's home regions change (s.stats.coreVer: assimilation, new nations, unions);
+// it used to be kept per map for ever, across new games, loaded saves and changed borders
+const exclaveCache = new WeakMap<GameState, { ver: number; m: Map<CountryId, ProvId[]> }>();
 function exclaveHubs(s: GameState, geo: Geo, cid: CountryId): ProvId[] {
-  let m = exclaveCache.get(geo);
-  if (!m) { m = new Map(); exclaveCache.set(geo, m); }
+  const ver = s.stats.coreVer ?? 0;
+  let e = exclaveCache.get(s);
+  if (!e || e.ver !== ver) { e = { ver, m: new Map() }; exclaveCache.set(s, e); }
+  const m = e.m;
   const hit = m.get(cid);
   if (hit) return hit;
   const nb = neighbours(geo);
@@ -64,7 +70,11 @@ function exclaveHubs(s: GameState, geo: Geo, cid: CountryId): ProvId[] {
     for (let i = 0; i < comp.length; i++) for (const q of nb[comp[i]]) if (set.has(q) && !seen.has(q)) { seen.add(q); comp.push(q); }
     comps.push(comp);
   }
+  // every landmass except the one the capital stands on gets a local depot (it used to skip the largest instead)
+  const cap = s.countries[cid]?.capital;
   comps.sort((a, b) => b.length - a.length);
+  const ci = comps.findIndex((cp) => cp.includes(cap));
+  if (ci > 0) comps.unshift(comps.splice(ci, 1)[0]);
   const out = comps.slice(1).map((comp) => comp.reduce((best, q) => (geo.provinces[q].w > geo.provinces[best].w ? q : best), comp[0]));
   m.set(cid, out);
   return out;
@@ -85,6 +95,9 @@ function friendlySet(s: GameState, cid: CountryId): Set<CountryId> {
   const out = new Set<CountryId>([cid]);
   for (const a of alliesOf(s, cid)) out.add(a);
   for (const w of warsOf(s, cid)) for (const x of warSideOf(w, cid) === 0 ? w.attackers : w.defenders) out.add(x);
+  // a co-belligerent in one war can be an enemy in another: never run convoys through an enemy's land
+  for (const w of warsOf(s, cid)) for (const x of warSideOf(w, cid) === 0 ? w.defenders : w.attackers) out.delete(x);
+  out.add(cid);
   return out;
 }
 
@@ -113,12 +126,16 @@ export const stepCost = (s: GameState, geo: Geo, p: ProvId, q: ProvId) =>
   geo.dist(p, q) * (1 + 0.6 * geo.provinces[q].terrain) * (s.core[q] !== s.owner[q] ? ((s.stats[`partisans:${s.core[q]}`] ?? -1) > s.tick ? 2.6 : s.integ[q] < 0.5 ? 1.8 : 1) : 1);
 
 export function supplyNet(s: GameState, geo: Geo, cid: CountryId): SupplyNet {
-  const key = `${s.tick}|${ownVer}|${s.wars.length}`;
+  // (who is fighting on which side and the treaties matter too: allies joining a war, a separate peace, a new alliance)
+  let side = 0;
+  for (const w of s.wars) side = (side * 31 + w.id * 7 + w.attackers.length * 3 + w.defenders.length) | 0;
+  const key = `${s.tick}|${ownVer}|${side}|${treatyVersion(s)}`;
   let cache = caches.get(s);
   if (!cache) { cache = new Map(); caches.set(s, cache); }
-  const hit = cache.get(cid);
-  if (hit && hit.key === key) return hit;
   const c = s.countries[cid];
+  const hit = cache.get(cid);
+  // capacity is read fresh: the interface can ask in the middle of a week, before the economy has updated everyone
+  if (hit && hit.key === key) { hit.capacity = supplyCapacity(c); return hit; }
   const n = geo.provinces.length;
   const friends = friendlySet(s, cid);
   const nb = neighbours(geo);
@@ -200,7 +217,7 @@ export const supplyFromCost = (d: number, reach: number) => clamp(1.08 - 0.5 * M
 /** Supply of a land attack from c's network into province q (0 if no friendly neighbour). Also returns the province it is launched from. */
 export function landSupply(s: GameState, geo: Geo, net: SupplyNet, q: ProvId): { supply: number; from: ProvId; cost: number } {
   let best = Infinity, from = -1;
-  for (const p of geo.adj[q]) {
+  for (const p of neighbours(geo)[q]) {
     if (net.dist[p] === Infinity) continue;
     const d = net.dist[p] + 0.5 * geo.dist(p, q);
     if (d < best) { best = d; from = p; }
@@ -217,11 +234,14 @@ export function supplyPath(net: SupplyNet, p: ProvId, max = 60): ProvId[] {
   return out;
 }
 
+/** Is p an encircled region: cut off from supply and touching the enemy? (One definition for combat, the AI, operations
+ *  and the interface: a remote island far from the fighting is not encircled.) */
 export function isPocket(s: GameState, geo: Geo, p: ProvId): boolean {
   const o = s.owner[p];
   const c = s.countries[o];
   if (!c?.alive || !warsOf(s, o).length) return false;
-  return supplyNet(s, geo, o).dist[p] === Infinity;
+  const net = supplyNet(s, geo, o);
+  return (net.pocketSet ??= new Set(net.pocket)).has(p);
 }
 
 /** Where a new supply hub would help most: behind the player's worst-supplied land offensive. */

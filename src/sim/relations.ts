@@ -4,7 +4,7 @@ import {
 } from '../data/countryData';
 import { hash01 } from './rng';
 import { clamp } from './util';
-import type { CountryId, GameState, Treaty, War } from './types';
+import type { CountryId, GameState, ProvId, Treaty, War } from './types';
 
 export const NAME_TO_ID: Record<string, number> = {};
 COUNTRY_BASE.forEach((c, i) => { NAME_TO_ID[c.name] = i; });
@@ -38,6 +38,17 @@ export const pairOf = (k: string): [number, number] => {
   if (!v) { const i = k.indexOf('-'); v = [Number(k.slice(0, i)), Number(k.slice(i + 1))]; PAIRS.set(k, v); }
   return v;
 };
+
+/**
+ * Has `c` lost its capital to an enemy? When a capital falls the government moves (transferProvince), so "is the capital
+ * among its regions" is always true: the historic seat is remembered instead (`seat:<id>`), until it is retaken.
+ */
+export const capitalLost = (s: GameState, c: { id: CountryId }): boolean => {
+  const seat = s.stats[`seat:${c.id}`];
+  return seat !== undefined && s.owner[seat] !== c.id;
+};
+/** The capital a country will return to once it is retaken (its current one if it never fell). */
+export const historicCapital = (s: GameState, c: { id: CountryId; capital: ProvId }): ProvId => s.stats[`seat:${c.id}`] ?? c.capital;
 
 export function getTreaty(s: GameState, a: CountryId, b: CountryId): Treaty | undefined {
   return s.treaties[pairKey(a, b)];
