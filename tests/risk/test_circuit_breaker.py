@@ -13,7 +13,7 @@ def cb(persist=None):
 
 
 def test_daily_drawdown_breach_halts_and_requires_authorization():
-    b, ev = cb()
+    b, _ev = cb()
     b.update_equity(D1, 100_000)
     out = b.update_equity(D1 + pd.Timedelta(hours=1), 96_900)
     assert out and out[0].action is BreakerAction.HALT_AND_FLATTEN

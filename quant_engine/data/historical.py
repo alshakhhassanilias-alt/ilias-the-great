@@ -69,9 +69,8 @@ class HistoricalDownloader:
         empty_advances = 0
         while cursor < until_ms:
             # Bind loop variable explicitly for the retry closure.
-            rows = with_retries(
-                lambda c=cursor: self.exchange.fetch_ohlcv(symbol, timeframe, since=c, limit=self.limit)
-            )
+            since = cursor
+            rows = with_retries(lambda: self.exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=self.limit))
             if not rows:
                 # Possible exchange outage longer than one page: skip ahead, never invent data.
                 cursor += step * self.limit
@@ -164,7 +163,8 @@ def download_okx_funding_recent(okx: ccxt.Exchange, swap_symbol: str) -> pd.Data
     until: int | None = None
     for _ in range(10):
         params = {"after": until} if until else {}
-        batch = with_retries(lambda p=params: okx.fetch_funding_rate_history(swap_symbol, limit=100, params=p))
+        req = dict(params)
+        batch = with_retries(lambda: okx.fetch_funding_rate_history(swap_symbol, limit=100, params=req))
         if not batch:
             break
         rows.extend(batch)

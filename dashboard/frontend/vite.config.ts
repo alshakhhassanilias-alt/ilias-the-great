@@ -18,7 +18,7 @@ export default defineConfig({
     assetsDir: "assets",
     sourcemap: false,
     // plotly.js-dist-min is a single ~3.5 MB pre-minified bundle; keep it in its own chunk.
-    chunkSizeWarningLimit: 4000,
+    chunkSizeWarningLimit: 5000,
     rollupOptions: {
       output: {
         manualChunks: { plotly: ["plotly.js-dist-min"] },

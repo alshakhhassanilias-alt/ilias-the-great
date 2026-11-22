@@ -117,7 +117,8 @@ def write_markdown_reports(out: Path, r: dict[str, Any]) -> None:
     # ---------------- Monte Carlo
     mc = r["monte_carlo"]
     M = ["# Monte Carlo Stress-Test Report\n",
-         f"Portfolio simulated: **{mc['portfolio']}** ({'QUALIFIED' if mc['qualified'] else 'NOT QUALIFIED — no strategy was promoted; simulated to characterise risk only'}).\n",
+         f"Portfolio simulated: **{mc['portfolio']}** = {', '.join(mc.get('members', []))} "
+         f"({'QUALIFIED' if mc['qualified'] else 'NOT QUALIFIED — no strategy was promoted; simulated to characterise risk only'}).\n",
          f"Paths per scenario: {mc['config']['n_sims']}, seed {mc['config']['seed']}, horizon ≈ 1 year "
          f"({mc['config']['horizon_days']} days / {mc['config']['horizon_trades']} trades). Ruin = equity ≤ "
          f"{mc['config']['ruin_level']:.0%} of start; daily breach = a day (or trade) losing ≥ {mc['config']['daily_dd_limit']:.0%}; "

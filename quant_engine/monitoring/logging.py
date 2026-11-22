@@ -87,7 +87,7 @@ def setup_logging(name: str = "quant_engine", level: int = logging.INFO, log_dir
     sh.setFormatter(fmt)
     sh.addFilter(filt)
     root.addHandler(sh)
-    d = Path(log_dir or os.environ.get("LOG_DIR", Path(__file__).resolve().parents[2] / "logs"))
+    d = Path(str(log_dir or os.environ.get("LOG_DIR") or Path(__file__).resolve().parents[2] / "logs"))
     d.mkdir(parents=True, exist_ok=True)
     fh = logging.handlers.RotatingFileHandler(d / f"{name}.jsonl", maxBytes=20_000_000, backupCount=5)
     fh.setFormatter(fmt)

@@ -154,6 +154,12 @@ class BacktestEngine:
                     self.corr[(a, b)] = cc
                     self.corr[(b, a)] = cc
 
+    def _corr_at(self, i: int) -> Callable[[str, str], float | None]:
+        def corr(a: str, b: str) -> float | None:
+            arr = self.corr.get((a, b))
+            return None if arr is None else float(arr[i])
+        return corr
+
     # ------------------------------------------------------------------ main loop
     def run(self, runs: list[StrategyRun], start: pd.Timestamp | None = None,
             end: pd.Timestamp | None = None, risk_state: RiskState | None = None) -> BacktestResult:
@@ -181,13 +187,12 @@ class BacktestEngine:
                 for k, row in zip(pos_idx, act.itertuples(), strict=True):
                     if k >= 0:
                         schedule.setdefault(int(k), []).append((r_i, sym, row))
-        weights_cache: dict[int, Callable[[str, int], float]] = {}
-        for r_i, run in enumerate(runs):
-            w = run.weight
+        def _weight_fn(w: float | dict[str, np.ndarray]) -> Callable[[str, int], float]:
             if isinstance(w, dict):
-                weights_cache[r_i] = (lambda s, i, w=w: float(w[s][i]) if s in w else 0.0)
-            else:
-                weights_cache[r_i] = (lambda s, i, w=w: float(w))
+                return lambda s, i: float(w[s][i]) if s in w else 0.0
+            return lambda s, i: float(w)
+
+        weights_cache: dict[int, Callable[[str, int], float]] = {r_i: _weight_fn(run.weight) for r_i, run in enumerate(runs)}
         run_tf = {r_i: timeframe_delta(r.timeframe) for r_i, r in enumerate(runs)}
 
         pending: list[_Pending] = []
@@ -224,42 +229,42 @@ class BacktestEngine:
             last_day = day
 
             # 1. pending orders at the open (exits first)
-            pending.sort(key=lambda p: 0 if p.intent is not OrderIntent.ENTRY else 1)
+            pending.sort(key=lambda po: 0 if po.intent is not OrderIntent.ENTRY else 1)
             carry: list[_Pending] = []
-            for p in pending:
-                pos = ledger.position(p.strategy_id, p.symbol)
-                bar = bar_of(p.symbol, i)
+            for po in pending:
+                pos = ledger.position(po.strategy_id, po.symbol)
+                bar = bar_of(po.symbol, i)
                 if not np.isfinite(bar.open):
-                    carry.append(p)
+                    carry.append(po)
                     continue
-                if p.intent is OrderIntent.ENTRY:
+                if po.intent is OrderIntent.ENTRY:
                     if rm.state.halted:
                         continue  # cancelled by halt
-                    res = sim.fill_market(p.symbol, p.side, float(p.qty or 0), bar, self.arr[p.symbol].sigma_bps[i])
+                    res = sim.fill_market(po.symbol, po.side, float(po.qty or 0), bar, self.arr[po.symbol].sigma_bps[i])
                     if res.fill is None:
                         n_exch_reject += 1
                         continue
                     if res.remaining > 1e-12:
                         n_partial += 1  # entry remainder cancelled
-                    apply(p.side, p.strategy_id, p.symbol, res.fill, ts_open, OrderIntent.ENTRY, "")
-                    pos.stop_loss, pos.take_profit, pos.trailing_stop_distance = p.stop, p.tp, p.trail
+                    apply(po.side, po.strategy_id, po.symbol, res.fill, ts_open, OrderIntent.ENTRY, "")
+                    pos.stop_loss, pos.take_profit, pos.trailing_stop_distance = po.stop, po.tp, po.trail
                     pos.highest_price = pos.lowest_price = res.fill.price
-                    pos.entry_signal_id = p.signal_id
-                    pos.max_hold_until = ts_open + p.hold if p.hold is not None else None
+                    pos.entry_signal_id = po.signal_id
+                    pos.max_hold_until = ts_open + po.hold if po.hold is not None else None
                 else:
                     q = abs(pos.quantity)
                     if q <= 1e-12:
                         continue
                     side = Side.SELL if pos.quantity > 0 else Side.BUY
-                    res = sim.fill_market(p.symbol, side, q, bar, self.arr[p.symbol].sigma_bps[i])
+                    res = sim.fill_market(po.symbol, side, q, bar, self.arr[po.symbol].sigma_bps[i])
                     if res.fill is None:
-                        carry.append(p)  # exits are retried
+                        carry.append(po)  # exits are retried
                         n_exch_reject += 1
                         continue
-                    apply(side, p.strategy_id, p.symbol, res.fill, ts_open, p.intent, p.reason)
+                    apply(side, po.strategy_id, po.symbol, res.fill, ts_open, po.intent, po.reason)
                     if res.remaining > 1e-12:
                         n_partial += 1
-                        carry.append(p)
+                        carry.append(po)
             pending = carry
 
             # 2. funding settlements in (open, close]
@@ -296,11 +301,11 @@ class BacktestEngine:
                     done = True
                 if not done:
                     update_trailing_stop(p, bar.high, bar.low)
-                    if p.max_hold_until is not None and ts_close >= p.max_hold_until:
-                        if not any(x.strategy_id == p.strategy_id and x.symbol == p.symbol and x.intent is not OrderIntent.ENTRY
-                                   for x in pending):
-                            pending.append(_Pending(p.strategy_id, p.symbol, exit_side, None, OrderIntent.EXIT,
-                                                    reason="time_stop"))
+                    already_exiting = any(x.strategy_id == p.strategy_id and x.symbol == p.symbol
+                                          and x.intent is not OrderIntent.ENTRY for x in pending)
+                    if p.max_hold_until is not None and ts_close >= p.max_hold_until and not already_exiting:
+                        pending.append(_Pending(p.strategy_id, p.symbol, exit_side, None, OrderIntent.EXIT,
+                                                reason="time_stop"))
 
             # 4. mark to market + liquidation check
             marks = {s: float(a.c[i]) for s, a in self.arr.items() if np.isfinite(a.c[i])}
@@ -328,7 +333,7 @@ class BacktestEngine:
             if self.enforce:
                 for ev in rm.on_equity(ts_close, equity):
                     if ev.action is BreakerAction.HALT_AND_FLATTEN:
-                        pending = [p for p in pending if p.intent is not OrderIntent.ENTRY]
+                        pending = [x for x in pending if x.intent is not OrderIntent.ENTRY]
                         for p in ledger.open_positions():
                             pending.append(_Pending(p.strategy_id, p.symbol,
                                                     Side.SELL if p.quantity > 0 else Side.BUY, None,
@@ -374,8 +379,7 @@ class BacktestEngine:
                 view = PortfolioView(equity, marks, view_positions)
                 w = weights_cache[r_i](sym, i)
                 dec = rm.evaluate(sig, view, atr=float(self.arr[sym].atr[i]), weight=w,
-                                  corr_fn=lambda a, b, i=i: float(self.corr[(a, b)][i]) if (a, b) in self.corr else None,
-                                  kelly=run.kelly)
+                                  corr_fn=self._corr_at(i), kelly=run.kelly)
                 if dec.approved:
                     n_approved += 1
                     hold = run_tf[r_i] * int(row.hold_bars) if int(row.hold_bars) > 0 else None

@@ -83,7 +83,7 @@ class PaperBroker(Broker):
             order.reject_reason = res.reason
             return None
         f = res.fill
-        seq = int(round(order.filled_quantity * 1e8))
+        seq = round(order.filled_quantity * 1e8)
         return Fill(f"{order.client_order_id}-{seq}", order.client_order_id, order.symbol, order.side, f.quantity,
                     f.price, f.fee, pd.Timestamp.now(tz="UTC"), f.liquidity, f.slippage_bps, order.strategy_id,
                     order.intent)
@@ -198,7 +198,7 @@ class PaperBroker(Broker):
                         qty = min(qty, abs(self.ledger.position(o.strategy_id, o.symbol).quantity))
                     if qty > 0:
                         fee = qty * limit * self.costs.maker_fee
-                        seq = int(round(o.filled_quantity * 1e8))
+                        seq = round(o.filled_quantity * 1e8)
                         fill = Fill(f"{o.client_order_id}-{seq}", o.client_order_id, o.symbol, o.side, qty, limit, fee,
                                     pd.Timestamp.now(tz="UTC"), "maker", 0.0, o.strategy_id, o.intent)
             if fill is None:

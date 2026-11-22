@@ -1,0 +1,28 @@
+# Local deployment. The dashboard port is bound to 127.0.0.1 on the host only:
+# never publish it to the internet; use an SSH tunnel / VPN / TLS reverse proxy with auth.
+services:
+  quant-engine:
+    build: .
+    image: quant-engine:0.1.0
+    env_file: .env
+    environment:
+      PAPER_MODE: "true"
+      LIVE_TRADING_ENABLED: "false"
+      DASHBOARD_HOST: "0.0.0.0"          # inside the container; host binding below is loopback-only
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./var:/app/var                    # SQLite database + market-data cache (persisted)
+      - ./artifacts:/app/artifacts        # research reports read by the dashboard
+      - ./logs:/app/logs
+    restart: unless-stopped
+    stop_grace_period: 30s               # graceful shutdown persists state
+    read_only: false
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+  research:
+    image: quant-engine:0.1.0
+    profiles: ["research"]
+    env_file: .env
+    volumes: ["./var:/app/var", "./artifacts:/app/artifacts", "./logs:/app/logs"]
+    command: ["sh", "-c", "python scripts/download_data.py && python scripts/run_walk_forward.py"]

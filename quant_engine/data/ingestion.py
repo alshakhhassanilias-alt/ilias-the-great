@@ -53,7 +53,7 @@ class LiveMarketFeed:
         self.bars: dict[str, dict[str, pd.DataFrame]] = {s: {} for s in symbols}
         self.book_features: dict[str, dict[str, Any]] = {}
 
-    async def _call(self, fn, *args, **kwargs):  # noqa: ANN001
+    async def _call(self, fn, *args, **kwargs):
         delay = 0.5
         for attempt in range(self.max_retries):
             t0 = time.perf_counter()

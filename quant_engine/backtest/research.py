@@ -27,8 +27,8 @@ from quant_engine.backtest.metrics import (
 )
 from quant_engine.backtest.monte_carlo import MCConfig, run_monte_carlo, summarize
 from quant_engine.backtest.walk_forward import (
-    Window,
     WalkForwardRunner,
+    Window,
     WindowResult,
     build_windows,
     equity_from_returns,
@@ -110,7 +110,7 @@ def aggregate_strategy(name: str, results: list[WindowResult], n_total_trials: i
         "exposure_time_fraction": float(np.mean([r.test_summary.get("exposure_time_fraction", 0.0) for r in results])),
         "avg_gross_exposure": float(np.mean([r.test_summary.get("avg_gross_exposure", 0.0) for r in results])),
     })
-    sr, lo, hi = bootstrap_ci(daily.to_numpy(), lambda x: sharpe(x), cfg.research.bootstrap_samples, 10, seed=11)
+    _sr, lo, hi = bootstrap_ci(daily.to_numpy(), lambda x: sharpe(x), cfg.research.bootstrap_samples, 10, seed=11)
     trials = trial_matrix(results)
     trial_sr = trials.apply(lambda c: c.dropna().mean() / c.dropna().std() if c.dropna().std() > 0 else 0.0).to_numpy()
     # Selection-bias adjustment: the variance of OOS Sharpe across this strategy's grid, with the
@@ -126,7 +126,7 @@ def aggregate_strategy(name: str, results: list[WindowResult], n_total_trials: i
         "n_windows": len(results), "windows_flat_no_selection": sum(r.selected_params is None for r in results),
         "stress_net_return": float((1 + stress).prod() - 1) if len(stress) else 0.0,
         "stress_sharpe": sharpe(stress),
-        "oos_days": int(len(daily)),
+        "oos_days": len(daily),
     })
     # per-asset attribution
     per_asset = {}
@@ -237,13 +237,19 @@ def run_research(out_dir: Path, workers: int = 4, strategies: list[str] | None =
 
     # 5. combined portfolios per window (frozen per-window selections)
     combos: dict[str, Any] = {}
-    variants = {"research_all_strategies": False}
+    # research_all_strategies: every strategy, regime-weighted (diagnostic only)
+    # non_rejected_strategies: excludes REJECTED strategies (candidate portfolio, still NOT qualified)
+    # promoted_only: the only deployable portfolio (exists only if something was promoted)
+    non_rejected = [n for n in names if statuses[n] is not ValidationStatus.REJECTED]
+    variants: dict[str, tuple[bool, list[str]]] = {"research_all_strategies": (False, names)}
+    if non_rejected and len(non_rejected) < len(names):
+        variants["non_rejected_strategies"] = (False, non_rejected)
     if any(s is ValidationStatus.PROMOTED for s in statuses.values()):
-        variants["promoted_only"] = True
-    for label, req in variants.items():
+        variants["promoted_only"] = (True, names)
+    for label, (req, members) in variants.items():
         rows, dailies, all_trades = [], [], []
         for w in windows:
-            sel = {n: next(r.selected_params for r in wf[n] if r.window.index == w.index) for n in names}
+            sel = {n: next(r.selected_params for r in wf[n] if r.window.index == w.index) for n in members}
             summ, d, res = combined_window(cfg, md, w, sel, statuses, req, regimes_by_window[w.index])
             rows.append({"window": w.index, "test_start": str(w.test_start.date()), **{k: summ[k] for k in (
                 "net_return", "sharpe", "max_drawdown", "total_trades")}, "breaches": summ["breaches"]})
@@ -255,7 +261,7 @@ def run_research(out_dir: Path, workers: int = 4, strategies: list[str] | None =
         trades = pd.concat(all_trades, ignore_index=True) if all_trades else pd.DataFrame(columns=["pnl"])
         eq = equity_from_returns(daily, cfg.backtest.initial_capital)
         s = performance_summary(eq, trades)
-        sr, lo, hi = bootstrap_ci(daily.to_numpy(), lambda x: sharpe(x), cfg.research.bootstrap_samples, 10, seed=12)
+        _sr, lo, hi = bootstrap_ci(daily.to_numpy(), lambda x: sharpe(x), cfg.research.bootstrap_samples, 10, seed=12)
         s.update({"sharpe_ci_lower": lo, "sharpe_ci_upper": hi,
                   "positive_window_fraction": float(np.mean([r["net_return"] > 0 for r in rows]))})
         combos[label] = {"summary": s, "windows": rows, "_daily": daily, "_trades": trades}
@@ -264,11 +270,11 @@ def run_research(out_dir: Path, workers: int = 4, strategies: list[str] | None =
     oos_start, oos_end = windows[0].test_start, windows[-1].test_end
     closes = {s: md.get(s, "1d")["close"] for s in cfg.research.symbols}
     bench_curves, bench_summ = {}, {}
-    for s, c in closes.items():
-        parts = [daily_returns(buy_and_hold_equity(c, w.test_start, w.test_end, cfg.backtest.costs, s)) for w in windows]
+    for sym, c in closes.items():
+        parts = [daily_returns(buy_and_hold_equity(c, w.test_start, w.test_end, cfg.backtest.costs, sym)) for w in windows]
         bd = pd.concat(parts)
         bd = bd[~bd.index.duplicated()].sort_index()
-        key = f"buy_hold_{s.split('/')[0]}"
+        key = f"buy_hold_{sym.split('/')[0]}"
         bench_curves[key] = equity_from_returns(bd)
         bench_summ[key] = performance_summary(bench_curves[key], pd.DataFrame(columns=["pnl"]))
     bench_summ["cash"] = {"net_return": 0.0, "sharpe": 0.0, "max_drawdown": 0.0, "annualized_return": 0.0}
@@ -277,15 +283,15 @@ def run_research(out_dir: Path, workers: int = 4, strategies: list[str] | None =
 
     # 7. Monte Carlo on the qualified portfolio (or, if none qualifies, on the research portfolio, labelled)
     qualified = "promoted_only" in combos
-    mc_label = "promoted_only" if qualified else "research_all_strategies"
-    mc_windows_trades = []
-    for n in names:
-        if not qualified or statuses[n] is ValidationStatus.PROMOTED:
-            mc_windows_trades.append(trade_returns_for_mc(wf[n]))
+    mc_label = "promoted_only" if qualified else (
+        "non_rejected_strategies" if "non_rejected_strategies" in combos else "research_all_strategies")
+    mc_members = {"promoted_only": [n for n in names if statuses[n] is ValidationStatus.PROMOTED],
+                  "non_rejected_strategies": non_rejected}.get(mc_label, names)
+    mc_windows_trades = [trade_returns_for_mc(wf[n]) for n in mc_members]
     mc_trades = pd.concat(mc_windows_trades, ignore_index=True) if mc_windows_trades else pd.DataFrame(columns=["ret", "cost_ret", "fee_ret"])
-    if not qualified:
-        # Strategy sleeves trade at full standalone risk; scale trade returns by the average research weight.
-        mc_trades = mc_trades * (1.0 / max(len(names), 1))
+    if len(mc_members) > 1:
+        # Standalone sleeves trade at full risk; in the portfolio each gets roughly 1/k of the risk budget.
+        mc_trades = mc_trades * (1.0 / len(mc_members))
     mc_cfg = MCConfig(n_sims=cfg.research.monte_carlo_simulations, block=cfg.research.monte_carlo_block_size,
                       daily_dd_limit=cfg.risk.circuit_breakers.daily_drawdown_limit,
                       total_dd_limit=cfg.risk.circuit_breakers.max_total_drawdown,
@@ -304,8 +310,14 @@ def run_research(out_dir: Path, workers: int = 4, strategies: list[str] | None =
         holdout[n] = {"selected_params": r.selected_params, "note": r.selection_note, **{k: r.test_summary[k] for k in (
             "net_return", "sharpe", "max_drawdown", "total_trades", "profit_factor", "win_rate")}}
     reg_h = fit_regimes(cfg, md, hw.train_start, hw.train_end, last)
-    hsumm, hdaily, _ = combined_window(cfg, md, hw, hold_sel, statuses, False, reg_h)
-    holdout["research_all_strategies"] = {k: hsumm[k] for k in ("net_return", "sharpe", "max_drawdown", "total_trades")}
+    for label, (_req, members) in variants.items():
+        if label == "promoted_only":
+            continue
+        hsumm, _, _ = combined_window(cfg, md, hw, {n: hold_sel[n] for n in members}, statuses, False, reg_h)
+        holdout[f"portfolio:{label}"] = {k: hsumm[k] for k in ("net_return", "sharpe", "max_drawdown", "total_trades")}
+    if "promoted_only" in variants:
+        hsumm, _, _ = combined_window(cfg, md, hw, hold_sel, statuses, True, reg_h)
+        holdout["portfolio:promoted_only"] = {k: hsumm[k] for k in ("net_return", "sharpe", "max_drawdown", "total_trades")}
     hold_bench = {f"buy_hold_{s.split('/')[0]}": float(buy_and_hold_equity(c, holdout_start, last, cfg.backtest.costs, s).pipe(
         lambda e: e.iloc[-1] / e.iloc[0] - 1)) for s, c in closes.items()}
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -334,7 +346,8 @@ def run_research(out_dir: Path, workers: int = 4, strategies: list[str] | None =
         "tournament": {k: v for k, v in tour.items() if not k.startswith("_")},
         "combined": {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")} for k, v in combos.items()},
         "benchmarks": {"stitched_oos": bench_summ, "per_window": bench_windows},
-        "monte_carlo": {"portfolio": mc_label, "qualified": qualified, "summary": summarize(mc), "config": mc["config"]},
+        "monte_carlo": {"portfolio": mc_label, "members": mc_members, "qualified": qualified, "summary": summarize(mc),
+                        "config": mc["config"]},
         "holdout": {"results": holdout, "benchmarks": hold_bench, "access_count": access_n,
                     "window": hw.to_dict()},
         "n_total_trials": n_total_trials,

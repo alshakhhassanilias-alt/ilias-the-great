@@ -87,6 +87,7 @@ class MomentumFlow(Strategy):
             funding = data.funding.get(sym)
             funding_available = funding is not None and not funding.empty and sym in thresholds
             if funding_available:
+                assert funding is not None
                 fr = align_backward(funding["funding_rate"], idx)
                 hi, lo = thresholds[sym]
                 long_e &= ~(fr > hi).fillna(False)

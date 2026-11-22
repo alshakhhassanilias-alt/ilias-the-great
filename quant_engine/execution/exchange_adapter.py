@@ -126,9 +126,10 @@ def protective_params(exchange_id: str, intent: OrderIntent, trigger: float, cli
 
 
 def entry_params(exchange_id: str, client_order_id: str) -> dict[str, Any]:
-    return {"binance": {"newClientOrderId": client_order_id},
+    table: dict[str, dict[str, Any]] = {"binance": {"newClientOrderId": client_order_id},
             "okx": {"clOrdId": client_order_id[:32], "tdMode": "cross"},
-            "bybit": {"orderLinkId": client_order_id, "positionIdx": 0}}[exchange_id]
+            "bybit": {"orderLinkId": client_order_id, "positionIdx": 0}}
+    return dict(table[exchange_id])
 
 
 class CCXTExchangeBroker(Broker):
@@ -174,7 +175,7 @@ class CCXTExchangeBroker(Broker):
                 typ = "limit" if order.order_type is OrderType.LIMIT else "market"
                 existing = self.ex.create_order(sym, typ, order.side.value, order.quantity, order.price, params)
         order.exchange_order_id = str(existing.get("id"))
-        status = existing.get("status")
+        status = str(existing.get("status"))
         order.filled_quantity = float(existing.get("filled") or 0.0)
         order.avg_fill_price = float(existing.get("average") or existing.get("price") or 0.0)
         order.status = {"closed": OrderStatus.FILLED, "canceled": OrderStatus.CANCELED,

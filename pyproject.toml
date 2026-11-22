@@ -51,6 +51,7 @@ packages = ["quant_engine"]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 timeout = 300
 markers = [
     "network: requires live public network access (deselect with -m 'not network')",
@@ -58,7 +59,7 @@ markers = [
 ]
 
 [tool.ruff]
-line-length = 110
+line-length = 130
 target-version = "py312"
 
 [tool.ruff.lint]
@@ -67,6 +68,7 @@ ignore = ["S101", "S311", "B008", "RUF001", "RUF002", "RUF003", "S608", "UP047",
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "B", "RUF012"]
+"quant_engine/backtest/report_markdown.py" = ["E501"]  # long human-readable report strings
 
 [tool.mypy]
 python_version = "3.12"
@@ -75,3 +77,11 @@ warn_unused_ignores = false
 check_untyped_defs = true
 disallow_untyped_defs = false
 exclude = ["tests/", "dashboard/frontend/"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# pandas-stubs is far stricter than pandas' runtime behaviour (Index vs DatetimeIndex etc.) and produced
+# >100 false positives; pandas/numpy-heavy code is covered by behavioural tests instead.
+module = ["pandas", "pandas.*", "plotly.*", "statsmodels.*", "scipy.*", "sklearn.*", "ccxt.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true

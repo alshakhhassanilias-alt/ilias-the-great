@@ -100,8 +100,9 @@ def run_monte_carlo(daily: pd.Series, trades: pd.DataFrame, cfg: MCConfig) -> di
         streak = max(5, len(worst))
         cl = t[boot].copy()
         for row in cl:
-            s = rng.integers(0, max(m - streak, 1))
-            row[s:s + streak] = rng.choice(worst, size=min(streak, m - s))
+            k = int(rng.integers(0, max(m - streak, 1)))
+            n_inj = int(min(streak, m - k))
+            row[k:k + n_inj] = worst[rng.integers(0, len(worst), size=n_inj)]
         record("consecutive_losses", cl, f"bootstrap with an injected streak of {streak} worst-5% losses")
         record("slippage_x3", t[boot] - 2.0 * cost[boot], "slippage+spread cost tripled (extra 2x charged)")
         record("fees_x2", t[boot] - fee[boot], "fees doubled")

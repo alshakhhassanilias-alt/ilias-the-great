@@ -119,7 +119,7 @@ def performance_summary(equity: pd.Series, trades: pd.DataFrame, gross_exposure:
     out: dict[str, Any] = {
         "start": str(equity.index[0]) if len(equity) else None,
         "end": str(equity.index[-1]) if len(equity) else None,
-        "days": int(len(r)),
+        "days": len(r),
         "net_return": net,
         "annualized_return": ann,
         "annualized_volatility": float(np.std(r, ddof=1) * np.sqrt(DAYS)) if len(r) > 1 else 0.0,

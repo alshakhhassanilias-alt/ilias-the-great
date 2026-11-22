@@ -33,9 +33,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from quant_engine.config.settings import AppConfig, EnvSettings, TradingMode
-from quant_engine.data import database as db
 from quant_engine.dashboard.backend.security import RateLimiter, TokenService, verify_password
 from quant_engine.dashboard.backend.services import DashboardService
+from quant_engine.data import database as db
 
 log = logging.getLogger(__name__)
 FRONTEND_DIST = Path(__file__).resolve().parents[3] / "dashboard" / "frontend" / "dist"
@@ -68,7 +68,7 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
                        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
 
     @app.middleware("http")
-    async def security_headers(request: Request, call_next):  # noqa: ANN001, ANN202
+    async def security_headers(request: Request, call_next):
         client = request.client.host if request.client else "unknown"
         if request.url.path.startswith("/api/") and not request.url.path.startswith("/api/auth"):
             bucket, limit = ("control", 10) if request.url.path.startswith("/api/controls") else ("read", 240)
@@ -164,7 +164,7 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
         r = svc.research_summary()
         if r is None:
             return {"available": False}
-        keep = {k: r[k] for k in ("generated_at", "data", "promotion", "combined", "benchmarks", "deployable",
+        keep: dict[str, Any] = {k: r[k] for k in ("generated_at", "data", "promotion", "combined", "benchmarks", "deployable",
                                   "holdout", "tournament", "n_total_trials") if k in r}
         keep["strategies"] = {k: {"summary": v["summary"], "windows": v["windows"]} for k, v in r["strategies"].items()}
         return {"available": True, **keep, "series": svc.research_series()}
@@ -211,7 +211,9 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
             res = c.execute(db.control_commands.insert().values(
                 mode=mode.value, command=COMMAND[action], requested_by=actor, requested_at=now, status="queued",
                 result_json=json.dumps({"discrepancy_explained": body.discrepancy_explained, "reason": body.reason})))
-            cid = res.inserted_primary_key[0]
+            pk = res.inserted_primary_key
+            assert pk is not None
+            cid = pk[0]
         deadline = asyncio.get_running_loop().time() + ack_timeout_s
         while asyncio.get_running_loop().time() < deadline:
             with engine.connect() as c:

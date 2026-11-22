@@ -42,7 +42,7 @@ def restore_ledger(store: StateStore, initial_capital: float) -> tuple[Ledger, R
     return led, rep, snap.risk_state, snap.open_orders
 
 
-def post_restore_checks(store: StateStore, ledger: Ledger, broker, breaker: CircuitBreaker,  # noqa: ANN001
+def post_restore_checks(store: StateStore, ledger: Ledger, broker, breaker: CircuitBreaker,
                         initial_capital: float, rep: RecoveryReport) -> RecoveryReport:
     ok, msg = integrity_check(store.engine)
     rep.db_integrity = msg
