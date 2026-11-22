@@ -34,7 +34,8 @@ strategies:
     max_weight: 0.30
     default_params: {roc_period: 8, roc_threshold: 0.006, rel_volume: 1.8, rel_volume_window: 96,
                      h1_ema: 50, h4_ema: 50, stop_atr: 2.0, tp_atr: 4.0, atr_period: 14,
-                     max_hold_bars: 32, funding_extreme_q: 0.9, ob_imbalance_min: 0.1}
+                     max_hold_bars: 32, funding_extreme_q: 0.9, ob_imbalance_min: 0.1,
+                     min_tp_cost_multiple: 6.0, assumed_taker_fee: 0.001}
     param_grid:
       roc_period: [4, 8, 16]
       roc_threshold: [0.006, 0.012]

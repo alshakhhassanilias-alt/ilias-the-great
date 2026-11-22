@@ -76,6 +76,11 @@ class MomentumFlow(Strategy):
 
             thr = float(p["roc_threshold"])
             vol_ok = rv >= float(p["rel_volume"])
+            # Cost awareness: the take-profit distance must cover the assumed round-trip taker
+            # cost (2 x 0.10%) by ``min_tp_cost_multiple``; otherwise expected edge < costs.
+            rt_cost = 2 * float(p.get("assumed_taker_fee", 0.001))
+            cost_ok = (float(p["tp_atr"]) * a / c) >= float(p.get("min_tp_cost_multiple", 6.0)) * rt_cost
+            vol_ok = vol_ok & cost_ok
             long_e = (mom > thr) & vol_ok & h1_up & h4_up & h_valid
             short_e = (mom < -thr) & vol_ok & h1_dn & h4_dn & h_valid
 

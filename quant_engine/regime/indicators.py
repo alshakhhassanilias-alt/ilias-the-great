@@ -11,6 +11,8 @@ package's maintenance status is uncertain; formulas follow the standard definiti
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -130,7 +132,8 @@ def hurst_exponent(close: pd.Series, window: int = 120, max_lag: int = 20) -> pd
     y = pd.concat(cols, axis=1).to_numpy()
     x = np.log(lags.astype(float))
     xm = x - x.mean()
-    with np.errstate(invalid="ignore"):
+    with np.errstate(invalid="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
         ym = y - np.nanmean(y, axis=1, keepdims=True)
         slope = (ym * xm).sum(axis=1) / (xm**2).sum()
     slope[~np.isfinite(y).all(axis=1)] = np.nan
