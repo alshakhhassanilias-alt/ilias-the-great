@@ -1,0 +1,519 @@
+{
+  "exchange": "binance",
+  "requested_start": "2021-01-01",
+  "generated_at": "2026-11-22T12:35:34.867654+00:00",
+  "ohlcv": {
+    "BTC/USDT 15m": {
+      "symbol": "BTC/USDT",
+      "timeframe": "15m",
+      "rows": 206476,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T12:15:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 70,
+      "gaps": [
+        [
+          "2021-02-11T03:30:00+00:00",
+          "2021-02-11T05:00:00+00:00",
+          5
+        ],
+        [
+          "2021-03-06T01:45:00+00:00",
+          "2021-03-06T03:30:00+00:00",
+          6
+        ],
+        [
+          "2021-04-20T01:45:00+00:00",
+          "2021-04-20T04:30:00+00:00",
+          10
+        ],
+        [
+          "2021-04-25T04:00:00+00:00",
+          "2021-04-25T08:45:00+00:00",
+          18
+        ],
+        [
+          "2021-08-13T01:45:00+00:00",
+          "2021-08-13T06:30:00+00:00",
+          18
+        ],
+        [
+          "2021-09-29T06:45:00+00:00",
+          "2021-09-29T09:00:00+00:00",
+          8
+        ],
+        [
+          "2023-03-24T12:30:00+00:00",
+          "2023-03-24T14:00:00+00:00",
+          5
+        ]
+      ],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 10,
+      "price_jump_anomalies": 326,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 206546,
+      "completeness": 0.999661,
+      "passed": true,
+      "gap_count": 7
+    },
+    "BTC/USDT 1h": {
+      "symbol": "BTC/USDT",
+      "timeframe": "1h",
+      "rows": 51622,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T11:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 14,
+      "gaps": [
+        [
+          "2021-02-11T03:00:00+00:00",
+          "2021-02-11T05:00:00+00:00",
+          1
+        ],
+        [
+          "2021-03-06T01:00:00+00:00",
+          "2021-03-06T03:00:00+00:00",
+          1
+        ],
+        [
+          "2021-04-20T01:00:00+00:00",
+          "2021-04-20T04:00:00+00:00",
+          2
+        ],
+        [
+          "2021-04-25T04:00:00+00:00",
+          "2021-04-25T08:00:00+00:00",
+          3
+        ],
+        [
+          "2021-08-13T01:00:00+00:00",
+          "2021-08-13T06:00:00+00:00",
+          4
+        ],
+        [
+          "2021-09-29T06:00:00+00:00",
+          "2021-09-29T09:00:00+00:00",
+          2
+        ],
+        [
+          "2023-03-24T12:00:00+00:00",
+          "2023-03-24T14:00:00+00:00",
+          1
+        ]
+      ],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 2,
+      "price_jump_anomalies": 73,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 51636,
+      "completeness": 0.999729,
+      "passed": true,
+      "gap_count": 7
+    },
+    "BTC/USDT 4h": {
+      "symbol": "BTC/USDT",
+      "timeframe": "4h",
+      "rows": 12909,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T08:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 0,
+      "gaps": [],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 0,
+      "price_jump_anomalies": 9,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 12909,
+      "completeness": 1.0,
+      "passed": true,
+      "gap_count": 0
+    },
+    "BTC/USDT 1d": {
+      "symbol": "BTC/USDT",
+      "timeframe": "1d",
+      "rows": 2151,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-21T00:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 0,
+      "gaps": [],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 0,
+      "price_jump_anomalies": 0,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 2151,
+      "completeness": 1.0,
+      "passed": true,
+      "gap_count": 0
+    },
+    "ETH/USDT 15m": {
+      "symbol": "ETH/USDT",
+      "timeframe": "15m",
+      "rows": 206476,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T12:15:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 70,
+      "gaps": [
+        [
+          "2021-02-11T03:30:00+00:00",
+          "2021-02-11T05:00:00+00:00",
+          5
+        ],
+        [
+          "2021-03-06T01:45:00+00:00",
+          "2021-03-06T03:30:00+00:00",
+          6
+        ],
+        [
+          "2021-04-20T01:45:00+00:00",
+          "2021-04-20T04:30:00+00:00",
+          10
+        ],
+        [
+          "2021-04-25T04:00:00+00:00",
+          "2021-04-25T08:45:00+00:00",
+          18
+        ],
+        [
+          "2021-08-13T01:45:00+00:00",
+          "2021-08-13T06:30:00+00:00",
+          18
+        ],
+        [
+          "2021-09-29T06:45:00+00:00",
+          "2021-09-29T09:00:00+00:00",
+          8
+        ],
+        [
+          "2023-03-24T12:30:00+00:00",
+          "2023-03-24T14:00:00+00:00",
+          5
+        ]
+      ],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 10,
+      "price_jump_anomalies": 337,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 206546,
+      "completeness": 0.999661,
+      "passed": true,
+      "gap_count": 7
+    },
+    "ETH/USDT 1h": {
+      "symbol": "ETH/USDT",
+      "timeframe": "1h",
+      "rows": 51622,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T11:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 14,
+      "gaps": [
+        [
+          "2021-02-11T03:00:00+00:00",
+          "2021-02-11T05:00:00+00:00",
+          1
+        ],
+        [
+          "2021-03-06T01:00:00+00:00",
+          "2021-03-06T03:00:00+00:00",
+          1
+        ],
+        [
+          "2021-04-20T01:00:00+00:00",
+          "2021-04-20T04:00:00+00:00",
+          2
+        ],
+        [
+          "2021-04-25T04:00:00+00:00",
+          "2021-04-25T08:00:00+00:00",
+          3
+        ],
+        [
+          "2021-08-13T01:00:00+00:00",
+          "2021-08-13T06:00:00+00:00",
+          4
+        ],
+        [
+          "2021-09-29T06:00:00+00:00",
+          "2021-09-29T09:00:00+00:00",
+          2
+        ],
+        [
+          "2023-03-24T12:00:00+00:00",
+          "2023-03-24T14:00:00+00:00",
+          1
+        ]
+      ],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 2,
+      "price_jump_anomalies": 64,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 51636,
+      "completeness": 0.999729,
+      "passed": true,
+      "gap_count": 7
+    },
+    "ETH/USDT 4h": {
+      "symbol": "ETH/USDT",
+      "timeframe": "4h",
+      "rows": 12909,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T08:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 0,
+      "gaps": [],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 0,
+      "price_jump_anomalies": 5,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 12909,
+      "completeness": 1.0,
+      "passed": true,
+      "gap_count": 0
+    },
+    "ETH/USDT 1d": {
+      "symbol": "ETH/USDT",
+      "timeframe": "1d",
+      "rows": 2151,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-21T00:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 0,
+      "gaps": [],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 0,
+      "price_jump_anomalies": 0,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 2151,
+      "completeness": 1.0,
+      "passed": true,
+      "gap_count": 0
+    },
+    "SOL/USDT 15m": {
+      "symbol": "SOL/USDT",
+      "timeframe": "15m",
+      "rows": 206476,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T12:15:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 70,
+      "gaps": [
+        [
+          "2021-02-11T03:30:00+00:00",
+          "2021-02-11T05:00:00+00:00",
+          5
+        ],
+        [
+          "2021-03-06T01:45:00+00:00",
+          "2021-03-06T03:30:00+00:00",
+          6
+        ],
+        [
+          "2021-04-20T01:45:00+00:00",
+          "2021-04-20T04:30:00+00:00",
+          10
+        ],
+        [
+          "2021-04-25T04:00:00+00:00",
+          "2021-04-25T08:45:00+00:00",
+          18
+        ],
+        [
+          "2021-08-13T01:45:00+00:00",
+          "2021-08-13T06:30:00+00:00",
+          18
+        ],
+        [
+          "2021-09-29T06:45:00+00:00",
+          "2021-09-29T09:00:00+00:00",
+          8
+        ],
+        [
+          "2023-03-24T12:30:00+00:00",
+          "2023-03-24T14:00:00+00:00",
+          5
+        ]
+      ],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 10,
+      "price_jump_anomalies": 283,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 206546,
+      "completeness": 0.999661,
+      "passed": true,
+      "gap_count": 7
+    },
+    "SOL/USDT 1h": {
+      "symbol": "SOL/USDT",
+      "timeframe": "1h",
+      "rows": 51622,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T11:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 14,
+      "gaps": [
+        [
+          "2021-02-11T03:00:00+00:00",
+          "2021-02-11T05:00:00+00:00",
+          1
+        ],
+        [
+          "2021-03-06T01:00:00+00:00",
+          "2021-03-06T03:00:00+00:00",
+          1
+        ],
+        [
+          "2021-04-20T01:00:00+00:00",
+          "2021-04-20T04:00:00+00:00",
+          2
+        ],
+        [
+          "2021-04-25T04:00:00+00:00",
+          "2021-04-25T08:00:00+00:00",
+          3
+        ],
+        [
+          "2021-08-13T01:00:00+00:00",
+          "2021-08-13T06:00:00+00:00",
+          4
+        ],
+        [
+          "2021-09-29T06:00:00+00:00",
+          "2021-09-29T09:00:00+00:00",
+          2
+        ],
+        [
+          "2023-03-24T12:00:00+00:00",
+          "2023-03-24T14:00:00+00:00",
+          1
+        ]
+      ],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 2,
+      "price_jump_anomalies": 56,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 51636,
+      "completeness": 0.999729,
+      "passed": true,
+      "gap_count": 7
+    },
+    "SOL/USDT 4h": {
+      "symbol": "SOL/USDT",
+      "timeframe": "4h",
+      "rows": 12909,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T08:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 0,
+      "gaps": [],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 0,
+      "price_jump_anomalies": 7,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 12909,
+      "completeness": 1.0,
+      "passed": true,
+      "gap_count": 0
+    },
+    "SOL/USDT 1d": {
+      "symbol": "SOL/USDT",
+      "timeframe": "1d",
+      "rows": 2151,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-21T00:00:00+00:00",
+      "duplicates": 0,
+      "unsorted": false,
+      "missing_bars": 0,
+      "gaps": [],
+      "invalid_ohlc": 0,
+      "nonpositive_prices": 0,
+      "negative_volume": 0,
+      "zero_volume_bars": 0,
+      "price_jump_anomalies": 1,
+      "volume_anomalies": 0,
+      "unfinished_last_bar_dropped": true,
+      "expected_bars": 2151,
+      "completeness": 1.0,
+      "passed": true,
+      "gap_count": 0
+    }
+  },
+  "funding": {
+    "BTC/USDT": {
+      "rows": 6455,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T08:00:00+00:00",
+      "sources": {
+        "binance_archive": 6390,
+        "okx_api": 65
+      },
+      "max_gap_hours": 8.0
+    },
+    "ETH/USDT": {
+      "rows": 6455,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T08:00:00+00:00",
+      "sources": {
+        "binance_archive": 6390,
+        "okx_api": 65
+      },
+      "max_gap_hours": 8.0
+    },
+    "SOL/USDT": {
+      "rows": 6530,
+      "first": "2021-01-01T00:00:00+00:00",
+      "last": "2026-11-22T08:00:00+00:00",
+      "sources": {
+        "binance_archive": 6465,
+        "okx_api": 65
+      },
+      "max_gap_hours": 8.0
+    }
+  }
+}

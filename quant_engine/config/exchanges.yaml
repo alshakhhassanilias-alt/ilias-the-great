@@ -1,0 +1,34 @@
+# Exchange connectivity. Symbols are normalised to CCXT unified form (BASE/QUOTE).
+default: binance
+market_data_primary: binance
+exchanges:
+  binance:
+    ccxt_id: binance
+    # api.binance.com is geo-restricted from some regions (HTTP 451). data-api.binance.vision is Binance's
+    # official public market-data-only endpoint and serves identical spot klines/depth/trades.
+    public_api_override: "https://data-api.binance.vision/api/v3"
+    sandbox_supported: true
+    supports_native_stop_orders: true
+    symbols: {"BTC/USDT": "BTCUSDT", "ETH/USDT": "ETHUSDT", "SOL/USDT": "SOLUSDT"}
+    swap_symbols: {"BTC/USDT": "BTC/USDT:USDT", "ETH/USDT": "ETH/USDT:USDT", "SOL/USDT": "SOL/USDT:USDT"}
+    ohlcv_limit: 1000
+    rate_limit_ms: 100
+    notes: "Historical funding from data.binance.vision USD-M archives."
+  okx:
+    ccxt_id: okx
+    sandbox_supported: true
+    supports_native_stop_orders: true
+    symbols: {"BTC/USDT": "BTC-USDT", "ETH/USDT": "ETH-USDT", "SOL/USDT": "SOL-USDT"}
+    swap_symbols: {"BTC/USDT": "BTC/USDT:USDT", "ETH/USDT": "ETH/USDT:USDT", "SOL/USDT": "SOL/USDT:USDT"}
+    ohlcv_limit: 100
+    rate_limit_ms: 120
+    notes: "OKX demo trading uses the x-simulated-trading header (CCXT set_sandbox_mode)."
+  bybit:
+    ccxt_id: bybit
+    sandbox_supported: true
+    supports_native_stop_orders: true
+    symbols: {"BTC/USDT": "BTCUSDT", "ETH/USDT": "ETHUSDT", "SOL/USDT": "SOLUSDT"}
+    swap_symbols: {"BTC/USDT": "BTC/USDT:USDT", "ETH/USDT": "ETH/USDT:USDT", "SOL/USDT": "SOL/USDT:USDT"}
+    ohlcv_limit: 1000
+    rate_limit_ms: 100
+    notes: "Geo-blocked (HTTP 403) from the development environment; adapter implemented but unverified."

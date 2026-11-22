@@ -1,0 +1,19 @@
+config hash run1/run2: 31c941f7f63244f8 31c941f7f63244f8
+strategy metrics + per-window selections/returns compared: 204, differences: 0
+promotion run1: {'breakout': 'research_only', 'mean_reversion': 'rejected', 'momentum_flow': 'rejected', 'pairs_rotation': 'rejected'}
+promotion run2: {'breakout': 'research_only', 'mean_reversion': 'rejected', 'momentum_flow': 'rejected', 'pairs_rotation': 'rejected'}
+combined all-strategies net/sharpe run1: -0.413482 -2.000722  run2: -0.413482 -2.000722
+holdout breakout run1/run2: 0.0568609428436051 0.0568609428436051
+run2 extra portfolio: {'research_all_strategies': {'net_return': -0.4135, 'sharpe': -2.0007, 'max_drawdown': 0.429, 'total_trades': 3329}, 'non_rejected_strategies': {'net_return': 0.2095, 'sharpe': 1.2666, 'max_drawdown': 0.0275, 'total_trades': 398}}
+run2 holdout portfolios: {'portfolio:research_all_strategies': {'net_return': -0.0984, 'sharpe': -5.3149, 'max_drawdown': 0.1002}, 'portfolio:non_rejected_strategies': {'net_return': 0.0249, 'sharpe': 1.2908, 'max_drawdown': 0.0229}}
+MC run2 portfolio: non_rejected_strategies ['breakout'] qualified False
+   block_bootstrap {'terminal_equity_median': 1.044, 'terminal_equity_p05': 0.983, 'terminal_equity_p95': 1.133, 'prob_loss': 0.136, 'max_drawdown_median': 0.023, 'max_drawdown_p95': 0.044, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.0, 'prob_ruin': 0.0}
+   volatility_shock {'terminal_equity_median': 1.044, 'terminal_equity_p05': 0.979, 'terminal_equity_p95': 1.141, 'prob_loss': 0.155, 'max_drawdown_median': 0.026, 'max_drawdown_p95': 0.05, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.0, 'prob_ruin': 0.0}
+   trade_bootstrap {'terminal_equity_median': 1.158, 'terminal_equity_p05': 1.003, 'terminal_equity_p95': 1.342, 'prob_loss': 0.046, 'max_drawdown_median': 0.048, 'max_drawdown_p95': 0.091, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.033, 'prob_ruin': 0.0}
+   trade_shuffle {'terminal_equity_median': 1.158, 'terminal_equity_p05': 1.023, 'terminal_equity_p95': 1.324, 'prob_loss': 0.021, 'max_drawdown_median': 0.049, 'max_drawdown_p95': 0.086, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.018, 'prob_ruin': 0.0}
+   consecutive_losses {'terminal_equity_median': 0.939, 'terminal_equity_p05': 0.827, 'terminal_equity_p95': 1.072, 'prob_loss': 0.788, 'max_drawdown_median': 0.187, 'max_drawdown_p95': 0.23, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 1.0, 'prob_ruin': 0.0}
+   slippage_x3 {'terminal_equity_median': 1.124, 'terminal_equity_p05': 0.975, 'terminal_equity_p95': 1.303, 'prob_loss': 0.087, 'max_drawdown_median': 0.054, 'max_drawdown_p95': 0.104, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.063, 'prob_ruin': 0.0}
+   fees_x2 {'terminal_equity_median': 1.126, 'terminal_equity_p05': 0.977, 'terminal_equity_p95': 1.305, 'prob_loss': 0.084, 'max_drawdown_median': 0.053, 'max_drawdown_p95': 0.103, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.061, 'prob_ruin': 0.0}
+   liquidity_crunch {'terminal_equity_median': 1.143, 'terminal_equity_p05': 0.99, 'terminal_equity_p95': 1.322, 'prob_loss': 0.065, 'max_drawdown_median': 0.051, 'max_drawdown_p95': 0.098, 'prob_daily_dd_breach': 0.0, 'prob_total_dd_breach': 0.046, 'prob_ruin': 0.0}
+   gap_risk {'terminal_equity_median': 1.141, 'terminal_equity_p05': 0.984, 'terminal_equity_p95': 1.326, 'prob_loss': 0.072, 'max_drawdown_median': 0.054, 'max_drawdown_p95': 0.103, 'prob_daily_dd_breach': 0.011, 'prob_total_dd_breach': 0.061, 'prob_ruin': 0.0}
+holdout access count: 2

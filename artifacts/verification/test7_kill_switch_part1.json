@@ -1,0 +1,60 @@
+{
+ "no_auth_kill": 401,
+ "positions_before": [
+  [
+   "diagnostic_probe",
+   "BTC/USDT",
+   0.04122435340220055
+  ]
+ ],
+ "open_orders_before": [
+  [
+   "take_profit",
+   "open"
+  ],
+  [
+   "stop_loss",
+   "open"
+  ]
+ ],
+ "wrong_phrase": 400,
+ "kill_response": {
+  "status": "done",
+  "halt_persisted": true,
+  "success": true,
+  "canceled_orders": 2,
+  "flatten_orders": 1,
+  "remaining_exposure": {}
+ },
+ "overview_after": {
+  "system_status": "HALTED",
+  "halted": true,
+  "kill_switch": true,
+  "halt_reason": "kill_switch:operator",
+  "mode": "PAPER"
+ },
+ "positions_after": [],
+ "open_orders_after": [],
+ "db_risk_state": [
+  1,
+  1,
+  1,
+  "kill_switch:operator"
+ ],
+ "db_last_trade": [
+  "diagnostic_probe",
+  "flatten",
+  -4.848960293733278
+ ],
+ "audit": [
+  [
+   "operator",
+   "login"
+  ],
+  [
+   "operator",
+   "control:kill-switch"
+  ]
+ ],
+ "resume_without_auth": 401
+}

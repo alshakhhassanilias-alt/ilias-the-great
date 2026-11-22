@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": "2026-11-22T14:26:06.478056+00:00",
+    "who": "scripts/run_walk_forward.py",
+    "purpose": "final frozen evaluation",
+    "config_hash": "31c941f7f63244f8",
+    "holdout": [
+      "2026-05-22 00:00:00+00:00",
+      "2026-11-22 12:30:00+00:00"
+    ]
+  },
+  {
+    "timestamp": "2026-11-22T14:42:34.624609+00:00",
+    "who": "scripts/run_walk_forward.py",
+    "purpose": "final frozen evaluation",
+    "config_hash": "31c941f7f63244f8",
+    "holdout": [
+      "2026-05-22 00:00:00+00:00",
+      "2026-11-22 12:30:00+00:00"
+    ]
+  }
+]
