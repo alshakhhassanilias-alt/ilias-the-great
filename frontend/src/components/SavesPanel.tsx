@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useGame } from '../store'
+import { STANDALONE } from '../engine'
 
 export default function SavesPanel({ onOpen }: { onOpen: (id: string) => void }) {
   const { view, cid, toast, refresh } = useGame()
   const [snaps, setSnaps] = useState<any[]>([])
   const [label, setLabel] = useState('')
+  const [exported, setExported] = useState<string | null>(null)
+  const [armed, setArmed] = useState<number | null>(null)
   const reload = () => api.saves(cid).then(setSnaps)
   useEffect(() => { reload() }, [cid, view?.meta.year])
   async function save() {
@@ -22,9 +25,21 @@ export default function SavesPanel({ onOpen }: { onOpen: (id: string) => void })
         <button className="btn btn-primary" onClick={save} data-testid="save-btn">Save</button>
       </div>
       <div className="flex gap-2 mb-3 flex-wrap">
-        <a className="btn btn-ghost text-xs" href={api.exportUrl(cid)} download data-testid="export-btn">Export campaign file</a>
+        {STANDALONE
+          ? <button className="btn btn-ghost text-xs" onClick={async () => { const d = await api.exportData(cid); setExported(JSON.stringify(d)) }} data-testid="export-btn">Export campaign file</button>
+          : <a className="btn btn-ghost text-xs" href={api.exportUrl(cid)} download data-testid="export-btn">Export campaign file</a>}
         <button className="btn btn-ghost text-xs" onClick={async () => { const r = await api.duplicate(cid); toast('Campaign duplicated', 'success'); onOpen(r.id) }}>Duplicate campaign</button>
       </div>
+      {exported && (
+        <div className="mb-3">
+          <div className="text-xs text-slate-400 mb-1">Copy this text and save it as a .json file. Import it from the main menu to continue anywhere.</div>
+          <textarea readOnly className="input w-full h-24 font-mono text-[10px]" value={exported} onFocus={e => e.currentTarget.select()} />
+          <div className="flex gap-2 mt-1">
+            <button className="btn btn-ghost text-xs" onClick={() => navigator.clipboard?.writeText(exported).then(() => toast('Copied', 'success')).catch(() => toast('Select the text and copy it manually', 'info'))}>Copy</button>
+            <button className="btn btn-ghost text-xs" onClick={() => setExported(null)}>Close</button>
+          </div>
+        </div>
+      )}
       <div className="overflow-y-auto flex-1">
         {[...snaps].reverse().map(s => (
           <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-ink-700/60">
@@ -33,9 +48,10 @@ export default function SavesPanel({ onOpen }: { onOpen: (id: string) => void })
               <div className="text-[11px] text-slate-500">{s.kind} · {s.year}-{String(s.month).padStart(2, '0')} · {new Date(s.created * 1000).toLocaleString()}</div>
             </div>
             <button className="btn btn-ghost text-[11px] py-0.5" title="Restore this save; later history is discarded" onClick={async () => {
-              if (!confirm(`Load "${s.label}"? History after ${s.year} will be discarded. (Use Branch to keep it.)`)) return
+              if (armed !== s.id) { setArmed(s.id); toast(`Click Load again to restore "${s.label}". History after ${s.year} will be discarded (use Branch to keep it).`, 'info'); return }
+              setArmed(null)
               await api.loadSave(cid, s.id); toast(`Loaded ${s.label}`, 'success'); refresh(); reload()
-            }}>Load</button>
+            }}>{armed === s.id ? "Confirm load" : "Load"}</button>
             <button className="btn btn-ghost text-[11px] py-0.5" title="Create a new campaign branching from this moment" onClick={async () => { const r = await api.branch(cid, s.id); toast('Alternate timeline created', 'success'); onOpen(r.id) }}>Branch</button>
           </div>
         ))}

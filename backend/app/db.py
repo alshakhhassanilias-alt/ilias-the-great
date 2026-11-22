@@ -10,6 +10,7 @@ import time
 import zlib
 from pathlib import Path
 
+FTS = os.environ.get("IH_FTS", "fts5")
 DB_PATH = Path(os.environ.get("IH_DB", Path(__file__).resolve().parent.parent / "data" / "infinite_history.db"))
 
 SCHEMA = """
@@ -23,7 +24,6 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS ev_c_y ON events(campaign_id, year);
 CREATE INDEX IF NOT EXISTS ev_c_imp ON events(campaign_id, importance);
-CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(title, body, actors, tags, content='events', content_rowid='id');
 CREATE TABLE IF NOT EXISTS summaries (
   id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id TEXT, level TEXT, start_year INTEGER, end_year INTEGER,
   title TEXT, body TEXT, created REAL, source TEXT
@@ -60,13 +60,17 @@ def conn() -> sqlite3.Connection:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         c = sqlite3.connect(path, timeout=30, check_same_thread=False)
         c.row_factory = sqlite3.Row
-        c.execute("PRAGMA journal_mode=WAL")
+        c.execute("PRAGMA journal_mode=" + os.environ.get("IH_JOURNAL", "WAL"))
         c.execute("PRAGMA synchronous=NORMAL")
         _local.conn = c
         _local.path = path
         with _init_lock:
             if path not in _initialized:
                 c.executescript(SCHEMA)
+                if FTS == "fts5":
+                    c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(title, body, actors, tags, content='events', content_rowid='id')")
+                else:  # FTS4 fallback (e.g. SQLite under WebAssembly, where FTS5 is unavailable)
+                    c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts4(title, body, actors, tags)")
                 c.commit()
                 _initialized.add(path)
     return c
@@ -117,12 +121,26 @@ def delete_campaign(cid: str) -> None:
     for i in range(0, len(ids), 500):
         chunk = ids[i:i + 500]
         rows = c.execute(f"SELECT id,title,body,actors,tags FROM events WHERE id IN ({','.join('?' * len(chunk))})", chunk).fetchall()
-        c.executemany("INSERT INTO events_fts(events_fts,rowid,title,body,actors,tags) VALUES('delete',?,?,?,?,?)",
-                      [(r["id"], r["title"], r["body"], r["actors"], r["tags"]) for r in rows])
+        fts_delete(c, rows)
     for t in ("events", "summaries", "snapshots", "conversations", "newspapers", "documents"):
         c.execute(f"DELETE FROM {t} WHERE campaign_id=?", (cid,))
     c.execute("DELETE FROM campaigns WHERE id=?", (cid,))
     c.commit()
+
+
+def fts_insert(c, rid, title, body, actors, tags) -> None:
+    if FTS == "fts5":
+        c.execute("INSERT INTO events_fts(rowid,title,body,actors,tags) VALUES(?,?,?,?,?)", (rid, title, body, actors, tags))
+    else:
+        c.execute("INSERT INTO events_fts(docid,title,body,actors,tags) VALUES(?,?,?,?,?)", (rid, title, body, actors, tags))
+
+
+def fts_delete(c, rows) -> None:
+    if FTS == "fts5":
+        c.executemany("INSERT INTO events_fts(events_fts,rowid,title,body,actors,tags) VALUES('delete',?,?,?,?,?)",
+                      [(r["id"], r["title"], r["body"], r["actors"], r["tags"]) for r in rows])
+    else:
+        c.executemany("DELETE FROM events_fts WHERE docid=?", [(r["id"],) for r in rows])
 
 
 def get_setting(key: str, default=None):

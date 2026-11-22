@@ -1,6 +1,12 @@
 import type { CampaignView, Plan, Scenario, ScenarioCountry } from './types'
+import { STANDALONE, engineCall } from './engine'
 
 async function req<T>(method: string, url: string, body?: any): Promise<T> {
+  if (STANDALONE) {
+    const r = await engineCall(method, url, body)
+    if (r.status >= 400) throw new Error(r.data?.detail || `Error ${r.status}`)
+    return r.data as T
+  }
   const r = await fetch(url, { method, headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined, body: body !== undefined ? JSON.stringify(body) : undefined })
   if (!r.ok) {
     let msg = r.statusText
@@ -46,6 +52,7 @@ export const api = {
   snapMap: (id: string, sid: number) => req<any>('GET', `${c(id)}/saves/${sid}/map`),
   duplicate: (id: string, name?: string) => req<{ id: string }>('POST', `${c(id)}/duplicate`, { name }),
   exportUrl: (id: string) => `${c(id)}/export`,
+  exportData: (id: string) => req<any>('GET', `${c(id)}/export`),
   import: (data: any) => req<{ id: string }>('POST', '/api/import', data),
   aiSettings: () => req<any>('GET', '/api/settings/ai'),
   setAiSettings: (body: any) => req<any>('POST', '/api/settings/ai', body),

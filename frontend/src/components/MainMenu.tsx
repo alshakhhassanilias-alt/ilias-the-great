@@ -5,6 +5,7 @@ import type { Scenario, ScenarioCountry } from '../types'
 import { pct, pop } from '../lib/format'
 import { Flag } from './common'
 import AISettings from './AISettings'
+import { STANDALONE } from '../engine'
 
 export default function MainMenu({ onOpen }: { onOpen: (id: string) => void }) {
   const [campaigns, setCampaigns] = useState<any[]>([])
@@ -20,6 +21,7 @@ export default function MainMenu({ onOpen }: { onOpen: (id: string) => void }) {
   const [creating, setCreating] = useState(false)
   const [err, setErr] = useState('')
   const [ai, setAi] = useState(false)
+  const [armed, setArmed] = useState<string | null>(null)
   const [health, setHealth] = useState<any>(null)
   useEffect(() => {
     document.body.className = 'era-classic'
@@ -52,7 +54,7 @@ export default function MainMenu({ onOpen }: { onOpen: (id: string) => void }) {
           <div className="text-slate-400 mt-3 font-serif italic text-lg">Every empire has a history. Yours has not been written yet.</div>
           <div className="mt-3 flex justify-center gap-2 text-xs">
             <span className="chip">AI: {health?.ai || '…'}{health?.ai !== 'offline' && health?.model ? ` · ${health.model}` : ''}</span>
-            <button className="chip hover:bg-ink-600" onClick={() => setAi(true)} data-testid="ai-settings">AI settings</button>
+            {!STANDALONE && <button className="chip hover:bg-ink-600" onClick={() => setAi(true)} data-testid="ai-settings">AI settings</button>}
           </div>
         </motion.div>
         {err && <div className="panel p-3 mb-4 text-red-300 text-sm">{err}</div>}
@@ -69,7 +71,7 @@ export default function MainMenu({ onOpen }: { onOpen: (id: string) => void }) {
                     <div className="text-xs text-slate-400 truncate">{c.info?.country} · {c.year} · {c.info?.era} · {c.info?.phase}</div>
                     <div className="text-[11px] text-slate-500">{c.info?.scenario_name} (from {c.info?.start_year}) · saved {new Date(c.updated * 1000).toLocaleString()}</div>
                   </div>
-                  <button className="text-xs text-slate-500 hover:text-red-400 px-2" onClick={async e => { e.stopPropagation(); if (confirm(`Delete "${c.name}" permanently?`)) { await api.remove(c.id); setCampaigns(await api.campaigns()) } }}>Delete</button>
+                  <button className={`text-xs px-2 ${armed === c.id ? 'text-red-400 font-semibold' : 'text-slate-500 hover:text-red-400'}`} onClick={async e => { e.stopPropagation(); if (armed !== c.id) { setArmed(c.id); return } setArmed(null); await api.remove(c.id); setCampaigns(await api.campaigns()) }}>{armed === c.id ? 'Click again to delete' : 'Delete'}</button>
                 </div>
               ))}
             </div>

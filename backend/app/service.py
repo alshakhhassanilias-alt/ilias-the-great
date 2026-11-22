@@ -449,7 +449,7 @@ def restore_snapshot(cid: str, sid: int) -> dict:
         for i in range(0, len(ids), 500):
             chunk = ids[i:i + 500]
             rows = c.execute(f"SELECT id,title,body,actors,tags FROM events WHERE id IN ({','.join('?' * len(chunk))})", chunk).fetchall()
-            c.executemany("INSERT INTO events_fts(events_fts,rowid,title,body,actors,tags) VALUES('delete',?,?,?,?,?)", [(r["id"], r["title"], r["body"], r["actors"], r["tags"]) for r in rows])
+            db.fts_delete(c, rows)
         c.execute("DELETE FROM events WHERE campaign_id=? AND id>?", (cid, snap["last_event"]))
         c.execute("DELETE FROM summaries WHERE campaign_id=? AND end_year>=?", (cid, st["meta"]["year"]))
         c.execute("DELETE FROM snapshots WHERE campaign_id=? AND year>? AND kind='auto'", (cid, st["meta"]["year"]))
@@ -491,7 +491,7 @@ def import_campaign(data: dict, name: str | None = None, upto_event: int | None 
                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""", (cid, e["year"], e["month"], e["kind"], e["title"], e["body"], e["actors"], e["importance"],
                                                                 e["provinces"], e["tags"], e["thread"], e["data"], e["backstory"]))
         idmap[e["id"]] = cur.lastrowid
-        c.execute("INSERT INTO events_fts(rowid,title,body,actors,tags) VALUES(?,?,?,?,?)", (cur.lastrowid, e["title"], e["body"], e["actors"], e["tags"]))
+        db.fts_insert(c, cur.lastrowid, e["title"], e["body"], e["actors"], e["tags"])
     for s in data.get("summaries", []):
         if upto_year is not None and s["end_year"] >= upto_year:
             continue

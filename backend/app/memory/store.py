@@ -28,8 +28,7 @@ def add_events(cid: str, events: list[dict], backstory: bool = False) -> list[in
                          json.dumps(e.get("data", {})), 1 if backstory or e.get("backstory") else 0))
         rid = cur.lastrowid
         ids.append(rid)
-        c.execute("INSERT INTO events_fts(rowid,title,body,actors,tags) VALUES(?,?,?,?,?)",
-                  (rid, e["title"], e.get("body", ""), _actors_field(e.get("actors", [])), " ".join(e.get("tags", []))))
+        db.fts_insert(c, rid, e["title"], e.get("body", ""), _actors_field(e.get("actors", [])), " ".join(e.get("tags", [])))
     c.commit()
     return ids
 
@@ -68,8 +67,12 @@ def query_events(cid: str, q: str | None = None, year_from: int | None = None, y
     if q and q.strip():
         fq = fts_query(q)
         if fq:
-            sql = f"""SELECT e.* FROM events_fts f JOIN events e ON e.id=f.rowid WHERE events_fts MATCH ? AND {' AND '.join(where)}
-                      ORDER BY bm25(events_fts) LIMIT ? OFFSET ?"""
+            if db.FTS == "fts5":
+                sql = f"""SELECT e.* FROM events_fts f JOIN events e ON e.id=f.rowid WHERE events_fts MATCH ? AND {' AND '.join(where)}
+                          ORDER BY bm25(events_fts) LIMIT ? OFFSET ?"""
+            else:
+                sql = f"""SELECT e.* FROM events_fts f JOIN events e ON e.id=f.docid WHERE events_fts MATCH ? AND {' AND '.join(where)}
+                          ORDER BY e.importance DESC, e.year DESC LIMIT ? OFFSET ?"""
             return [row_to_event(r) for r in c.execute(sql, [fq] + args + [limit, offset]).fetchall()]
     sql = f"SELECT e.* FROM events e WHERE {' AND '.join(where)} ORDER BY e.year {od}, e.month {od}, e.id {od} LIMIT ? OFFSET ?"
     return [row_to_event(r) for r in c.execute(sql, args + [limit, offset]).fetchall()]

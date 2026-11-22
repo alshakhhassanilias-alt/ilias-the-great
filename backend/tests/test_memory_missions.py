@@ -6,7 +6,7 @@ from app.story.missions import add_mission, evaluate, generate_missions, validat
 def test_events_persist_and_are_searchable(campaign):
     service.advance(campaign, 12 * 12)
     evs = store.query_events(campaign, q="war", limit=50)
-    assert evs and all("war" in (e["title"] + e["body"]).lower() for e in evs[:5])
+    assert evs and all("war" in (e["title"] + e["body"] + " ".join(e["tags"])).lower() for e in evs[:5])
     hist = store.query_events(campaign, kinds=["history"], limit=100)
     assert any(e["year"] == 1919 and "Versailles" in e["body"] for e in hist), "established history is seeded"
 
