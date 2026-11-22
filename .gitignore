@@ -1,0 +1,27 @@
+# secrets
+.env
+.env.*
+!.env.example
+# runtime state
+var/
+logs/*
+!logs/.gitkeep
+*.sqlite
+*.sqlite-*
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+*.egg-info/
+build/
+dist/
+# node
+node_modules/
+dashboard/frontend/dist/
+# large intermediate research outputs (reports/charts in artifacts/ ARE committed)
+artifacts/**/*.parquet
+artifacts/tmp/

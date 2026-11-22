@@ -1,0 +1,85 @@
+# Risk, cost-model and research configuration.
+# All cost figures are ASSUMPTIONS for simulation, not claims about real exchange fee schedules.
+risk:
+  sizing:
+    risk_per_trade: 0.01          # 1.0% of equity at risk per trade (default)
+    max_risk_per_trade: 0.015     # hard ceiling, validator rejects > 1.5%
+    kelly_multiplier: 0.25        # fractional Kelly, capped at 0.25 by the schema
+    kelly_min_trades: 100         # below this the Kelly estimate is treated as unreliable
+    kelly_max_relative_se: 0.5    # Kelly disabled if SE(f*)/f* exceeds this
+    use_kelly: true
+  exposure:
+    max_gross_exposure: 1.5       # sum |notional| / equity
+    max_net_exposure: 1.0
+    max_leverage: 2.0
+    max_asset_concentration: 0.6  # |notional in one asset| / equity
+    max_open_positions: 6
+    correlation_threshold: 0.6
+    correlation_lookback_bars: 240
+    min_order_notional: 10.0
+  circuit_breakers:
+    daily_drawdown_limit: 0.03
+    max_total_drawdown: 0.10
+    max_api_latency_ms: 5000
+    max_consecutive_exchange_errors: 5
+    max_data_staleness_seconds: 180
+    max_clock_skew_ms: 2000
+    max_position_discrepancy_fraction: 0.001
+    max_abnormal_slippage_bps: 100
+    backtest_resume_after_daily_breach: true   # simulates the operator re-authorising next UTC day
+  stops:
+    require_protective_orders: true
+    min_stop_distance_atr: 0.5
+    max_stop_distance_pct: 0.15
+
+backtest:
+  initial_capital: 100000
+  allow_short: true
+  seed: 7
+  costs:
+    taker_fee: 0.0010
+    maker_fee: 0.0010
+    spread_bps: {"BTC/USDT": 1.0, "ETH/USDT": 1.5, "SOL/USDT": 3.0}
+    default_spread_bps: 5.0
+    base_slippage_bps: 1.0
+    volatility_slippage_coef: 0.10
+    impact_coef: 0.5
+    max_participation: 0.05
+    latency_ms: 250
+    limit_penetration_bps: 2.0
+    rejection_probability: 0.0
+    unknown_funding_rate_8h: 0.0001
+    maintenance_margin_rate: 0.005
+    gap_stop_fill_at_open: true
+
+research:
+  start: "2021-01-01"
+  end: null
+  symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+  timeframes: ["15m", "1h", "4h", "1d"]
+  annualization_days: 365       # crypto trades 24/7/365
+  monte_carlo_simulations: 2000
+  monte_carlo_block_size: 10
+  bootstrap_samples: 2000
+  walk_forward:
+    train_months: 12
+    validation_months: 3
+    test_months: 3
+    step_months: 3
+    embargo_days: 7
+    final_holdout_months: 6
+    top_k_from_training: 5
+    min_trades_train: 10
+    min_trades_validation: 3
+    selection_metric: sharpe
+  promotion:
+    min_oos_trades: 60
+    min_oos_sharpe_ci_lower: 0.0
+    min_deflated_sharpe_prob: 0.95
+    max_pbo: 0.5
+    max_oos_drawdown: 0.25
+    min_positive_window_fraction: 0.5
+    min_profit_factor: 1.1
+    cost_stress_multiplier: 2.0
+    must_survive_cost_stress: true
+    review_sharpe_threshold: 1.0

@@ -1,0 +1,77 @@
+[project]
+name = "quant-engine"
+version = "0.1.0"
+description = "Institutional-grade crypto research, walk-forward validation and paper-trading platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "ccxt>=4.4,<5",
+    "pandas>=2.2,<4",
+    "numpy>=1.26,<3",
+    "scipy>=1.13",
+    "statsmodels>=0.14",
+    "scikit-learn>=1.5",
+    "pyarrow>=17",
+    "sqlalchemy>=2.0,<3",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.3",
+    "pyyaml>=6",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "websockets>=12",
+    "plotly>=5.22",
+    "pyjwt>=2.8",
+    "httpx>=0.27",
+    "structlog>=24.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "pytest-timeout>=2.3",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pandas-stubs",
+    "types-PyYAML",
+    "playwright>=1.45",
+    "pip-audit>=2.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["quant_engine"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+timeout = 300
+markers = [
+    "network: requires live public network access (deselect with -m 'not network')",
+    "slow: long-running test",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+ignore = ["S101", "S311", "B008", "RUF001", "RUF002", "RUF003", "S608", "UP047", "UP046"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B", "RUF012"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+check_untyped_defs = true
+disallow_untyped_defs = false
+exclude = ["tests/", "dashboard/frontend/"]

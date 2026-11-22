@@ -1,0 +1,78 @@
+# Strategy definitions. Parameter grids are searched on TRAINING data only.
+strategies:
+  breakout:
+    enabled: true
+    timeframe: "4h"
+    symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+    max_weight: 0.35
+    default_params: {donchian: 40, atr_period: 14, volume_ratio: 1.2, trend_ema: 100,
+                     stop_atr: 2.5, trail_atr: 3.0, tp_atr: 6.0, expansion_lookback: 50, max_hold_bars: 60}
+    param_grid:
+      donchian: [20, 40, 60]
+      volume_ratio: [1.0, 1.3]
+      stop_atr: [2.0, 3.0]
+      trail_atr: [2.5, 4.0]
+    regime_affinity: {trending_bull: 1.0, trending_bear: 1.0, low_vol_ranging: 0.25, high_vol_crisis: 0.3, neutral: 0.5}
+  mean_reversion:
+    enabled: true
+    timeframe: "1h"
+    symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+    max_weight: 0.30
+    default_params: {bb_period: 48, z_entry: 2.25, rsi_period: 14, rsi_low: 30, rsi_high: 70,
+                     adx_max: 22, stop_atr: 2.0, atr_period: 14, max_hold_bars: 48, trend_ema: 200,
+                     max_trend_slope: 0.002, use_divergence: false}
+    param_grid:
+      bb_period: [24, 48, 96]
+      z_entry: [2.0, 2.5]
+      adx_max: [18, 25]
+      stop_atr: [1.5, 2.5]
+    regime_affinity: {trending_bull: 0.2, trending_bear: 0.2, low_vol_ranging: 1.0, high_vol_crisis: 0.0, neutral: 0.5}
+  momentum_flow:
+    enabled: true
+    timeframe: "15m"
+    symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+    max_weight: 0.30
+    default_params: {roc_period: 8, roc_threshold: 0.006, rel_volume: 1.8, rel_volume_window: 96,
+                     h1_ema: 50, h4_ema: 50, stop_atr: 2.0, tp_atr: 4.0, atr_period: 14,
+                     max_hold_bars: 32, funding_extreme_q: 0.9, ob_imbalance_min: 0.1}
+    param_grid:
+      roc_period: [4, 8, 16]
+      roc_threshold: [0.006, 0.012]
+      rel_volume: [1.5, 2.5]
+      tp_atr: [3.0, 5.0]
+    regime_affinity: {trending_bull: 1.0, trending_bear: 0.8, low_vol_ranging: 0.3, high_vol_crisis: 0.2, neutral: 0.5}
+  pairs_rotation:
+    enabled: true
+    timeframe: "4h"
+    symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+    max_weight: 0.30
+    default_params: {momentum_lookback: 42, vol_lookback: 42, rebalance_bars: 6, min_spread_z: 0.75,
+                     corr_lookback: 90, min_corr: 0.5, stop_atr: 3.0, atr_period: 14, max_hold_bars: 42,
+                     mode: "relative_strength"}
+    param_grid:
+      momentum_lookback: [21, 42, 84]
+      min_spread_z: [0.5, 1.0]
+      rebalance_bars: [6, 18]
+      stop_atr: [2.5, 4.0]
+    regime_affinity: {trending_bull: 0.7, trending_bear: 0.7, low_vol_ranging: 1.0, high_vol_crisis: 0.3, neutral: 0.6}
+
+regime:
+  timeframe: "4h"
+  adx_period: 14
+  atr_period: 14
+  ema_fast: 20
+  ema_slow: 50
+  slope_window: 6
+  vol_window: 42
+  hurst_window: 120
+  hurst_max_lag: 20
+  atr_pct_window: 500
+  calibration_quantiles: {crisis_vol: 0.90, low_vol: 0.40, trend_adx: 0.60}
+  min_confidence: 0.55
+  min_persistence_bars: 3
+
+allocation:
+  crisis_exposure_multiplier: 0.5
+  neutral_exposure_multiplier: 0.75
+  require_validation: true      # strategies without a PROMOTED validation status receive weight 0 in live/paper
+  total_weight_cap: 1.0
