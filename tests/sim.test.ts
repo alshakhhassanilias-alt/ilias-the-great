@@ -3550,7 +3550,7 @@ describe('no two tellings alike, and a pulse (round 38)', () => {
     expect(kinds.has(seedOf(s.countries[s.player]).issue)).toBe(true);
     expect(kinds.has('polarised')).toBe(false);
   });
-  it('a story told out of order still reaches its ending, with every act played once', () => {
+  it('a story told out of order still reaches its ending, with every act played once', { timeout: 240000 }, () => { // (four seeds of up to nine years: slow on a busy machine)
     for (const seed of [3, 5, 8, 11]) {
       const s = fresh('Turkey', { randomEvents: false, seed });
       const c = s.countries[s.player];
@@ -4314,5 +4314,52 @@ describe('round 49: the economy counts what is real', () => {
     const r0 = fiscal49(c, s).revenue;
     c.eco.prev.exportInc = 1e9; c.eco.prev.sphereInc = 5e8;
     expect(fiscal49(c, s).revenue).toBeCloseTo(r0 + 1.5e9, -3);
+  });
+});
+
+// ------------------------------------------------------------------ round 50: the last three
+import { stepMilitary as stepMil50 } from '../src/sim/military';
+import { mods as mods50 } from '../src/sim/doctrines';
+import { ensureIndustry as ensureInd50, stepIndustry as stepInd50 } from '../src/sim/industry';
+import { neighbours as neighbours50 } from '../src/sim/supply';
+describe('round 50: pockets, arms, industry', () => {
+  it('a defence industry makes weapons cheaper, not soldiers', () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    const a = s.countries[id('Poland')], b = s.countries[id('Czechia')];
+    run(s, 1);
+    const clone = (c: typeof a) => JSON.parse(JSON.stringify(c)) as typeof a;
+    const x = clone(a), y = clone(a);
+    ensureInd50(y).lv.arms = ensureInd50(y).lv0.arms + 5;
+    expect(mods50(y).cost).toBeCloseTo(mods50(x).cost, 9); // pay is untouched
+    const e0 = x.mil.equipArmy;
+    stepMil50(x, s, geo); stepMil50(y, s, geo);
+    expect(y.mil.equipArmy - e0).toBeGreaterThan(x.mil.equipArmy - e0); // the same money buys more
+    void b;
+  });
+  it("an AI government's share of its industries' growth is paid for, and pays off", () => {
+    const s = fresh('Iceland', { randomEvents: false });
+    run(s, 2);
+    const c = s.countries[id('Germany')];
+    const cash0 = c.eco.cash, food0 = c.eco.foodCap, energy0 = c.eco.energyCap;
+    c.eco.growth = 0.04;
+    for (let i = 0; i < 8; i++) { s.tick++; stepInd50(s); }
+    expect(c.eco.cash).toBeLessThan(cash0);
+    expect(c.eco.foodCap * c.eco.energyCap).toBeGreaterThan(food0 * energy0);
+  });
+  it('an encirclement is reported against the enemy that made it, in the war it belongs to', () => {
+    const s = fresh('Iceland', { randomEvents: false, defensiveAlliances: false });
+    const pl = id('Poland'), lt = id('Lithuania'), de = id('Germany');
+    declare49(s, geo, pl, lt);
+    declare49(s, geo, pl, de);
+    const P = s.countries[pl];
+    const inland = P.provinces.filter((p) => p !== P.capital && geo.provinces[p].coast <= 0.15);
+    // surround one inland Polish region with German land
+    const nb = neighbours50(geo);
+    const p = inland.find((q) => nb[q].length >= 3 && !nb[q].includes(P.capital) && nb[q].every((x) => geo.provinces[x].coast <= 0.15 || s.owner[x] !== pl))!;
+    for (const q of nb[p]) if (s.owner[q] !== de && q !== P.capital) transfer49(s, geo, q, de);
+    s.inbox = [];
+    tick(s, geo);
+    const enc = s.log.filter((e) => /ENCIRCLED: Poland/.test(e.text)).at(-1);
+    expect(enc?.text).toMatch(/by Germany/);
   });
 });

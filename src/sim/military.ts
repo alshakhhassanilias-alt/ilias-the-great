@@ -8,6 +8,7 @@ import type { Country, GameState } from './types';
 import type { Geo } from './geo';
 import { clamp } from './util';
 import { isAtWar } from './relations';
+import { armsCostMult } from './industry';
 
 export const BENCH_EQUIP_PER_TROOP = 150_000;
 export const MAINT_RATE = 0.05;
@@ -52,7 +53,8 @@ export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: numb
   const m = c.mil, e = c.eco, b = c.budget;
   const budgetReal = b.military * e.realGdp;
   const personnel = m.troops * m.unitCost * mods(c).cost;
-  const maint = MAINT_RATE * equipTotal(m);
+  const arms = armsCostMult(c); // a home defence industry makes weapons, and keeping them, cheaper
+  const maint = MAINT_RATE * equipTotal(m) * arms;
   const upkeepReal = personnel + maint;
   const avail = budgetReal * DT;
   const need = upkeepReal * DT;
@@ -64,7 +66,7 @@ export function stepMilitary(c: Country, s: GameState, _geo: Geo): { total: numb
   m.readiness += (tgt - m.readiness) * 0.06;
   m.readiness = clamp(m.readiness, 0.05, 1);
 
-  let proc = Math.max(0, avail - paid);
+  let proc = Math.max(0, avail - paid) / arms; // (the same money buys more)
   if (m.warEconomy) {
     if (isAtWar(s, c.id)) {
       // the factories turn to arms: 60% more equipment, paid for from the treasury (it used to come free)

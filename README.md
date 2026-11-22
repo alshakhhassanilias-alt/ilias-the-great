@@ -62,6 +62,20 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 50: the last loose ends
+
+* **Encirclement losses** go to the war whose enemy holds the ring, split by region when a country has pockets in
+  several wars (they all went to the first war it was in), and the ENCIRCLED report names the right enemy.
+* **A defence industry makes weapons cheaper, as it says:** equipment and its upkeep cost 3% less per level built. It
+  used to discount soldiers' pay instead, and buy no more equipment.
+* **AI industry growth plays by the player's rules.** Firms' own investment grows every country's industries at the
+  same pace. The extra an AI government adds is now a government programme like the player's: paid for at the same
+  price per level, cut back when the treasury is short, and bringing the same payoffs (food, energy, infrastructure,
+  technology, tax collection). It used to be free and bring nothing but the level.
+* **Operations' staff estimate is honest again.** The faster war engine made operations by a stronger army land every
+  time while the estimate said 70-90%. The odds are now steeper, and a quick spearhead no longer reads as a coin toss
+  when the numbers favour you.
+
 ## Round 49: polishing the war engine and the economy
 
 Everything left over from the four audits, plus what `sim_test` turned up along the way:
@@ -235,9 +249,9 @@ or the war strip):
   (a spearhead, a full army, everything: the rest of the front thins out); when (now, or after four or eight weeks of
   preparation, stronger but with a growing chance the enemy finds out); deception (a feint, radio deception if your
   intelligence services are good enough); support (air cover, worth it only if you own the sky; a barrage).
-* **The staff estimate**, as a range: the better your intelligence, the narrower it is. Calibrated against simulated
-  operations: a quick spearhead reads about 70% and lands 44-81% of the time depending on the war; a fully prepared
-  all-in assault reads about 92% and lands 75-94%.
+* **The staff estimate**, as a range: the better your intelligence, the narrower it is. Recalibrated after the war
+  engine was reworked (round 50), against simulated operations with the player both stronger and weaker: a stronger
+  army's operations read 89-97% and land nearly always; a weaker one's read about 20-27% and land 13-25% of the time.
 * **The battle**: while it runs, the objective gets your concentrated force, the plan's bonuses and an operation's tempo
   in the real battle engine (`war.ts`), so the map moves. A couple of weeks in a crisis comes to your desk (the bridge, a
   breakout from the pocket, the gates of the capital, a storm over the beaches, the line bending) and your call changes

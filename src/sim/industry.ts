@@ -31,7 +31,7 @@ export const SECTORS: { id: SectorId; icon: string; name: string; maker: string;
   { id: 'heavy', icon: '🏗', name: 'Steel & heavy industry', maker: 'steel maker', w: 0.8, desc: 'Steel, cement, shipyards and machine tools.', payoff: 'Infrastructure +1 and capital +1% per level', branch: 0, costK: 1 },
   { id: 'manuf', icon: '🚗', name: 'Manufacturing', maker: 'manufacturer', w: 1, desc: 'Cars, machinery, consumer goods.', payoff: 'Exports and jobs: the biggest share of output', branch: 0, costK: 1 },
   { id: 'tech', icon: '💾', name: 'Electronics & chips', maker: 'chip maker', w: 1.1, desc: 'Semiconductors, computers, phones.', payoff: 'Technology +1 and military technology +0.5 per level', branch: 2, costK: 1.4 },
-  { id: 'arms', icon: '🛡', name: 'Defence industry', maker: 'arms maker', w: 0.5, desc: 'Tanks, aircraft, missiles and ships.', payoff: 'Army costs −3% per level; arms sales abroad win influence', branch: 4, costK: 1.2 },
+  { id: 'arms', icon: '🛡', name: 'Defence industry', maker: 'arms maker', w: 0.5, desc: 'Tanks, aircraft, missiles and ships.', payoff: 'Weapons and their upkeep 3% cheaper per level; arms sales abroad win influence', branch: 4, costK: 1.2 },
   { id: 'services', icon: '🏦', name: 'Finance & services', maker: 'financial centre', w: 1.2, desc: 'Banks, insurance, software, tourism.', payoff: 'Tax collection +0.5% per level', branch: 2, costK: 1 },
 ];
 export const sectorById = (id: SectorId) => SECTORS.find((x) => x.id === id)!;
@@ -171,8 +171,14 @@ export const armsCostMult = (c: Country) => (c.ind ? clamp(1 - 0.03 * Math.max(0
 export const industryKey = (c: Country) => (c.ind ? Math.round(c.ind.lv.arms * 10) : -1);
 
 function levelUp(s: GameState, c: Country, id: SectorId, amount: number) {
-  const ind = ensureIndustry(c), e = c.eco;
+  const ind = ensureIndustry(c);
   ind.lv[id] = +(ind.lv[id] + amount).toFixed(3);
+  payoff(c, id, amount);
+}
+/** What a deliberate, government-funded expansion of a sector brings besides output (the player's programmes, and the
+ *  AI governments' share of their industries' growth). */
+function payoff(c: Country, id: SectorId, amount: number) {
+  const e = c.eco;
   switch (id) {
     case 'agri': e.foodCap *= 1 + 0.06 * amount; break;
     case 'energy': e.energyCap *= 1 + 0.06 * amount; break;
@@ -239,14 +245,29 @@ export function sectorStanding(s: GameState, c: Country, id: SectorId) {
  */
 function drift(s: GameState, c: Country, k: number) {
   const ind = ensureIndustry(c), m = marketOf(s);
+  // the share of this growth an AI government adds on top of what firms invest anyway (k above the player's 0.5) is a
+  // government programme like the player's: it is paid for, at the same price per level, and it brings the same
+  // payoffs (it used to be free, and to bring nothing but the level)
+  const gov = c.isPlayer ? 0 : Math.max(0, (k - 0.5) / k);
   const g = clamp(c.eco.growth, -0.05, 0.08);
   const rich = c.eco.gdp / Math.max(1, c.eco.pop) > 15000;
   for (const [si, sec] of SECTORS.entries()) {
     const fit = sec.id === 'services' ? (rich ? 1.2 : 0.7) : sec.id === 'arms' ? 0.5 + (c.ai?.aggression ?? 0.5) * 0.6 : 1;
-    if (expansionOf(s, c, sec.id).why?.startsWith('Needs')) continue;
+    const ex = expansionOf(s, c, sec.id);
+    if (ex.why?.startsWith('Needs')) continue;
     // about as fast as demand grows at the going price: a dear market draws investment, a glut chokes it off
     const v = ind.lv[sec.id] * (0.001 + 0.22 * Math.max(0, g)) * fit * (0.3 + 0.7 * m.price[sec.id]) * k / 12;
-    ind.lv[sec.id] += Math.max(0, v) * (0.6 + 0.8 * hash01('inv', c.id, si, Math.floor(s.tick / 52)));
+    const add = Math.max(0, v) * (0.6 + 0.8 * hash01('inv', c.id, si, Math.floor(s.tick / 52)));
+    let mine = add * gov;
+    if (mine > 0) {
+      // a government short of money funds less of it (the firms' own share goes ahead)
+      const price = ex.cost;
+      const afford = c.eco.cash > 0 ? Math.min(1, c.eco.cash * 0.05 / Math.max(1, price * mine)) : 0;
+      mine *= afford;
+      c.eco.cash -= price * mine;
+      payoff(c, sec.id, mine);
+    }
+    ind.lv[sec.id] += add * (1 - gov) + mine;
   }
 }
 

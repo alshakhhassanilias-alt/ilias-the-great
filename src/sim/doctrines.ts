@@ -12,7 +12,7 @@ import { fund } from './actions';
 import { logEvent } from './log';
 import { cabinetEff, cabinetKey } from './cabinet';
 import { researchKey, researchLasting } from './research';
-import { armsCostMult, industryKey } from './industry';
+import { industryKey } from './industry';
 import { focusById } from './focus';
 import { mobOf, stratById } from './mobdata';
 
@@ -106,7 +106,7 @@ export function mods(c: Country): Required<Eff> {
   for (const me of c.mob || (c.strat && c.strat !== 'balanced') ? [mobOf(c).eff, stratById(c.strat).eff] : []) {
     out.manpower *= me.manpower ?? 1; out.off *= me.off ?? 1; out.def *= me.def ?? 1;
   }
-  if (c.ind) out.cost *= armsCostMult(c); // a home defence industry makes weapons cheaper
+  // (a home defence industry makes weapons cheaper: military.ts applies armsCostMult to equipment, not to pay)
   cache.set(c, { key, eff: out });
   return out;
 }

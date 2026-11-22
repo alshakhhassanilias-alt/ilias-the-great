@@ -133,12 +133,12 @@ export function opEstimate(s: GameState, geo: Geo, pl: Plan): { p: number; lo: n
   const terrain = 1 + 0.6 * (geo.provinces[pl.target]?.terrain ?? 0);
   const r = pl.kind === 'hold' ? (pw * conc) / Math.max(0.2, ratio0) : (ratio0 * pw * conc) / terrain / (pl.kind === 'capital' ? 1.6 : 1);
   const progress = f?.progress ?? 0;
-  // (calibrated against simulated operations: a quick spearhead lands about half to four in five of the time, a fully
-  // prepared all-in assault about nine in ten)
-  const p = clamp(1 / (1 + Math.exp(-(Math.log(r) * 1.3 + (pl.kind === 'hold' ? -progress * 1.5 : progress * 2) - 0.6))), 0.04, 0.92);
-  // a quick, light operation is a gamble whatever the numbers say: the less you commit and prepare, the nearer an even bet
+  // (calibrated against simulated operations, sim_test-style, with the player both stronger and weaker than the enemy:
+  // the odds are steep, a stronger army's operations nearly always land and a weaker one's mostly fail)
+  const p = clamp(1 / (1 + Math.exp(-(Math.log(r) * 2.4 + (pl.kind === 'hold' ? -progress * 1.5 : progress * 2) + 0.4))), 0.03, 0.97);
+  // a quick, light operation is a little more of a gamble than a prepared one
   const ready = clamp(((FORCE[pl.force].share - 0.2) / 0.35) * 0.6 + (pl.prep / 8) * 0.4, 0, 1);
-  const pe = 0.5 + (p - 0.5) * (0.6 + 0.4 * ready);
+  const pe = 0.5 + (p - 0.5) * (0.85 + 0.15 * ready);
   const spread = 0.06 + 0.22 * (1 - P.mil.intel);
   return { p: pe, lo: clamp(pe - spread, 0.01, 0.99), hi: clamp(pe + spread, 0.01, 0.99) };
 }

@@ -870,13 +870,24 @@ function stepPockets(s: GameState, geo: Geo) {
     const totalW = c.provinces.reduce((t, q) => t + geo.provinces[q].w, 0) || 1;
     const share = net.pocket.reduce((t, q) => t + geo.provinces[q].w, 0) / totalW;
     const loss = c.mil.troops * 0.004 * Math.min(0.5, share);
-    if (loss > 1) { c.mil.troops -= loss; c.mil.casualties += loss; w.casualties[cid] = (w.casualties[cid] ?? 0) + loss; }
+    // each pocket's losses go to the war whose enemy holds the ring around it (they all used to go to the first war
+    // the country was in, whoever had cut it off)
+    const nbs = neighbours(geo);
+    const ringOf = (q: ProvId) => warsOf(s, cid).find((x) => nbs[q].some((o) => { const own = s.owner[o]; return own !== cid && warSideOf(x, own) >= 0 && warSideOf(x, own) !== warSideOf(x, cid); })) ?? w;
+    const byWar = new Map<War, number>();
+    for (const q of net.pocket) byWar.set(ringOf(q), (byWar.get(ringOf(q)) ?? 0) + geo.provinces[q].w);
+    const pw = [...byWar.values()].reduce((t, x) => t + x, 0) || 1;
+    if (loss > 1) {
+      c.mil.troops -= loss; c.mil.casualties += loss;
+      for (const [x, wt] of byWar) x.casualties[cid] = (x.casualties[cid] ?? 0) + loss * wt / pw;
+    }
     if (n > before && (before === 0 || n >= before + 2) && s.tick - (s.stats[`pocket:${cid}`] ?? -999) > 12) {
       s.stats[`pocket:${cid}`] = s.tick;
       const p = net.pocket[0];
       const name = geo.provinces[p].name || c.name;
-      const side = warSideOf(w, cid);
-      const foe = neighbours(geo)[p].map((q) => s.owner[q]).find((o) => o !== cid && warSideOf(w, o) >= 0 && warSideOf(w, o) !== side);
+      const wp = ringOf(p);
+      const side = warSideOf(wp, cid);
+      const foe = nbs[p].map((q) => s.owner[q]).find((o) => o !== cid && warSideOf(wp, o) >= 0 && warSideOf(wp, o) !== side);
       const enemy = foe ?? cid;
       const involved = cid === s.player || enemy === s.player;
       logEvent(s, `⭕ ENCIRCLED: ${c.name}'s forces ${n === 1 ? `in ${name}` : `in ${n} regions around ${name}`} are cut off from supplies${enemy !== cid ? ` by ${s.countries[enemy].name}` : ''} and fight at half strength.`, 'war', [cid, enemy], involved, involved ? { big: cid === s.player, prov: p } : { prov: p });

@@ -128,7 +128,9 @@ supply under 0.2. It opens a second sector only when it clearly outnumbers the e
 The player gets extra layers on top: army groups (`armies.ts`), named operations (`operations.ts`), campaigns
 (`campaigns.ts`), war councils (`warmode.ts`). The same `stepWars` resolves everyone's battles.
 
-Chip and mineral output belongs to the land (`producersNow` in `trade.ts`). Lasting military-technology gains go
+Chip and mineral output belongs to the land (`producersNow` in `trade.ts`). A defence industry (`armsCostMult`) makes
+equipment and its upkeep cheaper, not pay. AI governments' share of industry growth is paid for and brings the same
+payoffs as the player's expansions (`industry.ts` `drift`/`payoff`). Lasting military-technology gains go
 through `raiseMilTech` (`military.ts`), or they fade. A partial or general mobilisation costs output through the
 workers it calls up; only total war also converts industry. Player mobilisation calls up against the army at its start,
 within the manpower available.
