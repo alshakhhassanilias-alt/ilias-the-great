@@ -1,0 +1,75 @@
+WebGL: { version: 'WebGL 2.0 (OpenGL ES 3.0 Chromium)', lost: false }
+fast-forwarding 1000 ticks…
+  reached tick 1355 in 5.4s
+  saved artifacts/screenshots/01-orbit-1280x720.png
+  saved artifacts/screenshots/02-tribe-camp-1280x720.png
+  saved artifacts/screenshots/03-neural-inspector-1280x720.png
+  saved artifacts/screenshots/04-night-camp-1280x720.png
+  saved artifacts/screenshots/05-meteor-impact-1280x720.png
+  saved artifacts/screenshots/06-crater-1280x720.png
+  saved artifacts/screenshots/07-oasis-1280x720.png
+  saved artifacts/screenshots/08-plague-1280x720.png
+{
+  "viewport": "1280x720",
+  "webgl": {
+    "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+    "lost": false
+  },
+  "fastForward": 1000,
+  "durationSec": 325.391,
+  "final": {
+    "tick": 2734,
+    "counts": {
+      "total": 258,
+      "herb": 208,
+      "omni": 35,
+      "carn": 15,
+      "avgIQ": 67.32704536694064,
+      "avgGen": 2.744186046511628,
+      "inTribes": 27,
+      "speciesAlive": 17,
+      "extinctions": 9,
+      "tribes": 5,
+      "wars": 0
+    },
+    "tribes": [
+      "Fern-skamek(2)",
+      "Thorn-yarvi(5)",
+      "Fern-neen(13)",
+      "Sun-brite(6)",
+      "Dusk-fenvi(1)"
+    ],
+    "errors": [],
+    "webgl": {
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "lost": false
+    }
+  },
+  "layout": {
+    "overlaps": [],
+    "offscreen": [],
+    "clipped": [],
+    "hiddenChips": [],
+    "panels": 6
+  },
+  "consoleErrors": [],
+  "webglWarnings": [
+    "[warning] [.WebGL-0x305c001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x305c001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x305c001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x305c001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+  ],
+  "mainThread": {
+    "medianMs": 28.3,
+    "maxMs": 57.6,
+    "lastJsMs": 27.9,
+    "drawCalls": 93,
+    "creatures": 489
+  },
+  "frameStats": {
+    "median": 2327.600000000559,
+    "p90": 2996.2999999998137
+  }
+}
+
+VISUAL CHECK PASSED

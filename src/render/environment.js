@@ -53,7 +53,7 @@ const C = (hex) => new THREE.Color(hex);
 const PALETTE = {
   dayTop: C(0x2f6fcf), dayHorizon: C(0xa9d3f2),
   duskTop: C(0x27356e), duskHorizon: C(0xf59a62),
-  nightTop: C(0x02040c), nightHorizon: C(0x0c1730),
+  nightTop: C(0x040814), nightHorizon: C(0x13234a),
   ground: C(0x0d1d2a),
   overcastTop: C(0x6f7c8a), overcastHorizon: C(0xaab3bb),
   stormTop: C(0x2a3038), stormHorizon: C(0x4f5862),
@@ -149,11 +149,11 @@ export class Environment {
       this.sun.intensity = (0.25 + 2.6 * day) * (1 - cl * 0.6) * THREE.MathUtils.smoothstep(elev, -0.08, 0.08);
     } else {
       this.sun.color.setRGB(0.55, 0.65, 1.0);
-      this.sun.intensity = 0.42 * (1 - cl * 0.6) * THREE.MathUtils.smoothstep(-elev, 0.08, 0.3);
+      this.sun.intensity = 0.85 * (1 - cl * 0.5) * THREE.MathUtils.smoothstep(-elev, 0.08, 0.3);
     }
-    this.hemi.color.setRGB(0.75, 0.85, 1.0).lerp(new THREE.Color(0.22, 0.3, 0.55), night);
+    this.hemi.color.setRGB(0.75, 0.85, 1.0).lerp(new THREE.Color(0.32, 0.42, 0.75), night);
     this.hemi.groundColor.setRGB(0.3, 0.33, 0.22).lerp(new THREE.Color(0.05, 0.06, 0.1), night);
-    this.hemi.intensity = 0.35 + 0.75 * day + 0.12 * night;
+    this.hemi.intensity = 0.35 + 0.75 * day + 0.38 * night;
 
     // lightning flashes
     if (w === 'Storm' && Math.random() < dt * 0.18) this.flash = 1;

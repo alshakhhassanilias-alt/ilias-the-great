@@ -56,77 +56,82 @@ console.log(`  reached tick ${tickAfter} in ${((Date.now() - ffStart) / 1000).to
 await page.waitForTimeout(800);
 
 const shot = async (name) => {
-  const p = path.join(outDir, `${name}.png`);
+  await page.evaluate(() => window.__genesis.waitFrames(3));
+  const suffix = WIDTH === 1600 && HEIGHT === 900 ? '' : `-${WIDTH}x${HEIGHT}`;
+  const p = path.join(outDir, `${name}${suffix}.png`);
   await page.screenshot({ path: p });
   console.log('  saved', path.relative(root, p));
   return p;
 };
-const settle = (ms = 2200) => page.waitForTimeout(ms);
+const G = (fn, arg) => page.evaluate(fn, arg);
+
+// freeze the simulation so every shot shows the same evolved world (rendering keeps animating)
+await G(() => window.__genesis.pause(true));
+await G(() => window.__genesis.jumpToTime(0.36));
+await page.waitForTimeout(600);
 
 // 1. orbit overview
-await page.evaluate(() => window.__genesis.setView([150, 140, 190], [0, 2, 0]));
-await settle();
+await G(() => window.__genesis.setView([150, 140, 190], [0, 2, 0]));
 await shot('01-orbit');
 
 // 2. tribe camp close-up (largest living tribe)
-const camp = await page.evaluate(() => {
+const camp = await G(() => {
   const camps = window.__genesis.state.camps.filter((c) => c.alive).sort((a, b) => b.members - a.members);
   return camps[0] || null;
 });
 if (camp) {
-  await page.evaluate((c) => {
-    const g = window.__genesis;
-    const dir = new g.THREE.Vector3(0.55, 0.55, 0.62).normalize();
-    g.focusPoint(c.x, c.z, 26, dir);
-  }, camp);
-  await settle(2600);
+  await G((c) => window.__genesis.lookAt(c.x, c.z, 30, [0.62, 0.62, 0.48]), camp);
   await shot('02-tribe-camp');
 } else console.log('  WARNING: no living tribe to photograph');
 
-// 3. neural inspector on a tribe member
-const memberId = await page.evaluate((c) => (c ? window.__genesis.tribeMember(c.id) : 0), camp);
-await page.evaluate((id) => {
-  const g = window.__genesis;
-  if (id) g.select(id); else g.spotlight();
-  const s = g.state.selected;
-  const c = s && [...g.state.camps].length ? null : null;
-  document.querySelector('[data-act="follow"]')?.click();
-}, memberId);
-await page.evaluate(() => {
-  const g = window.__genesis;
-  const id = g.state.selected;
-  const inspect = g.state.inspect;
-  if (inspect && !inspect.dead) g.focusPoint(inspect.x, inspect.z, 20, new g.THREE.Vector3(0.6, 0.5, 0.62).normalize());
-});
-await settle(2600);
+// 3. neural inspector on a tribe member, camera following it
+const memberId = await G((c) => (c ? window.__genesis.tribeMember(c.id) : 0), camp);
+await G((id) => { const g = window.__genesis; if (id) g.select(id); else g.spotlight(); }, memberId);
+await page.waitForFunction(() => window.__genesis.state.inspect && !window.__genesis.state.inspect.dead, null, { timeout: 20000 });
+await G(() => { const g = window.__genesis; const i = g.state.inspect; g.lookAt(i.x, i.z, 22, [0.55, 0.7, 0.45]); document.querySelector('[data-act="follow"]')?.click(); });
 await shot('03-neural-inspector');
 
-// 4. night time at the camp
-await page.evaluate(() => { document.querySelector('[data-act="close"]')?.click(); });
-if (camp) await page.evaluate((c) => window.__genesis.focusPoint(c.x, c.z, 40, new window.__genesis.THREE.Vector3(-0.5, 0.5, 0.7).normalize()), camp);
-await page.evaluate(() => window.__genesis.jumpToTime(0.93));
-await settle(3000);
+// 4. night at the camp
+await G(() => window.__genesis.select(0));
+if (camp) await G((c) => window.__genesis.lookAt(c.x, c.z, 36, [0.62, 0.62, 0.48]), camp);
+await G(() => window.__genesis.jumpToTime(0.95));
+await page.waitForTimeout(600);
 await shot('04-night-camp');
 
 // 5. god power: meteor strike on open land away from camps
-const target = await page.evaluate(() => {
+const target = await G(() => {
   const g = window.__genesis;
   const camps = g.state.camps;
-  for (let i = 0; i < 400; i++) {
-    const x = (Math.random() - 0.5) * 140, z = (Math.random() - 0.5) * 140;
-    if (camps.some((c) => Math.hypot(c.x - x, c.z - z) < 40)) continue;
-    return { x, z };
+  let best = { x: 20, z: 20 }, bd = -1;
+  for (let i = 0; i < 300; i++) {
+    const x = (Math.random() - 0.5) * 120, z = (Math.random() - 0.5) * 120;
+    const d = Math.min(...camps.map((c) => Math.hypot(c.x - x, c.z - z)), 999);
+    if (d > bd) { bd = d; best = { x, z }; }
   }
-  return { x: 20, z: 20 };
+  return best;
 });
-await page.evaluate(() => window.__genesis.jumpToTime(0.42));
-await page.evaluate((t) => { const g = window.__genesis; g.focusPoint(t.x, t.z, 95, new g.THREE.Vector3(0.6, 0.6, 0.5).normalize()); }, target);
-await settle(1400);
-await page.evaluate((t) => window.__genesis.power('meteor', t.x, t.z), target);
-await page.waitForTimeout(1700);
+await G(() => window.__genesis.jumpToTime(0.45));
+await page.waitForTimeout(600);
+await G((t) => window.__genesis.lookAt(t.x, t.z, 90, [0.6, 0.6, 0.5]), target);
+await G((t) => window.__genesis.power('meteor', t.x, t.z), target); // resolves at impact
 await shot('05-meteor-impact');
-await settle(2500);
+await page.waitForTimeout(3500);
 await shot('06-crater');
+
+// 7. food oasis + plague near the biggest camp (shows god-power effects on the living world)
+if (camp) {
+  await G((c) => window.__genesis.lookAt(c.x + 14, c.z + 10, 48, [0.5, 0.75, 0.45]), camp);
+  await G((c) => { window.__genesis.power('oasis', c.x + 16, c.z + 12); }, camp);
+  await page.waitForTimeout(1200);
+  await shot('07-oasis');
+  // plague: infected creatures glow sickly green while the disease spreads
+  await G((c) => { const g = window.__genesis; g.power('plague', c.x, c.z); g.pause(false); g.setSpeed(1); }, camp);
+  await page.waitForTimeout(2500);
+  await G(() => window.__genesis.pause(true));
+  await G((c) => window.__genesis.lookAt(c.x, c.z, 30, [0.62, 0.62, 0.48]), camp);
+  await shot('08-plague');
+}
+await G(() => window.__genesis.pause(false));
 
 // ---- HUD layout checks
 const layout = await page.evaluate(() => {
@@ -155,7 +160,16 @@ const final = await page.evaluate(() => {
   return { tick: g.state.world.tick, counts: g.state.counts, tribes: g.state.camps.filter((c) => c.alive).map((c) => `${c.name}(${c.members})`), errors: g.errors, webgl: g.webgl };
 });
 
-// frame-time sample (main thread cost only; SwiftShader renders on CPU so FPS here is not representative of a GPU)
+// main-thread cost per frame (JS update + WebGL command submission). SwiftShader rasterises on the CPU in
+// another process, so wall-clock FPS here is not representative of a real GPU; this isolates our own work.
+const mainThread = await page.evaluate(async () => {
+  const g = window.__genesis; g.pause(false); g.setSpeed(20);
+  g.setView([150, 140, 190], [0, 2, 0]);
+  await g.waitFrames(12);
+  const s = g.perf.samples.slice(-10).sort((a, b) => a - b);
+  return { medianMs: +s[5].toFixed(2), maxMs: +s[s.length - 1].toFixed(2), lastJsMs: +g.perf.js.toFixed(2), drawCalls: g.drawCalls, creatures: g.state.counts.total };
+});
+// wall-clock frame interval (dominated by CPU rasterisation in SwiftShader)
 const frameStats = await page.evaluate(() => new Promise((resolve) => {
   const times = []; let last = performance.now(); let n = 0;
   const step = () => { const now = performance.now(); times.push(now - last); last = now; if (++n < 60) requestAnimationFrame(step); else { times.sort((a, b) => a - b); resolve({ median: times[30], p90: times[54] }); } };
@@ -168,7 +182,7 @@ server.close();
 const report = {
   viewport: `${WIDTH}x${HEIGHT}`, webgl: gl, fastForward: FF, durationSec: (Date.now() - t0) / 1000,
   final, layout: { overlaps: layout.overlaps, offscreen: layout.offscreen, clipped: layout.clipped, hiddenChips: layout.hiddenChips, panels: layout.rects.length },
-  consoleErrors, webglWarnings, frameStats,
+  consoleErrors, webglWarnings, mainThread, frameStats,
 };
 fs.writeFileSync(path.join(root, 'artifacts', `visual-report-${WIDTH}x${HEIGHT}.json`), JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));

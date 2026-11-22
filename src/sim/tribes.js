@@ -204,7 +204,7 @@ export function updateTribes(sim) {
       const b = alive[j];
       const dist = Math.hypot(a.x - b.x, a.z - b.z);
       let rel = a.relations.get(b.id) ?? 0;
-      const base = 0.45 * (a.sociability + b.sociability) / 2 - 0.55 * (a.aggression + b.aggression) / 2 + 0.05;
+      const base = 0.45 * (a.sociability + b.sociability) / 2 - 0.55 * (a.aggression + b.aggression) / 2 + 0.08;
       const overlap = a.radius + b.radius + 22 - dist;
       if (overlap > 0) rel -= 0.006 * (overlap / 10) * (0.4 + (a.aggression + b.aggression));
       if (sim.seasonIndex === 3) rel -= 0.003 * (a.aggression + b.aggression);
@@ -221,12 +221,12 @@ export function updateTribes(sim) {
         a.weariness.set(b.id, wa); b.weariness.set(a.id, wb);
         if (a.members < 3 || b.members < 3) makePeace(sim, a, b, 'ended their war — one side was all but wiped out');
         else if (Math.max(wa, wb) > 1 && sim.rng.chance(0.3)) makePeace(sim, a, b, 'signed a peace treaty, exhausted by war');
-      } else if (rel > 0.12 && dist < 120 && sim.tick - (a.lastTrade?.[b.id] ?? -9999) > 240) {
+      } else if (rel > 0.05 && dist < 130 && sim.tick - (a.lastTrade?.[b.id] ?? -9999) > 240) {
         // trade caravans: send a member carrying surplus to the partner camp
         a.lastTrade ??= {};
         a.lastTrade[b.id] = sim.tick;
         const [from, to] = a.food >= b.food ? [a, b] : [b, a];
-        if (from.food > 1.5) dispatchTrader(sim, from, to, lists.get(from.id));
+        if (from.food > 0.4 || from.stone > 1.5) dispatchTrader(sim, from, to, lists.get(from.id));
       }
     }
   }

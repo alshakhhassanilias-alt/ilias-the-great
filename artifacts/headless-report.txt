@@ -1,0 +1,146 @@
+
+=== seed 42 ===
+ tick | total herb omni carn |  IQ  gen | species extinct | tribes inTribe wars | trades  births  deaths(st/kl/old/pl)
+  500 |   179  113   40   26 | 63.8  0.1 |       9       0 |      3       52    0 |      0      25  6/11/0/0
+ 1000 |   164  103   45   16 | 64.3  0.4 |      11       0 |      3       47    0 |      0      55  36/26/0/0
+ 1500 |   171  118   42   11 | 65.3  0.9 |      15       2 |      4       47    1 |      1     114  56/58/0/0
+ 2000 |   211  137   63   11 | 65.7  1.5 |      17       6 |      4       52    1 |      1     198  63/95/0/0
+ 2500 |   257  186   59   12 | 65.6  2.1 |      16      10 |      5       46    0 |      1     303  68/137/12/0
+ 3000 |   286  203   66   17 | 65.0  2.9 |      18      13 |      6       50    0 |      1     411  79/188/29/0
+ 3500 |   348  254   79   15 | 64.4  3.6 |      21      22 |      6       48    3 |      3     549  90/237/45/0
+ 4000 |   318  228   69   21 | 64.2  3.9 |      18      26 |      6       39    2 |      4     610  109/294/60/0
+ 4500 |   298  224   54   20 | 64.1  4.2 |      16      34 |      4       28    0 |      4     675  143/328/77/0
+ 5000 |   268  199   46   23 | 64.0  4.4 |      15      36 |      4       33    0 |      4     718  159/362/100/0
+
+seed 42: {"seed":42,"ticksPerSec":1112,"final":268,"minPop":163,"maxPop":359,"minHerb":140,"minCarn":53,"firstTribeTick":80,"tribesFounded":7,"totalWars":5,"totalTrades":4,"extinctions":36,"avgIQ":64,"avgGen":4.4,"herbReversals":22,"carnReversals":18,"predatorLagTicks":450,"predatorPreyCorr":0.76,"events":{"tribe":5,"trade":2,"schism":2,"war":5,"season":2,"species":4,"weather":2,"peace":5,"extinction":3,"fall":3}}
+  PASS  population never collapses (min >= 40)
+  PASS  population bounded (max < 520)
+  PASS  plant-eaters persist (min herb+omni >= 20)
+  PASS  predators persist (min carn+omni >= 3)
+  PASS  first tribe within 1000 ticks
+  PASS  multiple tribes emerge (>= 2 founded)
+  PASS  inter-tribal diplomacy (war or trade occurred)
+  PASS  evolution happened (avg generation >= 2)
+  PASS  population cycles (prey + predator series oscillate)
+
+=== seed 7 ===
+ tick | total herb omni carn |  IQ  gen | species extinct | tribes inTribe wars | trades  births  deaths(st/kl/old/pl)
+  500 |   170  116   34   20 | 64.4  0.1 |       8       0 |      3       45    0 |      0      22  7/16/0/0
+ 1000 |   182  139   31   12 | 63.9  0.5 |       9       0 |      4       63    1 |      0      65  25/29/0/0
+ 1500 |   222  186   28    8 | 63.5  1.0 |       9       0 |      5       82    2 |      1     132  42/39/0/0
+ 2000 |   285  254   24    7 | 63.1  1.4 |      10       0 |      5       92    1 |      3     222  50/58/0/0
+ 2500 |   318  293   15   10 | 62.5  1.8 |      10       0 |      6       90    1 |      5     299  57/83/12/0
+ 3000 |   336  317    5   14 | 62.1  2.3 |      10       1 |      7       91    2 |      6     382  68/110/39/0
+ 3500 |   349  323    4   22 | 62.5  2.8 |      12       2 |      7       96    2 |     12     470  90/133/69/0
+ 4000 |   314  273    1   40 | 62.9  3.1 |      14       4 |      6       68    2 |     14     545  114/183/105/0
+ 4500 |   317  261    1   55 | 62.7  3.4 |      22       6 |      5       49    1 |     15     666  132/255/133/0
+ 5000 |   239  176    0   63 | 63.3  3.5 |      18      14 |      4       28    1 |     15     727  161/351/147/0
+
+seed 7: {"seed":7,"ticksPerSec":1180,"final":239,"minPop":165,"maxPop":350,"minHerb":139,"minCarn":19,"firstTribeTick":80,"tribesFounded":7,"totalWars":5,"totalTrades":15,"extinctions":14,"avgIQ":63.3,"avgGen":3.5,"herbReversals":18,"carnReversals":17,"predatorLagTicks":1500,"predatorPreyCorr":0.85,"events":{"tribe":4,"war":5,"trade":4,"schism":3,"season":2,"peace":4,"extinction":3,"fall":3}}
+  PASS  population never collapses (min >= 40)
+  PASS  population bounded (max < 520)
+  PASS  plant-eaters persist (min herb+omni >= 20)
+  PASS  predators persist (min carn+omni >= 3)
+  PASS  first tribe within 1000 ticks
+  PASS  multiple tribes emerge (>= 2 founded)
+  PASS  inter-tribal diplomacy (war or trade occurred)
+  PASS  evolution happened (avg generation >= 2)
+  PASS  population cycles (prey + predator series oscillate)
+
+=== seed 1337 ===
+ tick | total herb omni carn |  IQ  gen | species extinct | tribes inTribe wars | trades  births  deaths(st/kl/old/pl)
+  500 |   192  131   38   23 | 64.8  0.2 |       9       1 |      4       56    0 |      0      44  2/21/0/0
+ 1000 |   234  182   37   15 | 65.0  0.8 |      18       3 |      6       81    1 |      0     130  16/51/0/0
+ 1500 |   323  258   48   17 | 64.9  1.4 |      29       6 |      6      106    1 |      0     279  28/99/0/0
+ 2000 |   381  309   55   17 | 64.7  2.0 |      33       8 |      7      114    1 |      4     433  50/173/0/0
+ 2500 |   366  277   61   28 | 64.6  2.4 |      28      17 |      8      106    2 |      5     540  85/244/16/0
+ 3000 |   315  225   57   33 | 64.0  2.7 |      22      28 |      8       84    3 |      8     624  112/335/33/0
+ 3500 |   272  180   52   40 | 63.4  3.0 |      17      35 |      7       58    1 |      9     713  137/428/47/0
+ 4000 |   233  149   48   36 | 63.5  3.2 |      12      43 |      5       40    1 |     11     766  155/486/63/0
+ 4500 |   193  128   36   29 | 63.7  3.4 |      11      48 |      5       26    2 |     12     814  178/533/81/0
+ 5000 |   158  110   26   22 | 63.7  3.8 |      11      50 |      5       17    0 |     14     862  193/581/101/0
+
+seed 1337: {"seed":1337,"ticksPerSec":1157,"final":158,"minPop":157,"maxPop":387,"minHerb":135,"minCarn":46,"firstTribeTick":80,"tribesFounded":10,"totalWars":8,"totalTrades":14,"extinctions":50,"avgIQ":63.7,"avgGen":3.8,"herbReversals":6,"carnReversals":20,"predatorLagTicks":1150,"predatorPreyCorr":0.91,"events":{"tribe":6,"war":8,"peace":8,"schism":4,"trade":6,"season":2,"fall":5,"extinction":2}}
+  PASS  population never collapses (min >= 40)
+  PASS  population bounded (max < 520)
+  PASS  plant-eaters persist (min herb+omni >= 20)
+  PASS  predators persist (min carn+omni >= 3)
+  PASS  first tribe within 1000 ticks
+  PASS  multiple tribes emerge (>= 2 founded)
+  PASS  inter-tribal diplomacy (war or trade occurred)
+  PASS  evolution happened (avg generation >= 2)
+  PASS  population cycles (prey + predator series oscillate)
+
+=== seed 99 ===
+ tick | total herb omni carn |  IQ  gen | species extinct | tribes inTribe wars | trades  births  deaths(st/kl/old/pl)
+  500 |   185  136   22   27 | 64.4  0.2 |       9       0 |      4       57    0 |      0      40  4/22/0/0
+ 1000 |   221  185   12   24 | 64.0  0.7 |       8       1 |      4       68    0 |      0     113  13/50/0/0
+ 1500 |   285  252   13   20 | 64.4  1.3 |       8       2 |      6       96    1 |      0     215  25/76/0/0
+ 2000 |   386  353   13   20 | 64.7  1.9 |      10       2 |      7      156    1 |      1     341  33/93/0/0
+ 2500 |   472  436   12   24 | 64.8  2.6 |      10       2 |      9      212    5 |      8     484  50/118/15/0
+ 3000 |   493  458    8   27 | 64.3  3.2 |      14       2 |      9      194    7 |     15     602  83/157/40/0
+ 3500 |   504  475    5   24 | 64.2  4.0 |      16       2 |     10      202    6 |     21     703  114/170/86/0
+ 4000 |   510  487    2   21 | 63.9  4.5 |      14       6 |     11      216    4 |     31     769  131/178/121/0
+ 4500 |   490  467    2   21 | 63.3  5.1 |      13       8 |     11      190    4 |     47     833  156/186/172/0
+ 5000 |   490  461    0   29 | 63.1  5.6 |      11      12 |     12      162    6 |     62     952  186/203/243/0
+
+seed 99: {"seed":99,"ticksPerSec":713,"final":490,"minPop":161,"maxPop":510,"minHerb":137,"minCarn":22,"firstTribeTick":80,"tribesFounded":13,"totalWars":13,"totalTrades":62,"extinctions":12,"avgIQ":63.1,"avgGen":5.6,"herbReversals":17,"carnReversals":22,"predatorLagTicks":1000,"predatorPreyCorr":-0.38,"events":{"tribe":6,"war":13,"extinction":3,"peace":7,"schism":7,"season":2,"trade":24,"fall":1,"weather":1}}
+  PASS  population never collapses (min >= 40)
+  PASS  population bounded (max < 520)
+  PASS  plant-eaters persist (min herb+omni >= 20)
+  PASS  predators persist (min carn+omni >= 3)
+  PASS  first tribe within 1000 ticks
+  PASS  multiple tribes emerge (>= 2 founded)
+  PASS  inter-tribal diplomacy (war or trade occurred)
+  PASS  evolution happened (avg generation >= 2)
+  PASS  population cycles (prey + predator series oscillate)
+
+=== seed 2024 ===
+ tick | total herb omni carn |  IQ  gen | species extinct | tribes inTribe wars | trades  births  deaths(st/kl/old/pl)
+  500 |   161  112   31   18 | 64.3  0.1 |       9       0 |      5       50    0 |      0      19  10/19/0/0
+ 1000 |   169  126   28   15 | 65.2  0.4 |      10       0 |      4       44    0 |      0      52  21/33/0/0
+ 1500 |   172  135   20   17 | 65.9  0.8 |      10       2 |      4       19    1 |      2     103  36/66/0/0
+ 2000 |   213  177   20   16 | 68.0  1.4 |      16       2 |      4       13    0 |      4     182  51/89/0/0
+ 2500 |   213  175   19   19 | 68.4  1.8 |      13       7 |      4        9    0 |      5     229  74/105/8/0
+ 3000 |   210  173   14   23 | 69.0  2.3 |      14      10 |      4        7    0 |      8     282  90/126/27/0
+ 3500 |   215  183   10   22 | 69.6  2.8 |      13      14 |      3        5    0 |      9     335  106/143/42/0
+ 4000 |   208  182    6   20 | 70.4  3.1 |      11      18 |      2        3    0 |     10     365  121/151/56/0
+ 4500 |   196  174    2   20 | 70.5  3.5 |      12      20 |      0        0    0 |     10     409  131/177/76/0
+ 5000 |   201  175    1   25 | 70.9  4.0 |      14      25 |      0        0    0 |     10     469  145/193/101/0
+
+seed 2024: {"seed":2024,"ticksPerSec":1492,"final":201,"minPop":156,"maxPop":221,"minHerb":138,"minCarn":21,"firstTribeTick":80,"tribesFounded":5,"totalWars":1,"totalTrades":10,"extinctions":25,"avgIQ":70.9,"avgGen":4,"herbReversals":26,"carnReversals":31,"predatorLagTicks":900,"predatorPreyCorr":-0.29,"events":{"tribe":5,"fall":5,"war":1,"trade":6,"season":2,"peace":1,"weather":1,"extinction":3,"species":1}}
+  PASS  population never collapses (min >= 40)
+  PASS  population bounded (max < 520)
+  PASS  plant-eaters persist (min herb+omni >= 20)
+  PASS  predators persist (min carn+omni >= 3)
+  PASS  first tribe within 1000 ticks
+  PASS  multiple tribes emerge (>= 2 founded)
+  PASS  inter-tribal diplomacy (war or trade occurred)
+  PASS  evolution happened (avg generation >= 2)
+  PASS  population cycles (prey + predator series oscillate)
+
+=== seed 5 ===
+ tick | total herb omni carn |  IQ  gen | species extinct | tribes inTribe wars | trades  births  deaths(st/kl/old/pl)
+  500 |   163  130   17   16 | 63.5  0.2 |       8       0 |      4       47    0 |      0      27  10/25/0/0
+ 1000 |   164  137   17   10 | 63.6  0.4 |       9       0 |      5       49    0 |      1      59  23/43/0/0
+ 1500 |   182  162   13    7 | 62.9  0.9 |       8       1 |      5       48    0 |      4     115  36/68/0/0
+ 2000 |   226  209   10    7 | 62.9  1.6 |       7       2 |      4       47    1 |      9     194  42/96/1/0
+ 2500 |   255  239    9    7 | 62.7  2.3 |       8       4 |      5       53    1 |     12     278  53/125/16/0
+ 3000 |   299  284    8    7 | 62.7  3.0 |       9       4 |      5       86    1 |     13     380  71/147/34/0
+ 3500 |   322  313    4    5 | 62.7  3.5 |       8       6 |      6      133    1 |     18     459  83/168/57/0
+ 4000 |   281  275    0    6 | 62.5  3.7 |       5       9 |      6      125    1 |     22     478  105/187/76/0
+ 4500 |   291  284    0    7 | 61.5  3.9 |       5       9 |      7      114    1 |     28     523  113/195/93/0
+ 5000 |   264  255    0    9 | 60.8  4.0 |       5       9 |      8       98    2 |     36     559  120/216/128/0
+
+seed 5: {"seed":5,"ticksPerSec":1549,"final":264,"minPop":157,"maxPop":329,"minHerb":136,"minCarn":5,"firstTribeTick":80,"tribesFounded":11,"totalWars":3,"totalTrades":36,"extinctions":9,"avgIQ":60.8,"avgGen":4,"herbReversals":16,"carnReversals":19,"predatorLagTicks":1500,"predatorPreyCorr":-0.77,"events":{"tribe":7,"trade":12,"schism":4,"extinction":4,"season":2,"fall":3,"war":3,"weather":1,"peace":1}}
+  PASS  population never collapses (min >= 40)
+  PASS  population bounded (max < 520)
+  PASS  plant-eaters persist (min herb+omni >= 20)
+  PASS  predators persist (min carn+omni >= 3)
+  PASS  first tribe within 1000 ticks
+  PASS  multiple tribes emerge (>= 2 founded)
+  PASS  inter-tribal diplomacy (war or trade occurred)
+  PASS  evolution happened (avg generation >= 2)
+  PASS  population cycles (prey + predator series oscillate)
+
+ALL HEADLESS CHECKS PASSED

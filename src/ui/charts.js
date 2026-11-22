@@ -57,7 +57,7 @@ export class LineChart {
       ctx.moveTo(padL, yy);
       ctx.lineTo(W - padR, yy);
       ctx.stroke();
-      ctx.fillText(formatNum(v), padL - 5 * dpr, Math.min(H - 6 * dpr, Math.max(6 * dpr, yy)));
+      ctx.fillText(formatNum(v, max - min), padL - 5 * dpr, Math.min(H - 6 * dpr, Math.max(6 * dpr, yy)));
     }
 
     // optional bars (secondary scale)
@@ -107,7 +107,8 @@ export class LineChart {
   }
 }
 
-export function formatNum(v) {
+export function formatNum(v, span = 100) {
+  if (span < 3) return v.toFixed(1);
   if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1) + 'k';
   if (Math.abs(v) >= 100) return Math.round(v).toString();
   if (Math.abs(v) >= 10) return v.toFixed(0);

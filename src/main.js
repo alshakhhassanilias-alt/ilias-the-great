@@ -49,6 +49,7 @@ const resources = new ResourcesView(scene, terrain, SEED);
 const creatures = new CreaturesView(scene, terrain);
 const labelsRoot = document.getElementById('labels');
 const camps = new CampsView(scene, terrain, labelsRoot);
+camps.onCampCreated = (c) => terrainView.clearTrees(c.x, c.z, 11);
 const weather = new WeatherView(scene);
 const effects = new Effects(scene, terrain);
 
@@ -65,6 +66,7 @@ const state = {
 };
 
 // ---------------------------------------------------------------- worker
+let pendingFrame = null;
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 worker.onerror = (e) => errors.push(`worker: ${e.message}`);
 worker.onmessage = (e) => {
@@ -73,9 +75,18 @@ worker.onmessage = (e) => {
     case 'init':
       state.world = m.world;
       break;
-    case 'frame': onFrame(m); break;
+    case 'frame':
+      // coalesce: if several snapshots arrive between paints, keep the newest but don't lose events
+      if (pendingFrame) {
+        m.events = pendingFrame.events.concat(m.events);
+        m.resources ||= pendingFrame.resources;
+        m.history ||= pendingFrame.history;
+      }
+      pendingFrame = m;
+      break;
     case 'crater':
       terrainView.applyCrater(m.x, m.z, m.radius, m.depth);
+      resources.refreshHeights();
       break;
     case 'fastForwardProgress':
       hud.progress(m.remaining, m.total);
@@ -106,7 +117,8 @@ function onFrame(m) {
   if (state.selected) {
     if (m.inspect) inspector.show(m.inspect);
     if (m.inspect?.dead) { creatures.selectedId = 0; setFollow(false); }
-  } else if (state.framesSeen % 15 === 1) {
+  } else if (performance.now() - (state.summaryAt || 0) > 500) {
+    state.summaryAt = performance.now();
     inspector.updateSummary({ ...m.counts, era: m.world.era });
   }
   if (!state.ready) {
@@ -187,7 +199,7 @@ function cancelTargeting() {
 function applyPower(p, point) {
   const { x, z } = point;
   if (p.id === 'meteor') {
-    effects.meteor(x, z).then(() => worker.postMessage({ type: 'meteor', x, z }));
+    return effects.meteor(x, z).then(() => worker.postMessage({ type: 'meteor', x, z }));
   } else if (p.id === 'plague') {
     worker.postMessage({ type: 'plague', x, z });
     effects.burst(x, z, 0x9dff5a, 30, 8, 320, 3.2);
@@ -285,12 +297,26 @@ window.addEventListener('resize', () => {
 
 // ---------------------------------------------------------------- render loop
 const clock = new THREE.Clock();
+// screen rects of HUD panels: world-space labels hide when they would sit underneath a panel
+let panelRects = [], panelRectsAt = 0;
+function occluded(x, y) {
+  const now = performance.now();
+  if (now - panelRectsAt > 500) {
+    panelRectsAt = now;
+    panelRects = [...document.querySelectorAll('#hud .panel, #center-top > *')].map((el) => el.getBoundingClientRect());
+  }
+  return panelRects.some((r) => x > r.left - 40 && x < r.right + 40 && y > r.top - 6 && y < r.bottom + 24);
+}
 let fps = 60, fpsAcc = 0, fpsFrames = 0;
 const tmpV = new THREE.Vector3();
 const skyColor = new THREE.Color();
+const perf = { js: 0, render: 0, samples: [] };
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.1, clock.getDelta());
+  const tStart = performance.now();
+  if (pendingFrame) { const m = pendingFrame; pendingFrame = null; onFrame(m); }
+  const rawDt = clock.getDelta();
+  const dt = Math.min(0.1, rawDt);
   const time = clock.elapsedTime;
   fpsAcc += dt; fpsFrames++;
   if (fpsAcc >= 0.5) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; }
@@ -302,12 +328,12 @@ function frame() {
     resources.update(time);
     creatures.update(dt, time, state.paused ? 0 : state.speed);
     weather.update(dt, time, state.world, envState, controls.target, terrain);
-    camps.update(dt, time, envState.night, camera, canvas.clientWidth, canvas.clientHeight);
+    camps.update(dt, time, envState.night, camera, canvas.clientWidth, canvas.clientHeight, occluded);
     hud.updateTop(state.world, state.counts, fps, state.tickRate);
   }
 
   if (camTween) {
-    camTween.t += dt;
+    camTween.t += Math.min(rawDt, 0.5);
     const k = Math.min(1, camTween.t / camTween.dur);
     const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
     controls.target.lerpVectors(camTween.fromT, camTween.toT, e);
@@ -327,7 +353,7 @@ function frame() {
   // keep the camera above the terrain
   const gh = terrain.heightAt(camera.position.x, camera.position.z);
   if (camera.position.y < gh + 2.5) camera.position.y = gh + 2.5;
-  effects.update(dt, camera);
+  effects.update(Math.min(rawDt, 0.25), camera);
 
   // thought bubble above the selected creature
   if (state.selected && state.inspect && !state.inspect.dead) {
@@ -336,7 +362,8 @@ function frame() {
       const s = creatures.get(state.selected);
       p.y += (s?.size || 1) * 1.1 + 1.2;
       p.project(camera);
-      if (p.z < 1) {
+      const bx = (p.x * 0.5 + 0.5) * canvas.clientWidth, by = (-p.y * 0.5 + 0.5) * canvas.clientHeight;
+      if (p.z < 1 && !occluded(bx, by)) {
         bubble.style.display = '';
         if (bubble.textContent !== state.inspect.thought) bubble.textContent = state.inspect.thought;
         bubble.style.transform = `translate(-50%, -100%) translate(${((p.x * 0.5 + 0.5) * canvas.clientWidth).toFixed(1)}px, ${((-p.y * 0.5 + 0.5) * canvas.clientHeight).toFixed(1)}px)`;
@@ -344,7 +371,13 @@ function frame() {
     }
   } else bubble.style.display = 'none';
 
+  const tRender = performance.now();
   renderer.render(scene, camera);
+  const tEnd = performance.now();
+  perf.js = tRender - tStart;
+  perf.render = tEnd - tRender;
+  perf.samples.push(tEnd - tStart);
+  if (perf.samples.length > 240) perf.samples.shift();
 }
 
 worker.postMessage({ type: 'start', seed: SEED });
@@ -352,7 +385,9 @@ frame();
 
 // ---------------------------------------------------------------- automation / debug API
 window.__genesis = {
-  THREE, scene, camera, controls, renderer,
+  THREE, scene, camera, controls, renderer, effects, perf,
+  views: { env, terrainView, resources, creatures, camps, weather, hud, inspector },
+  get drawCalls() { return renderer.info.render.calls; },
   errors,
   get state() { return { ...state, world: state.world, counts: state.counts }; },
   fastForward(ticks) {
@@ -363,10 +398,20 @@ window.__genesis = {
     });
   },
   setSpeed,
+  pause(on) { state.paused = on; worker.postMessage({ type: 'pause', value: on }); hud.setSpeed(on ? 0 : state.speed); },
+  waitFrames(n = 2) { return new Promise((res) => { let k = 0; const f = () => (++k >= n ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); }); },
   select,
   spotlight,
   focusPoint,
   focusTribe,
+  lookAt(x, z, dist, dir = [0.6, 0.55, 0.6]) {
+    camTween = null;
+    const y = Math.max(0, terrain.heightAt(x, z));
+    const d = new THREE.Vector3(...dir).normalize();
+    controls.target.set(x, y + 1, z);
+    camera.position.copy(controls.target).addScaledVector(d, dist);
+    controls.update();
+  },
   setView(pos, target) { camTween = null; camera.position.set(...pos); controls.target.set(...target); controls.update(); },
   tribeMember(tribeId) {
     const t = state.camps.find((c) => c.id === tribeId);
@@ -380,6 +425,6 @@ window.__genesis = {
     return best;
   },
   jumpToTime(t) { worker.postMessage({ type: 'jumpTime', timeOfDay: t }); },
-  power(id, x, z) { applyPower({ id }, { x, z }); },
+  power(id, x, z) { return applyPower({ id }, { x, z }); },
   get webgl() { const gl = renderer.getContext(); return { version: gl.getParameter(gl.VERSION), lost: gl.isContextLost() }; },
 };

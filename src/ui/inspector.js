@@ -76,6 +76,8 @@ export class Inspector {
     this.root.innerHTML = `
       <div class="panel-head">${ICONS.brain}<span>Mind Inspector</span><span class="spacer"></span>
         <span class="count" data-f="idtag"></span>
+        <button class="icon-btn" data-act="follow" title="Follow with camera (F)">${ICONS.eye}</button>
+        <button class="icon-btn purple" data-act="mutate" title="Mutate this creature">${ICONS.dna}</button>
         <button class="icon-btn" data-act="close" title="Close (Esc)">${ICONS.close}</button></div>
       <div class="insp-scroll">
         <div class="insp-id">
@@ -83,7 +85,7 @@ export class Inspector {
           <div><div class="insp-name" data-f="name"></div><div class="insp-sub" data-f="sub"></div></div>
         </div>
         <div class="badges" data-f="badges"></div>
-        <div class="thought"><span data-f="ticon"></span><div><div class="t-label">Current thought</div><div class="t-text" data-f="thought"></div></div></div>
+        <div class="thought"><span data-f="ticon"></span><div style="min-width:0"><div class="t-label">Current thought</div><div class="t-text" data-f="thought"></div><div class="t-drive" data-f="drive"></div></div></div>
         <div class="vitals">
           <div class="vital"><div class="lbl">Energy <b data-f="e"></b></div><div class="bar"><div data-f="eb" style="background:var(--amber)"></div></div></div>
           <div class="vital"><div class="lbl">Health <b data-f="hp"></b></div><div class="bar"><div data-f="hb" style="background:var(--green)"></div></div></div>
@@ -100,10 +102,6 @@ export class Inspector {
         <div class="family">
           <div class="section-title">${ICONS.tree}<span>Family tree</span><span class="r" data-f="kids"></span></div>
           <div data-f="tree"></div>
-        </div>
-        <div class="actions">
-          <button class="btn" data-act="follow">${ICONS.eye}<span>Follow</span></button>
-          <button class="btn purple" data-act="mutate">${ICONS.dna}<span>Mutate</span></button>
         </div>
       </div>`;
     this.f = {};
@@ -123,7 +121,7 @@ export class Inspector {
     this.following = on;
     if (this.followBtn) {
       this.followBtn.classList.toggle('on', on);
-      this.followBtn.querySelector('span').textContent = on ? 'Following' : 'Follow';
+      this.followBtn.title = on ? 'Following — click to stop (F)' : 'Follow with camera (F)';
     }
   }
 
@@ -149,6 +147,9 @@ export class Inspector {
     const icon = ICONS[THOUGHT_ICON[label] || 'brain'];
     if (f.ticon.dataset.k !== label) { f.ticon.innerHTML = icon; f.ticon.dataset.k = label; }
     f.thought.textContent = d.thought;
+    const drive = OUTPUT_LABELS[d.intent] || '';
+    const overridden = ACTION_LABELS[d.intent] !== label;
+    f.drive.textContent = overridden ? `Neural drive: ${drive} · overridden by ${label.toLowerCase()}` : `Neural drive: ${drive}`;
     f.e.textContent = pct(d.energy); f.eb.style.width = pct(d.energy);
     f.hp.textContent = pct(d.health); f.hb.style.width = pct(d.health);
     f.age.textContent = `${(d.age / 600).toFixed(1)}d`; f.ab.style.width = pct(d.age / d.lifespan);
@@ -238,8 +239,8 @@ export class Inspector {
     const key = JSON.stringify([fam.self.parents.map((p) => [p.id, p.alive, (p.parents || []).map((q) => [q.id, q.alive])]), fam.children.map((c) => [c.id, c.alive])]);
     if (key === this.lastFamilyKey) return;
     this.lastFamilyKey = key;
-    const W = 300, H = 150;
-    const rows = { gp: 18, p: 56, s: 94, c: 132 };
+    const W = 300, H = 124;
+    const rows = { gp: 12, p: 44, s: 76, c: 110 };
     const nodes = [], edges = [];
     const add = (n, x, y, r, label) => { nodes.push({ n, x, y, r, label }); return { x, y }; };
     const self = add({ ...fam.self, alive: true }, W / 2, rows.s, 10, d.name);
@@ -270,7 +271,7 @@ export class Inspector {
       const op = n.alive ? 1 : 0.35;
       const ring = n.id === d.id ? '<circle cx="' + x + '" cy="' + y + '" r="' + (r + 4) + '" fill="none" stroke="#5ef2ff" stroke-width="1.5"/>' : '';
       const cross = n.alive ? '' : `<path d="M${x - r * 0.5},${y - r * 0.5}L${x + r * 0.5},${y + r * 0.5}M${x + r * 0.5},${y - r * 0.5}L${x - r * 0.5},${y + r * 0.5}" stroke="rgba(10,12,18,0.8)" stroke-width="1.4"/>`;
-      const text = label ? `<text x="${x}" y="${y + (y === rows.s ? 22 : -12)}" fill="rgba(200,210,226,0.85)" font-size="9.5" text-anchor="middle" font-family="Inter, system-ui, sans-serif">${esc(label)}${n.alive ? '' : ' †'}</text>` : '';
+      const text = label ? `<text x="${x + (y === rows.s ? 16 : 0)}" y="${y + (y === rows.s ? 3.5 : -11)}" text-anchor="${y === rows.s ? 'start' : 'middle'}" fill="rgba(200,210,226,0.85)" font-size="9.5" text-anchor="middle" font-family="Inter, system-ui, sans-serif">${esc(label)}${n.alive ? '' : ' †'}</text>` : '';
       return `<g class="node" data-id="${n.alive ? n.id : ''}" opacity="${op}">${ring}<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>${cross}${text}<title>${esc(n.name || '?')} · gen ${n.gen ?? '?'}${n.alive ? '' : ' (dead)'}</title></g>`;
     }).join('');
     const extra = fam.children.length > 9 ? `<text x="${W - 4}" y="${rows.c + 4}" fill="rgba(141,152,173,0.9)" font-size="10" text-anchor="end">+${fam.children.length - 9}</text>` : '';

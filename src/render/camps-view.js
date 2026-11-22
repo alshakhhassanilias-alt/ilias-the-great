@@ -1,7 +1,32 @@
 // Tribal camps: campfires, tents/huts, banners, stockpiles, palisades, territory and
 // diplomacy arcs (war = pulsing red, trade = golden), plus floating name labels.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { glowTexture } from './resources-view.js';
+
+// Collapse a group of static meshes into one mesh per material (keeps camp draw calls tiny).
+function mergeByMaterial(group) {
+  group.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const buckets = new Map();
+  const m = new THREE.Matrix4();
+  group.traverse((o) => {
+    if (!o.isMesh) return;
+    let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+    g.applyMatrix4(m.multiplyMatrices(inv, o.matrixWorld));
+    if (!buckets.has(o.material)) buckets.set(o.material, []);
+    buckets.get(o.material).push(g);
+  });
+  while (group.children.length) group.remove(group.children[0]);
+  for (const [mat, list] of buckets) {
+    const merged = new THREE.Mesh(mergeGeometries(list), mat);
+    merged.castShadow = true;
+    merged.receiveShadow = true;
+    group.add(merged);
+    list.forEach((g) => g.dispose());
+  }
+}
 
 const LIGHTS = 6;
 
@@ -28,13 +53,17 @@ export class CampsView {
       flameInner: new THREE.ConeGeometry(0.24, 0.9, 7).translate(0, 0.45, 0),
       tent: new THREE.ConeGeometry(1.25, 2.3, 7).translate(0, 1.15, 0),
       tentDoor: new THREE.PlaneGeometry(0.55, 0.9).translate(0, 0.45, 0),
+      tentBand: new THREE.CylinderGeometry(0.66, 0.7, 0.22, 7),
+      tentPoles: new THREE.ConeGeometry(0.12, 0.6, 5),
       hutWall: new THREE.CylinderGeometry(1.15, 1.25, 1.2, 9).translate(0, 0.6, 0),
       hutRoof: new THREE.ConeGeometry(1.6, 1.4, 9).translate(0, 1.85, 0),
       pole: new THREE.CylinderGeometry(0.06, 0.08, 4.2, 6).translate(0, 2.1, 0),
       flag: new THREE.PlaneGeometry(1.4, 0.85, 6, 1).translate(0.7, 0, 0),
       crate: new THREE.BoxGeometry(0.7, 0.55, 0.7).translate(0, 0.27, 0),
       post: new THREE.CylinderGeometry(0.12, 0.15, 1.8, 5).translate(0, 0.9, 0),
-      totem: new THREE.CylinderGeometry(0.3, 0.38, 3.2, 8).translate(0, 1.6, 0),
+      totem: new THREE.CylinderGeometry(0.26, 0.34, 3.2, 8).translate(0, 1.6, 0),
+      totemCap: new THREE.OctahedronGeometry(0.55, 0),
+      totemBand: new THREE.CylinderGeometry(0.34, 0.34, 0.35, 8),
     };
     this.mats = {
       log: new THREE.MeshStandardMaterial({ color: 0x4a3020, roughness: 1 }),
@@ -59,7 +88,7 @@ export class CampsView {
     for (const c of camps) {
       seen.add(c.id);
       let rec = this.camps.get(c.id);
-      if (!rec) { rec = this.create(c); this.camps.set(c.id, rec); }
+      if (!rec) { rec = this.create(c); this.camps.set(c.id, rec); this.onCampCreated?.(c); }
       this.refresh(rec, c);
     }
     for (const [id, rec] of this.camps) {
@@ -77,25 +106,28 @@ export class CampsView {
     const y = this.heightAt(c.x, c.z);
     group.position.set(c.x, 0, c.z);
     const color = new THREE.Color(c.color);
-    const tribeMat = new THREE.MeshStandardMaterial({ color, roughness: 0.75, flatShading: true });
+    // tents are tanned hide dyed with the tribe colour; banners carry the pure colour
+    const tribeMat = new THREE.MeshStandardMaterial({ color: color.clone().lerp(new THREE.Color(0xd9c4a0), 0.45), roughness: 0.85, flatShading: true });
+    const accentMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, flatShading: true });
     const flagMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, side: THREE.DoubleSide, emissive: color, emissiveIntensity: 0.15 });
 
     // fire pit
     const fire = new THREE.Group();
     fire.position.y = y;
+    const pit = new THREE.Group();
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       const s = new THREE.Mesh(this.geo.stone, this.mats.stone);
       s.position.set(Math.cos(a) * 0.85, 0.08, Math.sin(a) * 0.85);
-      s.castShadow = true;
-      fire.add(s);
+      pit.add(s);
     }
     for (let i = 0; i < 3; i++) {
       const l = new THREE.Mesh(this.geo.log, this.mats.log);
       l.rotation.y = (i / 3) * Math.PI;
       l.position.y = 0.15;
-      fire.add(l);
+      pit.add(l);
     }
+    fire.add(pit);
     const flame = new THREE.Mesh(this.geo.flame, this.mats.flame);
     const flameInner = new THREE.Mesh(this.geo.flameInner, this.mats.flameInner);
     flame.position.y = flameInner.position.y = 0.2;
@@ -105,6 +137,8 @@ export class CampsView {
     glow.position.y = 1;
     fire.add(glow);
     group.add(fire);
+    group.position.set(c.x, 0, c.z);
+    mergeByMaterial(pit);
 
     // banner pole with flag
     const banner = new THREE.Group();
@@ -134,7 +168,7 @@ export class CampsView {
     this.labelRoot.appendChild(label);
 
     const light = { x: c.x, y: y + 2, z: c.z };
-    return { id: c.id, group, fire, flame, flameInner, glow, flag, territory, structures, tribeMat, flagMat, label, y, radius: -1, shelters: -1, level: -1, food: -1, alive: true, light, data: c };
+    return { id: c.id, group, fire, flame, flameInner, glow, flag, territory, structures, tribeMat, accentMat, flagMat, label, y, radius: -1, shelters: -1, level: -1, food: -1, alive: true, light, data: c };
   }
 
   buildTerritory(rec, c) {
@@ -161,6 +195,7 @@ export class CampsView {
 
   buildStructures(rec, c) {
     const s = rec.structures;
+    s.traverse((o) => { if (o.isMesh && o.parent === s) o.geometry.dispose(); });
     while (s.children.length) s.remove(s.children[0]);
     const ruin = !c.alive;
     const count = ruin ? Math.min(3, c.shelters) : c.shelters;
@@ -175,7 +210,7 @@ export class CampsView {
       g.rotation.y = -a + Math.PI / 2;
       if (hut) {
         const wall = new THREE.Mesh(this.geo.hutWall, ruin ? this.mats.ruin : this.mats.hutWall);
-        const roof = new THREE.Mesh(this.geo.hutRoof, ruin ? this.mats.ruin : rec.tribeMat);
+        const roof = new THREE.Mesh(this.geo.hutRoof, ruin ? this.mats.ruin : rec.accentMat);
         wall.castShadow = roof.castShadow = true;
         g.add(wall);
         if (!ruin) g.add(roof);
@@ -186,6 +221,13 @@ export class CampsView {
         if (ruin) { tent.scale.set(1, 0.35, 1); tent.rotation.z = 0.4; }
         g.add(tent);
         if (!ruin) {
+          const band = new THREE.Mesh(this.geo.tentBand, rec.accentMat);
+          band.position.y = 1.15;
+          const tip = new THREE.Mesh(this.geo.tentPoles, this.mats.post);
+          tip.position.y = 2.25;
+          g.add(band, tip);
+        }
+        if (!ruin) {
           const door = new THREE.Mesh(this.geo.tentDoor, this.mats.door);
           door.position.set(0, 0, 1.02);
           door.rotation.x = -0.45;
@@ -194,7 +236,7 @@ export class CampsView {
       }
       s.add(g);
     }
-    if (ruin) return;
+    if (ruin) { mergeByMaterial(s); return; }
     // stockpile crates proportional to hoarded food
     const crates = Math.min(6, Math.floor(c.food / 3));
     for (let i = 0; i < crates; i++) {
@@ -228,11 +270,17 @@ export class CampsView {
       }
     }
     if (c.level >= 2) {
-      const t = new THREE.Mesh(this.geo.totem, rec.tribeMat);
+      const t = new THREE.Mesh(this.geo.totem, this.mats.post);
       t.position.set(-1.8, this.heightAt(c.x - 1.8, c.z - 1.8) - 0.1, -1.8);
       t.castShadow = true;
+      const cap = new THREE.Mesh(this.geo.totemCap, rec.accentMat);
+      cap.position.y = 3.3;
+      const band = new THREE.Mesh(this.geo.totemBand, rec.accentMat);
+      band.position.y = 2.1;
+      t.add(cap, band);
       s.add(t);
     }
+    mergeByMaterial(s);
   }
 
   refresh(rec, c) {
@@ -272,17 +320,17 @@ export class CampsView {
       const d = Math.hypot(a.x - b.x, a.z - b.z);
       const curve = new THREE.QuadraticBezierCurve3(
         new THREE.Vector3(a.x, ya, a.z),
-        new THREE.Vector3((a.x + b.x) / 2, Math.max(ya, yb) + d * 0.35, (a.z + b.z) / 2),
+        new THREE.Vector3((a.x + b.x) / 2, Math.max(ya, yb) + 10 + d * 0.45, (a.z + b.z) / 2),
         new THREE.Vector3(b.x, yb, b.z),
       );
-      const mat = new THREE.MeshBasicMaterial({ color: kind === 'war' ? 0xff3b3b : 0xffd166, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
-      const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, kind === 'war' ? 0.22 : 0.13, 6, false), mat);
+      const mat = new THREE.MeshBasicMaterial({ color: kind === 'war' ? 0xff4040 : 0xffd166, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
+      const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 64, kind === 'war' ? 0.16 : 0.1, 6, false), mat);
       this.group.add(mesh);
       this.arcs.set(key, { mesh, kind });
     }
   }
 
-  update(dt, time, night, camera, width, height) {
+  update(dt, time, night, camera, width, height, occluded = () => false) {
     this.time = time;
     // flicker
     for (const rec of this.camps.values()) {
@@ -302,7 +350,7 @@ export class CampsView {
       pos.needsUpdate = true;
     }
     for (const arc of this.arcs.values()) {
-      arc.mesh.material.opacity = arc.kind === 'war' ? 0.45 + 0.4 * Math.sin(time * 5) : 0.35 + 0.15 * Math.sin(time * 2);
+      arc.mesh.material.opacity = arc.kind === 'war' ? 0.4 + 0.25 * Math.sin(time * 5) : 0.3 + 0.12 * Math.sin(time * 2);
     }
     // assign point lights to camps nearest the camera (night only)
     const camPos = camera.position;
@@ -320,12 +368,12 @@ export class CampsView {
     for (const rec of this.camps.values()) {
       v.set(rec.data.x, rec.y + 6.5, rec.data.z).project(camera);
       const dist = camera.position.distanceTo(new THREE.Vector3(rec.data.x, rec.y, rec.data.z));
-      const visible = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 && dist < 420;
+      const x = (v.x * 0.5 + 0.5) * width, y = (-v.y * 0.5 + 0.5) * height;
+      const visible = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 && dist < 420 && !occluded(x, y);
       rec.label.style.display = visible ? '' : 'none';
       if (visible) {
-        const x = (v.x * 0.5 + 0.5) * width, y = (-v.y * 0.5 + 0.5) * height;
         rec.label.style.transform = `translate(-50%, -100%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-        rec.label.style.opacity = String(Math.max(0.35, Math.min(1, 1.4 - dist / 320)));
+        rec.label.style.opacity = String(Math.max(0.75, Math.min(1, 1.5 - dist / 320)));
       }
     }
   }

@@ -20,9 +20,12 @@ export class ResourcesView {
         for (let b = 0; b < 2; b++) {
           const x = cx + rng.float(-1.7, 1.7), z = cz + rng.float(-1.7, 1.7);
           if (!terrain.isLand(x, z)) continue;
-          this.bushes.push({ k, x, z, rot: rng.float(0, 6.28), s: rng.float(0.75, 1.2), tone: rng.next(), berry: rng.chance(0.55) });
+          this.bushes.push({ k, x, z, y: terrain.heightAt(x, z) - 0.05, rot: rng.float(0, 6.28), s: rng.float(0.75, 1.2), tone: rng.next(), berry: rng.chance(0.55) });
         }
-        if (h > 10 || h < 1.3) this.crystals.push({ k, x: cx + rng.float(-1.2, 1.2), z: cz + rng.float(-1.2, 1.2), rot: rng.float(0, 6.28), tone: rng.next() });
+        if (h > 10 || h < 1.3) {
+          const x = cx + rng.float(-1.2, 1.2), z = cz + rng.float(-1.2, 1.2);
+          this.crystals.push({ k, x, z, y: terrain.heightAt(x, z) - 0.15, rot: rng.float(0, 6.28), tone: rng.next() });
+        }
       }
     }
     const bushGeo = new THREE.IcosahedronGeometry(0.55, 1);
@@ -37,7 +40,7 @@ export class ResourcesView {
     crystalGeo.translate(0, 0.55, 0);
     this.crystalMesh = new THREE.InstancedMesh(crystalGeo, new THREE.MeshStandardMaterial({ roughness: 0.15, metalness: 0.3, emissive: 0x3a1a6a, emissiveIntensity: 0.6, flatShading: true }), Math.max(1, this.crystals.length * 3));
     const meatGeo = new THREE.DodecahedronGeometry(0.32, 0);
-    this.meatMesh = new THREE.InstancedMesh(meatGeo, new THREE.MeshStandardMaterial({ color: 0x9a2f24, roughness: 0.6, flatShading: true }), 600);
+    this.meatMesh = new THREE.InstancedMesh(meatGeo, new THREE.MeshStandardMaterial({ color: 0x7a2a22, roughness: 0.7, flatShading: true }), 600);
     this.boneMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 5), new THREE.MeshStandardMaterial({ color: 0xeee6d2 }), 600);
     for (const m of [this.bushMesh, this.berryMesh, this.crystalMesh, this.meatMesh, this.boneMesh]) { m.frustumCulled = false; m.castShadow = m !== this.berryMesh; }
     scene.add(this.bushMesh, this.berryMesh, this.crystalMesh, this.meatMesh, this.boneMesh);
@@ -50,6 +53,12 @@ export class ResourcesView {
     this._m = new THREE.Matrix4();
   }
 
+  // terrain changed (meteor crater): re-seat cached heights
+  refreshHeights() {
+    for (const b of this.bushes) b.y = this.terrain.heightAt(b.x, b.z) - 0.05;
+    for (const c of this.crystals) c.y = this.terrain.heightAt(c.x, c.z) - 0.15;
+  }
+
   setSeason(si) {
     this.season = si;
   }
@@ -58,13 +67,13 @@ export class ResourcesView {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
     const up = new THREE.Vector3(0, 1, 0);
     const lush = [new THREE.Color(0x5fd05a), new THREE.Color(0x4cbb48), new THREE.Color(0xb59a34), new THREE.Color(0x7c8f6a)][this.season];
-    const dry = new THREE.Color(0x8a7a45);
+    const dry = new THREE.Color(0x6f7a3a);
     let bi = 0, be = 0;
     for (const b of this.bushes) {
       const amt = res.plants[b.k] / 255 * 1.6; // 0..1.6
       if (amt < 0.06) continue;
-      const sc = b.s * Math.min(1.5, 0.25 + amt * 0.85);
-      const y = this.terrain.heightAt(b.x, b.z) - 0.05;
+      const sc = b.s * Math.min(1.45, 0.35 + amt * 0.8);
+      const y = b.y;
       q.setFromAxisAngle(up, b.rot);
       p.set(b.x, y, b.z);
       s.set(sc, sc, sc);
@@ -88,10 +97,10 @@ export class ResourcesView {
     let ci = 0;
     for (const cr of this.crystals) {
       const amt = res.minerals[cr.k] / 255 * 1.2;
-      if (amt < 0.05) continue;
-      const y = this.terrain.heightAt(cr.x, cr.z) - 0.15;
-      for (let n = 0; n < 3; n++) {
-        if (amt < 0.25 * n) break;
+      if (amt < 0.15) continue;
+      const y = cr.y;
+      for (let n = 0; n < 2; n++) {
+        if (amt < 0.5 * n + 0.15) break;
         const a = cr.rot + n * 2.3;
         q.setFromAxisAngle(new THREE.Vector3(Math.cos(a), 0.0, Math.sin(a)), n === 0 ? 0 : 0.45);
         p.set(cr.x + Math.cos(a) * 0.35 * n, y, cr.z + Math.sin(a) * 0.35 * n);
@@ -99,7 +108,7 @@ export class ResourcesView {
         s.setScalar(sc);
         m.compose(p, q, s);
         this.crystalMesh.setMatrixAt(ci, m);
-        c.setHSL(0.72 + cr.tone * 0.14, 0.75, 0.62);
+        c.setHSL(0.5 + cr.tone * 0.25, 0.55, 0.6);
         this.crystalMesh.setColorAt(ci, c);
         ci++;
       }
@@ -111,7 +120,7 @@ export class ResourcesView {
       const y = this.terrain.heightAt(x, z);
       q.setFromAxisAngle(up, i * 1.7);
       p.set(x, y + 0.15, z);
-      s.setScalar(0.6 + a * 0.9);
+      s.setScalar(0.45 + a * 0.55);
       m.compose(p, q, s);
       this.meatMesh.setMatrixAt(i, m);
       q.setFromAxisAngle(new THREE.Vector3(Math.cos(i), 0, Math.sin(i)), Math.PI / 2);
@@ -156,7 +165,7 @@ export class ResourcesView {
     }
     const ring = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 96, 0.12, 5, true), new THREE.MeshBasicMaterial({ color: 0x7dffb0, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
     group.add(ring);
-    const n = 140;
+    const n = 90;
     const pos = new Float32Array(n * 3);
     const seeds = [];
     for (let i = 0; i < n; i++) {
@@ -167,7 +176,7 @@ export class ResourcesView {
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const sparks = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xb8ffd0, size: 0.45, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, map: glowTexture() }));
+    const sparks = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9dffc4, size: 0.32, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, map: glowTexture() }));
     group.add(sparks);
     this.oasisGroup.add(group);
     return { x: o.x, z: o.z, group, sparks, seeds, ring, ttl: o.ttl };
@@ -182,7 +191,7 @@ export class ResourcesView {
       pos.needsUpdate = true;
       const fade = Math.min(1, rec.ttl / 400);
       rec.ring.material.opacity = (0.45 + 0.25 * Math.sin(time * 2.5)) * fade;
-      rec.sparks.material.opacity = 0.85 * fade;
+      rec.sparks.material.opacity = 0.7 * fade;
     }
   }
 }

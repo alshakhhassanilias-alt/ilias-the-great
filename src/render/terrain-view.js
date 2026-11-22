@@ -76,6 +76,23 @@ void main() {
   #include <fog_fragment>
 }`;
 
+function cameraFade(shader) {
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying vec3 vFadeWorld;')
+    .replace('#include <project_vertex>', `#include <project_vertex>
+      vec4 fadeWp = vec4(transformed, 1.0);
+      #ifdef USE_INSTANCING
+        fadeWp = instanceMatrix * fadeWp;
+      #endif
+      vFadeWorld = (modelMatrix * fadeWp).xyz;`);
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\nvarying vec3 vFadeWorld;')
+    .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      float fadeK = smoothstep(4.0, 11.0, distance(vFadeWorld, cameraPosition));
+      float dither = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+      if (fadeK < 0.999 && fadeK < dither) discard;`);
+}
+
 export class TerrainView {
   constructor(scene, terrain, seed) {
     this.scene = scene;
@@ -175,6 +192,10 @@ export class TerrainView {
   colorize(yearPhase, force = false) {
     const blend = Math.round(yearPhase * 200) / 200;
     if (!force && blend === this.seasonBlend) return;
+    // recolouring 26k vertices is the priciest main-thread job: cap it at ~2x per second
+    const now = performance.now();
+    if (!force && now - (this.lastColorize || 0) < 600) return;
+    this.lastColorize = now;
     this.seasonBlend = blend;
     const s = yearPhase * 4; // 0..4
     const grass = new THREE.Color();
@@ -272,6 +293,8 @@ export class TerrainView {
     ]);
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3f2a, roughness: 1 });
     const folMat = new THREE.MeshStandardMaterial({ roughness: 0.85, flatShading: true });
+    // dithered fade for trees right in front of the camera so close-ups are never blocked
+    for (const m of [trunkMat, folMat]) m.onBeforeCompile = cameraFade;
     const all = pines.length + leafy.length;
     this.trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, all);
     this.pineMesh = new THREE.InstancedMesh(pineGeo, folMat, Math.max(1, pines.length));
@@ -300,6 +323,14 @@ export class TerrainView {
     put(this.pines, this.pineMesh);
     put(this.leafy, this.leafMesh);
     this.trunks.instanceMatrix.needsUpdate = true;
+  }
+
+  clearTrees(x, z, r) {
+    let any = false;
+    for (const t of [...this.pines, ...this.leafy]) {
+      if (t.alive && Math.hypot(t.x - x, t.z - z) < r) { t.alive = false; any = true; }
+    }
+    if (any) this.writeTreeMatrices();
   }
 
   blastTrees(x, z, r) {

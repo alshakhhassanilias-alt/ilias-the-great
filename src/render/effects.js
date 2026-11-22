@@ -148,7 +148,7 @@ export class Effects {
       pos[i * 3] = px; pos[i * 3 + 2] = pz;
     }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: glowTexture(), color, size: 2.4, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: glowTexture(), color, size: 0.9, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     pts.frustumCulled = false;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
     ring.position.set(x, y0 + 0.6, z);
@@ -160,7 +160,7 @@ export class Effects {
         const p = geo.attributes.position;
         seeds.forEach((s, i) => p.setY(i, s.base + k * rise * s.sp + Math.sin(k * 10 + i) * 0.3));
         p.needsUpdate = true;
-        pts.material.opacity = Math.sin(Math.PI * Math.min(1, k)) * 0.9;
+        pts.material.opacity = Math.sin(Math.PI * Math.min(1, k)) * 0.7;
         ring.scale.setScalar(1 + k * radius);
         ring.material.opacity = Math.max(0, 1 - k);
         if (k >= 1) { this.scene.remove(pts, ring); geo.dispose(); ring.geometry.dispose(); return false; }
@@ -199,7 +199,10 @@ export class Effects {
   }
 
   update(dt, camera) {
-    this.active = this.active.filter((e) => { e.t += dt; return e.update(e, dt); });
+    // effects may spawn new effects (meteor -> explosion), so rebuild the list rather than filter in place
+    const list = this.active;
+    this.active = [];
+    for (const e of list) { e.t += dt; if (e.update(e, dt)) this.active.push(e); }
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 1.4);
       const s = this.shake * this.shake * 1.6;

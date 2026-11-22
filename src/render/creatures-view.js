@@ -20,7 +20,7 @@ export class CreaturesView {
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
          float rim = pow(1.0 - max(dot(normalize(vViewPosition), normal), 0.0), 2.5);
-         totalEmissiveRadiance += diffuseColor.rgb * rim * 0.55;`,
+         totalEmissiveRadiance += diffuseColor.rgb * rim * 0.3;`,
       );
     };
     this.body = new THREE.InstancedMesh(bodyGeo, bodyMat, MAX);
@@ -116,7 +116,7 @@ export class CreaturesView {
       s.size += (s.tsize - s.size) * k;
       const moved = Math.hypot(dx, dz) * k;
       s.phase += moved * 2.4 + dt * 1.5;
-      const size = s.size;
+      const size = s.size * 1.3;
       const flags = s.flags;
       const sleeping = flags & FLAG.SLEEP;
       const ground = this.terrain.heightAt(s.x, s.z);
@@ -133,7 +133,7 @@ export class CreaturesView {
       sc.set(size * elong * breathe, size * 0.82 * squash * breathe, size * 0.95 * breathe);
       m.compose(p, q, sc);
       this.body.setMatrixAt(i, m);
-      c.setRGB(s.r, s.g, s.b);
+      c.setRGB(s.r, s.g, s.b, THREE.SRGBColorSpace);
       if (flags & FLAG.INFECTED) c.lerp(this._c2 ||= new THREE.Color(0x7dff3a), 0.45 + 0.25 * Math.sin(time * 6 + id));
       if (flags & FLAG.ATTACK) c.lerp(this._c3 ||= new THREE.Color(0xff3020), 0.55);
       this.body.setColorAt(i, c);
@@ -168,7 +168,7 @@ export class CreaturesView {
           sc.set(size * 0.22, h, size * 0.22);
           m.compose(p, q, sc);
           this.crest.setMatrixAt(ci, m);
-          c.setRGB(s.r * 0.55, s.g * 0.4, s.b * 0.4);
+          c.setRGB(s.r * 0.55, s.g * 0.4, s.b * 0.4, THREE.SRGBColorSpace);
           if (carn) c.lerp(this._c4 ||= new THREE.Color(0x7a1a14), 0.5);
           this.crest.setColorAt(ci, c);
           ci++;

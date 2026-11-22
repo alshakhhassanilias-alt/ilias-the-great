@@ -327,14 +327,16 @@ export class Simulation {
     if (!sp || geneticDistance(g, sp.proto) > SPECIATION_DISTANCE) {
       const parentSp = sp ? sp.id : null;
       sp = this.newSpecies(g, parentSp);
-      if (parentSp && this.rng.chance(1)) {
-        const ps = this.species.get(parentSp);
-        if (ps && sp.id % 3 === 0) this.log('species', `New species ${sp.name} branched from ${ps.name}`);
-      }
+
     }
     c.speciesId = sp.id;
     sp.count++;
     sp.peak = Math.max(sp.peak, sp.count);
+    if (sp.count === 8 && !sp.announced && sp.parent) {
+      sp.announced = true;
+      const ps = this.species.get(sp.parent);
+      this.log('species', `New species: ${sp.name} (${sp.diet})${ps ? `, branched from ${ps.name}` : ''}`);
+    }
     // genealogy
     this.registry.set(id, {
       id, name: c.name, gen, parents: parents.slice(), children: [], alive: true,
@@ -370,7 +372,7 @@ export class Simulation {
       if (sp.count <= 0 && sp.extinct == null) {
         sp.extinct = this.tick;
         this.extinctions++;
-        if (sp.peak >= 6) this.log('extinction', `${sp.name} (${sp.diet}) went extinct`);
+        if (sp.peak >= 8) this.log('extinction', `${sp.name} (${sp.diet}) went extinct`);
       }
     }
     if (killer && c.tribeId > 0 && killer.tribeId > 0 && c.tribeId !== killer.tribeId) {
@@ -907,7 +909,7 @@ export class Simulation {
       c.carryFood += bite * 1.8; // gathering techniques: tribes harvest more than they could eat
       c.energy = Math.min(c.maxEnergy, c.energy + bite * PLANT_ENERGY * 0.3 * this.plantFactor(g.diet));
     } else {
-      c.energy = Math.min(c.maxEnergy, c.energy + bite * PLANT_ENERGY * this.plantFactor(g.diet) * (0.75 + 0.4 * g.efficiency + 0.025 * g.brainSize));
+      c.energy = Math.min(c.maxEnergy, c.energy + bite * PLANT_ENERGY * this.plantFactor(g.diet) * (0.72 + 0.4 * g.efficiency + 0.04 * g.brainSize));
     }
   }
 
@@ -966,7 +968,7 @@ export class Simulation {
     const sizeCost = 0.035 + 0.032 * Math.pow(g.size, 1.5);
     const moveCost = 0.07 * g.size * g.speed * g.speed * moveFrac * moveFrac;
     const senseCost = 0.0028 * g.vision;
-    const brainCost = 0.0045 * g.brainSize;
+    const brainCost = 0.0032 * g.brainSize;
     let cost = (sizeCost + moveCost + senseCost + brainCost) * (1.28 - 0.5 * g.efficiency);
     if (c.action === ACTION.REST) cost *= this.warmth < -0.3 ? 0.35 : 0.55; // winter rest = hibernation
     // torpor: starving bodies slow their metabolism (smooths famine crashes)
@@ -1031,8 +1033,8 @@ export class Simulation {
 
   completeTrade(from, to, trader) {
     // exchange surpluses: food-rich camp trades food for stone, and vice versa
-    const give = Math.min(from.food * 0.25, 6);
-    const get = Math.min(to.stone * 0.25, 4);
+    const give = Math.min(from.food * 0.3, 6) + trader.carryFood;
+    const get = Math.min(to.stone * 0.3, 4);
     from.food -= give; to.food += give;
     to.stone -= get; from.stone += get; from.buildPoints += get;
     trader.carryFood = 0;
@@ -1041,7 +1043,7 @@ export class Simulation {
     to.relations.set(from.id, clamp((to.relations.get(from.id) ?? 0) + 0.1, -1, 1));
     from.trades++; to.trades++;
     this.totalTrades++;
-    if (from.trades % 3 === 1) this.log('trade', `${from.name} traded ${give.toFixed(1)} food for ${get.toFixed(1)} stone with ${to.name}`, to.x, to.z);
+    if (from.trades % 3 === 1) this.log('trade', get > 0.2 ? `${from.name} traded food for stone with the ${to.name}` : `A ${from.name} caravan brought gifts of food to the ${to.name}`, to.x, to.z);
   }
 
   // ---------------------------------------------------------------- god powers
@@ -1218,7 +1220,7 @@ export class Simulation {
     return this.tribes.filter((t) => t.alive || this.tick - t.fallenTick < 1200).map((t) => ({
       id: t.id, name: t.name, color: t.color, x: t.x, z: t.z, radius: t.radius,
       level: t.level, shelters: t.shelters, members: t.members, food: t.food, stone: t.stone,
-      alive: t.alive, wars: [...t.wars], allies: [...t.relations].filter(([, v]) => v > 0.2).map(([k]) => k),
+      alive: t.alive, wars: [...t.wars], allies: [...t.relations].filter(([, v]) => v > 0.05).map(([k]) => k),
       warTarget: t.warTarget, trades: t.trades, kills: t.kills, founded: t.founded, hoarded: t.hoarded,
       relations: Object.fromEntries(t.relations), age: this.tick - t.founded,
     }));

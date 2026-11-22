@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "sim:test": "node scripts/headless-sim.mjs",
-    "visual:check": "node scripts/visual-check.mjs"
+    "visual:check": "node scripts/visual-check.mjs",
+    "perf:probe": "node scripts/perf-probe.mjs"
   },
   "license": "MIT",
   "dependencies": {
