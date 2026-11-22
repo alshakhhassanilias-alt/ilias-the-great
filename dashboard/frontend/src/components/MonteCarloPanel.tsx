@@ -14,12 +14,12 @@ function quantile(sorted: number[], q: number): number | null {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
 }
 
-function vline(x: number | null, color: string, label: string) {
+function vline(x: number | null, color: string, label: string, row = 0) {
   if (x === null) return [];
   return [
     {
       shape: { type: "line", xref: "x", yref: "paper", x0: x, x1: x, y0: 0, y1: 1, line: { color, width: 1.2, dash: "dash" } },
-      annotation: { x, xref: "x", y: 1, yref: "paper", text: label, showarrow: false, font: { size: 10, color }, yanchor: "bottom", xanchor: "left" },
+      annotation: { x, xref: "x", y: 1 - row * 0.09, yref: "paper", text: label, showarrow: false, font: { size: 10, color }, yanchor: "top", xanchor: "left", bgcolor: "rgba(22,27,34,0.85)" },
     },
   ];
 }
@@ -45,8 +45,8 @@ export default function MonteCarloPanel({ montecarlo }: { montecarlo: Loadable<M
   const hasAny = !!mc && scenarios.length > 0;
   const qualified = mc?.qualified;
 
-  const termMarks = [...vline(quantile(tSorted, 0.05), C.red, "p05"), ...vline(quantile(tSorted, 0.5), C.text, "median"), ...vline(1, C.muted, "break-even")];
-  const ddMarks = [...vline(quantile(dSorted, 0.5), C.text, "median"), ...vline(quantile(dSorted, 0.95), C.red, "p95")];
+  const termMarks = [...vline(quantile(tSorted, 0.05), C.red, "p05"), ...vline(quantile(tSorted, 0.5), C.text, "median", 1), ...vline(1, C.muted, "break-even", 2)];
+  const ddMarks = [...vline(quantile(dSorted, 0.5), C.text, "median"), ...vline(quantile(dSorted, 0.95), C.red, "p95", 1)];
 
   return (
     <section className="panel" data-testid="montecarlo-panel" aria-label="Monte Carlo">
@@ -83,7 +83,7 @@ export default function MonteCarloPanel({ montecarlo }: { montecarlo: Loadable<M
           <div className="grid-2">
             {terminal.length ? (
               <Chart
-                title={`Terminal equity distribution · ${titleCase(scenario)}`}
+                title="Terminal equity distribution"
                 xTitle="Terminal equity (× initial capital)"
                 yTitle="Simulated paths"
                 height={280}
@@ -109,7 +109,7 @@ export default function MonteCarloPanel({ montecarlo }: { montecarlo: Loadable<M
             )}
             {mdd.length ? (
               <Chart
-                title={`Max drawdown distribution · ${titleCase(scenario)}`}
+                title="Max drawdown distribution"
                 xTitle="Maximum drawdown (%)"
                 yTitle="Simulated paths"
                 height={280}

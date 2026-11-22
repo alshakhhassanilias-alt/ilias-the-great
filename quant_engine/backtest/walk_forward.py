@@ -52,8 +52,7 @@ class Window:
         return {k: (str(v) if isinstance(v, pd.Timestamp) else v) for k, v in asdict(self).items()}
 
 
-def build_windows(data_start: pd.Timestamp, data_end: pd.Timestamp,
-                  wf: WalkForwardConfig) -> tuple[list[Window], pd.Timestamp]:
+def build_windows(data_start: pd.Timestamp, data_end: pd.Timestamp, wf: WalkForwardConfig) -> tuple[list[Window], pd.Timestamp]:
     """Return (windows, holdout_start).  Windows never extend into the holdout."""
     holdout_start = (data_end - pd.DateOffset(months=wf.final_holdout_months)).normalize()
     emb = pd.Timedelta(days=wf.embargo_days)
@@ -113,12 +112,20 @@ class WalkForwardRunner:
         self.wf = cfg.research.walk_forward
 
     # ------------------------------------------------------------------ helpers
-    def _engine(self, st: Strategy, start: pd.Timestamp, end: pd.Timestamp, cost_mult: float = 1.0,
-                enforce: bool = False) -> BacktestEngine:
+    def _engine(
+        self, st: Strategy, start: pd.Timestamp, end: pd.Timestamp, cost_mult: float = 1.0, enforce: bool = False
+    ) -> BacktestEngine:
         bars = {s: self.md.get(s, st.timeframe).loc[start:end] for s in st.symbols}
-        return BacktestEngine(self.cfg.backtest, self.cfg.risk, st.timeframe, bars, self.md.funding,
-                              enforce_circuit_breakers=enforce, cost_multiplier=cost_mult,
-                              slippage_multiplier=cost_mult)
+        return BacktestEngine(
+            self.cfg.backtest,
+            self.cfg.risk,
+            st.timeframe,
+            bars,
+            self.md.funding,
+            enforce_circuit_breakers=enforce,
+            cost_multiplier=cost_mult,
+            slippage_multiplier=cost_mult,
+        )
 
     def _data_until(self, st: Strategy, start: pd.Timestamp, end: pd.Timestamp) -> MarketData:
         warm = timeframe_delta("4h") * max(st.warmup_bars, 600)
@@ -137,8 +144,12 @@ class WalkForwardRunner:
         grid = st.param_grid()
         grid_keys = list(st.cfg.param_grid)
         eng_all = self._engine(st, w.train_start - timeframe_delta(st.timeframe) * 300, w.test_end)
-        eng_stress = self._engine(st, w.train_start - timeframe_delta(st.timeframe) * 300, w.test_end,
-                                  cost_mult=self.cfg.research.promotion.cost_stress_multiplier)
+        eng_stress = self._engine(
+            st,
+            w.train_start - timeframe_delta(st.timeframe) * 300,
+            w.test_end,
+            cost_mult=self.cfg.research.promotion.cost_stress_multiplier,
+        )
         frames_by_key: dict[str, dict[str, pd.DataFrame]] = {}
         train_evals: list[SegmentEval] = []
         trial_test: dict[str, pd.Series] = {}
@@ -153,8 +164,15 @@ class WalkForwardRunner:
         eligible = [e for e in train_evals if e.trades >= self.wf.min_trades_train]
         eligible.sort(key=lambda e: e.sharpe, reverse=True)
         top = eligible[: self.wf.top_k_from_training]
-        val_evals = [self._eval(eng_all.run([StrategyRun(name, st.timeframe, frames_by_key[param_key(e.params, grid_keys)])],
-                                            w.val_start, w.val_end), e.params) for e in top]
+        val_evals = [
+            self._eval(
+                eng_all.run(
+                    [StrategyRun(name, st.timeframe, frames_by_key[param_key(e.params, grid_keys)])], w.val_start, w.val_end
+                ),
+                e.params,
+            )
+            for e in top
+        ]
         val_ok = [v for v in val_evals if v.trades >= self.wf.min_trades_validation]
         selected: dict[str, Any] | None = None
         note = ""
@@ -176,19 +194,37 @@ class WalkForwardRunner:
             stress = res
         summary = performance_summary(res.equity, res.trades, res.gross_exposure, res.stats)
         return WindowResult(
-            w, _jsonable(fitted), selected, note, train_evals, val_evals, summary, daily_returns(res.equity),
-            res.equity, res.trades, res.stats,
+            w,
+            _jsonable(fitted),
+            selected,
+            note,
+            train_evals,
+            val_evals,
+            summary,
+            daily_returns(res.equity),
+            res.equity,
+            res.trades,
+            res.stats,
             performance_summary(stress.equity, stress.trades, stress.gross_exposure, stress.stats),
-            daily_returns(stress.equity), trial_test,
+            daily_returns(stress.equity),
+            trial_test,
         )
 
     def run_strategy(self, name: str, windows: list[Window]) -> list[WindowResult]:
         out = []
         for w in windows:
             r = self.run_window(name, w)
-            log.info("WF %s window %d test %s..%s selected=%s sharpe=%.2f ret=%.3f trades=%d", name, w.index,
-                     w.test_start.date(), w.test_end.date(), r.selected_params is not None,
-                     r.test_summary["sharpe"], r.test_summary["net_return"], r.test_summary["total_trades"])
+            log.info(
+                "WF %s window %d test %s..%s selected=%s sharpe=%.2f ret=%.3f trades=%d",
+                name,
+                w.index,
+                w.test_start.date(),
+                w.test_end.date(),
+                r.selected_params is not None,
+                r.test_summary["sharpe"],
+                r.test_summary["net_return"],
+                r.test_summary["total_trades"],
+            )
             out.append(r)
         return out
 
@@ -224,8 +260,7 @@ def log_holdout_access(path: Path, who: str, purpose: str, details: dict[str, An
     entries: list[dict[str, Any]] = []
     if path.exists():
         entries = json.loads(path.read_text())
-    entries.append({"timestamp": pd.Timestamp.now(tz="UTC").isoformat(), "who": who, "purpose": purpose,
-                    **details})
+    entries.append({"timestamp": pd.Timestamp.now(tz="UTC").isoformat(), "who": who, "purpose": purpose, **details})
     path.write_text(json.dumps(entries, indent=2, default=str))
     return len(entries)
 
@@ -255,8 +290,12 @@ def parameter_stability(results: list[WindowResult], grid_keys: list[str]) -> di
             changes += 1
         prev = p
     n = sum(1 for p in sel if p is not None)
-    return {"selection_frequency": freq, "windows_with_selection": n,
-            "selection_changes": changes, "churn_rate": changes / max(n - 1, 1)}
+    return {
+        "selection_frequency": freq,
+        "windows_with_selection": n,
+        "selection_changes": changes,
+        "churn_rate": changes / max(n - 1, 1),
+    }
 
 
 def sensitivity(trials: pd.DataFrame) -> dict[str, Any]:
@@ -264,9 +303,14 @@ def sensitivity(trials: pd.DataFrame) -> dict[str, Any]:
     if trials.empty:
         return {}
     sr = trials.apply(lambda c: sharpe(c.dropna()))
-    return {"oos_sharpe_by_config": sr.round(3).to_dict(), "median": float(sr.median()),
-            "fraction_positive": float((sr > 0).mean()), "iqr": float(sr.quantile(0.75) - sr.quantile(0.25)),
-            "min": float(sr.min()), "max": float(sr.max())}
+    return {
+        "oos_sharpe_by_config": sr.round(3).to_dict(),
+        "median": float(sr.median()),
+        "fraction_positive": float((sr > 0).mean()),
+        "iqr": float(sr.quantile(0.75) - sr.quantile(0.25)),
+        "min": float(sr.min()),
+        "max": float(sr.max()),
+    }
 
 
 _ = np  # keep numpy import for downstream users

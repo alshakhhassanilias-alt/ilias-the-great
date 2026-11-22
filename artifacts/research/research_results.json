@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-22T14:26:06.478235+00:00",
+  "generated_at": "2026-11-22T14:42:34.625289+00:00",
   "config_hash": "31c941f7f63244f8",
   "data": {
     "first": "2021-01-02 00:00:00+00:00",
@@ -2691,6 +2691,183 @@
           "breaches": {}
         }
       ]
+    },
+    "non_rejected_strategies": {
+      "summary": {
+        "start": "2022-04-16 00:00:00+00:00",
+        "end": "2026-04-16 00:00:00+00:00",
+        "days": 1462,
+        "net_return": 0.20952142817314345,
+        "annualized_return": 0.048670992907102084,
+        "annualized_volatility": 0.03806748498195317,
+        "sharpe": 1.2665800069104038,
+        "sortino": 2.4104922761222984,
+        "calmar": 1.7680875027674907,
+        "max_drawdown": 0.027527479737807115,
+        "average_drawdown": 0.006357400750407944,
+        "recovery_factor": 6.126967589010756,
+        "trading_costs": 0.0,
+        "fees": 0.0,
+        "slippage_cost": 0.0,
+        "funding": 0.0,
+        "turnover_annualized": 0.0,
+        "total_trades": 398,
+        "win_rate": 0.40703517587939697,
+        "profit_factor": 1.5774550001081256,
+        "avg_win": 335.21685244436674,
+        "avg_loss": -145.87197951244335,
+        "expectancy": 49.948097816710515,
+        "avg_holding_hours": 77.41143216080403,
+        "sharpe_ci_lower": 0.26069096094657923,
+        "sharpe_ci_upper": 2.1883706072165774,
+        "positive_window_fraction": 0.8125
+      },
+      "windows": [
+        {
+          "window": 0,
+          "test_start": "2022-04-16",
+          "net_return": 0.014010440786885514,
+          "sharpe": 1.9939068724661637,
+          "max_drawdown": 0.006857715583268087,
+          "total_trades": 14,
+          "breaches": {}
+        },
+        {
+          "window": 1,
+          "test_start": "2022-07-16",
+          "net_return": -0.003175525365477938,
+          "sharpe": -0.5521573077538078,
+          "max_drawdown": 0.012882201173764707,
+          "total_trades": 19,
+          "breaches": {}
+        },
+        {
+          "window": 2,
+          "test_start": "2022-10-16",
+          "net_return": 0.05974820483518739,
+          "sharpe": 3.470545048725588,
+          "max_drawdown": 0.02178952070654827,
+          "total_trades": 30,
+          "breaches": {}
+        },
+        {
+          "window": 3,
+          "test_start": "2023-01-16",
+          "net_return": 0.018684234953955103,
+          "sharpe": 2.0295278492956665,
+          "max_drawdown": 0.011699991021993816,
+          "total_trades": 24,
+          "breaches": {}
+        },
+        {
+          "window": 4,
+          "test_start": "2023-04-16",
+          "net_return": -0.015091444446496127,
+          "sharpe": -1.9451434042172053,
+          "max_drawdown": 0.020498222297955948,
+          "total_trades": 32,
+          "breaches": {}
+        },
+        {
+          "window": 5,
+          "test_start": "2023-07-16",
+          "net_return": 0.014365255126905785,
+          "sharpe": 1.4708295927772244,
+          "max_drawdown": 0.01487592891677525,
+          "total_trades": 21,
+          "breaches": {}
+        },
+        {
+          "window": 6,
+          "test_start": "2023-10-16",
+          "net_return": 0.03228814846323358,
+          "sharpe": 2.2297997213181486,
+          "max_drawdown": 0.01911875412518338,
+          "total_trades": 27,
+          "breaches": {}
+        },
+        {
+          "window": 7,
+          "test_start": "2024-01-16",
+          "net_return": 0.011786304438770046,
+          "sharpe": 1.8468102028045985,
+          "max_drawdown": 0.014091926656763953,
+          "total_trades": 27,
+          "breaches": {}
+        },
+        {
+          "window": 8,
+          "test_start": "2024-04-16",
+          "net_return": -0.00034598444551059426,
+          "sharpe": -0.039236619162849755,
+          "max_drawdown": 0.016446635773588403,
+          "total_trades": 24,
+          "breaches": {}
+        },
+        {
+          "window": 9,
+          "test_start": "2024-07-16",
+          "net_return": 0.007200685064228551,
+          "sharpe": 1.0662771942533231,
+          "max_drawdown": 0.01124469144340845,
+          "total_trades": 26,
+          "breaches": {}
+        },
+        {
+          "window": 10,
+          "test_start": "2024-10-16",
+          "net_return": 0.014352828630465497,
+          "sharpe": 2.3798882553590883,
+          "max_drawdown": 0.009880055249738007,
+          "total_trades": 26,
+          "breaches": {}
+        },
+        {
+          "window": 11,
+          "test_start": "2025-01-16",
+          "net_return": 0.008262044091190468,
+          "sharpe": 1.6122132391350148,
+          "max_drawdown": 0.00923752340664974,
+          "total_trades": 20,
+          "breaches": {}
+        },
+        {
+          "window": 12,
+          "test_start": "2025-04-16",
+          "net_return": 0.006510556313950477,
+          "sharpe": 0.8002372822223321,
+          "max_drawdown": 0.026092084918391878,
+          "total_trades": 25,
+          "breaches": {}
+        },
+        {
+          "window": 13,
+          "test_start": "2025-07-16",
+          "net_return": 0.015718564166486093,
+          "sharpe": 1.0945627508046551,
+          "max_drawdown": 0.02235821996128584,
+          "total_trades": 31,
+          "breaches": {}
+        },
+        {
+          "window": 14,
+          "test_start": "2025-10-16",
+          "net_return": 0.0043850795001629805,
+          "sharpe": 0.6708143481233875,
+          "max_drawdown": 0.010671892584455223,
+          "total_trades": 25,
+          "breaches": {}
+        },
+        {
+          "window": 15,
+          "test_start": "2026-01-16",
+          "net_return": 0.010094037196577421,
+          "sharpe": 0.8681758777307068,
+          "max_drawdown": 0.0314396855366631,
+          "total_trades": 27,
+          "breaches": {}
+        }
+      ]
     }
   },
   "benchmarks": {
@@ -2838,114 +3015,117 @@
     }
   },
   "monte_carlo": {
-    "portfolio": "research_all_strategies",
+    "portfolio": "non_rejected_strategies",
+    "members": [
+      "breakout"
+    ],
     "qualified": false,
     "summary": {
       "block_bootstrap": {
-        "terminal_equity_median": 0.873218235573205,
-        "terminal_equity_p05": 0.7809886803357767,
-        "terminal_equity_p95": 0.9928074160303022,
-        "prob_loss": 0.9575,
-        "max_drawdown_median": 0.14974767159373492,
-        "max_drawdown_p95": 0.2304656477798409,
+        "terminal_equity_median": 1.0439804718107892,
+        "terminal_equity_p05": 0.9827514777295829,
+        "terminal_equity_p95": 1.1333071647571697,
+        "prob_loss": 0.1355,
+        "max_drawdown_median": 0.023243947048856684,
+        "max_drawdown_p95": 0.04410800399521771,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 0.8605,
+        "prob_total_dd_breach": 0.0,
         "prob_ruin": 0.0,
         "description": "stationary block bootstrap of 1462 OOS daily returns, mean block 10"
       },
       "volatility_shock": {
-        "terminal_equity_median": 0.8717157871590202,
-        "terminal_equity_p05": 0.774367164268697,
-        "terminal_equity_p95": 0.9971863684492059,
-        "prob_loss": 0.9515,
-        "max_drawdown_median": 0.1535358461309373,
-        "max_drawdown_p95": 0.23658639777043988,
+        "terminal_equity_median": 1.0437766188705884,
+        "terminal_equity_p05": 0.9788827299649165,
+        "terminal_equity_p95": 1.140697852335267,
+        "prob_loss": 0.155,
+        "max_drawdown_median": 0.02645694013990668,
+        "max_drawdown_p95": 0.05010207664909087,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 0.858,
+        "prob_total_dd_breach": 0.0,
         "prob_ruin": 0.0,
         "description": "block bootstrap with 1.75x dispersion in one random 30-day block per path"
       },
       "trade_bootstrap": {
-        "terminal_equity_median": 0.8464894904409015,
-        "terminal_equity_p05": 0.7632966584181092,
-        "terminal_equity_p95": 0.9387214828142442,
-        "prob_loss": 0.996,
-        "max_drawdown_median": 0.16920074206620866,
-        "max_drawdown_p95": 0.2460490882654231,
+        "terminal_equity_median": 1.158197333007073,
+        "terminal_equity_p05": 1.0032013941329105,
+        "terminal_equity_p95": 1.3417418996168113,
+        "prob_loss": 0.0465,
+        "max_drawdown_median": 0.048247913907265294,
+        "max_drawdown_p95": 0.0913924920830743,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 0.9375,
+        "prob_total_dd_breach": 0.033,
         "prob_ruin": 0.0,
-        "description": "iid bootstrap of 3265 OOS trade returns"
+        "description": "iid bootstrap of 397 OOS trade returns"
       },
       "trade_shuffle": {
-        "terminal_equity_median": 0.8440438780406737,
-        "terminal_equity_p05": 0.7690119045290823,
-        "terminal_equity_p95": 0.9235963992844235,
-        "prob_loss": 0.998,
-        "max_drawdown_median": 0.17341519764347169,
-        "max_drawdown_p95": 0.2422054795041583,
+        "terminal_equity_median": 1.1577023500138717,
+        "terminal_equity_p05": 1.0230530738280819,
+        "terminal_equity_p95": 1.3243437665360793,
+        "prob_loss": 0.0205,
+        "max_drawdown_median": 0.049273545372232386,
+        "max_drawdown_p95": 0.0858997001464888,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 0.9625,
+        "prob_total_dd_breach": 0.0185,
         "prob_ruin": 0.0,
         "description": "random permutation of trade order"
       },
       "consecutive_losses": {
-        "terminal_equity_median": 0.545535559447744,
-        "terminal_equity_p05": 0.49773875342169205,
-        "terminal_equity_p95": 0.5989458920316222,
-        "prob_loss": 1.0,
-        "max_drawdown_median": 0.46416943623302037,
-        "max_drawdown_p95": 0.5087211842404205,
+        "terminal_equity_median": 0.9390926540676947,
+        "terminal_equity_p05": 0.8271836812042801,
+        "terminal_equity_p95": 1.0723476202928544,
+        "prob_loss": 0.7885,
+        "max_drawdown_median": 0.1868506004765233,
+        "max_drawdown_p95": 0.22971052634719957,
         "prob_daily_dd_breach": 0.0,
         "prob_total_dd_breach": 1.0,
-        "prob_ruin": 0.074,
-        "description": "bootstrap with an injected streak of 164 worst-5% losses"
+        "prob_ruin": 0.0,
+        "description": "bootstrap with an injected streak of 20 worst-5% losses"
       },
       "slippage_x3": {
-        "terminal_equity_median": 0.6631023131583534,
-        "terminal_equity_p05": 0.5979315542582013,
-        "terminal_equity_p95": 0.7350258554252987,
-        "prob_loss": 1.0,
-        "max_drawdown_median": 0.34180923972000926,
-        "max_drawdown_p95": 0.40564051955447145,
+        "terminal_equity_median": 1.1244837149763174,
+        "terminal_equity_p05": 0.9753918355347079,
+        "terminal_equity_p95": 1.302709563378811,
+        "prob_loss": 0.0875,
+        "max_drawdown_median": 0.053628444125729646,
+        "max_drawdown_p95": 0.10382174076476487,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 1.0,
+        "prob_total_dd_breach": 0.063,
         "prob_ruin": 0.0,
         "description": "slippage+spread cost tripled (extra 2x charged)"
       },
       "fees_x2": {
-        "terminal_equity_median": 0.7166476454502483,
-        "terminal_equity_p05": 0.6466430190497303,
-        "terminal_equity_p95": 0.7944977841627635,
-        "prob_loss": 1.0,
-        "max_drawdown_median": 0.2898488247369215,
-        "max_drawdown_p95": 0.35830495298909726,
+        "terminal_equity_median": 1.1259996134189247,
+        "terminal_equity_p05": 0.976575452578017,
+        "terminal_equity_p95": 1.3048799413508474,
+        "prob_loss": 0.084,
+        "max_drawdown_median": 0.05321847457886969,
+        "max_drawdown_p95": 0.1028182941147455,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 1.0,
+        "prob_total_dd_breach": 0.0615,
         "prob_ruin": 0.0,
         "description": "fees doubled"
       },
       "liquidity_crunch": {
-        "terminal_equity_median": 0.7790513482249842,
-        "terminal_equity_p05": 0.7022324718521986,
-        "terminal_equity_p95": 0.8634942769618335,
-        "prob_loss": 1.0,
-        "max_drawdown_median": 0.23119100741353077,
-        "max_drawdown_p95": 0.30341992851018507,
+        "terminal_equity_median": 1.1425074721099406,
+        "terminal_equity_p05": 0.9897579357915331,
+        "terminal_equity_p95": 1.3222417459153286,
+        "prob_loss": 0.0645,
+        "max_drawdown_median": 0.05066282734072919,
+        "max_drawdown_p95": 0.09794404772944436,
         "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 0.9975,
+        "prob_total_dd_breach": 0.046,
         "prob_ruin": 0.0,
         "description": "+25 bps per side on a random 20% of trades"
       },
       "gap_risk": {
-        "terminal_equity_median": 0.8032792202553483,
-        "terminal_equity_p05": 0.7197555608432067,
-        "terminal_equity_p95": 0.89671373438483,
-        "prob_loss": 1.0,
-        "max_drawdown_median": 0.2099074168834052,
-        "max_drawdown_p95": 0.2869827370754268,
-        "prob_daily_dd_breach": 0.0,
-        "prob_total_dd_breach": 0.99,
+        "terminal_equity_median": 1.1407377809346095,
+        "terminal_equity_p05": 0.9840285505708396,
+        "terminal_equity_p95": 1.3260015207387488,
+        "prob_loss": 0.0725,
+        "max_drawdown_median": 0.05394351184733104,
+        "max_drawdown_p95": 0.10344274943851703,
+        "prob_daily_dd_breach": 0.0105,
+        "prob_total_dd_breach": 0.061,
         "prob_ruin": 0.0,
         "description": "3% of losing trades gap through the stop to 3x their loss"
       }
@@ -2958,7 +3138,7 @@
       "total_dd_limit": 0.1,
       "ruin_level": 0.5,
       "horizon_days": 365,
-      "horizon_trades": 815
+      "horizon_trades": 99
     }
   },
   "holdout": {
@@ -3052,11 +3232,17 @@
         "profit_factor": 1.0011051289340431,
         "win_rate": 0.36363636363636365
       },
-      "research_all_strategies": {
+      "portfolio:research_all_strategies": {
         "net_return": -0.09836503679665709,
         "sharpe": -5.314871372032199,
         "max_drawdown": 0.10021483129531317,
         "total_trades": 294
+      },
+      "portfolio:non_rejected_strategies": {
+        "net_return": 0.02493363275601923,
+        "sharpe": 1.2908257182431682,
+        "max_drawdown": 0.02287994383328107,
+        "total_trades": 56
       }
     },
     "benchmarks": {
@@ -3064,7 +3250,7 @@
       "buy_hold_ETH": -0.21086816335951575,
       "buy_hold_SOL": -0.1960949690934065
     },
-    "access_count": 1,
+    "access_count": 2,
     "window": {
       "index": -1,
       "train_start": "2025-02-08 00:00:00+00:00",

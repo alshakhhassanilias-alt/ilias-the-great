@@ -54,8 +54,9 @@ def base_risk_fraction(cfg: PositionSizingConfig, proposed: float | None, kelly:
     return float(frac), "fixed_fractional"
 
 
-def correlation_scale(new_symbol: str, new_dir: int, existing: list[tuple[str, int]],
-                      corr_fn, threshold: float) -> tuple[float, list[str]]:
+def correlation_scale(
+    new_symbol: str, new_dir: int, existing: list[tuple[str, int]], corr_fn, threshold: float
+) -> tuple[float, list[str]]:
     """Scale factor in (0, 1]; penalises positively-correlated same-direction exposure."""
     penalty, notes = 0.0, []
     for sym, d in existing:

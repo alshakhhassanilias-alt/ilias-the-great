@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import functools
 import io
 import logging
 import os
@@ -69,8 +70,7 @@ class HistoricalDownloader:
         empty_advances = 0
         while cursor < until_ms:
             # Bind loop variable explicitly for the retry closure.
-            since = cursor
-            rows = with_retries(lambda: self.exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=self.limit))
+            rows = with_retries(functools.partial(self.exchange.fetch_ohlcv, symbol, timeframe, since=cursor, limit=self.limit))
             if not rows:
                 # Possible exchange outage longer than one page: skip ahead, never invent data.
                 cursor += step * self.limit
@@ -129,14 +129,14 @@ BINANCE_ARCHIVE = "https://data.binance.vision/data/futures/um/monthly/fundingRa
 
 
 def _http_client() -> httpx.Client:
-    return httpx.Client(timeout=30.0, follow_redirects=True, trust_env=True,
-                        verify=os.environ.get("SSL_CERT_FILE", True))
+    return httpx.Client(timeout=30.0, follow_redirects=True, trust_env=True, verify=os.environ.get("SSL_CERT_FILE", True))
 
 
 def download_binance_funding_archive(raw_symbol: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     frames = []
-    months = pd.period_range(start.tz_localize(None) if start.tzinfo else start,
-                             end.tz_localize(None) if end.tzinfo else end, freq="M")
+    months = pd.period_range(
+        start.tz_localize(None) if start.tzinfo else start, end.tz_localize(None) if end.tzinfo else end, freq="M"
+    )
     with _http_client() as client:
         for p in months:
             url = BINANCE_ARCHIVE.format(s=raw_symbol, y=p.year, m=p.month)
@@ -153,8 +153,10 @@ def download_binance_funding_archive(raw_symbol: str, start: pd.Timestamp, end: 
     df = pd.concat(frames)
     # calc_time carries a few ms of jitter; round to the funding minute.
     ts = pd.to_datetime(df["calc_time"], unit="ms", utc=True).dt.round("min")
-    out = pd.DataFrame({"funding_rate": df["last_funding_rate"].astype(float).to_numpy(),
-                        "source": "binance_archive"}, index=pd.DatetimeIndex(ts, name="funding_time"))
+    out = pd.DataFrame(
+        {"funding_rate": df["last_funding_rate"].astype(float).to_numpy(), "source": "binance_archive"},
+        index=pd.DatetimeIndex(ts, name="funding_time"),
+    )
     return out[~out.index.duplicated(keep="first")].sort_index()
 
 
@@ -163,8 +165,7 @@ def download_okx_funding_recent(okx: ccxt.Exchange, swap_symbol: str) -> pd.Data
     until: int | None = None
     for _ in range(10):
         params = {"after": until} if until else {}
-        req = dict(params)
-        batch = with_retries(lambda: okx.fetch_funding_rate_history(swap_symbol, limit=100, params=req))
+        batch = with_retries(functools.partial(okx.fetch_funding_rate_history, swap_symbol, limit=100, params=dict(params)))
         if not batch:
             break
         rows.extend(batch)
@@ -175,8 +176,10 @@ def download_okx_funding_recent(okx: ccxt.Exchange, swap_symbol: str) -> pd.Data
     if not rows:
         return pd.DataFrame(columns=["funding_rate", "source"])
     idx = pd.to_datetime([int(r["timestamp"]) for r in rows], unit="ms", utc=True).round("min")
-    out = pd.DataFrame({"funding_rate": [float(r["fundingRate"]) for r in rows], "source": "okx_api"},
-                       index=pd.DatetimeIndex(idx, name="funding_time"))
+    out = pd.DataFrame(
+        {"funding_rate": [float(r["fundingRate"]) for r in rows], "source": "okx_api"},
+        index=pd.DatetimeIndex(idx, name="funding_time"),
+    )
     return out[~out.index.duplicated(keep="first")].sort_index()
 
 

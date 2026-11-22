@@ -34,8 +34,7 @@ class GMMRegimeClassifier:
         rest = means.drop(index=crisis)
         bull = int(rest["slope"].idxmax())
         bear = int(rest["slope"].idxmin())
-        self.mapping = {crisis: Regime.HIGH_VOL_CRISIS.value, bull: Regime.TRENDING_BULL.value,
-                        bear: Regime.TRENDING_BEAR.value}
+        self.mapping = {crisis: Regime.HIGH_VOL_CRISIS.value, bull: Regime.TRENDING_BULL.value, bear: Regime.TRENDING_BEAR.value}
         for k in range(len(means)):
             self.mapping.setdefault(k, Regime.LOW_VOL_RANGING.value)
         return self
@@ -52,7 +51,7 @@ class GMMRegimeClassifier:
     def agreement(self, df: pd.DataFrame, rule_regimes: pd.Series) -> float:
         pred = self.predict(df)
         common = pred.index.intersection(rule_regimes.index)
-        mask = (rule_regimes.loc[common] != Regime.NEUTRAL.value)
+        mask = rule_regimes.loc[common] != Regime.NEUTRAL.value
         if mask.sum() == 0:
             return float("nan")
         return float(np.mean(pred.loc[common][mask] == rule_regimes.loc[common][mask]))

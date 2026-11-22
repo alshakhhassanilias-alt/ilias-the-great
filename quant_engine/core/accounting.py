@@ -32,7 +32,7 @@ class ClosedTrade:
     exit_price: float
     entry_time: pd.Timestamp
     exit_time: pd.Timestamp
-    pnl: float           # net of fees and funding attributable to the trade
+    pnl: float  # net of fees and funding attributable to the trade
     gross_pnl: float
     fees: float
     funding: float
@@ -101,11 +101,18 @@ class Ledger:
             self._trade_seq += 1
             closed = ClosedTrade(
                 trade_id=f"{fill.strategy_id}-{fill.symbol}-{self._trade_seq}",
-                strategy_id=fill.strategy_id, symbol=fill.symbol, direction=1 if q0 > 0 else -1,
-                quantity=abs(q0), entry_price=pos.avg_entry_price, exit_price=fill.price,
-                entry_time=pos.opened_at or fill.timestamp, exit_time=fill.timestamp,
-                pnl=pos.realized_pnl - pos.fees_paid - pos.funding_paid, gross_pnl=pos.realized_pnl,
-                fees=pos.fees_paid, funding=pos.funding_paid,
+                strategy_id=fill.strategy_id,
+                symbol=fill.symbol,
+                direction=1 if q0 > 0 else -1,
+                quantity=abs(q0),
+                entry_price=pos.avg_entry_price,
+                exit_price=fill.price,
+                entry_time=pos.opened_at or fill.timestamp,
+                exit_time=fill.timestamp,
+                pnl=pos.realized_pnl - pos.fees_paid - pos.funding_paid,
+                gross_pnl=pos.realized_pnl,
+                fees=pos.fees_paid,
+                funding=pos.funding_paid,
                 exit_reason=reason or fill.intent.value,
             )
             self.closed_trades.append(closed)

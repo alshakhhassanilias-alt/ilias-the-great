@@ -47,8 +47,14 @@ def load_statuses(artifacts_dir: Path) -> tuple[dict[str, ValidationStatus], dic
     return statuses, frozen or params
 
 
-def build_engine(cfg: AppConfig, env: EnvSettings, *, diagnostic_probe: bool = False,
-                 allow_rejected_in_paper: bool = False, probe_hold_seconds: float = 20.0) -> TradingEngine:
+def build_engine(
+    cfg: AppConfig,
+    env: EnvSettings,
+    *,
+    diagnostic_probe: bool = False,
+    allow_rejected_in_paper: bool = False,
+    probe_hold_seconds: float = 20.0,
+) -> TradingEngine:
     art = Path(env.artifacts_dir)
     mode = resolve_trading_mode(env, deployment_gate_passed(art))
     store = StateStore(get_engine(env.database_url), mode.value)
@@ -64,12 +70,23 @@ def build_engine(cfg: AppConfig, env: EnvSettings, *, diagnostic_probe: bool = F
     for s in cfg.research.symbols:
         raw = cache.load(env.exchange, s, cfg.strategies.regime.get("timeframe", "4h"))
         if not raw.empty:
-            hist[s] = to_close_time_index(raw, "4h").loc[pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=400):]
+            hist[s] = to_close_time_index(raw, "4h").loc[pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=400) :]
     broker = None
     if mode is not TradingMode.PAPER:
         ex = create_private_exchange(xcfg, env, mode)
         broker = CCXTExchangeBroker(ex, mode, xcfg.ccxt_id, swap_symbols=xcfg.swap_symbols)
     feed = LiveMarketFeed(create_async_public_exchange(xcfg), cfg.research.symbols, ["15m", "1h", "4h"])
-    return TradingEngine(cfg, env, mode, store, feed, strategies, statuses, broker,
-                         allow_rejected_in_paper=allow_rejected_in_paper, diagnostic_probe=diagnostic_probe,
-                         probe_hold_seconds=probe_hold_seconds, regime_history=hist)
+    return TradingEngine(
+        cfg,
+        env,
+        mode,
+        store,
+        feed,
+        strategies,
+        statuses,
+        broker,
+        allow_rejected_in_paper=allow_rejected_in_paper,
+        diagnostic_probe=diagnostic_probe,
+        probe_hold_seconds=probe_hold_seconds,
+        regime_history=hist,
+    )

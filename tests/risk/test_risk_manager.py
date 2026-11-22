@@ -29,8 +29,7 @@ def test_approved_size_risks_exactly_one_percent():
     assert d.risk_amount == pytest.approx(1_000.0)
 
 
-@pytest.mark.parametrize("stop,reason", [(None, "missing_stop_loss"), (101.0, "stop_on_wrong_side"),
-                                         (50.0, "stop_too_wide")])
+@pytest.mark.parametrize("stop,reason", [(None, "missing_stop_loss"), (101.0, "stop_on_wrong_side"), (50.0, "stop_too_wide")])
 def test_invalid_protection_rejected(stop, reason):
     d = RiskManager(RiskConfig()).evaluate(sig(stop=stop), view())
     assert not d.approved and reason in d.reasons
@@ -104,8 +103,13 @@ def test_kelly_requires_sample_and_stability():
 
 
 @settings(max_examples=200, deadline=None)
-@given(equity=st.floats(1_000, 1e7), entry=st.floats(1, 1e5), stop_pct=st.floats(0.002, 0.14),
-       conf=st.floats(0, 1), short=st.booleans())
+@given(
+    equity=st.floats(1_000, 1e7),
+    entry=st.floats(1, 1e5),
+    stop_pct=st.floats(0.002, 0.14),
+    conf=st.floats(0, 1),
+    short=st.booleans(),
+)
 def test_property_never_exceeds_risk_ceiling_or_exposure(equity, entry, stop_pct, conf, short):
     cfg = RiskConfig()
     d_ = Direction.SHORT if short else Direction.LONG

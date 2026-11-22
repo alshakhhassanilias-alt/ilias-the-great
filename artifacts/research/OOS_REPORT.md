@@ -1,6 +1,6 @@
 # Walk-Forward Out-of-Sample Performance Report
 
-Generated 2026-11-22T14:26:06.478235+00:00 · config hash `31c941f7f63244f8` · total configurations tested across all strategies: **96**
+Generated 2026-11-22T14:42:34.625289+00:00 · config hash `31c941f7f63244f8` · total configurations tested across all strategies: **96**
 
 > All figures are **out-of-sample**, net of modelled fees (0.10% taker/maker assumption), spread, volatility/impact slippage and funding. Each walk-forward window starts from a flat book with the same capital; windows are stitched by compounding daily returns. Annualisation uses 365 days. These are simulations under stated assumptions, not predictions.
 
@@ -8,7 +8,7 @@ Generated 2026-11-22T14:26:06.478235+00:00 · config hash `31c941f7f63244f8` · 
 
 * Data: 2021-01-02 00:00:00+00:00 → 2026-11-22 12:30:00+00:00 (Binance spot OHLCV via data-api.binance.vision; funding from Binance USD-M archives + OKX for the current month).
 * Stitched OOS span: 2022-04-16 00:00:00+00:00 → 2026-04-16 00:00:00+00:00 (**4.00 years**, 16 windows).
-* Final holdout (untouched until decisions were frozen): 2026-05-22 00:00:00+00:00 → 2026-11-22 12:30:00+00:00; evaluated 1 time(s).
+* Final holdout (untouched until decisions were frozen): 2026-05-22 00:00:00+00:00 → 2026-11-22 12:30:00+00:00; evaluated 2 time(s).
 
 ## Promotion decisions
 
@@ -81,6 +81,27 @@ Generated 2026-11-22T14:26:06.478235+00:00 · config hash `31c941f7f63244f8` · 
 | 13 | 2025-07-16 | -2.07% | -0.99 | 7.37% | 206 | - |
 | 14 | 2025-10-16 | -2.93% | -2.72 | 3.80% | 197 | - |
 | 15 | 2026-01-16 | 0.61% | 0.36 | 3.36% | 169 | - |
+
+**non_rejected_strategies** — net 20.95%, CAGR 4.87%, Sharpe 1.27 (95% CI 0.26…2.19), max DD 2.75%, trades 398, positive windows 81%.
+
+| window | test_start | net_return | sharpe | max_drawdown | total_trades | breaches |
+|---|---|---|---|---|---|---|
+| 0 | 2022-04-16 | 1.40% | 1.99 | 0.69% | 14 | - |
+| 1 | 2022-07-16 | -0.32% | -0.55 | 1.29% | 19 | - |
+| 2 | 2022-10-16 | 5.97% | 3.47 | 2.18% | 30 | - |
+| 3 | 2023-01-16 | 1.87% | 2.03 | 1.17% | 24 | - |
+| 4 | 2023-04-16 | -1.51% | -1.95 | 2.05% | 32 | - |
+| 5 | 2023-07-16 | 1.44% | 1.47 | 1.49% | 21 | - |
+| 6 | 2023-10-16 | 3.23% | 2.23 | 1.91% | 27 | - |
+| 7 | 2024-01-16 | 1.18% | 1.85 | 1.41% | 27 | - |
+| 8 | 2024-04-16 | -0.03% | -0.04 | 1.64% | 24 | - |
+| 9 | 2024-07-16 | 0.72% | 1.07 | 1.12% | 26 | - |
+| 10 | 2024-10-16 | 1.44% | 2.38 | 0.99% | 26 | - |
+| 11 | 2025-01-16 | 0.83% | 1.61 | 0.92% | 20 | - |
+| 12 | 2025-04-16 | 0.65% | 0.80 | 2.61% | 25 | - |
+| 13 | 2025-07-16 | 1.57% | 1.09 | 2.24% | 31 | - |
+| 14 | 2025-10-16 | 0.44% | 0.67 | 1.07% | 25 | - |
+| 15 | 2026-01-16 | 1.01% | 0.87 | 3.14% | 27 | - |
 
 
 ## Benchmarks over the same stitched OOS windows
@@ -325,7 +346,8 @@ Parameter stability: selected in 16/16 windows, churn rate 100%; selection frequ
 | mean_reversion | -3.76% | -1.71 | 3.81% | 10 |
 | momentum_flow | -42.13% | -5.75 | 45.04% | 253 |
 | pairs_rotation | 0.02% | 0.03 | 3.94% | 44 |
-| research_all_strategies | -9.84% | -5.31 | 10.02% | 294 |
+| portfolio:research_all_strategies | -9.84% | -5.31 | 10.02% | 294 |
+| portfolio:non_rejected_strategies | 2.49% | 1.29 | 2.29% | 56 |
 
 Benchmarks over the holdout: buy_hold_BTC -22.50%, buy_hold_ETH -21.09%, buy_hold_SOL -19.61%
 

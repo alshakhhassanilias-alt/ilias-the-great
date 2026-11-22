@@ -73,13 +73,16 @@ def test_transient_blocks_clear_automatically():
     assert not b.state.entries_blocked
 
 
-@pytest.mark.parametrize("method,args", [
-    ("check_clock_skew", ("t", 10_000)),
-    ("check_position_discrepancy", ("t", "BTC/USDT", 1.0, 0.0, 1.0)),
-    ("check_balance", ("t", -5.0)),
-    ("check_slippage", ("t", 500.0)),
-    ("database_failure", ("t", "locked")),
-])
+@pytest.mark.parametrize(
+    "method,args",
+    [
+        ("check_clock_skew", ("t", 10_000)),
+        ("check_position_discrepancy", ("t", "BTC/USDT", 1.0, 0.0, 1.0)),
+        ("check_balance", ("t", -5.0)),
+        ("check_slippage", ("t", 500.0)),
+        ("database_failure", ("t", "locked")),
+    ],
+)
 def test_operational_triggers_halt(method, args):
     b, _ = cb()
     getattr(b, method)(*args)

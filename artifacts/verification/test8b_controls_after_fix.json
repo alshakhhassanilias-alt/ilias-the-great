@@ -1,0 +1,13 @@
+{
+ "before": [
+  "take_profit",
+  "stop_loss"
+ ],
+ "afterCancelReprotected": [
+  "take_profit",
+  "stop_loss"
+ ],
+ "flattenResult": "EMERGENCY FLATTEN: DONE | · command #7 | · halt persisted | ✕ | success | true | canceled_orders | 0 | flatten_orders | 1 | remaining_exposure | none (flat)",
+ "haltBannerAfterResume": 0,
+ "consoleErrors": []
+}

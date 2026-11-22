@@ -62,11 +62,23 @@ PROBE_ID = "diagnostic_probe"
 
 
 class TradingEngine:
-    def __init__(self, cfg: AppConfig, env: EnvSettings, mode: TradingMode, store: StateStore, feed: Any,
-                 strategies: list[Strategy], statuses: dict[str, ValidationStatus],
-                 broker: Broker | None = None, *, allow_rejected_in_paper: bool = False,
-                 diagnostic_probe: bool = False, probe_hold_seconds: float = 20.0,
-                 regime_history: dict[str, pd.DataFrame] | None = None, alerts: AlertManager | None = None) -> None:
+    def __init__(
+        self,
+        cfg: AppConfig,
+        env: EnvSettings,
+        mode: TradingMode,
+        store: StateStore,
+        feed: Any,
+        strategies: list[Strategy],
+        statuses: dict[str, ValidationStatus],
+        broker: Broker | None = None,
+        *,
+        allow_rejected_in_paper: bool = False,
+        diagnostic_probe: bool = False,
+        probe_hold_seconds: float = 20.0,
+        regime_history: dict[str, pd.DataFrame] | None = None,
+        alerts: AlertManager | None = None,
+    ) -> None:
         if mode is not TradingMode.PAPER and broker is None:
             raise PermissionError("non-paper modes require an explicitly constructed, gated broker")
         self.cfg, self.env, self.mode, self.store, self.feed = cfg, env, mode, store, feed
@@ -78,8 +90,7 @@ class TradingEngine:
             acct = store.account_row()
             self.initial_capital = acct["initial_capital"] if acct else self.initial_capital
         self.ledger: Ledger = ledger
-        self.risk = RiskManager(cfg.risk, risk_state or RiskState(), persist=store.save_risk_state,
-                                on_event=self._on_risk_event)
+        self.risk = RiskManager(cfg.risk, risk_state or RiskState(), persist=store.save_risk_state, on_event=self._on_risk_event)
         self.broker: Broker = broker or PaperBroker(store, cfg.backtest.costs, ledger, self._account_meta)
         if isinstance(self.broker, PaperBroker):
             self.broker.restore_orders(open_orders)
@@ -102,6 +113,8 @@ class TradingEngine:
         self._last_equity_write = 0.0
         self._last_clock_check = 0.0
         self.running = False
+        self._startup_updates: dict[str, list[str]] = {}
+        self.signal_max_age_fraction = 0.25
         self.step_count = 0
         self.last_health: HealthSnapshot | None = None
         store.save_config_version(cfg.version_hash(), cfg.model_dump(mode="json"))
@@ -119,8 +132,13 @@ class TradingEngine:
         # LIVE/TESTNET: only PROMOTED strategies receive capital.  PAPER: forward-testing of
         # research-only / under-review strategies is allowed (it is itself evidence gathering).
         require = self.mode is not TradingMode.PAPER and a.get("require_validation", True)
-        return RegimeAllocator(specs, a.get("crisis_exposure_multiplier", 0.5), a.get("neutral_exposure_multiplier", 0.75),
-                               require, a.get("total_weight_cap", 1.0))
+        return RegimeAllocator(
+            specs,
+            a.get("crisis_exposure_multiplier", 0.5),
+            a.get("neutral_exposure_multiplier", 0.75),
+            require,
+            a.get("total_weight_cap", 1.0),
+        )
 
     def _account_meta(self) -> tuple[float, float, float, str]:
         s = self.risk.state
@@ -139,10 +157,11 @@ class TradingEngine:
     async def startup(self) -> RecoveryReport:
         self.recovering = True
         await self._snapshot()
-        await self.feed.refresh_bars()
+        # Bars loaded at startup are evaluated on the first step (latest closed bar only; signals older
+        # than ``signal_max_age_fraction`` of their bar are expired, and processed_signals prevents re-use).
+        self._startup_updates = await self.feed.refresh_bars()
         await self.feed.check_clock()
-        rep = post_restore_checks(self.store, self.ledger, self.broker, self.risk.breaker, self.initial_capital,
-                                  self.recovery)
+        rep = post_restore_checks(self.store, self.ledger, self.broker, self.risk.breaker, self.initial_capital, self.recovery)
         self._sync_external_halt()
         self.store.save_risk_state(self.risk.state)
         self._fit_regimes()
@@ -211,11 +230,20 @@ class TradingEngine:
             db_ok, msg = integrity_check(self.store.engine)
             if not db_ok:
                 self.risk.breaker.database_failure(now_iso, msg)
-        h = classify(halted=self.risk.state.halted, recovering=self.recovering, connected=self.connected,
-                     data_age_s=age, latency_ms=lat, consecutive_errors=self.risk.state.consecutive_errors,
-                     db_ok=db_ok, clock_offset_ms=off, max_age_s=cb.max_data_staleness_seconds,
-                     max_latency_ms=cb.max_api_latency_ms, max_clock_skew_ms=cb.max_clock_skew_ms,
-                     transient_blocks=self.risk.state.transient_blocks)
+        h = classify(
+            halted=self.risk.state.halted,
+            recovering=self.recovering,
+            connected=self.connected,
+            data_age_s=age,
+            latency_ms=lat,
+            consecutive_errors=self.risk.state.consecutive_errors,
+            db_ok=db_ok,
+            clock_offset_ms=off,
+            max_age_s=cb.max_data_staleness_seconds,
+            max_latency_ms=cb.max_api_latency_ms,
+            max_clock_skew_ms=cb.max_clock_skew_ms,
+            transient_blocks=self.risk.state.transient_blocks,
+        )
         self.last_health = h
         return h
 
@@ -256,8 +284,15 @@ class TradingEngine:
         m = self.marks()
         eq = self.ledger.equity(m)
         hwm = max(self.risk.state.high_water_mark, eq)
-        self.store.save_equity(pd.Timestamp.now(tz="UTC"), eq, self.ledger.cash, self.ledger.unrealized(m),
-                               self.ledger.realized_pnl, self.ledger.gross_exposure(m), 1 - eq / hwm if hwm > 0 else 0.0)
+        self.store.save_equity(
+            pd.Timestamp.now(tz="UTC"),
+            eq,
+            self.ledger.cash,
+            self.ledger.unrealized(m),
+            self.ledger.realized_pnl,
+            self.ledger.gross_exposure(m),
+            1 - eq / hwm if hwm > 0 else 0.0,
+        )
 
     # ------------------------------------------------------------------ ExecutionControl (kill switch)
     def cancel_orders(self, entries_only: bool) -> int:
@@ -279,11 +314,36 @@ class TradingEngine:
         return {k: v for k, v in self.broker.net_positions().items() if abs(v) > 1e-12}
 
     # ------------------------------------------------------------------ order helpers
-    def _order(self, cid: str, p_sym: str, side: Side, typ: OrderType, qty: float, intent: OrderIntent, sid: str,
-               price: float | None = None, stop: float | None = None, reduce_only: bool = False,
-               parent: str | None = None, signal_id: str | None = None) -> Order:
-        return Order(cid, p_sym, side, typ, qty, intent, sid, pd.Timestamp.now(tz="UTC"), price, stop, reduce_only,
-                     parent_id=parent, signal_id=signal_id)
+    def _order(
+        self,
+        cid: str,
+        p_sym: str,
+        side: Side,
+        typ: OrderType,
+        qty: float,
+        intent: OrderIntent,
+        sid: str,
+        price: float | None = None,
+        stop: float | None = None,
+        reduce_only: bool = False,
+        parent: str | None = None,
+        signal_id: str | None = None,
+    ) -> Order:
+        return Order(
+            cid,
+            p_sym,
+            side,
+            typ,
+            qty,
+            intent,
+            sid,
+            pd.Timestamp.now(tz="UTC"),
+            price,
+            stop,
+            reduce_only,
+            parent_id=parent,
+            signal_id=signal_id,
+        )
 
     def _close_position(self, p: Position, reason: str, key: str) -> Order | None:
         qty = abs(p.quantity)
@@ -294,8 +354,16 @@ class TradingEngine:
                 self.broker.cancel(o.client_order_id)
         side = Side.SELL if p.quantity > 0 else Side.BUY
         cid = deterministic_client_order_id("exit", p.strategy_id, p.symbol, key, f"{qty:.10f}")
-        o = self._order(cid, p.symbol, side, OrderType.MARKET, qty, OrderIntent.FLATTEN if "flatten" in reason or
-                        "kill" in reason or "drawdown" in reason else OrderIntent.EXIT, p.strategy_id, reduce_only=True)
+        o = self._order(
+            cid,
+            p.symbol,
+            side,
+            OrderType.MARKET,
+            qty,
+            OrderIntent.FLATTEN if "flatten" in reason or "kill" in reason or "drawdown" in reason else OrderIntent.EXIT,
+            p.strategy_id,
+            reduce_only=True,
+        )
         res = self.om.submit(o, self.snapshots.get(p.symbol))
         self._check_slippage(res)
         return res
@@ -308,8 +376,13 @@ class TradingEngine:
             self.risk.breaker.check_slippage(pd.Timestamp.now(tz="UTC").isoformat(), bps)
 
     def _protective_orders(self, p: Position) -> list[Order]:
-        return [o for o in self.broker.open_orders() if o.symbol == p.symbol and o.strategy_id == p.strategy_id
-                and o.intent in (OrderIntent.STOP_LOSS, OrderIntent.TAKE_PROFIT)]
+        return [
+            o
+            for o in self.broker.open_orders()
+            if o.symbol == p.symbol
+            and o.strategy_id == p.strategy_id
+            and o.intent in (OrderIntent.STOP_LOSS, OrderIntent.TAKE_PROFIT)
+        ]
 
     def _place_protection(self, p: Position) -> None:
         key = p.entry_signal_id or f"{p.strategy_id}-{p.symbol}-{p.opened_at}"
@@ -321,13 +394,35 @@ class TradingEngine:
         rev_sl = self.store.count_dead_protective(parent, OrderIntent.STOP_LOSS.value)
         rev_tp = self.store.count_dead_protective(parent, OrderIntent.TAKE_PROFIT.value)
         if p.stop_loss is not None:
-            self.om.submit(self._order(deterministic_client_order_id(key, "sl", f"{qty:.10f}", rev_sl), p.symbol, side,
-                                       OrderType.STOP_MARKET, qty, OrderIntent.STOP_LOSS, p.strategy_id,
-                                       stop=p.stop_loss, reduce_only=True, parent=parent))
+            self.om.submit(
+                self._order(
+                    deterministic_client_order_id(key, "sl", f"{qty:.10f}", rev_sl),
+                    p.symbol,
+                    side,
+                    OrderType.STOP_MARKET,
+                    qty,
+                    OrderIntent.STOP_LOSS,
+                    p.strategy_id,
+                    stop=p.stop_loss,
+                    reduce_only=True,
+                    parent=parent,
+                )
+            )
         if p.take_profit is not None:
-            self.om.submit(self._order(deterministic_client_order_id(key, "tp", f"{qty:.10f}", rev_tp), p.symbol, side,
-                                       OrderType.TAKE_PROFIT_LIMIT, qty, OrderIntent.TAKE_PROFIT, p.strategy_id,
-                                       price=p.take_profit, reduce_only=True, parent=parent))
+            self.om.submit(
+                self._order(
+                    deterministic_client_order_id(key, "tp", f"{qty:.10f}", rev_tp),
+                    p.symbol,
+                    side,
+                    OrderType.TAKE_PROFIT_LIMIT,
+                    qty,
+                    OrderIntent.TAKE_PROFIT,
+                    p.strategy_id,
+                    price=p.take_profit,
+                    reduce_only=True,
+                    parent=parent,
+                )
+            )
 
     def _ensure_protection(self, p: Position) -> bool:
         """Verify through the broker; re-place once; otherwise close the position and halt entries."""
@@ -371,6 +466,8 @@ class TradingEngine:
                     for o in self._protective_orders(p):
                         if o.intent is OrderIntent.STOP_LOSS:
                             self.broker.amend_stop(o.client_order_id, cand)
+            if not self._protective_orders(p):  # e.g. after CANCEL OPEN ORDERS: re-protect (new revision ids)
+                self._ensure_protection(p)
             if p.strategy_id == PROBE_ID and self._probe_state.get("opened_at") is not None:
                 if time.monotonic() - self._probe_state["opened_at"] >= self.probe_hold_seconds:
                     self._close_position(p, "diagnostic_probe_exit", "probe")
@@ -378,9 +475,6 @@ class TradingEngine:
                 continue
             if p.max_hold_until is not None and now >= p.max_hold_until:
                 self._close_position(p, "time_stop", str(p.max_hold_until))
-                continue
-            if not self._protective_orders(p):
-                self._ensure_protection(p)
 
     # ------------------------------------------------------------------ signals
     def _weight(self, strategy_id: str, symbol: str) -> float:
@@ -395,8 +489,9 @@ class TradingEngine:
             closes = (sig.metadata.get("exit_long") and pos.quantity > 0) or (sig.metadata.get("exit_short") and pos.quantity < 0)
             if closes:
                 self._close_position(pos, "strategy_exit", sig.signal_id)
-            self.store.mark_signal(sig.signal_id, sig.strategy_id, sig.symbol, sig.timestamp,
-                                   "exit" if closes else "exit_noop", [])
+            self.store.mark_signal(
+                sig.signal_id, sig.strategy_id, sig.symbol, sig.timestamp, "exit" if closes else "exit_noop", []
+            )
             return {"signal_id": sig.signal_id, "decision": "exit" if closes else "exit_noop"}
         if int(np.sign(pos.quantity)) == int(sig.direction):
             self.store.mark_signal(sig.signal_id, sig.strategy_id, sig.symbol, sig.timestamp, "skipped", ["already_positioned"])
@@ -406,22 +501,39 @@ class TradingEngine:
         snap = self.snapshots.get(sig.symbol)
         w = self._weight(sig.strategy_id, sig.symbol) if weight is None else weight
         m = self.marks()
-        view = PortfolioView(self.ledger.equity(m), m, [(p.strategy_id, p.symbol, p.quantity)
-                                                        for p in self.ledger.open_positions()])
+        view = PortfolioView(
+            self.ledger.equity(m), m, [(p.strategy_id, p.symbol, p.quantity) for p in self.ledger.open_positions()]
+        )
         age = snap.age_seconds() if snap else float("inf")
         dec = self.risk.evaluate(sig, view, weight=w, data_age_seconds=min(age, self.feed.data_age_seconds()))
         self.metrics.inc(f"risk_{dec.decision}")
-        rec = {"signal_id": sig.signal_id, "strategy_id": sig.strategy_id, "symbol": sig.symbol,
-               "direction": int(sig.direction), "decision": dec.decision, "reasons": dec.reasons,
-               "quantity": dec.quantity, "weight": w, "ts": sig.timestamp.isoformat()}
+        rec = {
+            "signal_id": sig.signal_id,
+            "strategy_id": sig.strategy_id,
+            "symbol": sig.symbol,
+            "direction": int(sig.direction),
+            "decision": dec.decision,
+            "reasons": dec.reasons,
+            "quantity": dec.quantity,
+            "weight": w,
+            "ts": sig.timestamp.isoformat(),
+        }
         self.decisions.append(rec)
         self.store.mark_signal(sig.signal_id, sig.strategy_id, sig.symbol, sig.timestamp, dec.decision, dec.reasons)
         self.store.record_event(f"decision-{sig.signal_id}", "risk_decision", rec)
         if not dec.approved:
             return rec
         side = Side.BUY if sig.direction is Direction.LONG else Side.SELL
-        entry = self._order(deterministic_client_order_id(sig.signal_id, "entry"), sig.symbol, side, OrderType.MARKET,
-                            dec.quantity, OrderIntent.ENTRY, sig.strategy_id, signal_id=sig.signal_id)
+        entry = self._order(
+            deterministic_client_order_id(sig.signal_id, "entry"),
+            sig.symbol,
+            side,
+            OrderType.MARKET,
+            dec.quantity,
+            OrderIntent.ENTRY,
+            sig.strategy_id,
+            signal_id=sig.signal_id,
+        )
         res = self.om.submit(entry, snap)
         self._check_slippage(res)
         rec["order_status"] = res.status.value
@@ -458,16 +570,51 @@ class TradingEngine:
                 frames = st.compute(md)
                 ts = min(f.index[-1] for f in frames.values())
                 sigs = st.signals_at(frames, ts, self.cfg.risk.sizing.risk_per_trade)
-                self.store.save_strategy_state(st.strategy_id, self.statuses.get(st.strategy_id, ValidationStatus.UNVALIDATED).value,
-                                               max((self._weight(st.strategy_id, s) for s in st.symbols), default=0.0),
-                                               {k: v for k, v in st.params.items()}, ts)
+                self.store.save_strategy_state(
+                    st.strategy_id,
+                    self.statuses.get(st.strategy_id, ValidationStatus.UNVALIDATED).value,
+                    max((self._weight(st.strategy_id, s) for s in st.symbols), default=0.0),
+                    {k: v for k, v in st.params.items()},
+                    ts,
+                )
                 self.metrics.inc("strategy_evaluations")
+                max_age = pd.Timedelta(st.timeframe) * self.signal_max_age_fraction
+                age = pd.Timestamp.now(tz="UTC") - ts
+                self.metrics.observe("signal_age_s", age.total_seconds())
                 for sig in sigs:
+                    if not sig.is_exit and age > max_age and not self.store.signal_processed(sig.signal_id):
+                        rec = {
+                            "signal_id": sig.signal_id,
+                            "strategy_id": sig.strategy_id,
+                            "symbol": sig.symbol,
+                            "direction": int(sig.direction),
+                            "decision": "expired",
+                            "reasons": [f"signal_age_{age.total_seconds():.0f}s>{max_age.total_seconds():.0f}s"],
+                            "ts": sig.timestamp.isoformat(),
+                        }
+                        self.store.mark_signal(
+                            sig.signal_id, sig.strategy_id, sig.symbol, sig.timestamp, "expired", rec["reasons"]
+                        )
+                        self.decisions.append(rec)
+                        out.append(rec)
+                        continue
                     out.append(self.handle_signal(sig))
+                if not sigs:
+                    self.decisions.append(
+                        {
+                            "strategy_id": st.strategy_id,
+                            "decision": "no_signal",
+                            "bar_close": ts.isoformat(),
+                            "symbols": st.symbols,
+                        }
+                    )
             except Exception as exc:  # a failing strategy must not take down risk control
                 log.exception("strategy %s evaluation failed", st.strategy_id)
-                self.store.record_event(f"strategy-error-{st.strategy_id}-{time.time_ns()}", "strategy_error",
-                                        {"strategy": st.strategy_id, "error": str(exc)})
+                self.store.record_event(
+                    f"strategy-error-{st.strategy_id}-{time.time_ns()}",
+                    "strategy_error",
+                    {"strategy": st.strategy_id, "error": str(exc)},
+                )
         return out
 
     def _run_probe(self) -> None:
@@ -480,8 +627,20 @@ class TradingEngine:
         if snap is None:
             return
         px = snap.mid
-        sig = Signal(PROBE_ID, sym, pd.Timestamp.now(tz="UTC").floor("s"), Direction.LONG, px, px * 0.99, px * 1.02,
-                     0.0, 0, 0.0005, "15m", metadata={"diagnostic": True})
+        sig = Signal(
+            PROBE_ID,
+            sym,
+            pd.Timestamp.now(tz="UTC").floor("s"),
+            Direction.LONG,
+            px,
+            px * 0.99,
+            px * 1.02,
+            0.0,
+            0,
+            0.0005,
+            "15m",
+            metadata={"diagnostic": True},
+        )
         self._probe_state["submitted"] = True
         rec = self.handle_signal(sig, weight=1.0)
         self._probe_state["decision"] = rec
@@ -496,13 +655,20 @@ class TradingEngine:
             ok, result = True, {}
             try:
                 if name == "kill_switch":
-                    rep = run_emergency_procedure(self.risk.breaker, self, f"kill_switch:{actor}", kill_switch=True,
-                                                  max_attempts=3, sleep=lambda s: None)
+                    rep = run_emergency_procedure(
+                        self.risk.breaker, self, f"kill_switch:{actor}", kill_switch=True, max_attempts=3, sleep=lambda s: None
+                    )
                     result = rep.__dict__
                     ok = rep.success
                 elif name == "flatten":
-                    rep = run_emergency_procedure(self.risk.breaker, self, f"emergency_flatten:{actor}", kill_switch=False,
-                                                  max_attempts=3, sleep=lambda s: None)
+                    rep = run_emergency_procedure(
+                        self.risk.breaker,
+                        self,
+                        f"emergency_flatten:{actor}",
+                        kill_switch=False,
+                        max_attempts=3,
+                        sleep=lambda s: None,
+                    )
                     result = rep.__dict__
                     ok = rep.success
                 elif name == "cancel_orders":
@@ -531,9 +697,11 @@ class TradingEngine:
         health = self._health_checks()
         if isinstance(self.broker, PaperBroker) and self.snapshots:
             for t in self.broker.on_market(self.snapshots):
-                self.store.record_event(f"trade-{t.trade_id}-{t.exit_time.value}", "trade_closed",
-                                        {"strategy": t.strategy_id, "symbol": t.symbol, "pnl": t.pnl,
-                                         "reason": t.exit_reason})
+                self.store.record_event(
+                    f"trade-{t.trade_id}-{t.exit_time.value}",
+                    "trade_closed",
+                    {"strategy": t.strategy_id, "symbol": t.symbol, "pnl": t.pnl, "reason": t.exit_reason},
+                )
         cmds = self.process_commands()
         self._manage_positions()
         if self.risk.state.flatten_pending:
@@ -543,8 +711,11 @@ class TradingEngine:
                 self.risk.state.flatten_pending = False
                 self.store.save_risk_state(self.risk.state)
         updated: dict[str, list[str]] = {}
+        if self._startup_updates:
+            updated, self._startup_updates = self._startup_updates, {}
         try:
-            updated = await self.feed.refresh_bars()
+            for sym, tfs in (await self.feed.refresh_bars()).items():
+                updated[sym] = sorted(set(updated.get(sym, [])) | set(tfs))
         except Exception as exc:
             self.risk.breaker.record_exchange_error(pd.Timestamp.now(tz="UTC").isoformat(), type(exc).__name__)
         decisions = self.evaluate_strategies(updated) if not self.recovering else []
@@ -556,15 +727,24 @@ class TradingEngine:
                 self.flatten_all("drawdown_flatten", self.risk.state.halted_at or "dd")
         self._record_equity()
         status = SystemStatus.HALTED if self.risk.state.halted else health.status
-        self.store.heartbeat(status.value, {"health": health.to_dict(), "equity": self.equity(),
-                                            "open_positions": len(self.ledger.open_positions()),
-                                            "open_orders": len(self.broker.open_orders()),
-                                            "regimes": self.regimes, "metrics": self.metrics.summary(),
-                                            "marks": self.marks(),
-                                            "book": {s: {k: f.get(k) for k in ("spread_bps", "imbalance", "mid",
-                                                                               "impact_bps_buy", "fresh")}
-                                                     for s, f in self.feed.book_features.items()},
-                                            "mode": self.mode.value, "step": self.step_count})
+        self.store.heartbeat(
+            status.value,
+            {
+                "health": health.to_dict(),
+                "equity": self.equity(),
+                "open_positions": len(self.ledger.open_positions()),
+                "open_orders": len(self.broker.open_orders()),
+                "regimes": self.regimes,
+                "metrics": self.metrics.summary(),
+                "marks": self.marks(),
+                "book": {
+                    s: {k: f.get(k) for k in ("spread_bps", "imbalance", "mid", "impact_bps_buy", "fresh")}
+                    for s, f in self.feed.book_features.items()
+                },
+                "mode": self.mode.value,
+                "step": self.step_count,
+            },
+        )
         return {"health": health.status.value, "commands": cmds, "decisions": decisions, "updated": updated}
 
     async def run(self, duration_s: float | None = None, poll_seconds: float = 5.0) -> None:

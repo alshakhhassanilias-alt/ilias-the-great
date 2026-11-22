@@ -10,8 +10,7 @@ import numpy as np
 import pandas as pd
 
 
-def inverse_vol_weights(returns: pd.DataFrame, caps: dict[str, float] | None = None,
-                        total: float = 1.0) -> dict[str, float]:
+def inverse_vol_weights(returns: pd.DataFrame, caps: dict[str, float] | None = None, total: float = 1.0) -> dict[str, float]:
     vol = returns.std(ddof=1).replace(0, np.nan)
     inv = (1 / vol).fillna(0.0)
     if inv.sum() == 0:

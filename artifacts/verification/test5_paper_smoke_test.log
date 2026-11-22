@@ -1,0 +1,129 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+{"ts": "2026-11-22T14:30:14.174Z", "level": "INFO", "logger": "quant_engine.execution.recovery", "msg": "recovery: RecoveryReport(fresh_start=True, restored_positions=0, restored_open_orders=0, restored_trades=0, restored_fills=0, risk_state_restored=False, halted=False, db_integrity='ok', journal_ok=True, broker_ok=True, discrepancies=[])"}
+{"event": "startup", "mode": "PAPER", "recovery": {"fresh_start": true, "restored_positions": 0, "restored_open_orders": 0, "restored_trades": 0, "restored_fills": 0, "risk_state_restored": false, "halted": false, "db_integrity": "ok", "journal_ok": true, "broker_ok": true, "discrepancies": []}, "strategies": {"breakout": "research_only", "mean_reversion": "rejected", "momentum_flow": "rejected", "pairs_rotation": "rejected"}, "halted": false}
+{"ts": "2026-11-22T14:30:44.930Z", "level": "INFO", "logger": "quant_engine.execution.engine", "msg": "trade closed diagnostic_probe BTC/USDT pnl=-6.12 reason=exit"}
+{
+ "event": "shutdown",
+ "mode": "PAPER",
+ "steps": 14,
+ "equity": 99993.88467523904,
+ "open_positions": [],
+ "open_orders": 0,
+ "decisions": [
+  {
+   "strategy_id": "breakout",
+   "decision": "no_signal",
+   "bar_close": "2026-11-22T12:00:00+00:00",
+   "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT"
+   ]
+  },
+  {
+   "strategy_id": "momentum_flow",
+   "decision": "no_signal",
+   "bar_close": "2026-11-22T14:30:00+00:00",
+   "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT"
+   ]
+  },
+  {
+   "strategy_id": "pairs_rotation",
+   "decision": "no_signal",
+   "bar_close": "2026-11-22T12:00:00+00:00",
+   "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT"
+   ]
+  },
+  {
+   "signal_id": "8d010592f3ee89aa5b9e1602",
+   "strategy_id": "diagnostic_probe",
+   "symbol": "BTC/USDT",
+   "direction": 1,
+   "decision": "approved",
+   "reasons": [],
+   "quantity": 0.04123171672293284,
+   "weight": 1.0,
+   "ts": "2026-11-22T14:30:15+00:00",
+   "order_status": "filled",
+   "protected": true
+  }
+ ],
+ "probe": {
+  "submitted": true,
+  "decision": {
+   "signal_id": "8d010592f3ee89aa5b9e1602",
+   "strategy_id": "diagnostic_probe",
+   "symbol": "BTC/USDT",
+   "direction": 1,
+   "decision": "approved",
+   "reasons": [],
+   "quantity": 0.04123171672293284,
+   "weight": 1.0,
+   "ts": "2026-11-22T14:30:15+00:00",
+   "order_status": "filled",
+   "protected": true
+  },
+  "opened_at": 2021.284329599,
+  "closed": true
+ },
+ "halted": false,
+ "metrics": {
+  "counters": {
+   "strategy_evaluations": 4,
+   "risk_approved": 1,
+   "trades_closed": 1
+  },
+  "api_latency_ms": {
+   "n": 45,
+   "p50": 467.5615700002709,
+   "p95": 3140.8624645999134,
+   "max": 4125.081547000036,
+   "last": 605.4168959999515
+  },
+  "signal_age_s": {
+   "n": 4,
+   "p50": 5414.9637415,
+   "p95": 9015.041237700001,
+   "max": 9015.05874,
+   "last": 9015.05874
+  },
+  "execution_slippage_bps": {
+   "n": 2,
+   "p50": 1.0008247358767042,
+   "p95": 1.0008247530484682,
+   "max": 1.000824754956442,
+   "last": 1.000824754956442
+  }
+ },
+ "regimes": {
+  "BTC/USDT": [
+   "high_vol_crisis",
+   0.7846981074135335
+  ],
+  "ETH/USDT": [
+   "trending_bear",
+   0.6224897253020201
+  ],
+  "SOL/USDT": [
+   "trending_bear",
+   0.49113349407153106
+  ]
+ },
+ "health": {
+  "status": "HEALTHY",
+  "reasons": [],
+  "data_age_seconds": 0.000396,
+  "api_latency_ms": 605.1594090004073,
+  "consecutive_errors": 0,
+  "db_ok": true,
+  "clock_offset_ms": -22.09375,
+  "halted": false,
+  "recovering": false
+ }
+}

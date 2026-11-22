@@ -53,9 +53,11 @@ class VolatilityBreakout(Strategy):
             sf["tp_dist"] = float(p["tp_atr"]) * a
             sf["trail_dist"] = float(p["trail_atr"]) * a
             brk = np.where(long_e, (c - dc["upper"]) / a, np.where(short_e, (dc["lower"] - c) / a, 0.0))
-            conf = (0.4 * np.clip(np.nan_to_num(brk), 0, 1)
-                    + 0.3 * np.clip(np.nan_to_num(rel_vol.to_numpy()) / 3.0, 0, 1)
-                    + 0.3 * np.clip(np.nan_to_num(expansion.to_numpy()) - 1.0, 0, 1))
+            conf = (
+                0.4 * np.clip(np.nan_to_num(brk), 0, 1)
+                + 0.3 * np.clip(np.nan_to_num(rel_vol.to_numpy()) / 3.0, 0, 1)
+                + 0.3 * np.clip(np.nan_to_num(expansion.to_numpy()) - 1.0, 0, 1)
+            )
             sf["confidence"] = np.where(sf["entry"] != 0, np.clip(conf, 0.05, 1.0), 0.0)
             sf["hold_bars"] = int(p["max_hold_bars"])
             sf.loc[a.isna() | dc["upper"].isna() | trend.isna(), "entry"] = 0

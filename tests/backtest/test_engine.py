@@ -28,14 +28,22 @@ def signals(bars, at, entry=1, stop=5.0, tp=10.0, hold=0, conf=1.0):
 
 
 def zero_cost():
-    return BacktestConfig(costs=CostModelConfig(taker_fee=0, maker_fee=0, spread_bps={}, default_spread_bps=0,
-                                                base_slippage_bps=0, volatility_slippage_coef=0, impact_coef=0,
-                                                unknown_funding_rate_8h=0))
+    return BacktestConfig(
+        costs=CostModelConfig(
+            taker_fee=0,
+            maker_fee=0,
+            spread_bps={},
+            default_spread_bps=0,
+            base_slippage_bps=0,
+            volatility_slippage_coef=0,
+            impact_coef=0,
+            unknown_funding_rate_8h=0,
+        )
+    )
 
 
 def engine(bars, bt=None, enforce=False, funding=None):
-    return BacktestEngine(bt or zero_cost(), RiskConfig(), "1h", {SYM: bars}, funding or {},
-                          enforce_circuit_breakers=enforce)
+    return BacktestEngine(bt or zero_cost(), RiskConfig(), "1h", {SYM: bars}, funding or {}, enforce_circuit_breakers=enforce)
 
 
 def test_entry_executes_at_next_open_not_signal_close():
@@ -146,7 +154,7 @@ def test_daily_breach_resumes_next_day_only_under_backtest_policy():
 def test_no_pyramiding_and_reverse():
     b = flat_bars()
     sf = signals(b, 10, tp=np.nan)
-    sf.iloc[12, sf.columns.get_loc("entry")] = 1   # same direction: ignored
+    sf.iloc[12, sf.columns.get_loc("entry")] = 1  # same direction: ignored
     sf.iloc[12, sf.columns.get_loc("stop_dist")] = 5
     sf.iloc[20, sf.columns.get_loc("entry")] = -1  # reverse
     sf.iloc[20, sf.columns.get_loc("stop_dist")] = 5

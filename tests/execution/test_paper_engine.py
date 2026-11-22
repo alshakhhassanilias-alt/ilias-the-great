@@ -20,8 +20,12 @@ SYM = "BTC/USDT"
 
 @pytest.fixture
 def env(tmp_path):
-    return EnvSettings(_env_file=None, database_url=f"sqlite:///{tmp_path}/t.sqlite", artifacts_dir=str(tmp_path),
-                       initial_paper_capital=100_000.0)
+    return EnvSettings(
+        _env_file=None,
+        database_url=f"sqlite:///{tmp_path}/t.sqlite",
+        artifacts_dir=str(tmp_path),
+        initial_paper_capital=100_000.0,
+    )
 
 
 def make_engine(cfg, env, feed=None, **kw):
@@ -103,8 +107,11 @@ async def test_kill_switch_blocks_cancels_flattens_and_persists(cfg, env):
     e = await started(cfg, env)
     e.handle_signal(sig(), weight=1.0)
     with db.transaction(e.store.engine) as c:
-        c.execute(db.control_commands.insert().values(mode="PAPER", command="kill_switch", requested_by="tester",
-                                                      requested_at=db.utc_now_iso(), status="queued"))
+        c.execute(
+            db.control_commands.insert().values(
+                mode="PAPER", command="kill_switch", requested_by="tester", requested_at=db.utc_now_iso(), status="queued"
+            )
+        )
     out = await e.step()
     assert out["commands"][0]["ok"]
     assert not e.ledger.open_positions() and not e.broker.open_orders()
@@ -115,8 +122,11 @@ async def test_kill_switch_blocks_cancels_flattens_and_persists(cfg, env):
     assert e2.risk.state.halted and e2.risk.state.kill_switch
     # resume requires an explicit, identified human command
     with db.transaction(e2.store.engine) as c:
-        c.execute(db.control_commands.insert().values(mode="PAPER", command="resume", requested_by="alice",
-                                                      requested_at=db.utc_now_iso(), status="queued"))
+        c.execute(
+            db.control_commands.insert().values(
+                mode="PAPER", command="resume", requested_by="alice", requested_at=db.utc_now_iso(), status="queued"
+            )
+        )
     await e2.step()
     assert not e2.risk.state.halted
 
@@ -196,9 +206,16 @@ async def test_unexpected_position_discrepancy_halts_on_restart(cfg, env):
     assert not e2.recovery.journal_ok
     assert e2.risk.state.halted and "recovery_state_discrepancy" in e2.risk.state.halt_reason
     with db.transaction(e2.store.engine) as c:
-        c.execute(db.control_commands.insert().values(mode="PAPER", command="resume", requested_by="alice",
-                                                      requested_at=db.utc_now_iso(), status="queued",
-                                                      result_json=json.dumps({"discrepancy_explained": False})))
+        c.execute(
+            db.control_commands.insert().values(
+                mode="PAPER",
+                command="resume",
+                requested_by="alice",
+                requested_at=db.utc_now_iso(),
+                status="queued",
+                result_json=json.dumps({"discrepancy_explained": False}),
+            )
+        )
     out = await e2.step()
     assert not out["commands"][0]["ok"] and e2.risk.state.halted
 
@@ -207,16 +224,16 @@ async def test_unexpected_position_discrepancy_halts_on_restart(cfg, env):
 async def test_volatility_spike_breaches_daily_limit_and_flattens(cfg, env, monkeypatch):
     feed = FakeFeed()
     e = await started(cfg, env, feed)
-    e.handle_signal(sig(stop=98.0), weight=1.0)   # 1% risk / 2.0 stop => 500 units (~50% equity notional)
+    e.handle_signal(sig(stop=98.0), weight=1.0)  # 1% risk / 2.0 stop => 500 units (~50% equity notional)
     await e.step()
     # Isolate the drawdown breaker: remove protective orders and disable re-protection for this test.
     for o in list(e.broker.open_orders()):
         e.broker.cancel(o.client_order_id)
     monkeypatch.setattr(e, "_manage_positions", lambda: None)
-    feed.prices[SYM] = 88.0                       # -12% gap => ~-6% equity > 3% daily limit
+    feed.prices[SYM] = 88.0  # -12% gap => ~-6% equity > 3% daily limit
     await e.step()
     assert e.risk.state.halted and "daily_drawdown" in (e.risk.state.halt_reason or "")
-    assert not e.ledger.open_positions()          # flattened in the same step
+    assert not e.ledger.open_positions()  # flattened in the same step
     assert e.ledger.closed_trades[-1].exit_reason == "flatten"
 
 
@@ -274,3 +291,84 @@ async def test_missing_market_data_rejects_market_order(cfg, env):
     o = Order("cid3", SYM, Side.BUY, OrderType.MARKET, 1.0, OrderIntent.ENTRY, "s", pd.Timestamp.now(tz="UTC"))
     res = e.broker.submit(o, None)
     assert res.status is OrderStatus.REJECTED and res.reject_reason == "no_market_data"
+
+
+@pytest.mark.asyncio
+async def test_strategy_evaluation_on_startup_and_stale_signal_expiry(cfg, env):
+    """Real strategy code on synthetic closed bars: fresh bar -> evaluated; stale entry -> expired, not traded."""
+    from quant_engine.strategies.base import Strategy, empty_signal_frame
+
+    class AlwaysLong(Strategy):
+        strategy_id = "breakout"
+
+        def compute(self, data, params=None):
+            out = {}
+            for s in self.symbols:
+                df = data.get(s, self.timeframe)
+                sf = empty_signal_frame(df.index, df["close"])
+                sf.iloc[-1, sf.columns.get_loc("entry")] = 1
+                sf.iloc[-1, sf.columns.get_loc("stop_dist")] = 5.0
+                sf.iloc[-1, sf.columns.get_loc("confidence")] = 1.0
+                out[s] = sf
+            return out
+
+    def bars(last_close):
+        idx = pd.date_range(end=last_close, periods=150, freq="15min", tz="UTC", name="close_time")
+        return pd.DataFrame({"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1e6}, index=idx)
+
+    from quant_engine.config.settings import StrategyConfig
+
+    st = AlwaysLong(StrategyConfig(timeframe="15m", symbols=[SYM]))
+    feed = FakeFeed()
+    now = pd.Timestamp.now(tz="UTC").floor("15min")
+    feed.bars[SYM]["15m"] = bars(now)  # bar closed < 15 min ago
+    feed.pending_updates = {SYM: ["15m"]}
+    store = StateStore(db.get_engine(env.database_url), "PAPER")
+    from quant_engine.regime.allocation import ValidationStatus
+
+    e = TradingEngine(cfg, env, TradingMode.PAPER, store, feed, [st], {"breakout": ValidationStatus.RESEARCH_ONLY})
+    await e.startup()
+    out = await e.step()
+    decisions = [d for d in out["decisions"] if d.get("strategy_id") == "breakout"]
+    if (pd.Timestamp.now(tz="UTC") - now) <= pd.Timedelta("15min") * 0.25:
+        assert decisions and decisions[0]["decision"] in ("approved", "rejected")
+    else:
+        assert decisions and decisions[0]["decision"] == "expired"
+    # a stale bar (2 hours old) must never open a position
+    feed2 = FakeFeed()
+    feed2.bars[SYM]["15m"] = bars(now - pd.Timedelta(hours=2))
+    feed2.pending_updates = {SYM: ["15m"]}
+    env2 = EnvSettings(
+        _env_file=None, database_url=env.database_url.replace("t.sqlite", "t2.sqlite"), artifacts_dir=env.artifacts_dir
+    )
+    e2 = TradingEngine(
+        cfg,
+        env2,
+        TradingMode.PAPER,
+        StateStore(db.get_engine(env2.database_url), "PAPER"),
+        feed2,
+        [st],
+        {"breakout": ValidationStatus.RESEARCH_ONLY},
+    )
+    await e2.startup()
+    out2 = await e2.step()
+    assert [d["decision"] for d in out2["decisions"] if d.get("strategy_id") == "breakout"] == ["expired"]
+    assert not e2.ledger.open_positions()
+
+
+@pytest.mark.asyncio
+async def test_cancel_open_orders_then_positions_are_reprotected(cfg, env):
+    e = await started(cfg, env)
+    e.handle_signal(sig(), weight=1.0)
+    first_ids = {o.client_order_id for o in e.broker.open_orders()}
+    with db.transaction(e.store.engine) as c:
+        c.execute(
+            db.control_commands.insert().values(
+                mode="PAPER", command="cancel_orders", requested_by="op", requested_at=db.utc_now_iso(), status="queued"
+            )
+        )
+    await e.step()
+    new = e.broker.open_orders()
+    assert {o.intent.value for o in new} == {"stop_loss", "take_profit"}
+    assert not ({o.client_order_id for o in new} & first_ids)  # fresh revision ids, no duplicates
+    assert not e.risk.state.halted

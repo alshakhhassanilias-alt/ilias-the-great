@@ -1,0 +1,10 @@
+{
+ "restart_halted": true,
+ "probe_entry_decision": "rejected",
+ "probe_reasons": [
+  "kill_switch_engaged",
+  "halted:kill_switch:operator"
+ ],
+ "open_positions_after": [],
+ "halted_at_shutdown": true
+}

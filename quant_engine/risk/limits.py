@@ -27,8 +27,9 @@ class PortfolioView:
         return sum(1 for *_, q in self.positions if abs(q) > 1e-12)
 
 
-def cap_quantity(view: PortfolioView, symbol: str, direction: int, price: float, qty: float,
-                 cfg: ExposureLimitsConfig) -> tuple[float, list[str]]:
+def cap_quantity(
+    view: PortfolioView, symbol: str, direction: int, price: float, qty: float, cfg: ExposureLimitsConfig
+) -> tuple[float, list[str]]:
     notes: list[str] = []
     eq = view.equity
     if eq <= 0 or price <= 0:

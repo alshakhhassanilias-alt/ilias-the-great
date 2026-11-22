@@ -15,9 +15,15 @@ class DataIntegrityError(RuntimeError):
     pass
 
 
-def load_market_data(cfg: AppConfig, env: EnvSettings, symbols: list[str] | None = None,
-                     timeframes: list[str] | None = None, exchange: str | None = None,
-                     end: pd.Timestamp | None = None, require_valid: bool = True) -> tuple[MarketData, dict]:
+def load_market_data(
+    cfg: AppConfig,
+    env: EnvSettings,
+    symbols: list[str] | None = None,
+    timeframes: list[str] | None = None,
+    exchange: str | None = None,
+    end: pd.Timestamp | None = None,
+    require_valid: bool = True,
+) -> tuple[MarketData, dict]:
     exchange = exchange or cfg.exchanges.market_data_primary
     cache = ParquetCache(env.market_data_dir)
     symbols = symbols or cfg.research.symbols

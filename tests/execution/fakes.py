@@ -30,8 +30,16 @@ class FakeFeed:
         self.health.record_latency(20.0)
         out = {}
         for s, p in self.prices.items():
-            out[s] = SymbolSnapshot(s, p, p - 0.01, p + 0.01, [(p - 0.01, self.depth)], [(p + 0.01, self.depth)],
-                                    now - pd.Timedelta(seconds=self.stale_seconds), latency_ms=20.0)
+            out[s] = SymbolSnapshot(
+                s,
+                p,
+                p - 0.01,
+                p + 0.01,
+                [(p - 0.01, self.depth)],
+                [(p + 0.01, self.depth)],
+                now - pd.Timedelta(seconds=self.stale_seconds),
+                latency_ms=20.0,
+            )
         return out
 
     async def refresh_bars(self, lookback=600):

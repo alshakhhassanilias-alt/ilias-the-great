@@ -51,9 +51,7 @@ def create_async_public_exchange(cfg: ExchangeConfig, market_type: str = "spot")
     return ex
 
 
-def create_private_exchange(
-    cfg: ExchangeConfig, env: EnvSettings, mode: TradingMode, market_type: str = "swap"
-) -> ccxt.Exchange:
+def create_private_exchange(cfg: ExchangeConfig, env: EnvSettings, mode: TradingMode, market_type: str = "swap") -> ccxt.Exchange:
     """Authenticated client for TESTNET / LIVE.  Refuses PAPER and missing credentials."""
     if mode is TradingMode.PAPER:
         raise PermissionError("PAPER mode must never construct an authenticated exchange client")

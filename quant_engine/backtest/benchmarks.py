@@ -10,8 +10,9 @@ from quant_engine.config.settings import CostModelConfig
 EMPTY_TRADES = pd.DataFrame(columns=["pnl", "entry_time", "exit_time"])
 
 
-def buy_and_hold_equity(close: pd.Series, start: pd.Timestamp, end: pd.Timestamp, costs: CostModelConfig,
-                        symbol: str, capital: float = 1.0) -> pd.Series:
+def buy_and_hold_equity(
+    close: pd.Series, start: pd.Timestamp, end: pd.Timestamp, costs: CostModelConfig, symbol: str, capital: float = 1.0
+) -> pd.Series:
     px = close.loc[start:end]
     if px.empty:
         return pd.Series(dtype=float)
@@ -26,8 +27,9 @@ def cash_equity(index: pd.DatetimeIndex, capital: float = 1.0) -> pd.Series:
     return pd.Series(capital, index=index)
 
 
-def benchmark_summaries(closes: dict[str, pd.Series], start: pd.Timestamp, end: pd.Timestamp,
-                        costs: CostModelConfig) -> dict[str, dict]:
+def benchmark_summaries(
+    closes: dict[str, pd.Series], start: pd.Timestamp, end: pd.Timestamp, costs: CostModelConfig
+) -> dict[str, dict]:
     out = {}
     idx = None
     for sym, c in closes.items():

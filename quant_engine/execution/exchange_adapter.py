@@ -102,8 +102,14 @@ class Broker(ABC):
         return None
 
 
-def protective_params(exchange_id: str, intent: OrderIntent, trigger: float, client_order_id: str,
-                      hedge_mode: bool = False, position_side: str = "LONG") -> dict[str, Any]:
+def protective_params(
+    exchange_id: str,
+    intent: OrderIntent,
+    trigger: float,
+    client_order_id: str,
+    hedge_mode: bool = False,
+    position_side: str = "LONG",
+) -> dict[str, Any]:
     """Exchange-specific parameters for reduce-only protective orders (unified CCXT where possible)."""
     params: dict[str, Any] = {"reduceOnly": True}
     key = "stopLossPrice" if intent is OrderIntent.STOP_LOSS else "takeProfitPrice"
@@ -113,30 +119,50 @@ def protective_params(exchange_id: str, intent: OrderIntent, trigger: float, cli
             params["positionSide"] = position_side
             params.pop("reduceOnly")  # Binance rejects reduceOnly in hedge mode; positionSide implies it
     elif exchange_id == "okx":
-        params.update({key: trigger, "clOrdId": client_order_id[:32], "tdMode": "cross",
-                       ("slTriggerPxType" if key == "stopLossPrice" else "tpTriggerPxType"): "mark"})
+        params.update(
+            {
+                key: trigger,
+                "clOrdId": client_order_id[:32],
+                "tdMode": "cross",
+                ("slTriggerPxType" if key == "stopLossPrice" else "tpTriggerPxType"): "mark",
+            }
+        )
         if hedge_mode:
             params["posSide"] = position_side.lower()
     elif exchange_id == "bybit":
-        params.update({key: trigger, "orderLinkId": client_order_id, "triggerBy": "MarkPrice",
-                       "positionIdx": (1 if position_side == "LONG" else 2) if hedge_mode else 0})
+        params.update(
+            {
+                key: trigger,
+                "orderLinkId": client_order_id,
+                "triggerBy": "MarkPrice",
+                "positionIdx": (1 if position_side == "LONG" else 2) if hedge_mode else 0,
+            }
+        )
     else:
         raise ValueError(f"unsupported exchange {exchange_id}")
     return params
 
 
 def entry_params(exchange_id: str, client_order_id: str) -> dict[str, Any]:
-    table: dict[str, dict[str, Any]] = {"binance": {"newClientOrderId": client_order_id},
-            "okx": {"clOrdId": client_order_id[:32], "tdMode": "cross"},
-            "bybit": {"orderLinkId": client_order_id, "positionIdx": 0}}
+    table: dict[str, dict[str, Any]] = {
+        "binance": {"newClientOrderId": client_order_id},
+        "okx": {"clOrdId": client_order_id[:32], "tdMode": "cross"},
+        "bybit": {"orderLinkId": client_order_id, "positionIdx": 0},
+    }
     return dict(table[exchange_id])
 
 
 class CCXTExchangeBroker(Broker):
     """Authenticated exchange broker.  Constructed only for TESTNET/LIVE (factory enforces it)."""
 
-    def __init__(self, exchange: ccxt.Exchange, mode: TradingMode, exchange_id: str, hedge_mode: bool = False,
-                 swap_symbols: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        exchange: ccxt.Exchange,
+        mode: TradingMode,
+        exchange_id: str,
+        hedge_mode: bool = False,
+        swap_symbols: dict[str, str] | None = None,
+    ) -> None:
         if mode is TradingMode.PAPER:
             raise PermissionError("CCXTExchangeBroker must not be used in PAPER mode")
         self.ex = exchange
@@ -152,7 +178,8 @@ class CCXTExchangeBroker(Broker):
     def _find_by_client_id(self, order: Order) -> dict[str, Any] | None:
         try:
             for o in self.ex.fetch_open_orders(self._sym(order.symbol)) + self.ex.fetch_closed_orders(
-                    self._sym(order.symbol), limit=50):
+                self._sym(order.symbol), limit=50
+            ):
                 if o.get("clientOrderId") == order.client_order_id:
                     return o
         except ccxt.BaseError as exc:
@@ -164,9 +191,14 @@ class CCXTExchangeBroker(Broker):
         if existing is None:
             sym = self._sym(order.symbol)
             if order.intent in (OrderIntent.STOP_LOSS, OrderIntent.TAKE_PROFIT):
-                params = protective_params(self.exchange_id, order.intent, float(order.stop_price or order.price or 0),
-                                           order.client_order_id, self.hedge_mode,
-                                           "LONG" if order.side is Side.SELL else "SHORT")
+                params = protective_params(
+                    self.exchange_id,
+                    order.intent,
+                    float(order.stop_price or order.price or 0),
+                    order.client_order_id,
+                    self.hedge_mode,
+                    "LONG" if order.side is Side.SELL else "SHORT",
+                )
                 existing = self.ex.create_order(sym, "market", order.side.value, order.quantity, None, params)
             else:
                 params = entry_params(self.exchange_id, order.client_order_id)
@@ -178,8 +210,9 @@ class CCXTExchangeBroker(Broker):
         status = str(existing.get("status"))
         order.filled_quantity = float(existing.get("filled") or 0.0)
         order.avg_fill_price = float(existing.get("average") or existing.get("price") or 0.0)
-        order.status = {"closed": OrderStatus.FILLED, "canceled": OrderStatus.CANCELED,
-                        "rejected": OrderStatus.REJECTED}.get(status, OrderStatus.OPEN)
+        order.status = {"closed": OrderStatus.FILLED, "canceled": OrderStatus.CANCELED, "rejected": OrderStatus.REJECTED}.get(
+            status, OrderStatus.OPEN
+        )
         self._orders[order.client_order_id] = order
         return order
 

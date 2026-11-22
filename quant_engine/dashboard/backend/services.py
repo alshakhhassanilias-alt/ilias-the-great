@@ -35,8 +35,12 @@ class DashboardService:
         status = hb["status"]
         if age > 60 and status not in ("STOPPED",):
             status = "DISCONNECTED"
-        return {"status": status, "timestamp": hb["timestamp"], "age_seconds": age,
-                "details": json.loads(hb["details_json"] or "{}")}
+        return {
+            "status": status,
+            "timestamp": hb["timestamp"],
+            "age_seconds": age,
+            "details": json.loads(hb["details_json"] or "{}"),
+        }
 
     def account(self) -> dict[str, Any] | None:
         r = self._rows(select(db.account_state).where(db.account_state.c.mode == self.mode))
@@ -51,8 +55,12 @@ class DashboardService:
         return row
 
     def equity_series(self, limit: int = 5000) -> list[dict[str, Any]]:
-        rows = self._rows(select(db.equity_snapshots).where(db.equity_snapshots.c.mode == self.mode)
-                          .order_by(desc(db.equity_snapshots.c.id)).limit(limit))
+        rows = self._rows(
+            select(db.equity_snapshots)
+            .where(db.equity_snapshots.c.mode == self.mode)
+            .order_by(desc(db.equity_snapshots.c.id))
+            .limit(limit)
+        )
         return list(reversed(rows))
 
     def positions(self) -> list[dict[str, Any]]:
@@ -68,16 +76,19 @@ class DashboardService:
         return rows
 
     def orders(self, limit: int = 200) -> list[dict[str, Any]]:
-        return self._rows(select(db.orders).where(db.orders.c.mode == self.mode)
-                          .order_by(desc(db.orders.c.updated_at)).limit(limit))
+        return self._rows(
+            select(db.orders).where(db.orders.c.mode == self.mode).order_by(desc(db.orders.c.updated_at)).limit(limit)
+        )
 
     def trades(self, limit: int = 1000) -> list[dict[str, Any]]:
-        return self._rows(select(db.trades).where(db.trades.c.mode == self.mode)
-                          .order_by(desc(db.trades.c.exit_time)).limit(limit))
+        return self._rows(
+            select(db.trades).where(db.trades.c.mode == self.mode).order_by(desc(db.trades.c.exit_time)).limit(limit)
+        )
 
     def risk_events(self, limit: int = 100) -> list[dict[str, Any]]:
-        return self._rows(select(db.risk_events).where(db.risk_events.c.mode == self.mode)
-                          .order_by(desc(db.risk_events.c.id)).limit(limit))
+        return self._rows(
+            select(db.risk_events).where(db.risk_events.c.mode == self.mode).order_by(desc(db.risk_events.c.id)).limit(limit)
+        )
 
     def alerts(self, limit: int = 50) -> list[dict[str, Any]]:
         return self._rows(select(db.alerts).order_by(desc(db.alerts.c.id)).limit(limit))
@@ -90,12 +101,22 @@ class DashboardService:
         for name, sc in self.cfg.strategies.strategies.items():
             r = live.get(name, {})
             s = (research or {}).get("strategies", {}).get(name, {}).get("summary", {})
-            out.append({"strategy_id": name, "timeframe": sc.timeframe, "max_weight": sc.max_weight,
-                        "validation_status": promo.get(name, {}).get("status", "unvalidated"),
-                        "live_weight": r.get("weight", 0.0), "last_signal_ts": r.get("last_signal_ts"),
-                        "oos_sharpe": s.get("sharpe"), "oos_net_return": s.get("net_return"),
-                        "oos_max_drawdown": s.get("max_drawdown"), "oos_trades": s.get("total_trades"),
-                        "dsr": s.get("dsr"), "pbo": s.get("pbo")})
+            out.append(
+                {
+                    "strategy_id": name,
+                    "timeframe": sc.timeframe,
+                    "max_weight": sc.max_weight,
+                    "validation_status": promo.get(name, {}).get("status", "unvalidated"),
+                    "live_weight": r.get("weight", 0.0),
+                    "last_signal_ts": r.get("last_signal_ts"),
+                    "oos_sharpe": s.get("sharpe"),
+                    "oos_net_return": s.get("net_return"),
+                    "oos_max_drawdown": s.get("max_drawdown"),
+                    "oos_trades": s.get("total_trades"),
+                    "dsr": s.get("dsr"),
+                    "pbo": s.get("pbo"),
+                }
+            )
         return out
 
     def research_summary(self) -> dict[str, Any] | None:
@@ -123,8 +144,12 @@ class DashboardService:
         res = self.research_summary() or {}
         mc = res.get("monte_carlo", {})
         dist = json.loads(p.read_text()) if p.exists() else {}
-        return {"portfolio": mc.get("portfolio"), "qualified": mc.get("qualified"), "summary": mc.get("summary", {}),
-                "distributions": dist}
+        return {
+            "portfolio": mc.get("portfolio"),
+            "qualified": mc.get("qualified"),
+            "summary": mc.get("summary", {}),
+            "distributions": dist,
+        }
 
     def overview(self) -> dict[str, Any]:
         acct = self.account()
@@ -154,7 +179,8 @@ class DashboardService:
             "total_return": (equity / init - 1) if equity and init else None,
             "current_drawdown": (1 - equity / hwm) if equity and hwm else None,
             "gross_exposure": gross,
-            "halted": bool(risk.get("halted")), "kill_switch": bool(risk.get("kill_switch")),
+            "halted": bool(risk.get("halted")),
+            "kill_switch": bool(risk.get("kill_switch")),
             "halt_reason": risk.get("halt_reason"),
             "timestamp": last["timestamp"] if last else None,
         }
@@ -170,13 +196,20 @@ class DashboardService:
         day_start = st.get("day_start_equity")
         daily_dd = max(0.0, 1 - eq / day_start) if eq and day_start else 0.0
         return {
-            "daily_drawdown": daily_dd, "daily_drawdown_limit": cb.daily_drawdown_limit,
-            "total_drawdown": ov["current_drawdown"] or 0.0, "total_drawdown_limit": cb.max_total_drawdown,
-            "halted": risk.get("halted", False), "kill_switch": risk.get("kill_switch", False),
-            "halt_reason": risk.get("halt_reason"), "requires_authorization": risk.get("requires_authorization", False),
-            "transient_blocks": st.get("transient_blocks", {}), "breach_count": st.get("breach_count", {}),
-            "api_latency_ms": health.get("api_latency_ms"), "data_age_seconds": health.get("data_age_seconds"),
-            "consecutive_errors": health.get("consecutive_errors"), "exchange_connectivity": hb["status"],
+            "daily_drawdown": daily_dd,
+            "daily_drawdown_limit": cb.daily_drawdown_limit,
+            "total_drawdown": ov["current_drawdown"] or 0.0,
+            "total_drawdown_limit": cb.max_total_drawdown,
+            "halted": risk.get("halted", False),
+            "kill_switch": risk.get("kill_switch", False),
+            "halt_reason": risk.get("halt_reason"),
+            "requires_authorization": risk.get("requires_authorization", False),
+            "transient_blocks": st.get("transient_blocks", {}),
+            "breach_count": st.get("breach_count", {}),
+            "api_latency_ms": health.get("api_latency_ms"),
+            "data_age_seconds": health.get("data_age_seconds"),
+            "consecutive_errors": health.get("consecutive_errors"),
+            "exchange_connectivity": hb["status"],
             "health_reasons": health.get("reasons", []),
             "limits": self.cfg.risk.model_dump(mode="json"),
             "events": self.risk_events(50),

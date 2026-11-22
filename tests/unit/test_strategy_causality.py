@@ -26,8 +26,9 @@ def build_md(n15=12_000, seed=0) -> MarketData:
             tfs[tf] = resample_ohlcv(df, "15m", tf)
         bars[s] = {tf: to_close_time_index(d, tf) for tf, d in tfs.items()}
         fidx = pd.date_range(df.index[0], df.index[-1], freq="8h", tz="UTC")
-        funding[s] = pd.DataFrame({"funding_rate": np.random.default_rng(k).normal(1e-4, 2e-4, len(fidx)),
-                                   "source": "test"}, index=fidx)
+        funding[s] = pd.DataFrame(
+            {"funding_rate": np.random.default_rng(k).normal(1e-4, 2e-4, len(fidx)), "source": "test"}, index=fidx
+        )
     return MarketData(bars, funding)
 
 
@@ -53,8 +54,9 @@ def test_strategy_signals_are_causal(name, md, cfg):
         for sym in st.symbols:
             a = full[sym].loc[:ts, SIGNAL_COLUMNS].tail(50)
             b = part[sym].loc[:ts, SIGNAL_COLUMNS].tail(50)
-            pd.testing.assert_frame_equal(a.astype(float), b.astype(float), check_exact=False, rtol=1e-9,
-                                          obj=f"{name} {sym} @ {ts}")
+            pd.testing.assert_frame_equal(
+                a.astype(float), b.astype(float), check_exact=False, rtol=1e-9, obj=f"{name} {sym} @ {ts}"
+            )
 
 
 INDICATORS = {

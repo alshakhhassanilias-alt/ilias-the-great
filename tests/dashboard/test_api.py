@@ -16,8 +16,9 @@ PW = "correct horse battery staple"
 
 @pytest.fixture
 def client(cfg, tmp_path):
-    env = EnvSettings(_env_file=None, database_url=f"sqlite:///{tmp_path}/d.sqlite", artifacts_dir=str(tmp_path),
-                      dashboard_username="operator")
+    env = EnvSettings(
+        _env_file=None, database_url=f"sqlite:///{tmp_path}/d.sqlite", artifacts_dir=str(tmp_path), dashboard_username="operator"
+    )
     app = create_app(cfg, env, TradingMode.PAPER, hash_password(PW), "x" * 64, serve_frontend=False, ack_timeout_s=0.5)
     return TestClient(app), env
 
@@ -43,8 +44,21 @@ def test_token_service_rejects_tampering():
         TokenService("t" * 40).verify(tok)
 
 
-@pytest.mark.parametrize("path", ["/api/overview", "/api/positions", "/api/orders", "/api/trades", "/api/risk",
-                                  "/api/strategies", "/api/montecarlo", "/api/research", "/api/equity", "/api/health"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/overview",
+        "/api/positions",
+        "/api/orders",
+        "/api/trades",
+        "/api/risk",
+        "/api/strategies",
+        "/api/montecarlo",
+        "/api/research",
+        "/api/equity",
+        "/api/health",
+    ],
+)
 def test_every_data_endpoint_requires_auth(client, path):
     c, _ = client
     assert c.get(path).status_code == 401

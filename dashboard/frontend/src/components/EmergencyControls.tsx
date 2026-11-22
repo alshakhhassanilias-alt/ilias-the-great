@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, postControl } from "../api";
 import type { ControlAction, ControlResponse } from "../types";
-import { fmtMoney, isNum } from "../format";
+import { fmtMoney } from "../format";
 
 interface ActionDef {
   action: ControlAction;
@@ -79,7 +79,7 @@ function ResultBanner({ res, onClose }: { res: { label: string; resp?: ControlRe
     if (v !== undefined && v !== null) fields.push([k, Array.isArray(v) ? String(v.length) : String(v)]);
   }
   if (r.remaining_exposure !== undefined && r.remaining_exposure !== null)
-    fields.push(["remaining_exposure", isNum(r.remaining_exposure) ? fmtMoney(r.remaining_exposure) : String(r.remaining_exposure)]);
+    fields.push(["remaining_exposure", formatExposure(r.remaining_exposure)]);
   if (r.error) fields.push(["error", String(r.error)]);
   if (r.note) fields.push(["note", String(r.note)]);
   return (
@@ -257,4 +257,14 @@ export default function EmergencyControls({ halted, onDone }: { halted: boolean;
       {open && <ConfirmModal def={ACTIONS[open]} busy={busy} onCancel={() => setOpen(null)} onConfirm={(r, d) => run(open, r, d)} />}
     </section>
   );
+}
+
+/** remaining_exposure is a {symbol: signed quantity} map from the engine; {} means fully flat. */
+function formatExposure(v: unknown): string {
+  if (typeof v === "number") return fmtMoney(v);
+  if (v && typeof v === "object") {
+    const entries = Object.entries(v as Record<string, unknown>);
+    return entries.length === 0 ? "none (flat)" : entries.map(([k, q]) => `${k}: ${String(q)}`).join(", ");
+  }
+  return String(v);
 }

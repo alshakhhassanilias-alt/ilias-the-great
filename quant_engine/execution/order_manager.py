@@ -20,13 +20,26 @@ from quant_engine.execution.state_store import StateStore
 from quant_engine.risk.circuit_breaker import CircuitBreaker
 
 log = logging.getLogger(__name__)
-TRANSIENT = (ccxt.NetworkError, ccxt.RequestTimeout, ccxt.ExchangeNotAvailable, ccxt.RateLimitExceeded,
-             TimeoutError, ConnectionError)
+TRANSIENT = (
+    ccxt.NetworkError,
+    ccxt.RequestTimeout,
+    ccxt.ExchangeNotAvailable,
+    ccxt.RateLimitExceeded,
+    TimeoutError,
+    ConnectionError,
+)
 
 
 class OrderManager:
-    def __init__(self, broker: Broker, store: StateStore, breaker: CircuitBreaker, max_attempts: int = 3,
-                 backoff_s: float = 0.5, sleep=time.sleep) -> None:
+    def __init__(
+        self,
+        broker: Broker,
+        store: StateStore,
+        breaker: CircuitBreaker,
+        max_attempts: int = 3,
+        backoff_s: float = 0.5,
+        sleep=time.sleep,
+    ) -> None:
         self.broker = broker
         self.store = store
         self.breaker = breaker

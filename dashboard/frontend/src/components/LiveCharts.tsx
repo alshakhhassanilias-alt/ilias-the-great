@@ -127,7 +127,7 @@ export default function LiveCharts({ equity, error, mode }: { equity: EquityPoin
           yaxis={{ tickprefix: "$", tickformat: ",.0f" }}
           data={[
             {
-              type: "scattergl",
+              type: "scatter",
               mode: "lines",
               name: "Equity",
               x: eq.x,

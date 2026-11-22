@@ -433,7 +433,7 @@ select:focus {
   }
 }
 
-.app.mode-live .topbar {
+.app.app-mode-live .topbar {
   border-bottom: 2px solid var(--red);
 }
 
@@ -720,9 +720,6 @@ select:focus {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .mini-stats b {

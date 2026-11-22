@@ -78,9 +78,13 @@ class RiskState:
 
 
 class CircuitBreaker:
-    def __init__(self, cfg: CircuitBreakerConfig, state: RiskState,
-                 persist: Callable[[RiskState], None] | None = None,
-                 on_event: Callable[[RiskEvent], None] | None = None) -> None:
+    def __init__(
+        self,
+        cfg: CircuitBreakerConfig,
+        state: RiskState,
+        persist: Callable[[RiskState], None] | None = None,
+        on_event: Callable[[RiskEvent], None] | None = None,
+    ) -> None:
         self.cfg = cfg
         self.state = state
         self._persist_cb = persist or (lambda s: None)
@@ -135,8 +139,7 @@ class CircuitBreaker:
         s.flatten_pending = False
         s.consecutive_errors = 0
         self._persist(s)
-        return self._emit(ts, "WARNING", "resume_authorized", f"trading resumed by {actor}", BreakerAction.NONE,
-                          actor=actor)
+        return self._emit(ts, "WARNING", "resume_authorized", f"trading resumed by {actor}", BreakerAction.NONE, actor=actor)
 
     # ------------------------------------------------------------------ drawdown
     def update_equity(self, ts: pd.Timestamp, equity: float) -> list[RiskEvent]:
@@ -191,24 +194,26 @@ class CircuitBreaker:
         return []
 
     def check_data_freshness(self, ts: str, age_seconds: float) -> list[RiskEvent]:
-        return self._transient(ts, "stale_market_data", age_seconds > self.cfg.max_data_staleness_seconds,
-                               f"market data age {age_seconds:.0f}s")
+        return self._transient(
+            ts, "stale_market_data", age_seconds > self.cfg.max_data_staleness_seconds, f"market data age {age_seconds:.0f}s"
+        )
 
     def check_latency(self, ts: str, latency_ms: float) -> list[RiskEvent]:
-        return self._transient(ts, "excessive_latency", latency_ms > self.cfg.max_api_latency_ms,
-                               f"API latency {latency_ms:.0f}ms")
+        return self._transient(
+            ts, "excessive_latency", latency_ms > self.cfg.max_api_latency_ms, f"API latency {latency_ms:.0f}ms"
+        )
 
     def check_clock_skew(self, ts: str, skew_ms: float) -> list[RiskEvent]:
         if abs(skew_ms) > self.cfg.max_clock_skew_ms:
             return [self.halt(ts, f"clock_skew:{skew_ms:.0f}ms", flatten=False)]
         return []
 
-    def check_position_discrepancy(self, ts: str, symbol: str, local_qty: float, exchange_qty: float,
-                                   ref_qty: float) -> list[RiskEvent]:
+    def check_position_discrepancy(
+        self, ts: str, symbol: str, local_qty: float, exchange_qty: float, ref_qty: float
+    ) -> list[RiskEvent]:
         tol = self.cfg.max_position_discrepancy_fraction * max(abs(ref_qty), 1e-9)
         if abs(local_qty - exchange_qty) > max(tol, 1e-9):
-            return [self.halt(ts, f"position_discrepancy:{symbol}:local={local_qty}:exchange={exchange_qty}",
-                              flatten=False)]
+            return [self.halt(ts, f"position_discrepancy:{symbol}:local={local_qty}:exchange={exchange_qty}", flatten=False)]
         return []
 
     def check_balance(self, ts: str, balance: float | None) -> list[RiskEvent]:

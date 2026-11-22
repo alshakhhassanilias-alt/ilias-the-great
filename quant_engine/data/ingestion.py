@@ -42,8 +42,9 @@ class FeedHealth:
 
 
 class LiveMarketFeed:
-    def __init__(self, exchange: accxt.Exchange, symbols: list[str], timeframes: list[str],
-                 book_depth: int = 20, max_retries: int = 3) -> None:
+    def __init__(
+        self, exchange: accxt.Exchange, symbols: list[str], timeframes: list[str], book_depth: int = 20, max_retries: int = 3
+    ) -> None:
         self.ex = exchange
         self.symbols = symbols
         self.timeframes = timeframes
@@ -91,15 +92,23 @@ class LiveMarketFeed:
 
         async def one(sym: str) -> None:
             t0 = time.perf_counter()
-            ticker, book = await asyncio.gather(self._call(self.ex.fetch_ticker, sym),
-                                                self._call(self.ex.fetch_order_book, sym, self.book_depth))
+            ticker, book = await asyncio.gather(
+                self._call(self.ex.fetch_ticker, sym), self._call(self.ex.fetch_order_book, sym, self.book_depth)
+            )
             lat = (time.perf_counter() - t0) * 1000
             bids = [(float(p), float(q)) for p, q, *_ in book["bids"]]
             asks = [(float(p), float(q)) for p, q, *_ in book["asks"]]
             ts = ticker.get("timestamp") or book.get("timestamp")
-            snap = SymbolSnapshot(sym, float(ticker["last"]), float(bids[0][0]) if bids else float(ticker["bid"] or 0),
-                                  float(asks[0][0]) if asks else float(ticker["ask"] or 0), bids, asks,
-                                  pd.Timestamp(ts, unit="ms", tz="UTC") if ts else None, latency_ms=lat)
+            snap = SymbolSnapshot(
+                sym,
+                float(ticker["last"]),
+                float(bids[0][0]) if bids else float(ticker["bid"] or 0),
+                float(asks[0][0]) if asks else float(ticker["ask"] or 0),
+                bids,
+                asks,
+                pd.Timestamp(ts, unit="ms", tz="UTC") if ts else None,
+                latency_ms=lat,
+            )
             out[sym] = snap
             try:
                 m = book_metrics(bids, asks)

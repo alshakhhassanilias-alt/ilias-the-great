@@ -48,18 +48,30 @@ class RiskDecision:
 
 
 class RiskManager:
-    def __init__(self, cfg: RiskConfig, state: RiskState | None = None,
-                 persist: Callable[[RiskState], None] | None = None,
-                 on_event: Callable[[RiskEvent], None] | None = None) -> None:
+    def __init__(
+        self,
+        cfg: RiskConfig,
+        state: RiskState | None = None,
+        persist: Callable[[RiskState], None] | None = None,
+        on_event: Callable[[RiskEvent], None] | None = None,
+    ) -> None:
         self.cfg = cfg
         self.state = state or RiskState()
         self.breaker = CircuitBreaker(cfg.circuit_breakers, self.state, persist, on_event)
 
     # ------------------------------------------------------------------ public API
-    def evaluate(self, signal: Signal, view: PortfolioView, *, atr: float | None = None,
-                 weight: float = 1.0, corr_fn: Callable[[str, str], float | None] | None = None,
-                 kelly: KellyEstimate | None = None, data_age_seconds: float | None = None,
-                 confidence_scaling: bool = True) -> RiskDecision:
+    def evaluate(
+        self,
+        signal: Signal,
+        view: PortfolioView,
+        *,
+        atr: float | None = None,
+        weight: float = 1.0,
+        corr_fn: Callable[[str, str], float | None] | None = None,
+        kelly: KellyEstimate | None = None,
+        data_age_seconds: float | None = None,
+        confidence_scaling: bool = True,
+    ) -> RiskDecision:
         try:
             return self._evaluate(signal, view, atr, weight, corr_fn, kelly, data_age_seconds, confidence_scaling)
         except Exception as exc:  # FAIL CLOSED
@@ -74,9 +86,17 @@ class RiskManager:
         return self.state.entries_blocked
 
     # ------------------------------------------------------------------ internals
-    def _evaluate(self, sig: Signal, view: PortfolioView, atr: float | None, weight: float,
-                  corr_fn: Callable[[str, str], float | None] | None, kelly: KellyEstimate | None,
-                  data_age: float | None, confidence_scaling: bool) -> RiskDecision:
+    def _evaluate(
+        self,
+        sig: Signal,
+        view: PortfolioView,
+        atr: float | None,
+        weight: float,
+        corr_fn: Callable[[str, str], float | None] | None,
+        kelly: KellyEstimate | None,
+        data_age: float | None,
+        confidence_scaling: bool,
+    ) -> RiskDecision:
         if sig.is_exit:
             return RiskDecision(True, sig, reasons=["exit_always_permitted"])
         reasons: list[str] = []
@@ -98,8 +118,7 @@ class RiskManager:
         if reasons:
             return RiskDecision(False, sig, reasons=reasons)
 
-        prot = validate_protection(sig.direction, sig.entry_price, sig.stop_loss, sig.take_profit, atr,
-                                   self.cfg.stops)
+        prot = validate_protection(sig.direction, sig.entry_price, sig.stop_loss, sig.take_profit, atr, self.cfg.stops)
         if prot:
             return RiskDecision(False, sig, reasons=prot)
         assert sig.stop_loss is not None
@@ -117,24 +136,21 @@ class RiskManager:
 
         existing = [(sym, int(np.sign(q))) for _, sym, q in view.positions if abs(q) > 1e-12]
         cscale_corr, corr_notes = correlation_scale(
-            sig.symbol, int(sig.direction), existing,
-            corr_fn or (lambda a, b: None), self.cfg.exposure.correlation_threshold)
+            sig.symbol, int(sig.direction), existing, corr_fn or (lambda a, b: None), self.cfg.exposure.correlation_threshold
+        )
         frac *= cscale_corr
         adjustments["correlation_scale"] = cscale_corr
         if corr_notes:
             adjustments["correlated_with"] = corr_notes
 
         qty = quantity_for_risk(view.equity, frac, sig.entry_price, sig.stop_loss)
-        capped, cap_notes = cap_quantity(view, sig.symbol, int(sig.direction), sig.entry_price, qty,
-                                         self.cfg.exposure)
+        capped, cap_notes = cap_quantity(view, sig.symbol, int(sig.direction), sig.entry_price, qty, self.cfg.exposure)
         if cap_notes:
             adjustments["caps"] = cap_notes
         if capped <= 0:
-            return RiskDecision(False, sig, reasons=cap_notes or ["zero_quantity"], sizing_method=method,
-                                adjustments=adjustments)
+            return RiskDecision(False, sig, reasons=cap_notes or ["zero_quantity"], sizing_method=method, adjustments=adjustments)
         risk_amt = capped * abs(sig.entry_price - sig.stop_loss)
         # Final invariant: never exceed the hard per-trade risk ceiling.
         if risk_amt > self.cfg.sizing.max_risk_per_trade * view.equity * (1 + 1e-9):
             return RiskDecision(False, sig, reasons=["risk_ceiling_violation"], adjustments=adjustments)
-        return RiskDecision(True, sig, capped, sig.stop_loss, sig.take_profit, frac, risk_amt, method,
-                            [], adjustments)
+        return RiskDecision(True, sig, capped, sig.stop_loss, sig.take_profit, frac, risk_amt, method, [], adjustments)

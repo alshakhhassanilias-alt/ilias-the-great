@@ -21,13 +21,23 @@ def test_live_requires_every_gate():
     with pytest.raises(PermissionError):
         resolve_trading_mode(env(paper_mode=False, live_trading_enabled=True))
     with pytest.raises(PermissionError):
-        resolve_trading_mode(env(paper_mode=False, live_trading_enabled=True,
-                                 live_trading_acknowledgement=LIVE_ACKNOWLEDGEMENT_PHRASE), deployment_gate_passed=False)
-    assert resolve_trading_mode(env(paper_mode=False, live_trading_enabled=True,
-                                    live_trading_acknowledgement=LIVE_ACKNOWLEDGEMENT_PHRASE), True) is TradingMode.LIVE
+        resolve_trading_mode(
+            env(paper_mode=False, live_trading_enabled=True, live_trading_acknowledgement=LIVE_ACKNOWLEDGEMENT_PHRASE),
+            deployment_gate_passed=False,
+        )
+    assert (
+        resolve_trading_mode(
+            env(paper_mode=False, live_trading_enabled=True, live_trading_acknowledgement=LIVE_ACKNOWLEDGEMENT_PHRASE), True
+        )
+        is TradingMode.LIVE
+    )
     # PAPER_MODE=true always wins, even with live flags set
-    assert resolve_trading_mode(env(paper_mode=True, live_trading_enabled=True,
-                                    live_trading_acknowledgement=LIVE_ACKNOWLEDGEMENT_PHRASE), True) is TradingMode.PAPER
+    assert (
+        resolve_trading_mode(
+            env(paper_mode=True, live_trading_enabled=True, live_trading_acknowledgement=LIVE_ACKNOWLEDGEMENT_PHRASE), True
+        )
+        is TradingMode.PAPER
+    )
 
 
 def test_private_client_never_built_in_paper(cfg):

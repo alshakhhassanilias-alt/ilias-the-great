@@ -23,8 +23,15 @@ def cfg():
     return load_config()
 
 
-def make_ohlcv(n: int = 2000, tf: str = "1h", seed: int = 0, drift: float = 0.0, vol: float = 0.01,
-               start: str = "2023-01-01", base: float = 100.0) -> pd.DataFrame:
+def make_ohlcv(
+    n: int = 2000,
+    tf: str = "1h",
+    seed: int = 0,
+    drift: float = 0.0,
+    vol: float = 0.01,
+    start: str = "2023-01-01",
+    base: float = 100.0,
+) -> pd.DataFrame:
     """Close-time-indexed synthetic OHLCV with valid OHLC relationships."""
     rng = np.random.default_rng(seed)
     step = pd.Timedelta(tf)

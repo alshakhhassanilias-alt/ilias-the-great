@@ -91,8 +91,22 @@ class _SymbolArrays:
 
 
 def _trades_frame(trades: list[ClosedTrade]) -> pd.DataFrame:
-    cols = ["trade_id", "strategy_id", "symbol", "direction", "quantity", "entry_price", "exit_price",
-            "entry_time", "exit_time", "pnl", "gross_pnl", "fees", "funding", "exit_reason"]
+    cols = [
+        "trade_id",
+        "strategy_id",
+        "symbol",
+        "direction",
+        "quantity",
+        "entry_price",
+        "exit_price",
+        "entry_time",
+        "exit_time",
+        "pnl",
+        "gross_pnl",
+        "fees",
+        "funding",
+        "exit_reason",
+    ]
     if not trades:
         return pd.DataFrame(columns=cols)
     return pd.DataFrame([{c: getattr(t, c) for c in cols} for t in trades])
@@ -133,11 +147,19 @@ class BacktestEngine:
             d = df.reindex(self.index)
             lr = np.log(d["close"]).diff()
             sigma = (lr.rolling(96, min_periods=20).std().shift(1) * 1e4).to_numpy()
-            tr = pd.concat([d["high"] - d["low"], (d["high"] - d["close"].shift()).abs(),
-                            (d["low"] - d["close"].shift()).abs()], axis=1).max(axis=1)
+            tr = pd.concat(
+                [d["high"] - d["low"], (d["high"] - d["close"].shift()).abs(), (d["low"] - d["close"].shift()).abs()], axis=1
+            ).max(axis=1)
             atr = tr.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean().to_numpy()
-            sa = _SymbolArrays(d["open"].to_numpy(), d["high"].to_numpy(), d["low"].to_numpy(),
-                               d["close"].to_numpy(), d["volume"].to_numpy(), sigma, atr)
+            sa = _SymbolArrays(
+                d["open"].to_numpy(),
+                d["high"].to_numpy(),
+                d["low"].to_numpy(),
+                d["close"].to_numpy(),
+                d["volume"].to_numpy(),
+                sigma,
+                atr,
+            )
             f = (funding or {}).get(s)
             if f is not None and not f.empty:
                 sa.funding_times = f.index.as_unit("ns").asi8
@@ -158,19 +180,26 @@ class BacktestEngine:
         def corr(a: str, b: str) -> float | None:
             arr = self.corr.get((a, b))
             return None if arr is None else float(arr[i])
+
         return corr
 
     # ------------------------------------------------------------------ main loop
-    def run(self, runs: list[StrategyRun], start: pd.Timestamp | None = None,
-            end: pd.Timestamp | None = None, risk_state: RiskState | None = None) -> BacktestResult:
+    def run(
+        self,
+        runs: list[StrategyRun],
+        start: pd.Timestamp | None = None,
+        end: pd.Timestamp | None = None,
+        risk_state: RiskState | None = None,
+    ) -> BacktestResult:
         idx = self.index
         i0 = 0 if start is None else int(idx.searchsorted(start, side="left"))
         i1 = len(idx) if end is None else int(idx.searchsorted(end, side="right"))
         if i1 - i0 < 2:
             raise ValueError("backtest window too short")
         bar_minutes = self.step / pd.Timedelta(minutes=1)
-        sim = ExecutionSimulator(self.bt.costs, np.random.default_rng(self.seed), bar_minutes,
-                                 self.cost_multiplier, self.slippage_multiplier)
+        sim = ExecutionSimulator(
+            self.bt.costs, np.random.default_rng(self.seed), bar_minutes, self.cost_multiplier, self.slippage_multiplier
+        )
         ledger = Ledger(cash=self.capital)
         events: list[RiskEvent] = []
         rm = RiskManager(self.risk_cfg, risk_state or RiskState(), on_event=events.append)
@@ -187,6 +216,7 @@ class BacktestEngine:
                 for k, row in zip(pos_idx, act.itertuples(), strict=True):
                     if k >= 0:
                         schedule.setdefault(int(k), []).append((r_i, sym, row))
+
         def _weight_fn(w: float | dict[str, np.ndarray]) -> Callable[[str, int], float]:
             if isinstance(w, dict):
                 return lambda s, i: float(w[s][i]) if s in w else 0.0
@@ -200,20 +230,34 @@ class BacktestEngine:
         gross_vals = np.empty(i1 - i0)
         n_signals = n_approved = n_rejected = n_partial = n_exch_reject = n_liq = 0
         reject_reasons: dict[str, int] = {}
-        funding_ptr = {s: int(np.searchsorted(a.funding_times, (idx[i0] - self.step).value, side="right"))
-                       for s, a in self.arr.items()}
+        funding_ptr = {
+            s: int(np.searchsorted(a.funding_times, (idx[i0] - self.step).value, side="right")) for s, a in self.arr.items()
+        }
         traded_notional = 0.0
 
         def bar_of(s: str, i: int) -> Bar:
             a = self.arr[s]
             return Bar(a.o[i], a.h[i], a.lo[i], a.c[i], a.v[i])
 
-        def apply(fill_side: Side, sid: str, sym: str, simfill: Any, ts: pd.Timestamp, intent: OrderIntent,
-                  reason: str) -> ClosedTrade | None:
+        def apply(
+            fill_side: Side, sid: str, sym: str, simfill: Any, ts: pd.Timestamp, intent: OrderIntent, reason: str
+        ) -> ClosedTrade | None:
             nonlocal traded_notional
             traded_notional += simfill.quantity * simfill.price
-            f = Fill(f"{sid}-{sym}-{ts.value}-{intent.value}", "", sym, fill_side, simfill.quantity,
-                     simfill.price, simfill.fee, ts, simfill.liquidity, simfill.slippage_bps, sid, intent)
+            f = Fill(
+                f"{sid}-{sym}-{ts.value}-{intent.value}",
+                "",
+                sym,
+                fill_side,
+                simfill.quantity,
+                simfill.price,
+                simfill.fee,
+                ts,
+                simfill.liquidity,
+                simfill.slippage_bps,
+                sid,
+                intent,
+            )
             return ledger.apply_fill(f, reason)
 
         last_day = None
@@ -222,9 +266,15 @@ class BacktestEngine:
             ts_open = ts_close - self.step
             day = ts_close.normalize() if ts_close.hour or ts_close.minute else (ts_close - self.step).normalize()
             # simulated operator re-authorisation after a *daily* breach (backtest policy only)
-            if (self.enforce and self.risk_cfg.circuit_breakers.backtest_resume_after_daily_breach
-                    and last_day is not None and day != last_day and rm.state.halted
-                    and (rm.state.halt_reason or "").startswith("daily_drawdown") and not ledger.open_positions()):
+            if (
+                self.enforce
+                and self.risk_cfg.circuit_breakers.backtest_resume_after_daily_breach
+                and last_day is not None
+                and day != last_day
+                and rm.state.halted
+                and (rm.state.halt_reason or "").startswith("daily_drawdown")
+                and not ledger.open_positions()
+            ):
                 rm.breaker.authorize_resume(ts_open.isoformat(), "backtest_simulated_operator")
             last_day = day
 
@@ -301,29 +351,40 @@ class BacktestEngine:
                     done = True
                 if not done:
                     update_trailing_stop(p, bar.high, bar.low)
-                    already_exiting = any(x.strategy_id == p.strategy_id and x.symbol == p.symbol
-                                          and x.intent is not OrderIntent.ENTRY for x in pending)
+                    already_exiting = any(
+                        x.strategy_id == p.strategy_id and x.symbol == p.symbol and x.intent is not OrderIntent.ENTRY
+                        for x in pending
+                    )
                     if p.max_hold_until is not None and ts_close >= p.max_hold_until and not already_exiting:
-                        pending.append(_Pending(p.strategy_id, p.symbol, exit_side, None, OrderIntent.EXIT,
-                                                reason="time_stop"))
+                        pending.append(_Pending(p.strategy_id, p.symbol, exit_side, None, OrderIntent.EXIT, reason="time_stop"))
 
             # 4. mark to market + liquidation check
             marks = {s: float(a.c[i]) for s, a in self.arr.items() if np.isfinite(a.c[i])}
             equity = ledger.equity(marks)
             gross = ledger.gross_exposure(marks)
             if gross > 0:
-                worst = {s: (float(self.arr[s].lo[i]) if ledger.symbol_exposure(s, 1.0) > 0 else float(self.arr[s].h[i]))
-                         for s in marks}
+                worst = {
+                    s: (float(self.arr[s].lo[i]) if ledger.symbol_exposure(s, 1.0) > 0 else float(self.arr[s].h[i]))
+                    for s in marks
+                }
                 eq_worst = ledger.equity(worst)
                 if eq_worst < self.bt.costs.maintenance_margin_rate * ledger.gross_exposure(worst):
                     n_liq += 1
                     for p in list(ledger.open_positions()):
                         side = Side.SELL if p.quantity > 0 else Side.BUY
-                        f = sim.fill_stop(p.symbol, side, abs(p.quantity), worst[p.symbol], bar_of(p.symbol, i),
-                                          self.arr[p.symbol].sigma_bps[i])
+                        f = sim.fill_stop(
+                            p.symbol, side, abs(p.quantity), worst[p.symbol], bar_of(p.symbol, i), self.arr[p.symbol].sigma_bps[i]
+                        )
                         apply(side, p.strategy_id, p.symbol, f, ts_close, OrderIntent.FLATTEN, "liquidation")
-                    events.append(RiskEvent(ts_close.isoformat(), "CRITICAL", "liquidation",
-                                            "simulated liquidation", BreakerAction.HALT_AND_FLATTEN))
+                    events.append(
+                        RiskEvent(
+                            ts_close.isoformat(),
+                            "CRITICAL",
+                            "liquidation",
+                            "simulated liquidation",
+                            BreakerAction.HALT_AND_FLATTEN,
+                        )
+                    )
                     equity = ledger.equity(marks)
                     gross = 0.0
             eq_vals[i - i0] = equity
@@ -335,9 +396,16 @@ class BacktestEngine:
                     if ev.action is BreakerAction.HALT_AND_FLATTEN:
                         pending = [x for x in pending if x.intent is not OrderIntent.ENTRY]
                         for p in ledger.open_positions():
-                            pending.append(_Pending(p.strategy_id, p.symbol,
-                                                    Side.SELL if p.quantity > 0 else Side.BUY, None,
-                                                    OrderIntent.FLATTEN, reason="circuit_breaker"))
+                            pending.append(
+                                _Pending(
+                                    p.strategy_id,
+                                    p.symbol,
+                                    Side.SELL if p.quantity > 0 else Side.BUY,
+                                    None,
+                                    OrderIntent.FLATTEN,
+                                    reason="circuit_breaker",
+                                )
+                            )
 
             # 6. signals at the close -> risk -> orders for next bar
             if i == i1 - 1:
@@ -345,11 +413,20 @@ class BacktestEngine:
             for r_i, sym, row in schedule.get(i, ()):
                 run = runs[r_i]
                 pos = ledger.position(run.strategy_id, sym)
-                has_pending_exit = any(x.strategy_id == run.strategy_id and x.symbol == sym
-                                       and x.intent is not OrderIntent.ENTRY for x in pending)
+                has_pending_exit = any(
+                    x.strategy_id == run.strategy_id and x.symbol == sym and x.intent is not OrderIntent.ENTRY for x in pending
+                )
                 if ((row.exit_long and pos.quantity > 0) or (row.exit_short and pos.quantity < 0)) and not has_pending_exit:
-                    pending.append(_Pending(run.strategy_id, sym, Side.SELL if pos.quantity > 0 else Side.BUY, None,
-                                            OrderIntent.EXIT, reason="strategy_exit"))
+                    pending.append(
+                        _Pending(
+                            run.strategy_id,
+                            sym,
+                            Side.SELL if pos.quantity > 0 else Side.BUY,
+                            None,
+                            OrderIntent.EXIT,
+                            reason="strategy_exit",
+                        )
+                    )
                     has_pending_exit = True
                 e = int(row.entry)
                 if e == 0:
@@ -358,34 +435,61 @@ class BacktestEngine:
                 cur_dir = int(np.sign(pos.quantity))
                 if cur_dir == e and not has_pending_exit:
                     continue  # already positioned; no pyramiding
-                if any(x.strategy_id == run.strategy_id and x.symbol == sym and x.intent is OrderIntent.ENTRY
-                       for x in pending):
+                if any(x.strategy_id == run.strategy_id and x.symbol == sym and x.intent is OrderIntent.ENTRY for x in pending):
                     continue
                 if cur_dir == -e and not has_pending_exit:
-                    pending.append(_Pending(run.strategy_id, sym, Side.SELL if cur_dir > 0 else Side.BUY, None,
-                                            OrderIntent.EXIT, reason="reverse"))
+                    pending.append(
+                        _Pending(
+                            run.strategy_id, sym, Side.SELL if cur_dir > 0 else Side.BUY, None, OrderIntent.EXIT, reason="reverse"
+                        )
+                    )
                 price = float(row.close)
                 stop = price - e * float(row.stop_dist)
                 tp = price + e * float(row.tp_dist) if np.isfinite(row.tp_dist) else None
                 trail = float(row.trail_dist) if np.isfinite(row.trail_dist) else None
-                sig = Signal(run.strategy_id, sym, ts_close, Direction(e), price, stop, tp, float(row.confidence),
-                             int(row.hold_bars), run.risk_fraction or self.risk_cfg.sizing.risk_per_trade,
-                             run.timeframe, trailing_stop_distance=trail)
+                sig = Signal(
+                    run.strategy_id,
+                    sym,
+                    ts_close,
+                    Direction(e),
+                    price,
+                    stop,
+                    tp,
+                    float(row.confidence),
+                    int(row.hold_bars),
+                    run.risk_fraction or self.risk_cfg.sizing.risk_per_trade,
+                    run.timeframe,
+                    trailing_stop_distance=trail,
+                )
                 exiting = {(x.strategy_id, x.symbol) for x in pending if x.intent is not OrderIntent.ENTRY}
-                view_positions = [(p.strategy_id, p.symbol, p.quantity) for p in ledger.open_positions()
-                                  if (p.strategy_id, p.symbol) not in exiting]
-                view_positions += [(x.strategy_id, x.symbol, (x.qty or 0) * x.side.sign) for x in pending
-                                   if x.intent is OrderIntent.ENTRY]
+                view_positions = [
+                    (p.strategy_id, p.symbol, p.quantity)
+                    for p in ledger.open_positions()
+                    if (p.strategy_id, p.symbol) not in exiting
+                ]
+                view_positions += [
+                    (x.strategy_id, x.symbol, (x.qty or 0) * x.side.sign) for x in pending if x.intent is OrderIntent.ENTRY
+                ]
                 view = PortfolioView(equity, marks, view_positions)
                 w = weights_cache[r_i](sym, i)
-                dec = rm.evaluate(sig, view, atr=float(self.arr[sym].atr[i]), weight=w,
-                                  corr_fn=self._corr_at(i), kelly=run.kelly)
+                dec = rm.evaluate(sig, view, atr=float(self.arr[sym].atr[i]), weight=w, corr_fn=self._corr_at(i), kelly=run.kelly)
                 if dec.approved:
                     n_approved += 1
                     hold = run_tf[r_i] * int(row.hold_bars) if int(row.hold_bars) > 0 else None
-                    pending.append(_Pending(run.strategy_id, sym, Side.BUY if e > 0 else Side.SELL, dec.quantity,
-                                            OrderIntent.ENTRY, dec.stop_loss, dec.take_profit, trail, hold,
-                                            sig.signal_id))
+                    pending.append(
+                        _Pending(
+                            run.strategy_id,
+                            sym,
+                            Side.BUY if e > 0 else Side.SELL,
+                            dec.quantity,
+                            OrderIntent.ENTRY,
+                            dec.stop_loss,
+                            dec.take_profit,
+                            trail,
+                            hold,
+                            sig.signal_id,
+                        )
+                    )
                 else:
                     n_rejected += 1
                     for rr in dec.reasons:
@@ -406,12 +510,28 @@ class BacktestEngine:
 
         eq = pd.Series(eq_vals, index=idx[i0:i1], name="equity")
         stats = {
-            "signals": n_signals, "approved": n_approved, "rejected": n_rejected,
-            "reject_reasons": reject_reasons, "partial_fills": n_partial, "exchange_rejections": n_exch_reject,
-            "liquidations": n_liq, "fees": ledger.total_fees, "funding": ledger.total_funding,
-            "slippage_cost": ledger.total_slippage_cost, "traded_notional": traded_notional,
-            "halted_at_end": rm.state.halted, "breaches": dict(rm.state.breach_count),
-            "cost_multiplier": self.cost_multiplier, "slippage_multiplier": self.slippage_multiplier,
+            "signals": n_signals,
+            "approved": n_approved,
+            "rejected": n_rejected,
+            "reject_reasons": reject_reasons,
+            "partial_fills": n_partial,
+            "exchange_rejections": n_exch_reject,
+            "liquidations": n_liq,
+            "fees": ledger.total_fees,
+            "funding": ledger.total_funding,
+            "slippage_cost": ledger.total_slippage_cost,
+            "traded_notional": traded_notional,
+            "halted_at_end": rm.state.halted,
+            "breaches": dict(rm.state.breach_count),
+            "cost_multiplier": self.cost_multiplier,
+            "slippage_multiplier": self.slippage_multiplier,
         }
-        return BacktestResult(eq, pd.Series(gross_vals, index=eq.index, name="gross_exposure"),
-                              _trades_frame(ledger.closed_trades), events, stats, self.capital, self.clock_tf)
+        return BacktestResult(
+            eq,
+            pd.Series(gross_vals, index=eq.index, name="gross_exposure"),
+            _trades_frame(ledger.closed_trades),
+            events,
+            stats,
+            self.capital,
+            self.clock_tf,
+        )

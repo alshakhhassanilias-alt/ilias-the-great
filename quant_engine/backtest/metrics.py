@@ -89,12 +89,19 @@ def cagr(equity: pd.Series) -> float:
 def trade_metrics(trades: pd.DataFrame) -> dict[str, float]:
     n = len(trades)
     if n == 0:
-        return {"total_trades": 0, "win_rate": 0.0, "profit_factor": 0.0, "avg_win": 0.0, "avg_loss": 0.0,
-                "expectancy": 0.0, "avg_holding_hours": 0.0}
+        return {
+            "total_trades": 0,
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "avg_win": 0.0,
+            "avg_loss": 0.0,
+            "expectancy": 0.0,
+            "avg_holding_hours": 0.0,
+        }
     pnl = trades["pnl"].astype(float)
     wins, losses = pnl[pnl > 0], pnl[pnl <= 0]
     gross_loss = -losses.sum()
-    hold = (pd.to_datetime(trades["exit_time"], utc=True) - pd.to_datetime(trades["entry_time"], utc=True))
+    hold = pd.to_datetime(trades["exit_time"], utc=True) - pd.to_datetime(trades["entry_time"], utc=True)
     return {
         "total_trades": int(n),
         "win_rate": float(len(wins) / n),
@@ -106,8 +113,9 @@ def trade_metrics(trades: pd.DataFrame) -> dict[str, float]:
     }
 
 
-def performance_summary(equity: pd.Series, trades: pd.DataFrame, gross_exposure: pd.Series | None = None,
-                        stats_in: dict[str, Any] | None = None) -> dict[str, Any]:
+def performance_summary(
+    equity: pd.Series, trades: pd.DataFrame, gross_exposure: pd.Series | None = None, stats_in: dict[str, Any] | None = None
+) -> dict[str, Any]:
     r = daily_returns(equity)
     mdd = max_drawdown(equity)
     ann = cagr(equity)
@@ -129,7 +137,8 @@ def performance_summary(equity: pd.Series, trades: pd.DataFrame, gross_exposure:
         "max_drawdown": mdd,
         "average_drawdown": average_drawdown(equity),
         "recovery_factor": float((equity.iloc[-1] - equity.iloc[0]) / (mdd * equity.cummax().max()))
-        if mdd > 0 and len(equity) else 0.0,
+        if mdd > 0 and len(equity)
+        else 0.0,
         "trading_costs": costs,
         "fees": float(st.get("fees", 0.0)),
         "slippage_cost": float(st.get("slippage_cost", 0.0)),
@@ -159,8 +168,9 @@ def stationary_bootstrap_indices(n: int, block: int, rng: np.random.Generator) -
     return idx
 
 
-def bootstrap_ci(x: np.ndarray, stat: Callable[[np.ndarray], float], n_boot: int = 2000, block: int = 5,
-                 alpha: float = 0.05, seed: int = 0) -> tuple[float, float, float]:
+def bootstrap_ci(
+    x: np.ndarray, stat: Callable[[np.ndarray], float], n_boot: int = 2000, block: int = 5, alpha: float = 0.05, seed: int = 0
+) -> tuple[float, float, float]:
     x = np.asarray(x, dtype=float)
     if len(x) < 10:
         return (float("nan"),) * 3  # type: ignore[return-value]
@@ -202,8 +212,12 @@ def deflated_sharpe(r: np.ndarray, trial_sharpes: np.ndarray, n_trials: int | No
     n_trials = max(n_trials or len(trial_sharpes), 1)
     var = float(np.var(trial_sharpes, ddof=1)) if len(trial_sharpes) > 1 else 0.0
     sr0 = expected_max_sharpe(var, n_trials)
-    return {"dsr": probabilistic_sharpe(r, sr0), "sr_threshold_per_period": sr0, "n_trials": n_trials,
-            "trial_sharpe_variance": var}
+    return {
+        "dsr": probabilistic_sharpe(r, sr0),
+        "sr_threshold_per_period": sr0,
+        "n_trials": n_trials,
+        "trial_sharpe_variance": var,
+    }
 
 
 def pbo_cscv(trial_returns: pd.DataFrame, n_splits: int = 16) -> dict[str, Any]:
@@ -229,8 +243,7 @@ def pbo_cscv(trial_returns: pd.DataFrame, n_splits: int = 16) -> dict[str, Any]:
         rank = stats.rankdata(oos_sr)[best] / (n + 1)
         logits.append(math.log(rank / (1 - rank)))
     logits_a = np.array(logits)
-    return {"pbo": float(np.mean(logits_a <= 0)), "combinations": len(logits_a),
-            "median_logit": float(np.median(logits_a))}
+    return {"pbo": float(np.mean(logits_a <= 0)), "combinations": len(logits_a), "median_logit": float(np.median(logits_a))}
 
 
 def _col_sharpe(m: np.ndarray) -> np.ndarray:

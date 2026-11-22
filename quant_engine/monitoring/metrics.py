@@ -24,6 +24,11 @@ class RuntimeMetrics:
         for k, v in self.samples.items():
             arr = np.array(v)
             if len(arr):
-                out[k] = {"n": len(arr), "p50": float(np.percentile(arr, 50)), "p95": float(np.percentile(arr, 95)),
-                          "max": float(arr.max()), "last": float(arr[-1])}
+                out[k] = {
+                    "n": len(arr),
+                    "p50": float(np.percentile(arr, 50)),
+                    "p95": float(np.percentile(arr, 95)),
+                    "max": float(arr.max()),
+                    "last": float(arr[-1]),
+                }
         return out

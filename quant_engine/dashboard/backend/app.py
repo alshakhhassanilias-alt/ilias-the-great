@@ -55,8 +55,15 @@ class ControlBody(BaseModel):
     discrepancy_explained: bool = False
 
 
-def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_hash: str, jwt_secret: str,
-               serve_frontend: bool = True, ack_timeout_s: float = 10.0) -> FastAPI:
+def create_app(
+    cfg: AppConfig,
+    env: EnvSettings,
+    mode: TradingMode,
+    password_hash: str,
+    jwt_secret: str,
+    serve_frontend: bool = True,
+    ack_timeout_s: float = 10.0,
+) -> FastAPI:
     engine = db.get_engine(env.database_url)
     svc = DashboardService(engine, mode.value, cfg, Path(env.artifacts_dir))
     tokens = TokenService(jwt_secret, env.dashboard_token_ttl_minutes)
@@ -64,8 +71,13 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
     bearer = HTTPBearer(auto_error=False)
     app = FastAPI(title="quant_engine command center", docs_url=None, redoc_url=None, openapi_url=None)
     origins = [o.strip() for o in env.dashboard_allowed_origins.split(",") if o.strip()]
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False,
-                       allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -84,14 +96,18 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
         resp.headers["Referrer-Policy"] = "no-referrer"
         resp.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'")
+            "img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'"
+        )
         resp.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api/") else "public, max-age=300"
         return resp
 
     def audit(actor: str, action: str, details: dict[str, Any], ip: str) -> None:
         with db.transaction(engine) as c:
-            c.execute(db.audit_log.insert().values(timestamp=db.utc_now_iso(), actor=actor, action=action,
-                                                   details_json=json.dumps(details, default=str), ip=ip))
+            c.execute(
+                db.audit_log.insert().values(
+                    timestamp=db.utc_now_iso(), actor=actor, action=action, details_json=json.dumps(details, default=str), ip=ip
+                )
+            )
 
     def current_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> dict[str, Any]:
         if creds is None or creds.scheme.lower() != "bearer":
@@ -117,8 +133,12 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
             audit(body.username[:64], "login_failed", {}, ip)
             raise HTTPException(401, "invalid credentials")
         audit(body.username, "login", {}, ip)
-        return {"access_token": tokens.issue(body.username), "token_type": "bearer",
-                "expires_in": env.dashboard_token_ttl_minutes * 60, "mode": mode.value}
+        return {
+            "access_token": tokens.issue(body.username),
+            "token_type": "bearer",
+            "expires_in": env.dashboard_token_ttl_minutes * 60,
+            "mode": mode.value,
+        }
 
     # ------------------------------------------------------------------ reads
     @app.get("/api/overview")
@@ -164,8 +184,21 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
         r = svc.research_summary()
         if r is None:
             return {"available": False}
-        keep: dict[str, Any] = {k: r[k] for k in ("generated_at", "data", "promotion", "combined", "benchmarks", "deployable",
-                                  "holdout", "tournament", "n_total_trials") if k in r}
+        keep: dict[str, Any] = {
+            k: r[k]
+            for k in (
+                "generated_at",
+                "data",
+                "promotion",
+                "combined",
+                "benchmarks",
+                "deployable",
+                "holdout",
+                "tournament",
+                "n_total_trials",
+            )
+            if k in r
+        }
         keep["strategies"] = {k: {"summary": v["summary"], "windows": v["windows"]} for k, v in r["strategies"].items()}
         return {"available": True, **keep, "series": svc.research_series()}
 
@@ -185,8 +218,12 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
 
     # ------------------------------------------------------------------ controls
     @app.post("/api/controls/{action}")
-    async def control(action: Literal["kill-switch", "flatten", "cancel-orders", "resume"], body: ControlBody,
-                      request: Request, user: dict = Depends(current_user)) -> dict[str, Any]:
+    async def control(
+        action: Literal["kill-switch", "flatten", "cancel-orders", "resume"],
+        body: ControlBody,
+        request: Request,
+        user: dict = Depends(current_user),
+    ) -> dict[str, Any]:
         ip = request.client.host if request.client else "unknown"
         if body.confirm != CONFIRM[action]:
             raise HTTPException(400, f"confirmation phrase required: type {CONFIRM[action]}")
@@ -198,19 +235,39 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
                 # Persist the halt immediately: effective even if the engine is offline.
                 existing = c.execute(select(db.risk_state).where(db.risk_state.c.mode == mode.value)).first()
                 state = json.loads(existing.state_json) if existing and existing.state_json else {}
-                state.update({"halted": True, "requires_authorization": True, "flatten_pending": True,
-                              "halt_reason": state.get("halt_reason") or f"{COMMAND[action]}:{actor}",
-                              "kill_switch": state.get("kill_switch", False) or action == "kill-switch"})
-                row = {"mode": mode.value, "halted": True, "halt_reason": state["halt_reason"], "halted_at": now,
-                       "requires_authorization": True, "kill_switch": state["kill_switch"],
-                       "state_json": json.dumps(state), "updated_at": now}
+                state.update(
+                    {
+                        "halted": True,
+                        "requires_authorization": True,
+                        "flatten_pending": True,
+                        "halt_reason": state.get("halt_reason") or f"{COMMAND[action]}:{actor}",
+                        "kill_switch": state.get("kill_switch", False) or action == "kill-switch",
+                    }
+                )
+                row = {
+                    "mode": mode.value,
+                    "halted": True,
+                    "halt_reason": state["halt_reason"],
+                    "halted_at": now,
+                    "requires_authorization": True,
+                    "kill_switch": state["kill_switch"],
+                    "state_json": json.dumps(state),
+                    "updated_at": now,
+                }
                 if existing:
                     c.execute(db.risk_state.update().where(db.risk_state.c.mode == mode.value).values(**row))
                 else:
                     c.execute(db.risk_state.insert().values(**row, consecutive_errors=0))
-            res = c.execute(db.control_commands.insert().values(
-                mode=mode.value, command=COMMAND[action], requested_by=actor, requested_at=now, status="queued",
-                result_json=json.dumps({"discrepancy_explained": body.discrepancy_explained, "reason": body.reason})))
+            res = c.execute(
+                db.control_commands.insert().values(
+                    mode=mode.value,
+                    command=COMMAND[action],
+                    requested_by=actor,
+                    requested_at=now,
+                    status="queued",
+                    result_json=json.dumps({"discrepancy_explained": body.discrepancy_explained, "reason": body.reason}),
+                )
+            )
             pk = res.inserted_primary_key
             assert pk is not None
             cid = pk[0]
@@ -219,12 +276,19 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
             with engine.connect() as c:
                 r = c.execute(select(db.control_commands).where(db.control_commands.c.id == cid)).first()
             if r and r.status != "queued":
-                return {"command_id": cid, "status": r.status, "result": json.loads(r.result_json or "{}"),
-                        "halt_persisted": action in ("kill-switch", "flatten")}
+                return {
+                    "command_id": cid,
+                    "status": r.status,
+                    "result": json.loads(r.result_json or "{}"),
+                    "halt_persisted": action in ("kill-switch", "flatten"),
+                }
             await asyncio.sleep(0.25)
-        return {"command_id": cid, "status": "queued", "result": {"note": "engine did not acknowledge in time; "
-                                                                  "halt is persisted and will be enforced on start"},
-                "halt_persisted": action in ("kill-switch", "flatten")}
+        return {
+            "command_id": cid,
+            "status": "queued",
+            "result": {"note": "engine did not acknowledge in time; halt is persisted and will be enforced on start"},
+            "halt_persisted": action in ("kill-switch", "flatten"),
+        }
 
     # ------------------------------------------------------------------ websocket
     @app.websocket("/ws")
@@ -247,10 +311,16 @@ def create_app(cfg: AppConfig, env: EnvSettings, mode: TradingMode, password_has
         try:
             while True:
                 eq = svc.equity_series(1)
-                await socket.send_json({"type": "update", "overview": svc.overview(), "equity_point": eq[-1] if eq else None,
-                                        "positions": svc.positions(), "risk": {k: v for k, v in svc.risk_panel().items()
-                                                                               if k not in ("limits", "events")},
-                                        "regime": svc.heartbeat()["details"].get("regimes", {})})
+                await socket.send_json(
+                    {
+                        "type": "update",
+                        "overview": svc.overview(),
+                        "equity_point": eq[-1] if eq else None,
+                        "positions": svc.positions(),
+                        "risk": {k: v for k, v in svc.risk_panel().items() if k not in ("limits", "events")},
+                        "regime": svc.heartbeat()["details"].get("regimes", {}),
+                    }
+                )
                 await asyncio.sleep(2.0)
         except (WebSocketDisconnect, RuntimeError):
             return

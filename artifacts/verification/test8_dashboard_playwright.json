@@ -1,0 +1,53 @@
+{
+ "consoleErrors": [],
+ "pageErrors": [],
+ "checks": {
+  "desktop": {
+   "mode": "PAPER",
+   "ws": "LIVE FEED",
+   "equityTraces": 1,
+   "drawdownTraces": 1,
+   "mcBars": 214,
+   "mcNotQualified": 1,
+   "researchBanner": "NO VALIDATED DEPLOYABLE STRATEGY — no strategy passed every out-of-sample promotion check and the frozen holdout.",
+   "positionsRows": 1,
+   "positionsText": "SYMBOL\tSTRATEGY\tSIDE\tQTY\tAVG ENTRY\tMARK\tSTOP\tTAKE PROFIT\tUNREAL. P&L\tNOTIONAL\tOPENED (UTC)\nBTC/USDT DIAGNOSTIC PROBE\tdiagnostic_probe\tLONG\t0.04117209\t60,723.87\t60,714.81\t60,110.62\t61,932.15\t-$0.37\t$2,499.76\t2026-11-22 14:38:44Z",
+   "kpis": "TOTAL EQUITY | $99,992.28 | AVAILABLE BALANCE | $98,742.77 | cash $99,992.65 | UNREALIZED P&L | -$0.37 | REALIZED P&L | -$4.85 | DAILY P&L | -$4.97 | TOTAL RETURN | -0.01% | CURRENT DRAWDOWN | -0.01% | GROSS EXPOSURE | $2,499.76 | 0.02× equity",
+   "overflow": 0,
+   "confirmDisabledOnPartialPhrase": true,
+   "cancelResult": "CANCEL OPEN ORDERS: DONE | · command #3 | ✕",
+   "flattenResult": "EMERGENCY FLATTEN: DONE | · command #4 | · halt persisted | ✕ | success | true | canceled_orders | 0 | flatten_orders | 1 | remaining_exposure | [object Object]",
+   "haltBanner": "TRADING HALTED: emergency_flatten:operator — human authorization required",
+   "positionsAfterFlatten": 1,
+   "positionsAfterText": "SYMBOL\tSTRATEGY\tSIDE\tQTY\tAVG ENTRY\tMARK\tSTOP\tTAKE PROFIT\tUNREAL. P&L\tNOTIONAL\tOPENED (UTC)\nNo open positions",
+   "resumeResult": "RESUME TRADING: DONE | · command #5 | ✕",
+   "haltBannerAfterResume": 0
+  },
+  "tablet": {
+   "mode": "PAPER",
+   "ws": "LIVE FEED",
+   "equityTraces": 1,
+   "drawdownTraces": 1,
+   "mcBars": 214,
+   "mcNotQualified": 1,
+   "researchBanner": "NO VALIDATED DEPLOYABLE STRATEGY — no strategy passed every out-of-sample promotion check and the frozen holdout.",
+   "positionsRows": 1,
+   "positionsText": "SYMBOL\tSTRATEGY\tSIDE\tQTY\tAVG ENTRY\tMARK\tSTOP\tTAKE PROFIT\tUNREAL. P&L\tNOTIONAL\tOPENED (UTC)\nNo open positions",
+   "kpis": "TOTAL EQUITY | $99,989.47 | AVAILABLE BALANCE | $99,989.47 | cash $99,989.47 | UNREALIZED P&L | $0.00 | REALIZED P&L | -$10.53 | DAILY P&L | -$7.78 | TOTAL RETURN | -0.01% | CURRENT DRAWDOWN | -0.01% | GROSS EXPOSURE | $0.00 | 0.00× equity",
+   "overflow": 0
+  },
+  "phone": {
+   "mode": "PAPER",
+   "ws": "LIVE FEED",
+   "equityTraces": 1,
+   "drawdownTraces": 1,
+   "mcBars": 214,
+   "mcNotQualified": 1,
+   "researchBanner": "NO VALIDATED DEPLOYABLE STRATEGY — no strategy passed every out-of-sample promotion check and the frozen holdout.",
+   "positionsRows": 1,
+   "positionsText": "SYMBOL\tSTRATEGY\tSIDE\tQTY\tAVG ENTRY\tMARK\tSTOP\tTAKE PROFIT\tUNREAL. P&L\tNOTIONAL\tOPENED (UTC)\nNo open positions",
+   "kpis": "TOTAL EQUITY | $99,989.47 | AVAILABLE BALANCE | $99,989.47 | cash $99,989.47 | UNREALIZED P&L | $0.00 | REALIZED P&L | -$10.53 | DAILY P&L | -$7.78 | TOTAL RETURN | -0.01% | CURRENT DRAWDOWN | -0.01% | GROSS EXPOSURE | $0.00 | 0.00× equity",
+   "overflow": 0
+  }
+ }
+}

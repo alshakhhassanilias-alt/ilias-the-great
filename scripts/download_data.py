@@ -48,16 +48,30 @@ def main() -> None:
     ex.load_markets()
     dl = HistoricalDownloader(ex, args.exchange, cache, limit=xcfg.ohlcv_limit)
 
-    coverage: dict[str, dict] = {"exchange": args.exchange, "requested_start": args.start,
-                                 "generated_at": pd.Timestamp.now(tz="UTC").isoformat(), "ohlcv": {}, "funding": {}}
+    coverage: dict[str, dict] = {
+        "exchange": args.exchange,
+        "requested_start": args.start,
+        "generated_at": pd.Timestamp.now(tz="UTC").isoformat(),
+        "ohlcv": {},
+        "funding": {},
+    }
     for sym in args.symbols:
         for tf in args.timeframes:
             res = dl.download(sym, tf, args.start, args.end)
             rep = res.report.to_dict()
             coverage["ohlcv"][f"{sym} {tf}"] = rep
-            log.info("%s %s: +%d rows, total %d, %s..%s, missing=%d, completeness=%.4f, passed=%s",
-                     sym, tf, res.new_rows, res.total_rows, rep["first"], rep["last"], rep["missing_bars"],
-                     rep["completeness"], rep["passed"])
+            log.info(
+                "%s %s: +%d rows, total %d, %s..%s, missing=%d, completeness=%.4f, passed=%s",
+                sym,
+                tf,
+                res.new_rows,
+                res.total_rows,
+                rep["first"],
+                rep["last"],
+                rep["missing_bars"],
+                rep["completeness"],
+                rep["passed"],
+            )
 
     if not args.skip_funding:
         okx = create_public_exchange(cfg.exchanges.exchanges["okx"], market_type="swap")
@@ -82,11 +96,25 @@ def main() -> None:
     out.write_text(json.dumps(coverage, indent=2, default=str))
     art = cfg_art = env.artifacts_dir
     import pathlib
+
     pathlib.Path(cfg_art).mkdir(parents=True, exist_ok=True)
     (pathlib.Path(art) / "data_coverage_report.json").write_text(json.dumps(coverage, indent=2, default=str))
-    print(json.dumps({k: {"rows": v["rows"], "first": v["first"], "last": v["last"], "missing": v["missing_bars"],
-                          "completeness": v["completeness"], "passed": v["passed"]}
-                      for k, v in coverage["ohlcv"].items()}, indent=1))
+    print(
+        json.dumps(
+            {
+                k: {
+                    "rows": v["rows"],
+                    "first": v["first"],
+                    "last": v["last"],
+                    "missing": v["missing_bars"],
+                    "completeness": v["completeness"],
+                    "passed": v["passed"],
+                }
+                for k, v in coverage["ohlcv"].items()
+            },
+            indent=1,
+        )
+    )
 
 
 if __name__ == "__main__":

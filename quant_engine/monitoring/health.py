@@ -26,9 +26,21 @@ class HealthSnapshot:
         return d
 
 
-def classify(*, halted: bool, recovering: bool, connected: bool, data_age_s: float | None, latency_ms: float | None,
-             consecutive_errors: int, db_ok: bool, clock_offset_ms: float | None, max_age_s: float,
-             max_latency_ms: float, max_clock_skew_ms: float, transient_blocks: dict[str, str] | None = None) -> HealthSnapshot:
+def classify(
+    *,
+    halted: bool,
+    recovering: bool,
+    connected: bool,
+    data_age_s: float | None,
+    latency_ms: float | None,
+    consecutive_errors: int,
+    db_ok: bool,
+    clock_offset_ms: float | None,
+    max_age_s: float,
+    max_latency_ms: float,
+    max_clock_skew_ms: float,
+    transient_blocks: dict[str, str] | None = None,
+) -> HealthSnapshot:
     reasons: list[str] = []
     if recovering:
         status = SystemStatus.RECOVERING
@@ -55,5 +67,6 @@ def classify(*, halted: bool, recovering: bool, connected: bool, data_age_s: flo
     degraded += [f"blocked: {k}" for k in (transient_blocks or {})]
     if degraded and status is SystemStatus.HEALTHY:
         status = SystemStatus.DEGRADED
-    return HealthSnapshot(status, reasons + degraded, data_age_s, latency_ms, consecutive_errors, db_ok,
-                          clock_offset_ms, halted, recovering)
+    return HealthSnapshot(
+        status, reasons + degraded, data_age_s, latency_ms, consecutive_errors, db_ok, clock_offset_ms, halted, recovering
+    )

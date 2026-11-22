@@ -6,8 +6,9 @@ from quant_engine.config.settings import StopConfig
 from quant_engine.core.types import Direction, Position
 
 
-def validate_protection(direction: Direction, entry: float, stop: float | None, tp: float | None,
-                        atr: float | None, cfg: StopConfig) -> list[str]:
+def validate_protection(
+    direction: Direction, entry: float, stop: float | None, tp: float | None, atr: float | None, cfg: StopConfig
+) -> list[str]:
     """Return reasons the protective levels are unacceptable (empty list = OK)."""
     errs: list[str] = []
     if stop is None:
@@ -34,8 +35,9 @@ def validate_protection(direction: Direction, entry: float, stop: float | None, 
     return errs
 
 
-def atr_levels(direction: Direction, entry: float, atr: float, stop_mult: float,
-               tp_mult: float | None) -> tuple[float, float | None]:
+def atr_levels(
+    direction: Direction, entry: float, atr: float, stop_mult: float, tp_mult: float | None
+) -> tuple[float, float | None]:
     stop = entry - int(direction) * stop_mult * atr
     tp = entry + int(direction) * tp_mult * atr if tp_mult else None
     return stop, tp

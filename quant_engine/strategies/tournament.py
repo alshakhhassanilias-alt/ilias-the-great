@@ -33,13 +33,19 @@ from quant_engine.regime.allocation import ValidationStatus
 def evaluate_promotion(s: dict[str, Any], crit: PromotionCriteria) -> tuple[ValidationStatus, dict[str, Any]]:
     checks = {
         "min_oos_trades": (s["total_trades"] >= crit.min_oos_trades, s["total_trades"], crit.min_oos_trades),
-        "sharpe_ci_lower": (s["sharpe_ci_lower"] > crit.min_oos_sharpe_ci_lower, s["sharpe_ci_lower"],
-                            crit.min_oos_sharpe_ci_lower),
+        "sharpe_ci_lower": (
+            s["sharpe_ci_lower"] > crit.min_oos_sharpe_ci_lower,
+            s["sharpe_ci_lower"],
+            crit.min_oos_sharpe_ci_lower,
+        ),
         "deflated_sharpe": (s["dsr"] >= crit.min_deflated_sharpe_prob, s["dsr"], crit.min_deflated_sharpe_prob),
         "pbo": (np.isfinite(s["pbo"]) and s["pbo"] <= crit.max_pbo, s["pbo"], crit.max_pbo),
         "max_drawdown": (s["max_drawdown"] <= crit.max_oos_drawdown, s["max_drawdown"], crit.max_oos_drawdown),
-        "positive_windows": (s["positive_window_fraction"] >= crit.min_positive_window_fraction,
-                             s["positive_window_fraction"], crit.min_positive_window_fraction),
+        "positive_windows": (
+            s["positive_window_fraction"] >= crit.min_positive_window_fraction,
+            s["positive_window_fraction"],
+            crit.min_positive_window_fraction,
+        ),
         "profit_factor": (s["profit_factor"] >= crit.min_profit_factor, s["profit_factor"], crit.min_profit_factor),
         "cost_stress": ((s["stress_net_return"] > 0) or not crit.must_survive_cost_stress, s["stress_net_return"], 0.0),
     }
@@ -61,8 +67,9 @@ def _f(x: Any) -> Any:
         return x
 
 
-def tournament_report(oos_daily: dict[str, pd.Series], weights: dict[str, float] | None = None,
-                      rolling_window: int = 90) -> dict[str, Any]:
+def tournament_report(
+    oos_daily: dict[str, pd.Series], weights: dict[str, float] | None = None, rolling_window: int = 90
+) -> dict[str, Any]:
     df = pd.DataFrame(oos_daily).fillna(0.0)
     if df.shape[1] < 2:
         return {"note": "fewer than two strategies with OOS returns"}
@@ -74,12 +81,19 @@ def tournament_report(oos_daily: dict[str, pd.Series], weights: dict[str, float]
         "drawdown_correlation": drawdown_correlation(df).round(3).to_dict(),
         "downside_correlation": downside_correlation(df).round(3).to_dict(),
         "risk_contribution_equal_weight": {k: round(v, 4) for k, v in risk_contributions(df, w).items()},
-        "rolling_correlation_summary": {k: {"mean": _f(v.mean()), "min": _f(v.min()), "max": _f(v.max()),
-                                            "last": _f(v.dropna().iloc[-1]) if v.notna().any() else None}
-                                        for k, v in roll.items()},
+        "rolling_correlation_summary": {
+            k: {
+                "mean": _f(v.mean()),
+                "min": _f(v.min()),
+                "max": _f(v.max()),
+                "last": _f(v.dropna().iloc[-1]) if v.notna().any() else None,
+            }
+            for k, v in roll.items()
+        },
     }
-    high = [(a, b, float(corr.loc[a, b])) for i, a in enumerate(corr.columns) for b in corr.columns[i + 1:]
-            if corr.loc[a, b] > 0.7]
+    high = [
+        (a, b, float(corr.loc[a, b])) for i, a in enumerate(corr.columns) for b in corr.columns[i + 1 :] if corr.loc[a, b] > 0.7
+    ]
     rep["highly_correlated_pairs"] = high
     rep["_rolling"] = roll
     return rep
@@ -99,5 +113,12 @@ def regime_performance(trades: pd.DataFrame, regimes_by_symbol: dict[str, pd.Dat
         tags.append(str(sub["regime"].iloc[-1]) if len(sub) else "unknown")
     tt = trades.assign(regime=tags)
     g = tt.groupby("regime")["pnl"]
-    return {r: {"trades": int(g.count()[r]), "net_pnl": _f(g.sum()[r]), "win_rate": _f((tt[tt.regime == r].pnl > 0).mean()),
-                "avg_pnl": _f(g.mean()[r])} for r in g.count().index}
+    return {
+        r: {
+            "trades": int(g.count()[r]),
+            "net_pnl": _f(g.sum()[r]),
+            "win_rate": _f((tt[tt.regime == r].pnl > 0).mean()),
+            "avg_pnl": _f(g.mean()[r]),
+        }
+        for r in g.count().index
+    }

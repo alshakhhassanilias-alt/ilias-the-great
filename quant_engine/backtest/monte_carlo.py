@@ -89,7 +89,7 @@ def run_monte_carlo(daily: pd.Series, trades: pd.DataFrame, cfg: MCConfig) -> di
         mu = d.mean()
         for row in shocked:
             start = rng.integers(0, max(len(row) - 30, 1))
-            row[start:start + 30] = mu + (row[start:start + 30] - mu) * 1.75
+            row[start : start + 30] = mu + (row[start : start + 30] - mu) * 1.75
         record("volatility_shock", shocked, "block bootstrap with 1.75x dispersion in one random 30-day block per path")
     if len(t) >= 20:
         n, m = cfg.n_sims, ht
@@ -102,7 +102,7 @@ def run_monte_carlo(daily: pd.Series, trades: pd.DataFrame, cfg: MCConfig) -> di
         for row in cl:
             k = int(rng.integers(0, max(m - streak, 1)))
             n_inj = int(min(streak, m - k))
-            row[k:k + n_inj] = worst[rng.integers(0, len(worst), size=n_inj)]
+            row[k : k + n_inj] = worst[rng.integers(0, len(worst), size=n_inj)]
         record("consecutive_losses", cl, f"bootstrap with an injected streak of {streak} worst-5% losses")
         record("slippage_x3", t[boot] - 2.0 * cost[boot], "slippage+spread cost tripled (extra 2x charged)")
         record("fees_x2", t[boot] - fee[boot], "fees doubled")

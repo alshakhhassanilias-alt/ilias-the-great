@@ -43,9 +43,16 @@ class EmergencyReport:
     errors: list[str] = field(default_factory=list)
 
 
-def run_emergency_procedure(breaker: CircuitBreaker, execution: ExecutionControl, reason: str, *,
-                            kill_switch: bool, max_attempts: int = 5, backoff_s: float = 0.5,
-                            sleep=time.sleep) -> EmergencyReport:
+def run_emergency_procedure(
+    breaker: CircuitBreaker,
+    execution: ExecutionControl,
+    reason: str,
+    *,
+    kill_switch: bool,
+    max_attempts: int = 5,
+    backoff_s: float = 0.5,
+    sleep=time.sleep,
+) -> EmergencyReport:
     now = pd.Timestamp.now(tz="UTC").isoformat()
     breaker.halt(now, reason, flatten=True, kill_switch=kill_switch)
     rep = EmergencyReport(reason=reason, started_at=now)
@@ -71,9 +78,15 @@ def run_emergency_procedure(breaker: CircuitBreaker, execution: ExecutionControl
     breaker.state.flatten_pending = not rep.success
     breaker._persist(breaker.state)
     if not rep.success:
-        breaker._emit(pd.Timestamp.now(tz="UTC").isoformat(), "CRITICAL", "flatten_failed",
-                      f"flatten incomplete after {rep.attempts} attempts; system remains HALTED",
-                      breaker_action_halt(), remaining=rep.remaining_exposure, errors=rep.errors)
+        breaker._emit(
+            pd.Timestamp.now(tz="UTC").isoformat(),
+            "CRITICAL",
+            "flatten_failed",
+            f"flatten incomplete after {rep.attempts} attempts; system remains HALTED",
+            breaker_action_halt(),
+            remaining=rep.remaining_exposure,
+            errors=rep.errors,
+        )
     return rep
 
 

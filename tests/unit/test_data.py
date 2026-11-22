@@ -13,8 +13,17 @@ def frame(n=10, start="2024-01-01"):
     return pd.DataFrame({"open": c, "high": c + 1, "low": c - 1, "close": c, "volume": 10.0}, index=idx)
 
 
-@pytest.mark.parametrize("raw,expected", [("BTCUSDT", "BTC/USDT"), ("BTC-USDT", "BTC/USDT"), ("BTC-USDT-SWAP", "BTC/USDT"),
-                                          ("BTC/USDT:USDT", "BTC/USDT"), ("sol_usdt", "SOL/USDT"), ("ETH/USDT", "ETH/USDT")])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("BTCUSDT", "BTC/USDT"),
+        ("BTC-USDT", "BTC/USDT"),
+        ("BTC-USDT-SWAP", "BTC/USDT"),
+        ("BTC/USDT:USDT", "BTC/USDT"),
+        ("sol_usdt", "SOL/USDT"),
+        ("ETH/USDT", "ETH/USDT"),
+    ],
+)
 def test_symbol_normalization(raw, expected):
     assert normalize_symbol(raw) == expected
 
@@ -35,7 +44,7 @@ def test_gaps_are_reported_never_interpolated():
 
 def test_invalid_ohlc_rows_flagged_and_removed():
     df = frame()
-    df.iloc[2, df.columns.get_loc("high")] = 50.0   # high < close
+    df.iloc[2, df.columns.get_loc("high")] = 50.0  # high < close
     df.iloc[3, df.columns.get_loc("close")] = -1.0
     clean, rep = clean_and_validate(df, "BTC/USDT", "1h", now=pd.Timestamp("2030-01-01", tz="UTC"))
     assert rep.invalid_ohlc >= 1 and rep.nonpositive_prices == 1 and len(clean) == 8

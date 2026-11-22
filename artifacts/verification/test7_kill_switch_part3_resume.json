@@ -1,0 +1,9 @@
+{
+ "halted_before": true,
+ "resume_response": "done",
+ "resumed_by": {
+  "resumed_by": "operator"
+ },
+ "halted_after": false,
+ "status_after": "HEALTHY"
+}

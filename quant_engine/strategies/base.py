@@ -38,8 +38,7 @@ import pandas as pd
 from quant_engine.config.settings import StrategyConfig
 from quant_engine.core.types import Direction, Signal
 
-SIGNAL_COLUMNS = ["entry", "exit_long", "exit_short", "stop_dist", "tp_dist", "trail_dist",
-                  "confidence", "hold_bars", "close"]
+SIGNAL_COLUMNS = ["entry", "exit_long", "exit_short", "stop_dist", "tp_dist", "trail_dist", "confidence", "hold_bars", "close"]
 
 
 @dataclass
@@ -95,8 +94,7 @@ class Strategy(ABC):
         if not grid:
             return [dict(self.params)]
         keys = sorted(grid)
-        return [{**self.params, **dict(zip(keys, vals, strict=True))}
-                for vals in itertools.product(*(grid[k] for k in keys))]
+        return [{**self.params, **dict(zip(keys, vals, strict=True))} for vals in itertools.product(*(grid[k] for k in keys))]
 
     def with_params(self, params: dict[str, Any]) -> Strategy:
         clone = type(self)(self.cfg, params)
@@ -110,8 +108,11 @@ class Strategy(ABC):
 
     @property
     def warmup_bars(self) -> int:
-        nums = [int(v) for v in self.params.values() if isinstance(v, int | float) and not isinstance(v, bool)
-                and float(v).is_integer() and 1 < v < 2000]
+        nums = [
+            int(v)
+            for v in self.params.values()
+            if isinstance(v, int | float) and not isinstance(v, bool) and float(v).is_integer() and 1 < v < 2000
+        ]
         return max([*nums, 50]) * 3
 
     def required_timeframes(self) -> list[str]:
@@ -122,8 +123,7 @@ class Strategy(ABC):
         """Vectorised, causal signal frames per symbol."""
 
     # ---------------------------------------------------------------- live adapter
-    def signals_at(self, frames: dict[str, pd.DataFrame], ts: pd.Timestamp,
-                   risk_fraction: float) -> list[Signal]:
+    def signals_at(self, frames: dict[str, pd.DataFrame], ts: pd.Timestamp, risk_fraction: float) -> list[Signal]:
         """Convert the rows at ``ts`` into :class:`Signal` proposals."""
         out: list[Signal] = []
         for sym, df in frames.items():
@@ -133,10 +133,23 @@ class Strategy(ABC):
             price = float(row["close"])
             if bool(row["exit_long"]) or bool(row["exit_short"]):
                 d = Direction.LONG if bool(row["exit_long"]) else Direction.SHORT
-                out.append(Signal(self.strategy_id, sym, ts, d, price, None, None, 1.0, 0, 0.0,
-                                  self.timeframe, is_exit=True,
-                                  metadata={"exit_long": bool(row["exit_long"]),
-                                            "exit_short": bool(row["exit_short"])}))
+                out.append(
+                    Signal(
+                        self.strategy_id,
+                        sym,
+                        ts,
+                        d,
+                        price,
+                        None,
+                        None,
+                        1.0,
+                        0,
+                        0.0,
+                        self.timeframe,
+                        is_exit=True,
+                        metadata={"exit_long": bool(row["exit_long"]), "exit_short": bool(row["exit_short"])},
+                    )
+                )
             e = int(row["entry"])
             if e == 0 or not np.isfinite(row["stop_dist"]) or row["stop_dist"] <= 0:
                 continue
@@ -144,7 +157,20 @@ class Strategy(ABC):
             stop = price - e * float(row["stop_dist"])
             tp = price + e * float(row["tp_dist"]) if np.isfinite(row["tp_dist"]) else None
             trail = float(row["trail_dist"]) if np.isfinite(row["trail_dist"]) else None
-            out.append(Signal(self.strategy_id, sym, ts, d, price, stop, tp, float(row["confidence"]),
-                              int(row["hold_bars"]), risk_fraction, self.timeframe,
-                              trailing_stop_distance=trail))
+            out.append(
+                Signal(
+                    self.strategy_id,
+                    sym,
+                    ts,
+                    d,
+                    price,
+                    stop,
+                    tp,
+                    float(row["confidence"]),
+                    int(row["hold_bars"]),
+                    risk_fraction,
+                    self.timeframe,
+                    trailing_stop_distance=trail,
+                )
+            )
         return out

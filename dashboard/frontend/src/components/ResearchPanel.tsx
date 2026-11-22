@@ -124,7 +124,7 @@ export default function ResearchPanel({ research }: { research: Loadable<Researc
         {idx.length && Object.keys(curves).length ? (
           <Chart
             testId="research-equity-chart"
-            title="Stitched OOS equity (walk-forward, net of costs)"
+            title="Stitched OOS equity (net of costs)"
             xTitle="Date"
             yTitle="Equity (× initial)"
             height={320}
@@ -137,7 +137,7 @@ export default function ResearchPanel({ research }: { research: Loadable<Researc
         {idx.length && Object.keys(rsh).length ? (
           <Chart
             testId="research-sharpe-chart"
-            title="Rolling 90-day Sharpe (OOS, annualised)"
+            title="Rolling 90-day Sharpe (OOS)"
             xTitle="Date"
             yTitle="Sharpe ratio"
             height={320}

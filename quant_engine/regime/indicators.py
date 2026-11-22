@@ -32,9 +32,7 @@ def wilder(s: pd.Series, n: int) -> pd.Series:
 
 def true_range(df: pd.DataFrame) -> pd.Series:
     prev_close = df["close"].shift(1)
-    tr = pd.concat(
-        [df["high"] - df["low"], (df["high"] - prev_close).abs(), (df["low"] - prev_close).abs()], axis=1
-    ).max(axis=1)
+    tr = pd.concat([df["high"] - df["low"], (df["high"] - prev_close).abs(), (df["low"] - prev_close).abs()], axis=1).max(axis=1)
     tr.iloc[0] = df["high"].iloc[0] - df["low"].iloc[0]
     return tr
 

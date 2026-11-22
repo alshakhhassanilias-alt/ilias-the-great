@@ -15,7 +15,7 @@ def rolling_correlation(returns: pd.DataFrame, window: int = 90) -> dict[str, pd
     cols = list(returns.columns)
     out: dict[str, pd.Series] = {}
     for i, a in enumerate(cols):
-        for b in cols[i + 1:]:
+        for b in cols[i + 1 :]:
             out[f"{a}|{b}"] = returns[a].rolling(window, min_periods=window // 2).corr(returns[b])
     return out
 

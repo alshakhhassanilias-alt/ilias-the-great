@@ -34,9 +34,14 @@ PROTECTIVE = (OrderIntent.STOP_LOSS, OrderIntent.TAKE_PROFIT)
 class PaperBroker(Broker):
     mode = TradingMode.PAPER
 
-    def __init__(self, store: StateStore, costs: CostModelConfig, ledger: Ledger,
-                 account_meta: Callable[[], tuple[float, float, float, str]],
-                 rng: np.random.Generator | None = None) -> None:
+    def __init__(
+        self,
+        store: StateStore,
+        costs: CostModelConfig,
+        ledger: Ledger,
+        account_meta: Callable[[], tuple[float, float, float, str]],
+        rng: np.random.Generator | None = None,
+    ) -> None:
         self.store = store
         self.costs = costs
         self.ledger = ledger
@@ -84,9 +89,20 @@ class PaperBroker(Broker):
             return None
         f = res.fill
         seq = round(order.filled_quantity * 1e8)
-        return Fill(f"{order.client_order_id}-{seq}", order.client_order_id, order.symbol, order.side, f.quantity,
-                    f.price, f.fee, pd.Timestamp.now(tz="UTC"), f.liquidity, f.slippage_bps, order.strategy_id,
-                    order.intent)
+        return Fill(
+            f"{order.client_order_id}-{seq}",
+            order.client_order_id,
+            order.symbol,
+            order.side,
+            f.quantity,
+            f.price,
+            f.fee,
+            pd.Timestamp.now(tz="UTC"),
+            f.liquidity,
+            f.slippage_bps,
+            order.strategy_id,
+            order.intent,
+        )
 
     def _apply_fill_to_order(self, order: Order, fill: Fill) -> None:
         tot = order.filled_quantity + fill.quantity
@@ -159,11 +175,17 @@ class PaperBroker(Broker):
 
     def verify_protection(self, symbol: str, position_qty: float) -> ProtectionStatus:
         side = Side.SELL if position_qty > 0 else Side.BUY
-        stops = [o for o in self.open_orders() if o.symbol == symbol and o.intent is OrderIntent.STOP_LOSS
-                 and o.side is side]
+        stops = [o for o in self.open_orders() if o.symbol == symbol and o.intent is OrderIntent.STOP_LOSS and o.side is side]
         tps = [o for o in self.open_orders() if o.symbol == symbol and o.intent is OrderIntent.TAKE_PROFIT]
-        return ProtectionStatus(symbol, position_qty, bool(stops), sum(o.remaining for o in stops), bool(tps),
-                                "paper_simulation", "simulated protective orders (no exchange-side protection in PAPER)")
+        return ProtectionStatus(
+            symbol,
+            position_qty,
+            bool(stops),
+            sum(o.remaining for o in stops),
+            bool(tps),
+            "paper_simulation",
+            "simulated protective orders (no exchange-side protection in PAPER)",
+        )
 
     # ------------------------------------------------------------------ market updates
     def on_market(self, snaps: dict[str, SymbolSnapshot]) -> list[ClosedTrade]:
@@ -199,8 +221,20 @@ class PaperBroker(Broker):
                     if qty > 0:
                         fee = qty * limit * self.costs.maker_fee
                         seq = round(o.filled_quantity * 1e8)
-                        fill = Fill(f"{o.client_order_id}-{seq}", o.client_order_id, o.symbol, o.side, qty, limit, fee,
-                                    pd.Timestamp.now(tz="UTC"), "maker", 0.0, o.strategy_id, o.intent)
+                        fill = Fill(
+                            f"{o.client_order_id}-{seq}",
+                            o.client_order_id,
+                            o.symbol,
+                            o.side,
+                            qty,
+                            limit,
+                            fee,
+                            pd.Timestamp.now(tz="UTC"),
+                            "maker",
+                            0.0,
+                            o.strategy_id,
+                            o.intent,
+                        )
             if fill is None:
                 continue
             self._apply_fill_to_order(o, fill)

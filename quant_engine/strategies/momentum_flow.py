@@ -71,8 +71,9 @@ class MomentumFlow(Strategy):
             h4_ema = ind.ema(h4["close"], int(p["h4_ema"]))
             h4_up = align_backward(h4["close"] > h4_ema, idx).fillna(False).astype(bool)
             h4_dn = align_backward(h4["close"] < h4_ema, idx).fillna(False).astype(bool)
-            h_valid = align_backward(h4_ema.notna(), idx).fillna(False).astype(bool) & \
-                align_backward(h1_ema.notna(), idx).fillna(False).astype(bool)
+            h_valid = align_backward(h4_ema.notna(), idx).fillna(False).astype(bool) & align_backward(h1_ema.notna(), idx).fillna(
+                False
+            ).astype(bool)
 
             thr = float(p["roc_threshold"])
             vol_ok = rv >= float(p["rel_volume"])
@@ -100,8 +101,9 @@ class MomentumFlow(Strategy):
             sf["exit_short"] = (mom > 0).to_numpy() & h1_up.to_numpy()
             sf["stop_dist"] = float(p["stop_atr"]) * a
             sf["tp_dist"] = float(p["tp_atr"]) * a
-            conf = 0.5 * np.clip(np.abs(np.nan_to_num(mom.to_numpy())) / (3 * thr), 0, 1) + \
-                0.5 * np.clip(np.nan_to_num(rv.to_numpy()) / (2 * float(p["rel_volume"])), 0, 1)
+            conf = 0.5 * np.clip(np.abs(np.nan_to_num(mom.to_numpy())) / (3 * thr), 0, 1) + 0.5 * np.clip(
+                np.nan_to_num(rv.to_numpy()) / (2 * float(p["rel_volume"])), 0, 1
+            )
             sf["confidence"] = np.where(sf["entry"] != 0, np.clip(conf, 0.05, 1.0), 0.0)
             sf["hold_bars"] = int(p["max_hold_bars"])
             sf.loc[a.isna() | mom.isna() | rv.isna(), "entry"] = 0

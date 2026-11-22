@@ -101,9 +101,7 @@ class RiskConfig(_Strict):
 class CostModelConfig(_Strict):
     taker_fee: float = Field(0.0010, ge=0)
     maker_fee: float = Field(0.0010, ge=0)
-    spread_bps: dict[str, float] = Field(
-        default_factory=lambda: {"BTC/USDT": 1.0, "ETH/USDT": 1.5, "SOL/USDT": 3.0}
-    )
+    spread_bps: dict[str, float] = Field(default_factory=lambda: {"BTC/USDT": 1.0, "ETH/USDT": 1.5, "SOL/USDT": 3.0})
     default_spread_bps: float = 5.0
     base_slippage_bps: float = Field(1.0, ge=0)
     volatility_slippage_coef: float = Field(0.10, ge=0)

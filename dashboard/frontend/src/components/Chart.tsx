@@ -39,13 +39,14 @@ interface ChartProps {
 export function Chart({ title, xTitle, yTitle, data, height = 300, layout, yaxis, xaxis, testId, note }: ChartProps) {
   const showLegend = data.filter((d) => d.showlegend !== false).length > 1;
   const fullLayout: Dict = {
-    title: { text: title, font: { size: 13, color: C.text }, x: 0.01, xanchor: "left", y: 0.97 },
+    // title sits just above the plot area, below the modebar strip, so the two never overlap on narrow screens
+    title: { text: title, font: { size: 13, color: C.text }, x: 0, xref: "paper", xanchor: "left", y: 1, yref: "paper", yanchor: "bottom", pad: { b: 8 } },
     paper_bgcolor: C.panel,
     plot_bgcolor: C.panel,
     font: { family: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", size: 11, color: C.text },
     autosize: true,
     height,
-    margin: { l: 58, r: 14, t: 34, b: showLegend ? 40 : 40 },
+    margin: { l: 58, r: 14, t: 58, b: 40 },
     hovermode: "x unified",
     hoverlabel: { bgcolor: C.bg, bordercolor: C.border, font: { color: C.text } },
     showlegend: showLegend,
@@ -70,7 +71,7 @@ export function Chart({ title, xTitle, yTitle, data, height = 300, layout, yaxis
   };
   if (showLegend) {
     // leave room for the horizontal legend under the x axis
-    fullLayout.margin = { l: 58, r: 14, t: 34, b: 70 };
+    fullLayout.margin = { l: 58, r: 14, t: 58, b: 70 };
     fullLayout.height = height + 30;
   }
   return (

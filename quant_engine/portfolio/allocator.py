@@ -9,8 +9,9 @@ from quant_engine.regime.allocation import RegimeAllocator
 from quant_engine.strategies.momentum_flow import align_backward
 
 
-def weight_arrays(allocator: RegimeAllocator, regimes_by_symbol: dict[str, pd.DataFrame],
-                  clock: pd.DatetimeIndex, strategy_ids: list[str]) -> tuple[dict[str, dict[str, np.ndarray]], pd.DataFrame]:
+def weight_arrays(
+    allocator: RegimeAllocator, regimes_by_symbol: dict[str, pd.DataFrame], clock: pd.DatetimeIndex, strategy_ids: list[str]
+) -> tuple[dict[str, dict[str, np.ndarray]], pd.DataFrame]:
     """For each strategy, a per-symbol weight array aligned to ``clock`` (causal: the regime
     used at time t is the one classified on the last closed regime bar <= t)."""
     out: dict[str, dict[str, np.ndarray]] = {sid: {} for sid in strategy_ids}

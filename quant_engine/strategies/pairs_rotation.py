@@ -61,9 +61,15 @@ class PairsRotation(Strategy):
                 betas = [hedge_ratio(lp.loc[ch, a], lp.loc[ch, b])[0] for ch in chunks if len(ch) > 30]
                 cv = float(np.std(betas) / abs(np.mean(betas))) if betas and np.mean(betas) != 0 else np.inf
                 resid = lp[a] - beta * lp[b] - alpha
-                diag[f"{a}~{b}"] = {"beta": beta, "alpha": alpha, "coint_pvalue": float(pval),
-                                    "beta_cv_subperiods": cv, "corr_logret": float(lp[a].diff().corr(lp[b].diff())),
-                                    "resid_mean": float(resid.mean()), "resid_std": float(resid.std())}
+                diag[f"{a}~{b}"] = {
+                    "beta": beta,
+                    "alpha": alpha,
+                    "coint_pvalue": float(pval),
+                    "beta_cv_subperiods": cv,
+                    "corr_logret": float(lp[a].diff().corr(lp[b].diff())),
+                    "resid_mean": float(resid.mean()),
+                    "resid_std": float(resid.std()),
+                }
                 if pval < 0.05 and cv < 0.25 and (best is None or pval < best[4]):
                     best = (a, b, beta, alpha, float(pval))
         self.fitted = {"diagnostics": diag, "cointegrated_pair": best}
@@ -96,12 +102,17 @@ class PairsRotation(Strategy):
         mvals = mom.to_numpy()
         top = np.where(valid, np.nanargmax(np.where(np.isfinite(mvals), mvals, -np.inf), axis=1), -1)
         bot = np.where(valid, np.nanargmin(np.where(np.isfinite(mvals), mvals, np.inf), axis=1), -1)
-        spread = np.where(valid, np.nanmax(np.where(np.isfinite(mvals), mvals, -np.inf), axis=1)
-                          - np.nanmin(np.where(np.isfinite(mvals), mvals, np.inf), axis=1), np.nan)
+        spread = np.where(
+            valid,
+            np.nanmax(np.where(np.isfinite(mvals), mvals, -np.inf), axis=1)
+            - np.nanmin(np.where(np.isfinite(mvals), mvals, np.inf), axis=1),
+            np.nan,
+        )
         cols = list(closes.columns)
         # pairwise rolling correlations of the chosen legs
-        corr_cache = {(a, b): lr[a].rolling(corr_lb, min_periods=corr_lb).corr(lr[b]).to_numpy()
-                      for a, b in itertools.permutations(cols, 2)}
+        corr_cache = {
+            (a, b): lr[a].rolling(corr_lb, min_periods=corr_lb).corr(lr[b]).to_numpy() for a, b in itertools.permutations(cols, 2)
+        }
         leg_corr = np.full(len(closes), np.nan)
         for i in range(len(closes)):
             if top[i] >= 0 and bot[i] >= 0 and top[i] != bot[i]:
@@ -120,8 +131,9 @@ class PairsRotation(Strategy):
             sf["exit_long"] = rebal & ~is_top
             sf["exit_short"] = rebal & ~is_bot
             sf["stop_dist"] = float(p["stop_atr"]) * a.to_numpy()
-            sf["confidence"] = np.where(sf["entry"] != 0,
-                                        np.clip(np.nan_to_num(spread) / (3 * float(p["min_spread_z"])), 0.05, 1.0), 0.0)
+            sf["confidence"] = np.where(
+                sf["entry"] != 0, np.clip(np.nan_to_num(spread) / (3 * float(p["min_spread_z"])), 0.05, 1.0), 0.0
+            )
             sf["hold_bars"] = int(p["max_hold_bars"])
             sf["leg_corr"] = leg_corr
             sf["rs_spread"] = spread

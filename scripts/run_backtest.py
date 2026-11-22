@@ -40,13 +40,30 @@ def main() -> None:
     start, end = pd.Timestamp(args.start, tz="UTC"), pd.Timestamp(args.end, tz="UTC")
     st.fit(md.slice(start - pd.DateOffset(months=12), start))
     frames = st.compute(md.slice(start - pd.Timedelta(days=300), end))
-    eng = BacktestEngine(cfg.backtest, cfg.risk, st.timeframe, {s: md.get(s, st.timeframe) for s in st.symbols},
-                         md.funding, enforce_circuit_breakers=args.enforce_circuit_breakers,
-                         cost_multiplier=args.cost_multiplier, slippage_multiplier=args.cost_multiplier)
+    eng = BacktestEngine(
+        cfg.backtest,
+        cfg.risk,
+        st.timeframe,
+        {s: md.get(s, st.timeframe) for s in st.symbols},
+        md.funding,
+        enforce_circuit_breakers=args.enforce_circuit_breakers,
+        cost_multiplier=args.cost_multiplier,
+        slippage_multiplier=args.cost_multiplier,
+    )
     res = eng.run([StrategyRun(st.strategy_id, st.timeframe, frames)], start, end)
     s = performance_summary(res.equity, res.trades, res.gross_exposure, res.stats)
-    print(json.dumps({"warning": "exploratory single-period backtest; not out-of-sample validation",
-                      "params": st.params, "summary": s, "stats": res.stats}, indent=1, default=str))
+    print(
+        json.dumps(
+            {
+                "warning": "exploratory single-period backtest; not out-of-sample validation",
+                "params": st.params,
+                "summary": s,
+                "stats": res.stats,
+            },
+            indent=1,
+            default=str,
+        )
+    )
 
 
 if __name__ == "__main__":

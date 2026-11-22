@@ -37,13 +37,15 @@ def restore_ledger(store: StateStore, initial_capital: float) -> tuple[Ledger, R
     led = Ledger(cash=snap.cash)
     for p in snap.positions:
         led.positions[(p.strategy_id, p.symbol)] = p
-    rep = RecoveryReport(False, len(snap.positions), len(snap.open_orders), snap.trade_count, snap.fill_count,
-                         snap.risk_state is not None)
+    rep = RecoveryReport(
+        False, len(snap.positions), len(snap.open_orders), snap.trade_count, snap.fill_count, snap.risk_state is not None
+    )
     return led, rep, snap.risk_state, snap.open_orders
 
 
-def post_restore_checks(store: StateStore, ledger: Ledger, broker, breaker: CircuitBreaker,
-                        initial_capital: float, rep: RecoveryReport) -> RecoveryReport:
+def post_restore_checks(
+    store: StateStore, ledger: Ledger, broker, breaker: CircuitBreaker, initial_capital: float, rep: RecoveryReport
+) -> RecoveryReport:
     ok, msg = integrity_check(store.engine)
     rep.db_integrity = msg
     ts = __import__("pandas").Timestamp.now(tz="UTC").isoformat()

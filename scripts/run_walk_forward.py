@@ -28,17 +28,27 @@ def main() -> None:
     setup_logging("walk_forward")
     t0 = time.time()
     res = run_research(Path(args.out), args.workers, args.strategies)
-    print(json.dumps({
-        "elapsed_s": round(time.time() - t0, 1),
-        "windows": len(res["windows"]),
-        "oos": [res["data"]["oos_start"], res["data"]["oos_end"]],
-        "promotion": {k: v["status"] for k, v in res["promotion"].items()},
-        "deployable": res["deployable"] or "NONE",
-        "strategies": {k: {m: round(v["summary"][m], 4) for m in ("net_return", "sharpe", "max_drawdown", "dsr", "pbo")}
-                       for k, v in res["strategies"].items()},
-        "combined": {k: {m: round(v["summary"][m], 4) for m in ("net_return", "sharpe", "max_drawdown")}
-                     for k, v in res["combined"].items()},
-    }, indent=1, default=str))
+    print(
+        json.dumps(
+            {
+                "elapsed_s": round(time.time() - t0, 1),
+                "windows": len(res["windows"]),
+                "oos": [res["data"]["oos_start"], res["data"]["oos_end"]],
+                "promotion": {k: v["status"] for k, v in res["promotion"].items()},
+                "deployable": res["deployable"] or "NONE",
+                "strategies": {
+                    k: {m: round(v["summary"][m], 4) for m in ("net_return", "sharpe", "max_drawdown", "dsr", "pbo")}
+                    for k, v in res["strategies"].items()
+                },
+                "combined": {
+                    k: {m: round(v["summary"][m], 4) for m in ("net_return", "sharpe", "max_drawdown")}
+                    for k, v in res["combined"].items()
+                },
+            },
+            indent=1,
+            default=str,
+        )
+    )
 
 
 if __name__ == "__main__":

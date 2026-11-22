@@ -62,8 +62,14 @@ class SimResult:
 
 
 class ExecutionSimulator:
-    def __init__(self, costs: CostModelConfig, rng: np.random.Generator | None = None,
-                 bar_minutes: float = 60.0, cost_multiplier: float = 1.0, slippage_multiplier: float = 1.0) -> None:
+    def __init__(
+        self,
+        costs: CostModelConfig,
+        rng: np.random.Generator | None = None,
+        bar_minutes: float = 60.0,
+        cost_multiplier: float = 1.0,
+        slippage_multiplier: float = 1.0,
+    ) -> None:
         self.c = costs
         self.rng = rng or np.random.default_rng(0)
         self.bar_minutes = bar_minutes
@@ -85,8 +91,11 @@ class ExecutionSimulator:
         sigma15 = max(float(sigma_bps_bar), 0.0) * scale if np.isfinite(sigma_bps_bar) else 25.0
         quote_vol_15 = max(bar.volume * bar.open * (15.0 / self.bar_minutes), 1e-9)
         participation = notional / quote_vol_15
-        slip = (self.c.base_slippage_bps + self.c.volatility_slippage_coef * sigma15
-                + self.c.impact_coef * sigma15 * np.sqrt(participation))
+        slip = (
+            self.c.base_slippage_bps
+            + self.c.volatility_slippage_coef * sigma15
+            + self.c.impact_coef * sigma15 * np.sqrt(participation)
+        )
         return float(slip * self.slip_mult)
 
     def _cap_quantity(self, qty: float, bar: Bar) -> float:
@@ -97,8 +106,9 @@ class ExecutionSimulator:
         return self.c.rejection_probability > 0 and self.rng.random() < self.c.rejection_probability
 
     # ------------------------------------------------------------------ order types
-    def fill_market(self, symbol: str, side: Side, qty: float, bar: Bar, sigma_bps_bar: float,
-                    allow_partial: bool = True) -> SimResult:
+    def fill_market(
+        self, symbol: str, side: Side, qty: float, bar: Bar, sigma_bps_bar: float, allow_partial: bool = True
+    ) -> SimResult:
         if qty <= 0:
             return SimResult(None, True, "non_positive_quantity")
         if self._maybe_reject():
@@ -112,8 +122,9 @@ class ExecutionSimulator:
         fee = fill_qty * price * self.taker_fee()
         return SimResult(SimFill(fill_qty, price, fee, adverse_bps, "taker"), remaining=qty - fill_qty)
 
-    def fill_limit(self, symbol: str, side: Side, qty: float, limit: float, bar: Bar,
-                   sigma_bps_bar: float, resting: bool = True) -> SimResult:
+    def fill_limit(
+        self, symbol: str, side: Side, qty: float, limit: float, bar: Bar, sigma_bps_bar: float, resting: bool = True
+    ) -> SimResult:
         """Limit order evaluated against one bar.  ``resting`` = order was on the book before the bar."""
         if self._maybe_reject():
             return SimResult(None, True, "simulated_exchange_rejection", qty)
@@ -150,8 +161,7 @@ class ExecutionSimulator:
             return bar.open if self.c.gap_stop_fill_at_open else stop
         return stop if bar.high >= stop else None
 
-    def fill_stop(self, symbol: str, side: Side, qty: float, ref_price: float, bar: Bar,
-                  sigma_bps_bar: float) -> SimFill:
+    def fill_stop(self, symbol: str, side: Side, qty: float, ref_price: float, bar: Bar, sigma_bps_bar: float) -> SimFill:
         """Stops always fill in full (exit priority) with doubled slippage."""
         adverse_bps = self.half_spread_bps(symbol) + 2.0 * self.slippage_bps(qty * ref_price, bar, sigma_bps_bar)
         price = ref_price * (1 + side.sign * adverse_bps / 1e4)
@@ -170,8 +180,9 @@ class ExecutionSimulator:
         return SimFill(qty, target, qty * target * self.maker_fee(), 0.0, "maker")
 
     # ------------------------------------------------------------------ observed order book (paper)
-    def fill_against_book(self, side: Side, qty: float, book_levels: list[tuple[float, float]],
-                          extra_slippage_bps: float = 0.0) -> SimResult:
+    def fill_against_book(
+        self, side: Side, qty: float, book_levels: list[tuple[float, float]], extra_slippage_bps: float = 0.0
+    ) -> SimResult:
         """Walk observed book levels [(price, size), ...] (asks for BUY, bids for SELL)."""
         if self._maybe_reject():
             return SimResult(None, True, "simulated_exchange_rejection", qty)

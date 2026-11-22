@@ -19,7 +19,7 @@ export default function Dashboard({ token, loginMode, onLogout }: Props) {
   const ov = d.overview.data;
   const mode = (ov?.mode ?? loginMode ?? "").toUpperCase();
   return (
-    <div className={`app mode-${mode.toLowerCase() || "unknown"}`}>
+    <div className={`app app-mode-${mode.toLowerCase() || "unknown"}`}>
       <Header overview={ov} loginMode={loginMode} ws={d.ws} lastWsUpdate={d.lastWsUpdate} onLogout={onLogout} />
       <main className="content">
         <EmergencyControls halted={!!ov?.halted} onDone={d.refresh} />
@@ -27,13 +27,13 @@ export default function Dashboard({ token, loginMode, onLogout }: Props) {
         <div className="layout-main">
           <div className="col-main">
             <LiveCharts equity={d.equity.data} error={d.equity.error} mode={mode} />
-            <PositionsPanel positions={d.positions} />
           </div>
           <div className="col-side">
             <RiskPanel risk={d.risk} health={d.health} />
             <RegimePanel regime={d.regime} />
           </div>
         </div>
+        <PositionsPanel positions={d.positions} />
         <StrategiesPanel strategies={d.strategies} />
         <OrdersPanel orders={d.orders} />
         <TradesPanel trades={d.trades} />

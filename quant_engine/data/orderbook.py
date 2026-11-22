@@ -19,8 +19,8 @@ class BookMetrics:
     mid: float
     spread: float
     spread_bps: float
-    imbalance: float              # (bid_depth - ask_depth) / (bid_depth + ask_depth) within the band
-    bid_depth_quote: float        # quote notional within +-band of mid
+    imbalance: float  # (bid_depth - ask_depth) / (bid_depth + ask_depth) within the band
+    bid_depth_quote: float  # quote notional within +-band of mid
     ask_depth_quote: float
     band_bps: float
     impact_bps_buy: float | None  # VWAP slippage vs mid for a reference notional; None if book too thin
@@ -51,8 +51,9 @@ def impact_bps(levels: list[tuple[float, float]], notional: float, mid: float) -
     return float(abs(vwap / mid - 1) * 1e4)
 
 
-def book_metrics(bids: list[tuple[float, float]], asks: list[tuple[float, float]], band_bps: float = 10.0,
-                 reference_notional: float = 50_000.0) -> BookMetrics:
+def book_metrics(
+    bids: list[tuple[float, float]], asks: list[tuple[float, float]], band_bps: float = 10.0, reference_notional: float = 50_000.0
+) -> BookMetrics:
     if not bids or not asks:
         raise ValueError("empty order book")
     bb, ba = float(bids[0][0]), float(asks[0][0])
@@ -62,6 +63,17 @@ def book_metrics(bids: list[tuple[float, float]], asks: list[tuple[float, float]
     lo, hi = mid * (1 - band_bps / 1e4), mid * (1 + band_bps / 1e4)
     bd, ad = _depth(bids, lo, mid), _depth(asks, mid, hi)
     imb = (bd - ad) / (bd + ad) if bd + ad > 0 else 0.0
-    return BookMetrics(bb, ba, mid, ba - bb, (ba - bb) / mid * 1e4, float(np.clip(imb, -1, 1)), bd, ad, band_bps,
-                       impact_bps(asks, reference_notional, mid), impact_bps(bids, reference_notional, mid),
-                       reference_notional)
+    return BookMetrics(
+        bb,
+        ba,
+        mid,
+        ba - bb,
+        (ba - bb) / mid * 1e4,
+        float(np.clip(imb, -1, 1)),
+        bd,
+        ad,
+        band_bps,
+        impact_bps(asks, reference_notional, mid),
+        impact_bps(bids, reference_notional, mid),
+        reference_notional,
+    )

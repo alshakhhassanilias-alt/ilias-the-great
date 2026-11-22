@@ -43,8 +43,11 @@ class TokenService:
 
     def issue(self, subject: str, role: str = "operator") -> str:
         now = int(time.time())
-        return jwt.encode({"sub": subject, "role": role, "iat": now, "exp": now + self.ttl,
-                           "jti": secrets.token_hex(8)}, self.secret, algorithm="HS256")
+        return jwt.encode(
+            {"sub": subject, "role": role, "iat": now, "exp": now + self.ttl, "jti": secrets.token_hex(8)},
+            self.secret,
+            algorithm="HS256",
+        )
 
     def verify(self, token: str) -> dict:
         return jwt.decode(token, self.secret, algorithms=["HS256"], options={"require": ["exp", "sub"]})

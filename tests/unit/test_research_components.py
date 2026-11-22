@@ -91,8 +91,17 @@ def test_monte_carlo_reproducible_and_complete():
     b = run_monte_carlo(daily, trades, MCConfig(n_sims=1000, seed=9))
     sa, sb = summarize(a), summarize(b)
     assert sa == sb
-    expected = {"block_bootstrap", "volatility_shock", "trade_bootstrap", "trade_shuffle", "consecutive_losses",
-                "slippage_x3", "fees_x2", "liquidity_crunch", "gap_risk"}
+    expected = {
+        "block_bootstrap",
+        "volatility_shock",
+        "trade_bootstrap",
+        "trade_shuffle",
+        "consecutive_losses",
+        "slippage_x3",
+        "fees_x2",
+        "liquidity_crunch",
+        "gap_risk",
+    }
     assert set(sa) == expected
     for v in sa.values():
         assert v["terminal_equity_p05"] <= v["terminal_equity_median"] <= v["terminal_equity_p95"]
@@ -110,7 +119,7 @@ def test_regime_requires_training_fit_and_detects_crisis():
     rng = np.random.default_rng(0)
     shock = np.exp(np.cumsum(rng.normal(-0.01, 0.06, 200)))
     seg = crash.iloc[2600:2800]
-    crash.iloc[2600:2800, :4] = (seg[["open", "high", "low", "close"]].to_numpy() * shock[:, None])
+    crash.iloc[2600:2800, :4] = seg[["open", "high", "low", "close"]].to_numpy() * shock[:, None]
     crash["high"] = crash[["open", "high", "low", "close"]].max(axis=1)
     crash["low"] = crash[["open", "high", "low", "close"]].min(axis=1)
     out = det.classify(crash)
@@ -134,9 +143,11 @@ def test_regime_trend_detection_and_hysteresis():
 
 
 def test_allocator_caps_validation_and_crisis():
-    specs = [StrategyAllocationSpec("a", 0.35, {"trending_bull": 1.0, "high_vol_crisis": 1.0}, ValidationStatus.PROMOTED),
-             StrategyAllocationSpec("b", 0.30, {"trending_bull": 1.0, "high_vol_crisis": 1.0}, ValidationStatus.PROMOTED),
-             StrategyAllocationSpec("c", 0.30, {"trending_bull": 1.0}, ValidationStatus.RESEARCH_ONLY)]
+    specs = [
+        StrategyAllocationSpec("a", 0.35, {"trending_bull": 1.0, "high_vol_crisis": 1.0}, ValidationStatus.PROMOTED),
+        StrategyAllocationSpec("b", 0.30, {"trending_bull": 1.0, "high_vol_crisis": 1.0}, ValidationStatus.PROMOTED),
+        StrategyAllocationSpec("c", 0.30, {"trending_bull": 1.0}, ValidationStatus.RESEARCH_ONLY),
+    ]
     al = RegimeAllocator(specs, crisis_exposure_multiplier=0.5)
     bull = al.allocate("trending_bull")
     assert "c" in bull.excluded and bull.total <= 1.0

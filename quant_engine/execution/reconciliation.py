@@ -47,20 +47,32 @@ def replay_fill_journal(store: StateStore, initial_capital: float) -> Ledger:
     """Rebuild a ledger purely from the append-only fills table (chronological)."""
     led = Ledger(cash=initial_capital)
     with store.engine.connect() as c:
-        rows = c.execute(select(db.fills).where(db.fills.c.mode == store.mode)
-                         .order_by(db.fills.c.timestamp, db.fills.c.fill_id)).all()
+        rows = c.execute(
+            select(db.fills).where(db.fills.c.mode == store.mode).order_by(db.fills.c.timestamp, db.fills.c.fill_id)
+        ).all()
     for r in rows:
-        led.apply_fill(Fill(r.fill_id, r.client_order_id, r.symbol, Side(r.side), r.quantity, r.price, r.fee,
-                            pd.Timestamp(r.timestamp), r.liquidity or "taker", r.slippage_bps or 0.0,
-                            r.strategy_id or "", OrderIntent(r.intent or "entry")))
+        led.apply_fill(
+            Fill(
+                r.fill_id,
+                r.client_order_id,
+                r.symbol,
+                Side(r.side),
+                r.quantity,
+                r.price,
+                r.fee,
+                pd.Timestamp(r.timestamp),
+                r.liquidity or "taker",
+                r.slippage_bps or 0.0,
+                r.strategy_id or "",
+                OrderIntent(r.intent or "entry"),
+            )
+        )
     return led
 
 
-def verify_against_journal(ledger: Ledger, store: StateStore, initial_capital: float,
-                           tol: float = 1e-6) -> ReconciliationReport:
+def verify_against_journal(ledger: Ledger, store: StateStore, initial_capital: float, tol: float = 1e-6) -> ReconciliationReport:
     replay = replay_fill_journal(store, initial_capital)
-    rep = ReconciliationReport(True, [], local_net_positions(ledger), local_net_positions(replay),
-                               replay.cash, ledger.cash)
+    rep = ReconciliationReport(True, [], local_net_positions(ledger), local_net_positions(replay), replay.cash, ledger.cash)
     if abs(replay.cash - ledger.cash) > max(tol * abs(initial_capital), 1e-6):
         rep.ok = False
         rep.discrepancies.append(f"cash: stored={ledger.cash:.6f} journal={replay.cash:.6f}")

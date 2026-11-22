@@ -16,7 +16,7 @@ from quant_engine.regime.detector import Regime
 
 
 class ValidationStatus(StrEnum):
-    PROMOTED = "promoted"          # passed every OOS promotion criterion
+    PROMOTED = "promoted"  # passed every OOS promotion criterion
     UNDER_REVIEW = "under_review"  # partial evidence; not deployable
     RESEARCH_ONLY = "research_only"
     REJECTED = "rejected"

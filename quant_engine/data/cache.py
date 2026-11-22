@@ -61,9 +61,7 @@ class ParquetCache:
                 h.update(chunk)
         return h.hexdigest()
 
-    def update_index(
-        self, exchange: str, symbol: str, timeframe: str, df: pd.DataFrame, validation: dict[str, Any]
-    ) -> None:
+    def update_index(self, exchange: str, symbol: str, timeframe: str, df: pd.DataFrame, validation: dict[str, Any]) -> None:
         if self.engine is None:
             return
         p = self.path(exchange, symbol, timeframe)
