@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #d4a63f;
+  --accent-soft: rgba(212, 166, 63, .15);
+  --panel: rgba(12, 16, 23, .92);
+  --sea: #0b1a2b;
+  --sea2: #10263d;
+}
+.era-classic { --accent: #d4a63f; --accent-soft: rgba(212,166,63,.15); --sea: #1a2430; --sea2: #23303d; }
+.era-modern { --accent: #5ab0ff; --accent-soft: rgba(90,176,255,.14); --sea: #0b1a2b; --sea2: #10263d; }
+.era-future { --accent: #3ef0d0; --accent-soft: rgba(62,240,208,.12); --sea: #050f1c; --sea2: #08182b; }
+.era-post { --accent: #c38bff; --accent-soft: rgba(195,139,255,.14); --sea: #0a0714; --sea2: #120d22; }
+
+html, body, #root { height: 100%; }
+body { @apply bg-ink-950 text-slate-200 font-sans antialiased; overflow: hidden; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #2c3a51; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.panel { background: var(--panel); @apply border border-ink-600/60 rounded-lg shadow-panel backdrop-blur; }
+.btn { @apply px-3 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed; }
+.btn-primary { background: var(--accent); @apply text-ink-950 hover:brightness-110; }
+.btn-ghost { @apply bg-ink-800 hover:bg-ink-700 text-slate-200 border border-ink-600/60; }
+.btn-danger { @apply bg-red-700/80 hover:bg-red-600 text-white; }
+.input { @apply bg-ink-900 border border-ink-600 rounded-md px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none; }
+.input:focus { border-color: var(--accent); }
+.accent { color: var(--accent); }
+.accent-bg { background: var(--accent-soft); }
+.accent-border { border-color: var(--accent); }
+.h-title { @apply font-display tracking-wide; }
+.chip { @apply inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium bg-ink-700 text-slate-300; }
+.stat-label { @apply text-[10px] uppercase tracking-wider text-slate-500; }
+.tab { @apply px-2.5 py-2 text-xs font-medium text-slate-400 hover:text-slate-100 border-b-2 border-transparent whitespace-nowrap; }
+.tab-active { color: var(--accent); border-color: var(--accent); }
+
+/* newspapers */
+.paper-broadside, .paper-broadsheet { background: #efe4c8; color: #1d1a14; font-family: "Old Standard TT", Georgia, serif; }
+.paper-broadsheet .masthead { font-family: "Old Standard TT", serif; font-weight: 700; letter-spacing: .02em; }
+.paper-modern { background: #fbfbf8; color: #111; font-family: Georgia, serif; }
+.paper-modern .masthead { font-family: "Old Standard TT", serif; }
+.paper-feed { background: #0d1320; color: #dde6f3; font-family: Inter, sans-serif; }
+.paper-neural { background: radial-gradient(circle at 20% 0%, #1b1036, #070512); color: #e9dcff; font-family: Inter, sans-serif; }
+.paper-neural .masthead, .paper-feed .masthead { font-family: Orbitron, Inter, sans-serif; }
+.paper-weave { background: #f4f1ff; color: #2b2340; font-family: Inter, sans-serif; }
+.columns-paper { column-count: 2; column-gap: 1.5rem; }
+.markdown h2 { @apply font-display text-lg mt-4 mb-2; color: var(--accent); }
+.markdown h3 { @apply font-semibold mt-3 mb-1; }
+.markdown p { @apply mb-2 leading-relaxed; }
