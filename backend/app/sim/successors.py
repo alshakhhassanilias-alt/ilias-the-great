@@ -107,6 +107,9 @@ def create_country(state: dict, pids: list[str], *, parent: str | None, kind: st
         c["army"] = max(5.0, moved)
         c["treasury"] = pc["treasury"] * pop_share * 0.5
         pc["treasury"] -= c["treasury"]
+        # successors inherit their share of the public debt
+        c["debt"] = pc["debt"] * min(1.0, pop_share)
+        pc["debt"] -= c["debt"]
         if kind in ("independence", "rebel"):
             add_memory(state, tag, parent, "independence", -30, f"Won independence from {pc['name']} in {year}.")
             add_memory(state, parent, tag, "territory_lost", -25, f"Lost {base} to the breakaway {name} in {year}.")

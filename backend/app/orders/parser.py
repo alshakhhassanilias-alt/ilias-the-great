@@ -33,8 +33,8 @@ CAT_WORDS = {"military": "military", "weapon": "military", "computer": "computin
              "medicine": "biology", "genetic": "biology", "space": "space", "rocket": "space", "industr": "industry", "manufactur": "industry",
              "social": "society", "society": "society"}
 GOV_WORDS = [
-    ("planetary government", "planetarism", "Planetary Government", None), ("world government", "planetarism", "World Government", None),
-    ("global government", "planetarism", "Global Government", None), ("ai administration", "algorithmic_governance", "AI Administration", "Administrator"),
+    ("planetary government", "planetarism", "Planetary Government", "Planetary Chancellor"), ("world government", "planetarism", "World Government", "Planetary Chancellor"),
+    ("global government", "planetarism", "Global Government", "Planetary Chancellor"), ("ai administration", "algorithmic_governance", "AI Administration", "Administrator"),
     ("artificial intelligence administration", "algorithmic_governance", "AI Administration", "Administrator"),
     ("digital republic", "substrate_egalitarianism", "Digital Republic", "First Speaker"), ("technocracy", "technocracy", "Technocratic Directorate", "Director"),
     ("theocracy", "theocracy", "Theocracy", "High Priest"), ("communist", "communism", "Socialist Republic", "Chairman"), ("socialist", "social_democracy", None, None),

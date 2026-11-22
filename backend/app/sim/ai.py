@@ -77,6 +77,14 @@ def _budget(state: dict, c: dict) -> None:
     b["research"] = round(base_r * (0.7 + 0.6 * tr["prag"]), 4)
     b["welfare"] = round(0.02 + 0.03 * tr["cau"], 3)
     b["infra"] = round(0.015 + 0.02 * tr["prag"], 3)
+    # prudent governments keep peacetime spending within revenue (about 12% of GDP after administration)
+    income = 0.20 if c["policies"].get("economy") != "planned" else 0.24
+    room = income - 0.08 - (0.0 if c["debt"] < c["gdp"] * 0.5 else 0.015)
+    total = b["military"] + b["research"] + b["welfare"] + b["infra"]
+    if total > room and not at_war(state, c["tag"]):
+        f = room / total
+        for k in ("military", "research", "welfare", "infra"):
+            b[k] = round(b[k] * f, 4)
     if at_war(state, c["tag"]):
         c["policies"]["mobilization"] = "total" if tr["agg"] > 0.7 or any(w["score"] * (1 if c["tag"] in w["def"] else -1) > 40 for w in wars_of(state, c["tag"])) else "partial"
     if "space_military" in c["mods"].get("unlocks", []):
