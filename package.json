@@ -1,0 +1,21 @@
+{
+  "name": "genesis-alife-sandbox",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Real-time 3D artificial life & civilization evolution sandbox (Three.js + Web Workers)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "sim:test": "node scripts/headless-sim.mjs",
+    "visual:check": "node scripts/visual-check.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.11"
+  }
+}

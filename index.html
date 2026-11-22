@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Genesis — Artificial Life Sandbox</title>
+    <meta name="description" content="Real-time 3D artificial life & civilization evolution sandbox: neural-network creatures evolve from primordial cells into warring, trading tribes." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2310151f'/%3E%3Ccircle cx='12' cy='12' r='4' fill='%235ef2ff'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="labels"></div>
+      <div id="hud">
+        <header class="panel topbar" id="topbar"></header>
+        <aside class="col col-left">
+          <section class="panel" id="powers"></section>
+          <section class="panel" id="tribes"></section>
+          <section class="panel grow" id="chronicle"></section>
+        </aside>
+        <div class="center-top" id="center-top"></div>
+        <aside class="col col-right">
+          <section class="panel grow" id="inspector"></section>
+        </aside>
+        <section class="panel" id="telemetry"></section>
+      </div>
+      <div id="loader">
+        <div class="loader-inner">
+          <div class="loader-orb"></div>
+          <div class="loader-title">GENESIS</div>
+          <div class="loader-sub" id="loader-sub">Forming the island…</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
