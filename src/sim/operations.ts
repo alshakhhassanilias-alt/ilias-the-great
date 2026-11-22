@@ -170,7 +170,7 @@ export function actCancelOperation(s: GameState) {
   if (!o) return { ok: false, message: 'No operation under way' };
   o.status = 'cancelled';
   unpin(s, o);
-  if (o.launch <= s.tick) bumpSupport(s.countries[s.player], -1.5, 'setbacks');
+  if (o.launch <= s.tick) bumpSupport(s.countries[s.player], -0.015, 'setbacks');
   o.beats.push({ tick: s.tick, text: 'Called off.', tone: 'bad' });
   return { ok: true, message: `${o.name} is called off.` };
 }
@@ -231,7 +231,7 @@ export function stepOperations(s: GameState, geo: Geo) {
   const prog = f?.progress ?? 0;
   const p = o.kind === 'hold' ? clamp(1 - prog * 0.9, 0.1, 0.95) : clamp(o.est * 0.55 + prog * 0.6, 0.03, 0.92);
   const won = nextRand(s) < p;
-  if (won && o.kind !== 'hold') transferProvince(s, geo, o.target, P.id);
+  if (won && o.kind !== 'hold' && w.attackers.concat(w.defenders).includes(s.owner[o.target]) && warSideOf(w, s.owner[o.target]) !== warSideOf(w, P.id) && warSideOf(w, P.id) >= 0) transferProvince(s, geo, o.target, P.id);
   finish(s, o, won);
 }
 
@@ -242,7 +242,7 @@ function finish(s: GameState, o: Operation, won: boolean) {
   unpin(s, o);
   const place = provName(o.target);
   if (won) {
-    bumpSupport(P, o.kind === 'capital' ? 8 : o.kind === 'landing' ? 5 : 4);
+    bumpSupport(P, o.kind === 'capital' ? 0.08 : o.kind === 'landing' ? 0.05 : 0.04);
     if (o.kind === 'encircle') { const kill = E.mil.troops * 0.08; E.mil.troops -= kill; E.mil.casualties += kill; }
     if (o.kind === 'hold') { const kill = E.mil.troops * 0.04; E.mil.troops -= kill; E.mil.casualties += kill; const w = warOf(s, o); if (w) for (const f of w.fronts) if (f.prov === o.target && f.by !== P.id) f.progress = 0; }
     if (g) { g.xp += 20; g.wins++; }
@@ -250,7 +250,7 @@ function finish(s: GameState, o: Operation, won: boolean) {
     o.beats.push({ tick: s.tick, text: `Success: ${what}.`, tone: 'good' });
     logEvent(s, `🎖 ${o.name.toUpperCase()} SUCCEEDS: ${what}. ${g ? `${g.name} is the hero of the hour.` : ''}`, 'war', [s.player, o.enemy], true, { big: true, prov: o.target });
   } else {
-    bumpSupport(P, o.kind === 'capital' ? -6 : -4, 'setbacks');
+    bumpSupport(P, o.kind === 'capital' ? -0.06 : -0.04, 'setbacks');
     const lost = P.mil.troops * 0.02 * (1 + FORCE[o.force].share);
     P.mil.troops -= lost; P.mil.casualties += lost;
     if (g) g.xp = Math.max(0, g.xp - 10);

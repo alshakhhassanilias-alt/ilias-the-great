@@ -249,9 +249,10 @@ export function updateTradeAndResources(c: Country, s: GameState, w: WorldAgg) {
   e.sanctionShare = Math.min(0.95, w.sanctionedBy[c.id]);
   const warLoad = Math.min(3, warsOf(s, c.id).length);
   const raw = 1 + 0.01 * c.mil.bld.port + Math.min(0.45, w.boost[c.id]) - 0.9 * e.sanctionShare - 0.8 * e.blockade - w.selfHarm[c.id] - 0.06 * warLoad * (1 + charLocked(c)) - (e.prev.tariff ?? 0);
-  e.tradeIndex = clamp(raw / e.tradeBase, 0.15, 1.5);
+  const dk = c.dev?.k;
+  e.tradeIndex = clamp((raw / e.tradeBase) * (dk?.trade ?? 1), 0.15, 1.5);
   // energy & food balances
-  e.energyDemand = e.prev.eInt * e.realGdp;
+  e.energyDemand = e.prev.eInt * e.realGdp * (dk?.energy ?? 1);
   e.foodDemand = e.prev.fPc * e.pop * (1 + 0.1 * Math.log(Math.max(e.realGdp / Math.max(e.pop, 1) / e.prev.gdppc0, 0.2)));
   const access = clamp(1 - 0.7 * e.sanctionShare - e.blockade, 0, 1);
   const accE = access * (1 - (e.prev.banE ?? 0)), accF = access * (1 - (e.prev.banF ?? 0));
@@ -285,7 +286,7 @@ export function stepCountryEconomy(c: Country, s: GameState, geo: Geo, w: WorldA
 
   // ---- labour ----
   e.pop *= 1 + popGrowthRate(c, s) * DT;
-  e.laborForce = e.pop * e.lfShare;
+  e.laborForce = e.pop * e.lfShare * (c.dev?.k?.labour ?? 1);
 
   // ---- productive capacity ----
   const pot = potentialOutput(c, priceE);

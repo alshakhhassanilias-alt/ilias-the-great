@@ -271,7 +271,27 @@ export const pcOf = (c: Country) => c.politics?.pc ?? 0;
 /** Success builds political capital: a deal signed, an objective met, a war won. */
 export function gainPC(s: GameState, n: number) {
   const P = s.countries[s.player]?.politics;
-  if (P && (!s.legacy || s.legacy.status === 'office')) P.pc = clamp(P.pc + n, 0, 100);
+  if (P && (!s.legacy || s.legacy.status === 'office')) addPC(s, n);
+}
+export const PC_CAP = 100;
+/** The most approval that overflowing political capital can hold up as public goodwill. */
+export const GOODWILL_MAX = 4;
+/**
+ * Add political capital to the player, up to the cap. What does not fit is not wasted (it used to be: popular leaders
+ * sat at a full tank for a quarter of the game): it becomes public goodwill, an approval boost of up to +4 that fades
+ * like any other once you stop earning it.
+ */
+export function addPC(s: GameState, n: number) {
+  const P = s.countries[s.player]?.politics;
+  if (!P) return 0;
+  const room = PC_CAP - P.pc;
+  if (n <= room) { P.pc = clamp(P.pc + n, 0, PC_CAP); return 0; }
+  P.pc = PC_CAP;
+  const over = n - Math.max(0, room);
+  const ab = s.stats.apprBoost ?? 0;
+  if (ab < GOODWILL_MAX) s.stats.apprBoost = Math.min(GOODWILL_MAX, ab + over * 0.12);
+  s.stats.goodwill = (s.stats.goodwill ?? 0) + over;
+  return over;
 }
 
 /** Weekly income of political capital, and why. */
@@ -405,7 +425,7 @@ export function stepPolitics(s: GameState, appr: number) {
   ensurePolitics(s);
   const P = c.politics!;
   const inPower = !s.legacy || s.legacy.status === 'office';
-  if (inPower) P.pc = clamp(P.pc + pcIncome(s, c, appr).v, 0, 100);
+  if (inPower) { const inc = pcIncome(s, c, appr).v; if (inc > 0) addPC(s, inc); else P.pc = clamp(P.pc + inc, 0, PC_CAP); }
   let st = 0, ap = 0;
   for (const f of P.factions) {
     const { target } = factionTarget(s, c, f);

@@ -35,7 +35,7 @@ export const WS_LABEL: Record<string, string> = {
   bonds: 'War bonds',
   censor: 'Censorship',
 };
-const PULSES = new Set(['victories', 'propaganda', 'bonds', 'censor']);
+const PULSES = new Set(['victories', 'propaganda', 'bonds', 'censor', 'setbacks', 'events']); // one-off changes applied when they happened
 
 export function bumpSupport(c: Country, d: number, part = 'victories') {
   // a catastrophic week can cost at most 12 points from lost battles (and win at most 12)

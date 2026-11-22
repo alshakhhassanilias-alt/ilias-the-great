@@ -401,7 +401,10 @@ export interface War {
   defenders: CountryId[];
   start: number;
   /** active offensives: province being contested, who attacks, progress 0..1 */
-  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean; rate?: number; sup?: number; from?: number; pocket?: boolean }[];
+  fronts: { prov: ProvId; by: CountryId; progress: number; amphibious: boolean; atk?: number; def?: number; la?: number; ld?: number; gates?: boolean; rate?: number; sup?: number; from?: number; pocket?: boolean; /** weeks in a row without real progress */ stall?: number; /** last week's attack/defence ratio */ r?: number; /** set when a breakthrough opened it */ born?: number }[];
+  /** where each defender's field army stands: `defender:province` → share of its defensive pool there. Reserves take
+   *  weeks to arrive, so a new or shifted attack meets a thin line at first (war.ts) */
+  gar?: Record<string, number>;
   /** casualty milestone already reported (index into drama.MILESTONES) */
   mile?: number;
   casualties: Record<number, number>;

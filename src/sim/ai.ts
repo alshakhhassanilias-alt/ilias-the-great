@@ -141,6 +141,13 @@ function manageBudget(s: GameState, geo: Geo, c: Country, th: number, atWar: boo
   void geo;
 }
 
+/** At war, an AI replaces its losses every four weeks (its budget review comes only every eight, so armies used to melt). */
+function warRecruit(s: GameState, c: Country) {
+  const e = c.eco, base = e.prev.troops0 ?? c.mil.troops;
+  const desired = Math.min(base * 1.8, Math.max(base, e.laborForce * 0.12));
+  if (c.mil.troops < desired * 0.95 && manpower(c) > 0 && e.stability > 25) recruit(s, c.id, Math.min(desired - c.mil.troops, Math.max(50, c.mil.troops * 0.04)));
+}
+
 function manageForces(s: GameState, geo: Geo, c: Country, th: number, atWar: boolean) {
   const e = c.eco;
   // fortify threatened borders, expand industry
@@ -159,7 +166,10 @@ function manageForces(s: GameState, geo: Geo, c: Country, th: number, atWar: boo
   if (c.mil.troops < desiredTroops * 0.9 && manpower(c) > 0 && e.stability > 25) recruit(s, c.id, Math.max(50, c.mil.troops * 0.03));
   else if (!atWar && c.mil.troops > desiredTroops * 1.25) demobilize(s, c.id, c.mil.troops * 0.02);
   // manage offensive stance
-  c.mil.commit = atWar ? 0.65 : 0.4;
+  // (an army whose offensives have all stalled digs in for a while and rebuilds, then tries again elsewhere)
+  let fr = 0, stuck = 0;
+  if (atWar) for (const w of warsOf(s, c.id)) for (const f of w.fronts) if (f.by === c.id) { fr++; if ((f.stall ?? 0) >= 6) stuck++; }
+  c.mil.commit = atWar ? 0.65 - 0.25 * (fr ? stuck / fr : 0) : 0.4;
 }
 
 function manageDiplomacy(s: GameState, geo: Geo, c: Country) {
@@ -319,7 +329,7 @@ function managePeace(s: GameState, geo: Geo, c: Country) {
     if (terms && (terms.kind === 'concede' || terms.kind === 'surrender') && (w.resolve?.[c.id] ?? 0) > 0 && c.mil.exhaustion < 0.85 && c.provinces.includes(c.capital)) terms = null;
     if (!terms) continue;
     if (e === s.player) {
-      if (!s.offers.some((o) => o.from === c.id && o.kind === 'peace') && s.tick % 12 === 0) s.offers.push({ id: s.nextOfferId++, from: c.id, kind: 'peace', terms, tick: s.tick });
+      if (!s.offers.some((o) => o.from === c.id && o.kind === 'peace') && (s.tick - (s.stats[`peaceAsk:${c.id}`] ?? -99)) >= 12 && (s.stats[`peaceAsk:${c.id}`] = s.tick) >= 0) s.offers.push({ id: s.nextOfferId++, from: c.id, kind: 'peace', terms, tick: s.tick });
       continue;
     }
     // proposing party is c; recipient e evaluates (swap perspective for evaluatePeace)
@@ -351,7 +361,7 @@ export function* stepAIGen(s: GameState, geo: Geo): Generator<void> {
     if ((s.tick + c.id) % 8 === 0) manageEconomy(s, geo, c);
     if ((s.tick + c.id * 3) % 8 === 4) manageDiplomacy(s, geo, c);
     if ((s.tick + c.id) % 12 === 0) considerWar(s, geo, c);
-    if (isAtWar(s, c.id)) managePeace(s, geo, c);
+    if (isAtWar(s, c.id)) { warRecruit(s, c); managePeace(s, geo, c); }
   }
   // drift relations: partners warm, rivals chill, memories fade
   // part of what fades from recent memory settles into the long memory: years of friendship (or enmity) become

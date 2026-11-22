@@ -25,12 +25,20 @@ import type { Country, GameState } from './types';
 export type TrackId = 'inf' | 'sci' | 'agr' | 'ind';
 export type Source = 'coal' | 'gas' | 'nuclear' | 'renew' | 'fusion';
 export interface DevProg { id: string; start: number; until: number; cost: number }
-export interface Dev { done: string[]; prog: DevProg[]; /** power capacity you added, by kind */ mix: Partial<Record<Source, number>>; /** gas capacity: burns fuel every week */ fuel?: number }
+export interface Dev { done: string[]; prog: DevProg[]; /** power capacity you added, by kind */ mix: Partial<Record<Source, number>>; /** gas capacity: burns fuel every week */ fuel?: number;
+  /** lasting multipliers on numbers the economy recomputes every week (trade, energy demand, labour force): economy.ts applies them */
+  k?: { trade?: number; energy?: number; labour?: number } }
 
 export interface Rung { id: string; track: TrackId; tier: number; icon: string; name: string; effect: string; needs?: string[]; apply: (s: GameState, c: Country) => void }
 
 const chal = (c: Country, id: string, d: number) => { const x = c.chal?.[id]; if (x) x.sev = clamp(x.sev + d, 0, 100); };
-const mul = (c: Country, k: 'capital' | 'foodCap' | 'tfp' | 'energyDemand' | 'tradeIndex' | 'laborForce', f: number) => { c.eco[k] *= f; };
+const mul = (c: Country, k: 'capital' | 'foodCap' | 'tfp' | 'energyDemand' | 'tradeIndex' | 'laborForce', f: number) => {
+  c.eco[k] *= f;
+  // trade, energy demand and the labour force are recomputed by the economy every week: the effect has to be remembered
+  // and applied there, or it lasts a week (economy.ts)
+  const lasting = { tradeIndex: 'trade', energyDemand: 'energy', laborForce: 'labour' } as const;
+  if (k in lasting) { const K = (ensureDev(c).k ??= {}); const f2 = lasting[k as keyof typeof lasting]; K[f2] = (K[f2] ?? 1) * f; }
+};
 const boost = (s: GameState, v: number) => { s.stats.apprBoost = (s.stats.apprBoost ?? 0) + v; };
 const arid = (c: Country) => ['ME', 'AF', 'SA'].includes(c.region) || c.eco.foodCap < c.eco.foodDemand * 0.8;
 
@@ -147,8 +155,8 @@ function finish(s: GameState, c: Country, p: DevProg) {
     c.eco.energyCap += add;
     D.mix[src] = (D.mix[src] ?? 0) + add;
     if (src === 'gas') D.fuel = (D.fuel ?? 0) + add;
-    if (src === 'coal') { chal(c, 'coal', 5); c.reputation = clamp(c.reputation - 0.8, -100, 100); }
-    if (src === 'renew') { chal(c, 'coal', -3); c.reputation = clamp(c.reputation + 0.6, -100, 100); }
+    if (src === 'coal') { chal(c, 'coal', 5); c.reputation = clamp(c.reputation - 0.8, 0, 100); }
+    if (src === 'renew') { chal(c, 'coal', -3); c.reputation = clamp(c.reputation + 0.6, 0, 100); }
     const S = SOURCES.find((y) => y.id === src)!;
     logEvent(s, `${S.icon} A new ${S.name.toLowerCase()} comes on line: power supply +${((add / Math.max(1, c.eco.energyDemand)) * 100).toFixed(0)}% of demand.`, 'econ', [c.id], true);
     return;
@@ -170,7 +178,7 @@ export function stepDevelop(s: GameState) {
   const nuc = D.mix.nuclear ?? 0;
   if (nuc > 0 && s.tick % 52 === 26 && hash01('nuke', c.id, s.tick, s.settings.seed) < 0.02 * Math.min(4, nuc / Math.max(1, 0.14 * c.eco.energyDemand))) {
     c.eco.stability = clamp(c.eco.stability - 4, 0, 100);
-    c.reputation = clamp(c.reputation - 2, -100, 100);
+    c.reputation = clamp(c.reputation - 2, 0, 100);
     logEvent(s, `☢ An incident at one of ${c.name}'s reactors: a leak is contained, but the country is shaken.`, 'danger', [c.id], true, { big: true });
   }
 }

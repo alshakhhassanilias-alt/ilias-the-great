@@ -205,7 +205,7 @@ export function landSupply(s: GameState, geo: Geo, net: SupplyNet, q: ProvId): {
     const d = net.dist[p] + 0.5 * geo.dist(p, q);
     if (d < best) { best = d; from = p; }
   }
-  if (from < 0) return { supply: 0.3, from: -1, cost: Infinity };
+  if (from < 0) return { supply: 0.15, from: -1, cost: Infinity }; // cut off: worse than the longest connected line (it used to be 0.3, better than that)
   return { supply: supplyFromCost(best, net.reach) * (0.72 + 0.28 * net.capacity), from, cost: best };
 }
 

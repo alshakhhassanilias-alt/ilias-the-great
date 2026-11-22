@@ -62,11 +62,7 @@ export function transferBuildings(s: GameState, p: ProvId, from: number, to: num
     if (!lvl) continue;
     const next = Math.max(0, lvl - 1); // war damage
     s.bld[key(p, t)] = next;
-    if (t === 'factory') {
-      const A = s.countries[from], B = s.countries[to];
-      const amt = Math.min(A.eco.capital * 0.5, 0.005 * A.eco.realGdp * lvl);
-      A.eco.capital -= amt; B.eco.capital += amt * 0.7;
-    }
+    // (the factory's capital moves with the region's share of capital in transferProvince: moving it here too counted it twice)
   }
   recount(s, [from, to]);
 }

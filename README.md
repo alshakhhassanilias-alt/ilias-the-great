@@ -62,6 +62,41 @@ npm run dev          # http://localhost:5173 (desktop and phone browsers on the 
 * **Faction demands** every few months (accept, offer a smaller deal, or refuse) and **uprisings** when a faction is furious (concede, send in the police, or wait it out while it costs you every week).
 * **Crisis arcs** that unfold in stages, with named people and real places: a **banking crisis** (a guarantee, a quiet takeover or letting it fail decides whether you face moral hazard or a bank run, then the reckoning with the bank's chief), a **border standoff** with a hostile neighbour (mobilise, rally allies or talk; then shots at the border; then an ultimatum, which can end in war), a **coup plot** (arrest, buy off or wait; then tanks in the capital) and a **separatist movement** (talks, a ban or neglect; then a statute, bombs or a referendum; then a showdown).
 
+## Round 48: the war engine, stress-tested
+
+`npm run sim_test` (`scripts/sim_test.ts`) runs 300 days of AI-vs-AI war headless in about a second per war (six
+matchups by default) and reports territory, frozen fronts, supply pockets and collapses, armies, war support, the
+economy and any crash or broken invariant, as text or JSON. See CLAUDE.md for how to read it. Four parallel audits
+(territory, economy, supply, combat) and the telemetry found the war engine's real problems:
+
+* **Defenders teleported.** Every week a defender's whole army was spread exactly over that week's attacks, so no
+  attack ever found a weak sector: Germany and France fought for 300 days and no region changed hands. Now 35% of the
+  field army holds the whole frontier (long frontiers are thin), and the rest moves toward the attacks over a few weeks
+  (`w.gar`): a new or shifted attack meets a thin line at first.
+* **The AI never gave up.** It kept existing fronts whatever happened there (7,800 men against 78,500 for a whole
+  war), and a far coastal capital lured it into landings at 29% supply. Fronts stuck for six weeks lose their pull, thin
+  sectors attract, hopeless supply lines are a last resort, landings need real supply and no stronger enemy navy, and
+  an army whose offensives have all stalled digs in for a while.
+* **Advances crawled, and gains evaporated.** Even clear superiority moved 4% a week, and ground was lost 15% a week
+  as soon as an attack moved elsewhere. A clear edge now advances about twice as fast, abandoned ground erodes slowly,
+  and a captured region gives a head start against the regions behind it (breakthroughs roll on).
+* **AI armies melted.** They replaced losses only at the eight-weekly budget review; at war they now reinforce every
+  four weeks.
+
+Also fixed from the audits: three of four AI enemies could never offer the player peace; operations moved war support
+by percent-sized numbers (one setback dropped it to 2%) and could seize land from a neutral; some war-support changes
+counted twice; blockades were wiped in the middle of the week, so supply rebuilt after a capture ignored them; a
+cut-off attacker got better supply than a connected one; a front abandoned by its attacker never decayed while someone
+else attacked there; the battle loop kept running after a war ended; six development projects lasted a single week (the
+economy recomputed what they changed); factory capital moved twice on capture.
+
+Result, three seeds × six matchups: no crash, no broken invariant, no freeze; every war moves (4 to 19 regions change
+hands in 300 days), wars between near-equals grind with long pauses, and some end in peace. A 12-year whole-game audit
+still finds 0 errors.
+
+**Political capital is never wasted.** It is still capped at 100, but what does not fit becomes public goodwill (up to
++4 approval) instead of disappearing.
+
 ## Round 47b: the audit, and what it found
 
 To check that nothing is broken and the balance holds, two audits now ship with the game:
