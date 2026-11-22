@@ -160,6 +160,7 @@ function select(id) {
   state.selected = id;
   creatures.selectedId = id;
   worker.postMessage({ type: 'select', id });
+  document.getElementById('hud').classList.toggle('has-selection', !!id);
   hud.setMutateEnabled(!!id);
   if (!id) {
     setFollow(false);

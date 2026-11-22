@@ -18,7 +18,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #070a10; color: var(--text); font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; }
+html, body { color-scheme: dark; margin: 0; height: 100%; overflow: hidden; background: #070a10; color: var(--text); font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; }
 #app { position: fixed; inset: 0; }
 #scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
@@ -246,4 +246,34 @@ button { font: inherit; color: inherit; }
 @media (max-height: 760px) {
   #hud { grid-template-rows: auto minmax(0, 1fr) 160px; }
   #tribes { max-height: 170px; }
+}
+
+/* ---------- phone: powers strip on top, 3D view in the middle, inspector slides up when a creature is selected ---------- */
+@media (max-width: 760px) {
+  #hud {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  }
+  .topbar { flex-wrap: wrap; gap: 8px; padding: 8px 10px; min-height: 0; }
+  .brand-sub, .perf { display: none; }
+  .brand-mark { width: 26px; height: 26px; }
+  .speed { margin-left: auto; }
+  .speed button { padding: 5px 9px; }
+  .chips { order: 3; flex-basis: 100%; justify-content: flex-start; overflow-x: auto; gap: 5px; }
+  .chip { padding: 4px 8px; }
+  .chip.opt, .chip.opt2 { display: flex; }
+  .col-left { grid-column: 1; grid-row: 2; }
+  #tribes, #chronicle, #telemetry { display: none; }
+  #powers .panel-head { display: none; }
+  .powers-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; padding: 6px; }
+  .power { padding: 7px 2px 6px; gap: 3px; }
+  .power svg { width: 18px; height: 18px; }
+  .power span { font-size: 9.5px; white-space: nowrap; }
+  .center-top { grid-column: 1; grid-row: 3; }
+  .toast, .hint { max-width: 100%; font-size: 12px; }
+  .col-right { grid-column: 1; grid-row: 4; max-height: 46vh; }
+  #hud:not(.has-selection) .col-right { display: none; }
+  .tribe-label { font-size: 10.5px; padding: 3px 7px; }
 }
