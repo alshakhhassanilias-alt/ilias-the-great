@@ -1,0 +1,74 @@
+WebGL: { version: 'WebGL 2.0 (OpenGL ES 3.0 Chromium)', lost: false }
+fast-forwarding 1000 ticks…
+  reached tick 1316 in 3.3s
+  saved artifacts/screenshots/01-orbit.png
+  saved artifacts/screenshots/02-tribe-camp.png
+  saved artifacts/screenshots/03-neural-inspector.png
+  saved artifacts/screenshots/04-night-camp.png
+  saved artifacts/screenshots/05-meteor-impact.png
+  saved artifacts/screenshots/06-crater.png
+  saved artifacts/screenshots/07-oasis.png
+  saved artifacts/screenshots/08-plague.png
+{
+  "viewport": "1600x900",
+  "webgl": {
+    "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+    "lost": false
+  },
+  "fastForward": 1000,
+  "durationSec": 381.765,
+  "final": {
+    "tick": 2158,
+    "counts": {
+      "total": 272,
+      "herb": 212,
+      "omni": 50,
+      "carn": 10,
+      "avgIQ": 67.84683299475844,
+      "avgGen": 2.036764705882353,
+      "inTribes": 52,
+      "speciesAlive": 16,
+      "extinctions": 6,
+      "tribes": 4,
+      "wars": 0
+    },
+    "tribes": [
+      "Fern-skamek(10)",
+      "Thorn-yarvi(8)",
+      "Fern-neen(26)",
+      "Sun-brite(8)"
+    ],
+    "errors": [],
+    "webgl": {
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "lost": false
+    }
+  },
+  "layout": {
+    "overlaps": [],
+    "offscreen": [],
+    "clipped": [],
+    "hiddenChips": [],
+    "panels": 6
+  },
+  "consoleErrors": [],
+  "webglWarnings": [
+    "[warning] [.WebGL-0x2754001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x2754001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x2754001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x2754001bbc00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+  ],
+  "mainThread": {
+    "medianMs": 30.7,
+    "maxMs": 51.8,
+    "lastJsMs": 44.1,
+    "drawCalls": 122,
+    "creatures": 470
+  },
+  "frameStats": {
+    "median": 2825.600000000559,
+    "p90": 3430.2999999998137
+  }
+}
+
+VISUAL CHECK PASSED
