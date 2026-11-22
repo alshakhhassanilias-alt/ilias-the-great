@@ -5,6 +5,8 @@ import TopBar from './TopBar'
 import WorldMap from './WorldMap'
 import NationPanel from './NationPanel'
 import CommandPanel from './CommandPanel'
+import StoryPanel from './StoryPanel'
+import ChatsPanel from './ChatsPanel'
 import MissionsPanel from './MissionsPanel'
 import DiplomacyPanel from './DiplomacyPanel'
 import AdvisorPanel from './AdvisorPanel'
@@ -18,7 +20,7 @@ import BriefingModal from './BriefingModal'
 import { BusyOverlay, DecisionModal, EventPopup, Ticker, Toasts } from './Overlays'
 
 const TABS = [
-  ['command', 'Command'], ['missions', 'Missions'], ['diplomacy', 'Diplomacy'], ['advisor', 'Advisor'], ['chronicle', 'Chronicle'],
+  ['story', 'Story'], ['chats', 'Group chats'], ['command', 'Orders'], ['missions', 'Missions'], ['diplomacy', 'Diplomacy'], ['advisor', 'Advisor'], ['chronicle', 'Chronicle'],
   ['newspaper', 'Press'], ['tech', 'Technology'], ['intel', 'World'], ['timeline', 'Timeline'], ['saves', 'Saves'],
 ] as const
 
@@ -49,7 +51,7 @@ function Layout({ onExit, onOpen }: { onExit: () => void; onOpen: (id: string) =
           {snapMap && <div className="absolute top-3 left-1/2 -translate-x-1/2 panel px-4 py-1.5 h-title accent z-20">The world in {snapMap.year}</div>}
           <button className="absolute top-3 left-3 btn btn-ghost text-xs z-10" onClick={() => setBriefing(true)} data-testid="open-briefing">Briefing</button>
         </div>
-        <div className="w-[420px] shrink-0 border-l border-ink-700 bg-ink-900/90 flex flex-col min-h-0">
+        <div className="w-[460px] shrink-0 border-l border-ink-700 bg-ink-900/90 flex flex-col min-h-0">
           <div className="flex overflow-x-auto border-b border-ink-700 shrink-0">
             {TABS.map(([id, label]) => (
               <button key={id} className={`tab ${tab === id ? 'tab-active' : ''}`} onClick={() => setTab(id)} data-testid={`tab-${id}`}>
@@ -58,6 +60,8 @@ function Layout({ onExit, onOpen }: { onExit: () => void; onOpen: (id: string) =
             ))}
           </div>
           <div className="flex-1 min-h-0">
+            {tab === 'story' && <StoryPanel />}
+            {tab === 'chats' && <ChatsPanel />}
             {tab === 'command' && <CommandPanel />}
             {tab === 'missions' && <MissionsPanel />}
             {tab === 'diplomacy' && <DiplomacyPanel />}

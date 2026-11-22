@@ -80,7 +80,27 @@ test.describe.serial('Infinite History — demonstration campaign through the UI
     await page.screenshot({ path: `${SHOTS}/02-world-1936.png` })
   })
 
+  test('story mode turns free text into a chapter and group chats answer', async () => {
+    await page.click('[data-testid=tab-story]')
+    await page.fill('[data-testid=story-input]', 'Build railways across the whole country')
+    await page.selectOption('[data-testid=story-span]', '1')
+    await page.click('[data-testid=story-play]')
+    await expect(page.locator('[data-testid=story-chapter]').first()).toBeVisible({ timeout: 30000 })
+    await page.screenshot({ path: `${SHOTS}/02b-story.png` })
+    await settle(page)
+    await page.click('[data-testid=tab-chats]')
+    await page.click('[data-testid=new-chat]')
+    await page.fill('[data-testid=chat-search]', 'Ital')
+    await page.locator('[data-testid^=chat-pick-]').first().click()
+    await page.click('[data-testid=create-chat]')
+    await page.fill('[data-testid=chat-input]', 'Shall we sign an alliance?')
+    await page.click('[data-testid=chat-send]')
+    await expect(page.locator('[data-testid=chat-room]')).toContainText('·', { timeout: 30000 })
+    await page.screenshot({ path: `${SHOTS}/02c-group-chat.png` })
+  })
+
   test('natural-language orders are interpreted, assessed and executed', async () => {
+    await page.click('[data-testid=tab-command]')
     await page.fill('[data-testid=command-input]', "Transform Germany into the world's largest industrial economy")
     await page.click('[data-testid=interpret]')
     await expect(page.locator('[data-testid=plan]')).toContainText('Industrialisation')

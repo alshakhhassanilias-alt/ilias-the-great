@@ -32,7 +32,7 @@ export function GameProvider({ cid, children }: { cid: string; children: React.R
   const [selected, setSelected] = useState<string | null>(null)
   const [selProvince, setSelProvince] = useState<string | null>(null)
   const [mapMode, setMapMode] = useState<MapMode>('political')
-  const [tab, setTab] = useState('command')
+  const [tab, setTab] = useState('story')
   const [popups, setPopups] = useState<GameEvent[]>([])
   const [toasts, setToasts] = useState<Toast[]>([])
   const [command, setCommand] = useState('')

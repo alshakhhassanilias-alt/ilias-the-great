@@ -189,7 +189,7 @@ def war_tick(state: dict, dt: float, rng) -> None:
             net *= 0.05
         if net < 0 and not frD:
             net *= 0.05
-        w["mom"] += dt * net * 18 * math.sqrt(max(1, len(frA if net > 0 else frD)))
+        w["mom"] += dt * net * 9 * math.sqrt(max(1, len(frA if net > 0 else frD)))
         w["mom"] = clamp(w["mom"], -6, 6)
         if (w["mom"] >= 1 and frA) or (w["mom"] <= -1 and frD):
             w["last_change"] = state["meta"]["year"]

@@ -592,3 +592,178 @@ def rankings(cid: str) -> dict:
                      "gov": c["gov"], "ideology": get_ideology(state, c["ideology"])["name"], "dig": round(c["pops"].get("dig", 0), 2), "overlord": c.get("overlord")})
     rows.sort(key=lambda r: -r["power"])
     return {"rows": rows, "world": tot}
+
+
+# ---------------------------------------------------------------- game-master mode: free-text story turns & group chats
+
+def _gm():
+    from .story import gm
+    return gm
+
+
+def stories(cid: str) -> list[dict]:
+    return store.query_events(cid, kinds=["story"], limit=200, order="asc")
+
+
+def story_prompt(cid: str, text: str) -> dict:
+    with lock(cid):
+        state, _ = load(cid)
+        return _gm().story_prompt(state, cid, text)
+
+
+def story_apply(cid: str, text: str, result: dict, months: int | None = None) -> dict:
+    """Apply a game-master chapter (from Claude in the page, or a server-side provider) to the simulation."""
+    gm = _gm()
+    if not isinstance(result, dict):
+        return {"error": "Invalid story."}
+    with lock(cid):
+        state, info = load(cid)
+        rng = rng_for(state["meta"]["seed"], "gm", state["meta"]["tick"], len(text))
+        done, rejected = gm.apply_changes(state, result.get("changes") or [], rng)
+        gm.record_story(state, {**result, "orders": text, "applied": done, "rejected": rejected})
+        evs = flush(cid, state)
+        persist(cid, state, info)
+    try:
+        m = int(months if months is not None else (result.get("months") if result.get("months") is not None else 6))
+    except (TypeError, ValueError):
+        m = 6
+    m = max(0, min(m, 24))
+    adv = advance(cid, m) if m else {"events": [], "popups": [], "from": state["meta"]["year"], "to": state["meta"]["year"]}
+    return {"applied": done, "rejected": rejected, "events": evs + adv["events"], "popups": adv["popups"], "from": adv["from"], "to": adv["to"],
+            "story": stories(cid)[-1:]}
+
+
+def story_auto(cid: str, text: str, months: int | None = None) -> dict:
+    """Story turn without the in-page Claude: use the configured provider, else the offline interpreter."""
+    gm = _gm()
+    if feature_enabled("orders"):
+        p = story_prompt(cid, text)
+        out = generate_json("orders", p["system"], p["prompt"], 6000)
+        if isinstance(out, dict) and out.get("narrative"):
+            return story_apply(cid, text, out, months)
+    with lock(cid):
+        state, _ = load(cid)
+        name = state["countries"][state["meta"]["player"]]["name"]
+    res = execute(cid, text)
+    lines = [r["message"] for r in res.get("results", [])] or ["The government deliberates, but nothing concrete comes of it this season."]
+    result = {"headline": lines[0][:120], "narrative": f"{name} acts: “{text.strip()[:600]}”\n\n" + "\n\n".join(lines), "changes": [], "months": months or 6}
+    return story_apply(cid, text, result, months)
+
+
+def chats(cid: str) -> list[dict]:
+    state, _ = load(cid)
+    return list(state.get("chats", {}).values())
+
+
+def create_chat(cid: str, name: str, members: list[str]) -> dict:
+    gm = _gm()
+    with lock(cid):
+        state, info = load(cid)
+        p = state["meta"]["player"]
+        tags = []
+        for m in members or []:
+            t = m if m in state["countries"] else gm.resolve_country(state, m)
+            if t and t != p and state["countries"][t]["alive"] and t not in tags:
+                tags.append(t)
+        if not tags:
+            return {"error": "Pick at least one nation."}
+        chs = state.setdefault("chats", {})
+        gid = f"g{len(chs) + 1}-{uuid.uuid4().hex[:4]}"
+        chs[gid] = {"id": gid, "name": (name or "").strip()[:60] or ", ".join(state["countries"][t]["name"] for t in tags[:3]),
+                    "members": tags[:12], "created": [state["meta"]["year"], state["meta"]["month"]]}
+        persist(cid, state, info)
+        return chs[gid]
+
+
+def delete_chat(cid: str, gid: str) -> dict:
+    with lock(cid):
+        state, info = load(cid)
+        state.get("chats", {}).pop(gid, None)
+        persist(cid, state, info)
+        return {"ok": True}
+
+
+def chat_messages(cid: str, gid: str) -> list[dict]:
+    rows = db.conn().execute("SELECT * FROM conversations WHERE campaign_id=? AND country=? ORDER BY id", (cid, "grp:" + gid)).fetchall()
+    return [{"role": r["role"], "text": r["text"], "year": r["year"], "month": r["month"], **json.loads(r["data"] or "{}")} for r in rows]
+
+
+def _chat(state: dict, gid: str) -> dict:
+    ch = state.get("chats", {}).get(gid)
+    if not ch:
+        raise NotFound(gid)
+    return ch
+
+
+def chat_view(cid: str, gid: str) -> dict:
+    state, _ = load(cid)
+    ch = _chat(state, gid)
+    members = [{"tag": t, "name": state["countries"][t]["name"], "leader": state["countries"][t]["leader"]["name"],
+                "title": state["countries"][t]["leader"]["title"], "color": state["countries"][t]["color"], "alive": state["countries"][t]["alive"]}
+               for t in ch["members"] if t in state["countries"]]
+    return {**ch, "member_info": members, "messages": chat_messages(cid, gid)}
+
+
+def chat_prompt(cid: str, gid: str, text: str) -> dict:
+    with lock(cid):
+        state, _ = load(cid)
+        ch = _chat(state, gid)
+        hist = [{"speaker": m.get("speaker") or "?", "text": m["text"]} for m in chat_messages(cid, gid)]
+        return _gm().chat_prompt(state, cid, ch, hist, text)
+
+
+def chat_apply(cid: str, gid: str, text: str, result: dict) -> dict:
+    gm = _gm()
+    with lock(cid):
+        state, info = load(cid)
+        ch = _chat(state, gid)
+        p = state["meta"]["player"]
+        pc = state["countries"][p]
+        y, mo = state["meta"]["year"], state["meta"]["month"]
+        c = db.conn()
+        key = "grp:" + gid
+        c.execute("INSERT INTO conversations(campaign_id,country,role,text,year,month,secret,created,data) VALUES(?,?,?,?,?,?,?,?,?)",
+                  (cid, key, "player", text[:4000], y, mo, 0, time.time(), json.dumps({"speaker": f"{pc['leader']['name']} ({pc['name']})", "tag": p})))
+        out = []
+        for m in (result.get("messages") or [])[:10] if isinstance(result, dict) else []:
+            if not isinstance(m, dict) or not m.get("text"):
+                continue
+            t = gm.resolve_country(state, m.get("country"))
+            if t not in ch["members"]:
+                continue
+            L = state["countries"][t]["leader"]
+            msg = {"speaker": f"{L['name']} ({state['countries'][t]['name']})", "tag": t, "leader": L["name"], "country": state["countries"][t]["name"]}
+            c.execute("INSERT INTO conversations(campaign_id,country,role,text,year,month,secret,created,data) VALUES(?,?,?,?,?,?,?,?,?)",
+                      (cid, key, "leader", str(m["text"])[:3000], y, mo, 0, time.time(), json.dumps(msg)))
+            out.append({**msg, "text": str(m["text"])[:3000]})
+        c.commit()
+        done, rejected = [], []
+        if isinstance(result, dict) and result.get("changes"):
+            rng = rng_for(state["meta"]["seed"], "chat", state["meta"]["tick"], gid, len(text))
+            done, rejected = gm.apply_changes(state, result["changes"], rng, allowed=set(ch["members"]) | {p})
+            if done:
+                from .sim.core import emit
+                emit(state, "diplomacy_talk", f"Agreed in the “{ch['name']}” talks", "; ".join(done) + ".", [p] + ch["members"][:6], 3, tags=["diplomacy", "chat"])
+        evs = flush(cid, state)
+        persist(cid, state, info)
+        return {"messages": out, "applied": done, "rejected": rejected, "events": evs}
+
+
+def chat_auto(cid: str, gid: str, text: str) -> dict:
+    """Group-chat turn without the in-page Claude: configured provider, else offline leader replies."""
+    if feature_enabled("diplomacy"):
+        p = chat_prompt(cid, gid, text)
+        out = generate_json("diplomacy", p["system"], p["prompt"], 2500)
+        if isinstance(out, dict) and out.get("messages"):
+            return chat_apply(cid, gid, text, out)
+    with lock(cid):
+        state, _ = load(cid)
+        ch = _chat(state, gid)
+        p = state["meta"]["player"]
+        msgs = []
+        for t in ch["members"][:4]:
+            if state["countries"][t]["alive"]:
+                rng = rng_for(state["meta"]["seed"], "gchat", state["meta"]["tick"], t, len(text))
+                r = diplomacy.talk(state, p, t, text, False, rng, [])
+                msgs.append({"country": t, "text": r["reply"]})
+    return chat_apply(cid, gid, text, {"messages": msgs})

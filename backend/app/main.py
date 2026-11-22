@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -304,6 +304,63 @@ def set_ai(body: dict[str, Any]):
 @app.post("/api/settings/ai/test")
 def test_ai():
     return providers.test_connection()
+
+
+# ---------------------------------------------------------------- game-master mode
+
+@app.get("/api/campaigns/{cid}/story")
+def story_list(cid: str):
+    return service.stories(cid)
+
+
+@app.post("/api/campaigns/{cid}/story/prompt")
+def story_prompt(cid: str, body: dict = Body(...)):
+    return service.story_prompt(cid, body["text"])
+
+
+@app.post("/api/campaigns/{cid}/story/apply")
+def story_apply(cid: str, body: dict = Body(...)):
+    return service.story_apply(cid, body["text"], body["result"], body.get("months"))
+
+
+@app.post("/api/campaigns/{cid}/story/auto")
+def story_auto(cid: str, body: dict = Body(...)):
+    return service.story_auto(cid, body["text"], body.get("months"))
+
+
+@app.get("/api/campaigns/{cid}/chats")
+def chat_list(cid: str):
+    return service.chats(cid)
+
+
+@app.post("/api/campaigns/{cid}/chats")
+def chat_create(cid: str, body: dict = Body(...)):
+    return service.create_chat(cid, body.get("name", ""), body.get("members", []))
+
+
+@app.get("/api/campaigns/{cid}/chats/{gid}")
+def chat_get(cid: str, gid: str):
+    return service.chat_view(cid, gid)
+
+
+@app.delete("/api/campaigns/{cid}/chats/{gid}")
+def chat_delete(cid: str, gid: str):
+    return service.delete_chat(cid, gid)
+
+
+@app.post("/api/campaigns/{cid}/chats/{gid}/prompt")
+def chat_prompt(cid: str, gid: str, body: dict = Body(...)):
+    return service.chat_prompt(cid, gid, body["text"])
+
+
+@app.post("/api/campaigns/{cid}/chats/{gid}/apply")
+def chat_apply(cid: str, gid: str, body: dict = Body(...)):
+    return service.chat_apply(cid, gid, body["text"], body["result"])
+
+
+@app.post("/api/campaigns/{cid}/chats/{gid}/auto")
+def chat_auto(cid: str, gid: str, body: dict = Body(...)):
+    return service.chat_auto(cid, gid, body["text"])
 
 
 DIST = Path(os.environ.get("IH_FRONTEND", Path(__file__).resolve().parents[2] / "frontend" / "dist"))

@@ -83,6 +83,17 @@ ROUTES = [
     ("POST", C + r"/saves/(?P<sid>\d+)/branch", lambda m, q, b: {"id": service.branch(m["cid"], int(m["sid"]), b.get("name"))}),
     ("GET", C + r"/saves/(?P<sid>\d+)/map", lambda m, q, b: service.snapshot_map(m["cid"], int(m["sid"]))),
     ("POST", C + r"/duplicate", lambda m, q, b: {"id": service.duplicate(m["cid"], b.get("name"))}),
+    ("GET", C + r"/story", lambda m, q, b: service.stories(m["cid"])),
+    ("POST", C + r"/story/prompt", lambda m, q, b: service.story_prompt(m["cid"], b["text"])),
+    ("POST", C + r"/story/apply", lambda m, q, b: service.story_apply(m["cid"], b["text"], b["result"], b.get("months"))),
+    ("POST", C + r"/story/auto", lambda m, q, b: service.story_auto(m["cid"], b["text"], b.get("months"))),
+    ("GET", C + r"/chats", lambda m, q, b: service.chats(m["cid"])),
+    ("POST", C + r"/chats", lambda m, q, b: service.create_chat(m["cid"], b.get("name", ""), b.get("members", []))),
+    ("GET", C + r"/chats/(?P<gid>[\w-]+)", lambda m, q, b: service.chat_view(m["cid"], m["gid"])),
+    ("DELETE", C + r"/chats/(?P<gid>[\w-]+)", lambda m, q, b: service.delete_chat(m["cid"], m["gid"])),
+    ("POST", C + r"/chats/(?P<gid>[\w-]+)/prompt", lambda m, q, b: service.chat_prompt(m["cid"], m["gid"], b["text"])),
+    ("POST", C + r"/chats/(?P<gid>[\w-]+)/apply", lambda m, q, b: service.chat_apply(m["cid"], m["gid"], b["text"], b["result"])),
+    ("POST", C + r"/chats/(?P<gid>[\w-]+)/auto", lambda m, q, b: service.chat_auto(m["cid"], m["gid"], b["text"])),
     ("GET", C + r"/export", lambda m, q, b: service.export_campaign(m["cid"], q.get("snapshots", "true") != "false")),
 ]
 COMPILED = [(meth, re.compile("^" + pat + "$"), fn) for meth, pat, fn in ROUTES]
