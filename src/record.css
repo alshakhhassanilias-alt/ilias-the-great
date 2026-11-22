@@ -1,0 +1,106 @@
+/* Your years: the permanent year-by-year record (ui/Record.tsx) and the grade strips that open it. */
+.rec-scrim { z-index: 90; }
+.rec-modal { width: min(980px, 100%); max-height: min(92vh, 980px); }
+.rec-modal .modal-head h2 small { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: var(--muted); margin-left: 8px; font-family: var(--font); }
+.rec-modal .modal-body { display: flex; flex-direction: column; gap: 14px; }
+.rec-who { align-self: flex-start; flex-wrap: wrap; }
+
+/* the strip of grades: one tile per year */
+.rec-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0; margin: 6px 0 0; background: none; border: 0; text-align: left; color: inherit; cursor: pointer; font: inherit; }
+.rec-strip:disabled { cursor: default; }
+.rec-strip span { display: grid; place-items: center; min-width: 30px; padding: 2px 3px 1px; border-radius: 6px; background: rgba(0, 0, 0, 0.32); border: 1px solid rgba(255, 255, 255, 0.07); line-height: 1.05; }
+.rec-strip span b { font-family: 'Cinzel', Georgia, serif; font-size: 14px; }
+.rec-strip span small { font-size: 9px; color: var(--faint); letter-spacing: 0.04em; }
+.rec-strip .g-S b, .rec-strip .g-A b { color: #ffd86b; text-shadow: 0 0 10px rgba(255, 216, 107, 0.5); }
+.rec-strip .g-S { border-color: rgba(255, 216, 107, 0.6); box-shadow: 0 0 10px rgba(255, 216, 107, 0.25); }
+.rec-strip .g-B b { color: #9fdc96; }
+.rec-strip .g-C b { color: #cfc8b6; }
+.rec-strip .g-D b, .rec-strip .g-F b { color: #ff8a70; }
+.rec-strip .g-F { border-color: rgba(226, 86, 63, 0.5); }
+.rec-strip em { font-style: normal; font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent); margin-left: 6px; white-space: nowrap; }
+.rec-strip:not(:disabled):hover em { text-decoration: underline; }
+.rec-more { font-size: 10px; color: var(--faint); margin-right: 2px; }
+.mission .rec-strip { margin: 8px 0 2px; }
+.ld-years { margin: 10px 0 4px; }
+.ld-years h4 { margin: 0 0 2px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+
+/* last year's grade on the legacy chip */
+.lc-year { display: grid; place-items: center; line-height: 1; padding: 2px 5px; border-radius: 5px; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.1); }
+.lc-year b { font-family: 'Cinzel', Georgia, serif; font-size: 13px; }
+.lc-year small { font-size: 8.5px; color: var(--faint); }
+.lc-year.g-S b, .lc-year.g-A b { color: #ffd86b; }
+.lc-year.g-D b, .lc-year.g-F b { color: #ff8a70; }
+
+/* the career at a glance */
+.rec-summary { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 14px 16px; border-radius: 10px; background: linear-gradient(180deg, rgba(255, 220, 150, 0.06), rgba(0, 0, 0, 0.25)); border: 1px solid rgba(214, 171, 82, 0.22); }
+.rs-gpa { display: flex; align-items: center; gap: 12px; }
+.rs-gpa .grade.big { width: 64px; height: 64px; font-size: 30px; font-family: 'Cinzel', Georgia, serif; }
+.rs-gpa small { font-size: 11px; color: var(--muted); line-height: 1.35; text-transform: uppercase; letter-spacing: 0.1em; }
+.rs-gpa small b { font-size: 20px; color: var(--text); letter-spacing: 0; }
+.rs-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px 16px; }
+.rs-facts span { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.rs-facts small { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint); }
+.rs-facts b { font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rs-facts em { font-style: normal; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-facts em.g-S, .rs-facts em.g-A { color: #ffd86b; } .rs-facts em.g-D, .rs-facts em.g-F { color: #ff8a70; }
+.rs-dist { display: flex; align-items: flex-end; gap: 6px; height: 74px; }
+.rs-dist span { display: grid; grid-template-rows: 1fr auto auto; justify-items: center; width: 20px; height: 100%; }
+.rs-dist i { align-self: end; width: 14px; border-radius: 3px 3px 0 0; min-height: 0; }
+.rs-dist b { font-family: 'Cinzel', Georgia, serif; font-size: 12px; } .rs-dist small { font-size: 10px; color: var(--faint); }
+
+/* charts of the numbers, one point per year */
+.rec-charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.rec-chart { margin: 0; padding: 8px 10px 6px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.06); }
+.rec-chart figcaption { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.rec-chart figcaption b { font-size: 14px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.rec-chart figcaption b.up { color: var(--green); } .rec-chart figcaption b.down { color: var(--red); }
+.rec-chart svg { display: block; width: 100%; height: 74px; overflow: visible; }
+.rc-line { fill: none; stroke: rgba(230, 214, 176, 0.65); stroke-width: 1.6; stroke-linejoin: round; }
+.rc-zero { stroke: rgba(255, 255, 255, 0.25); stroke-dasharray: 3 3; }
+.rc-heir { stroke: rgba(214, 171, 82, 0.45); stroke-dasharray: 2 3; }
+.rc-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--faint); }
+
+/* the years, newest first */
+.rec-years { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rec-year { border-radius: 9px; background: rgba(0, 0, 0, 0.26); border: 1px solid rgba(255, 255, 255, 0.07); border-left: 3px solid #9c9585; padding: 8px 12px 10px; }
+.rec-year.g-S { border-left-color: #ffd86b; background: linear-gradient(90deg, rgba(255, 216, 107, 0.09), rgba(0, 0, 0, 0.26) 50%); }
+.rec-year.g-A { border-left-color: #f0c050; } .rec-year.g-B { border-left-color: #8fd18a; }
+.rec-year.g-D { border-left-color: #e48a5c; } .rec-year.g-F { border-left-color: #e2563f; background: linear-gradient(90deg, rgba(226, 86, 63, 0.08), rgba(0, 0, 0, 0.26) 50%); }
+.ry-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; background: none; border: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.ry-title { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.2; }
+.ry-title b { font-family: 'Cinzel', Georgia, serif; font-size: 18px; }
+.ry-title small { font-size: 12px; color: var(--muted); }
+.ry-rec { font-size: 11.5px; font-weight: 600; color: #ffd86b; white-space: nowrap; }
+.ry-caret { color: var(--faint); }
+.ry-headline { margin: 6px 0 8px; font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 600; font-size: 16px; color: #e8dcc0; }
+.ry-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.ry-stats span { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.ry-stats small { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ry-stats b { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ry-stats em { font-style: normal; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ry-stats em.up, .ry-card td.up { color: var(--green); } .ry-stats em.down, .ry-card td.down { color: var(--red); }
+.ry-more { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.ry-more h4 { margin: 8px 0 4px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.ry-records { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ry-records li { font-size: 12px; font-weight: 600; color: #2a1c05; background: linear-gradient(180deg, #f6dd94, #d3a54a); padding: 2px 8px; border-radius: 999px; }
+.ry-moments { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.45; color: var(--text); }
+.ry-moments li + li { margin-top: 3px; }
+.ry-card { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ry-card th { text-align: left; font-weight: 600; color: var(--muted); padding: 3px 8px 3px 0; white-space: nowrap; width: 1%; }
+.ry-card td { padding: 3px 6px 3px 0; color: var(--text); }
+.ry-card td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; width: 1%; white-space: nowrap; }
+.ry-card tr + tr th, .ry-card tr + tr td { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.ry-foot { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 720px) {
+  .rec-summary { grid-template-columns: 1fr; gap: 12px; }
+  .rs-dist { height: 56px; }
+  .ry-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rec-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rec-chart svg { height: 60px; }
+}
+
+/* records and the world growth rank on the 1 January report card */
+.sotn-feats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.sotn-feats em { font-style: normal; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text); }
+.sotn-feats em.rec { color: #2a1c05; background: linear-gradient(180deg, #f6dd94, #d3a54a); border-color: transparent; }

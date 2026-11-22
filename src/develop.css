@@ -1,0 +1,41 @@
+/* Development: ladders of named projects, the energy mix, what is under construction (ui/tabs/Develop.tsx). */
+.dev-empty, .dev-note { font-size: 12px; margin: 4px 0; }
+.dev-prog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dev-prog li { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.06); }
+.dp-ic { font-size: 18px; text-align: center; }
+.dp-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dp-body b { font-size: 13px; }
+.dp-left { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.dev-mix { position: relative; display: flex; height: 16px; border-radius: 5px; overflow: hidden; background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.dev-mix i { display: block; height: 100%; }
+.dev-mix u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); text-decoration: none; }
+.dev-mix-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 10px; font-size: 11.5px; color: var(--muted); }
+.dev-mix-key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.dev-src { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.dev-src-btn { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 8px 9px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 3px solid var(--sc); color: var(--text); font: inherit; cursor: pointer; }
+.dev-src-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); border-color: var(--sc); }
+.dev-src-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ds-top { display: flex; align-items: center; gap: 6px; }
+.ds-top b { flex: 1; font-size: 13px; }
+.ds-top em { font-style: normal; font-weight: 700; font-size: 12px; color: var(--sc); }
+.dev-src-btn small { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.ds-cost { font-size: 11px; color: var(--faint); }
+
+.dev-tracks { display: grid; grid-template-columns: 1fr; gap: 0; }
+.dev-track h3 small { margin-left: 8px; }
+.dev-blurb { font-size: 12px; margin: 0 0 6px; }
+.dev-ladder { list-style: none; margin: 0; padding: 0 0 0 4px; position: relative; }
+.dev-ladder::before { content: ''; position: absolute; left: 15px; top: 10px; bottom: 10px; width: 2px; background: rgba(255, 255, 255, 0.08); }
+.dev-ladder li { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 8px; padding: 5px 0; }
+.dl-ic { position: relative; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: 13px; background: #121a24; border: 1px solid rgba(255, 255, 255, 0.12); }
+.dl-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dl-body b { font-size: 13px; }
+.dl-body small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.dl-body .btn { align-self: flex-start; margin-top: 4px; }
+.dev-ladder li.done .dl-ic { background: rgba(91, 212, 140, 0.18); border-color: rgba(91, 212, 140, 0.6); color: var(--green); font-weight: 700; }
+.dev-ladder li.done b { color: var(--green); }
+.dev-ladder li.next .dl-ic { border-color: var(--accent); box-shadow: 0 0 10px rgba(242, 184, 75, 0.35); }
+.dev-ladder li.building .dl-ic { border-color: var(--accent); }
+.dev-ladder li.later { opacity: 0.55; }
+.dl-wip { font-style: normal; font-size: 11px; color: var(--accent); }

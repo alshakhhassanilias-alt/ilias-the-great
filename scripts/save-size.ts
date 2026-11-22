@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import { buildGeo, type RawWorld } from '../src/sim/geo';
+import { createGame } from '../src/sim/init';
+import { tick } from '../src/sim/tick';
+import { DEFAULT_SETTINGS } from '../src/sim/types';
+import { serialize, deserialize } from '../src/sim/save';
+const geo = buildGeo(JSON.parse(fs.readFileSync('src/data/generated/world.json', 'utf8')) as RawWorld);
+const s = createGame(geo, { ...DEFAULT_SETTINGS, aggression: 1.5 }, 5);
+for (let i = 0; i < 52 * 15; i++) tick(s, geo);
+let t = performance.now(); const txt = serialize(s); const ms1 = performance.now() - t;
+t = performance.now(); deserialize(txt, geo.provinces.length); const ms2 = performance.now() - t;
+console.log(`save after 15y: ${(txt.length / 1024).toFixed(0)} KB, serialize ${ms1.toFixed(0)}ms, parse ${ms2.toFixed(0)}ms, log entries ${s.log.length}`);
